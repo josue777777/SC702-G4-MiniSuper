@@ -87,13 +87,15 @@ Page → feature (hook/componente) → services/*.service.ts → services/api-cl
 Cuando se implemente un módulo se espera, por ejemplo:
 
 ```
-features/products/
-├── ProductTable.tsx     (componente de la feature)
-├── ProductForm.tsx
-├── use-products.ts      (hook: estado + llamadas al servicio)
-└── product.types.ts     (tipos propios de la feature)
+features/products/            (implementado en HU-01 … HU-03)
+├── ProductTable.tsx     Tabla del catálogo con acciones y confirmación de desactivación
+├── ProductForm.tsx      Formulario de alta y de edición
+├── use-products.ts      Hook: catálogo, opciones, avisos y acciones (crear/editar/desactivar)
+├── product-form.ts      Conversión formulario ↔ API y validación de experiencia de usuario
+└── money.ts             Formateo de importes para mostrarlos
 
-services/product.service.ts  -> usa api-client.ts y devuelve datos tipados
+services/products.service.ts  -> usa api-client.ts y devuelve datos tipados
+types/products.ts             -> contratos del módulo (copia de backend/src/types/products.ts)
 ```
 
 ---
@@ -116,6 +118,8 @@ backend/src/
 ├── repositories/  Acceso a datos. Únicos que usan Prisma para operaciones del dominio
 ├── validators/    Esquemas Zod de entrada por recurso (ver src/validators/README.md)
 ├── middleware/    Middlewares transversales: manejo de errores y 404
+├── testing/       Dobles de repositorio para las pruebas. NO se compila (tsconfig.build.json)
+├── types/         Contratos del dominio por recurso (DTO y planes de escritura)
 ├── utils/         Utilidades puras y errores HTTP (HttpError)
 └── generated/     Cliente Prisma generado (`prisma generate`). No se versiona
 ```
@@ -167,6 +171,37 @@ backend/src/
 
 `/api/health/database` demuestra el flujo completo `route → controller → service →
 repository → Prisma`. Responde `200` si la base responde y `503` si no.
+
+### Endpoints de productos (HU-01 … HU-03)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/products` | Catálogo completo (activos e inactivos) para administrarlo |
+| `GET` | `/api/products/form-options` | Categorías y proveedores **activos** para los `<select>` del formulario |
+| `POST` | `/api/products` | Registrar producto (HU-01). Responde `201` |
+| `PATCH` | `/api/products/:id` | Editar producto (HU-02) |
+| `PATCH` | `/api/products/:id/deactivate` | Baja lógica (HU-03): solo `isActive = false` |
+
+Convenciones de este módulo, decididas al implementarlo:
+
+* **El recurso viaja dentro de `data`**: `{ "data": … }`. Así agregar metadatos más
+  adelante (por ejemplo un total en la búsqueda de HU-05) no rompe a los clientes que ya
+  existen. `/api/health` queda como está: es un sondeo de infraestructura, no un recurso.
+* **El dinero es cadena** (`"1500.00"`), nunca `number`: en la base es `Decimal(12, 2)` y
+  `number` no lo representa con exactitud. El validador normaliza lo que llegue a esa forma.
+* **`PATCH` recibe el cuerpo completo** (los siete campos de HU-01). HU-02 permite modificar
+  todos los campos del producto y, con campos parciales, "no cambiar el stock" y "dejar el
+  stock en cero" serían indistinguibles.
+* **No hay ruta de reactivación**: HU-03 no la pide. Desactivar es **idempotente**: si el
+  producto ya estaba inactivo se devuelve tal cual, sin escribir de nuevo.
+* **El proveedor del formulario es el principal del producto**: se guarda en
+  `SupplierProduct` con `isPreferred = true` y `unitCost = costo`. La edición libera a los
+  demás proveedores antes de marcar el nuevo, de modo que nunca hay dos preferidos.
+* **Los movimientos de inventario los decide el service y los escribe el repository** en la
+  misma transacción: `ENTRY` con `reason = "Stock inicial"` al crear con stock > 0, y
+  `ADJUSTMENT` con `reason = "Ajuste desde edición de producto"` al cambiar el stock a mano.
+* **`updatedAt`/historial de ventas intactos**: editar un producto nunca escribe en
+  `SaleItem`, cuyos `unitPrice` y `unitCost` son la foto del momento de la venta.
 
 ---
 
@@ -307,25 +342,33 @@ Se usa `HU-01 — registrar producto` como ejemplo; el resto es idéntico.
 1. **Modelo de datos.** Añadir/ajustar entidades en `backend/prisma/schema.prisma` y
    generar la migración: `npm run db:migrate` (luego `npm run prisma:generate`, que en
    Prisma 7 **ya no** se ejecuta solo después de migrar).
-2. **Validador.** `backend/src/validators/product.validator.ts` con un esquema Zod por
-   operación (`createProductSchema`, `updateProductSchema`).
-3. **Repository.** `backend/src/repositories/product.repository.ts`: únicas funciones
-   que hablan con `prisma`. Reciben y devuelven modelos, no `req`/`res`.
-4. **Service.** `backend/src/services/product.service.ts`: reglas de negocio
-   (código duplicado → `HttpError.conflict`, montos con `Decimal`). Lanza errores, no
-   escribe JSON.
-5. **Controller.** `backend/src/controllers/product.controller.ts`: valida con el
-   esquema, llama al service, elige el status code (`201` al crear).
-6. **Routes.** `backend/src/routes/product.routes.ts` componiendo las capas, y una línea
-   en `backend/src/routes/index.ts`: `apiRouter.use('/products', productRouter)`.
-7. **Servicio HTTP del frontend.** `frontend/src/services/product.service.ts` usando
-   `api-client.ts`, con los tipos de la respuesta en `frontend/src/types/`.
-8. **Feature y página.** Componentes en `frontend/src/features/products/`, y
+2. **Validador.** `backend/src/validators/products.validator.ts` con un esquema Zod por
+   operación (`createProductSchema`, `updateProductSchema`) y el parámetro `:id`. El tipo
+   de la entrada se deriva del esquema para que no existan dos listas de campos.
+3. **Contratos.** `backend/src/types/<recurso>.ts`: DTO que publica la API y "planes" de
+   escritura que el service encarga al repository.
+4. **Repository.** `backend/src/repositories/products.repository.ts`: únicas funciones
+   que hablan con `prisma`. Reciben y devuelven datos del dominio (nunca `req`/`res`) y
+   normalizan el dinero a cadena. Sin miembros privados, para poder sustituirlo por un
+   doble en las pruebas.
+5. **Service.** `backend/src/services/products.service.ts`: reglas de negocio
+   (código duplicado → `HttpError.conflict`, desactivación idempotente, qué movimiento de
+   inventario corresponde). Lanza errores, no escribe JSON, y no importa Prisma.
+6. **Controller.** `backend/src/controllers/products.controller.ts`: valida con el
+   esquema, llama al service, elige el status code (`201` al crear) y envuelve en `data`.
+7. **Routes.** `backend/src/routes/products.routes.ts` con una fábrica
+   `createProductsRouter(repository)` y una línea en `backend/src/routes/index.ts`:
+   `apiRouter.use('/products', productsRouter)`.
+8. **Servicio HTTP del frontend.** `frontend/src/services/products.service.ts` usando
+   `api-client.ts`, con los contratos en `frontend/src/types/`.
+9. **Feature y página.** Componentes en `frontend/src/features/products/`, y
    `ProductsPage` deja de renderizar `PagePlaceholder` y compone la feature.
-9. **Pruebas.** Unitarias del service con repositories falsos (ver
-   `backend/src/services/health.service.test.ts`) y de reglas de negocio críticas
-   (HU-16 no puede descontar stock que no existe).
-10. **Documentación.** Actualizar esta arquitectura si la HU introduce una decisión
+10. **Pruebas.** Tres niveles, todas sin base de datos:
+    * validador (`src/validators/*.test.ts`): qué entra y qué se rechaza;
+    * service con un doble de repositorio de `src/testing/`: reglas de negocio;
+    * rutas con `supertest` sobre `createProductsRouter(doble)`: status codes y forma del
+      JSON, incluidos los errores.
+11. **Documentación.** Actualizar esta arquitectura si la HU introduce una decisión
     nueva, y el checklist de la historia en el tablero del sprint.
 
 **Regla de oro:** si una línea de código no la pide una historia de usuario, no se
@@ -352,10 +395,22 @@ escribe. Ante una duda de modelado, la respuesta está en el checklist de la HU.
 
 **Datos y dinero**
 
-* Todo importe es `Decimal(12, 2)`. En JavaScript se formatea con `toFixed(2)` al
-  mostrar y se envía como string en el JSON para no perder precisión.
+* Todo importe es `Decimal(12, 2)`. En JSON viaja como **cadena** (`"1500.00"`) y la
+  validación lo normaliza a esa forma; en pantalla se formatea con
+  `frontend/src/features/products/money.ts`.
 * Un cambio de stock siempre escribe su `InventoryMovement` en la misma transacción.
 * Bajas lógicas (`isActive`) en lugar de `DELETE`.
+* Un recurso que publica la API va dentro de `{ "data": … }`; los errores, siempre con la
+  forma `{ "error": { "message", "details"? } }`.
+
+**Pruebas**
+
+* Ninguna prueba necesita PostgreSQL: el service se prueba con el doble de repositorio de
+  `backend/src/testing/` (que no se compila) y las rutas, con `supertest` sobre
+  `createProductsRouter(doble)`.
+* Las interacciones de interfaz que dependen del navegador (cancelar una edición, cancelar
+  una desactivación) se comprueban a mano en la validación de la historia: no se añade un
+  framework de pruebas de componentes por dos clics.
 
 **Flujo de trabajo**
 
@@ -394,6 +449,10 @@ extiende la arquitectura — no se cuela en el código actual.
   apagado ordenado y `GET /api/health` + `GET /api/health/database`.
 * Prisma 7 + `@prisma/adapter-pg`: esquema con 12 tablas y 3 enums, migración inicial
   `20260930012103_init` aplicada y verificada contra PostgreSQL 16/17 real.
+* **Rebanada vertical de productos (HU-01, HU-02, HU-03)**: catálogo con alta, edición y
+  baja lógica, de punta a punta (React → API → controller → service → repository → Prisma
+  → PostgreSQL), con proveedor principal en `SupplierProduct`, movimientos de inventario y
+  pruebas de validador, service y rutas.
 * Frontend React + Vite con rutas, `MainLayout`, las 10 pantallas del sistema,
   `api-client.ts` centralizado y la tarjeta de estado consumiendo la API.
 * Validaciones: `npm run build`, `npm run lint`, `npm run typecheck`, `npm test` y
@@ -401,19 +460,24 @@ extiende la arquitectura — no se cuela en el código actual.
 
 **Siguiente paso para el equipo (Sprint 1)**
 
-1. `HU-01` … `HU-05` sobre `Product`/`Category`: la primera historia vertical completa
-   de extremo a extremo servirá de plantilla para las 25 restantes.
-2. Definir en el service si el `code` del producto lo escribe el dueño o se sugiere
-   automáticamente (HU-01 no lo decide).
-3. Decidir la estrategia de `POST /api/products` cuando el proveedor indicado aún no
-   existe: crearlo en la misma transacción o exigir que exista (HU-01 vs HU-21).
+1. `HU-04` — CRUD de categorías: el formulario de producto ya lee las categorías activas,
+   pero todavía no existe forma de crearlas dentro del sistema (hacen falta para probar el
+   alta de productos sin tocar la base a mano).
+2. `HU-05` — búsqueda de productos sobre `GET /api/products` (añadiendo parámetros de
+   consulta; la forma `{ "data": … }` ya deja espacio para metadatos).
+3. `HU-21` — CRUD de proveedores, con la misma forma de trabajo que la rebanada de
+   productos.
 
 **Deuda técnica conocida**
 
 * Tipos de la API declarados a mano en `frontend/src/types/`. Si duplicarlos empieza a
   molestar, la salida es un workspace `shared/` o generar tipos con `zod` desde el
   backend; no hace falta hoy.
-* No hay datos semilla (`prisma db seed`): al implementar HU-01 conviene dejar un
-  `prisma/seed.ts` con categorías y productos de ejemplo para todo el equipo.
+* No hay datos semilla (`prisma db seed`): hoy las categorías y proveedores de prueba se
+  insertan a mano. Cuando exista el CRUD de categorías (HU-04) conviene dejar un
+  `prisma/seed.ts` **de desarrollo** con datos de ejemplo para todo el equipo.
+* El repositorio `main` ya no contiene `Historias_Usuario.xlsx` (se eliminó en el commit
+  `0722505`). Las historias siguen descritas en este documento y en el tablero del sprint;
+  si el equipo necesita el archivo, está en el historial de Git.
 
 
