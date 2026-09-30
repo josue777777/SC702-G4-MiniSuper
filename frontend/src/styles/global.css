@@ -293,3 +293,180 @@ code {
   border-color: var(--color-primary);
   color: #fff;
 }
+
+/* --- Productos: barra de acciones, tabla y formulario --------------------- */
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.button--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.button--primary:hover {
+  background: #1e40af;
+  color: #fff;
+}
+
+.button--danger {
+  border-color: #fecaca;
+  color: var(--color-error);
+}
+
+.button--danger:hover {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.badge--muted {
+  background: #e2e8f0;
+  color: var(--color-muted);
+}
+
+/* Avisos posteriores a una acción (éxito o error) */
+.alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 0.92rem;
+}
+
+.alert--success {
+  background: var(--color-ok-bg);
+  border-color: #bbf7d0;
+  color: #14532d;
+}
+
+.alert--error {
+  background: var(--color-error-bg);
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+
+.alert--warning {
+  background: #fef9c3;
+  border-color: #fde68a;
+  color: #713f12;
+}
+
+.alert__close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Tabla del catálogo */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.table__number {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table__row--inactive {
+  color: var(--color-muted);
+  background: #f8fafc;
+}
+
+.table__confirm-row td {
+  background: #fef9c3;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.confirm p {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+}
+
+/* Formulario de producto */
+.form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px 16px;
+}
+
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form__field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.form__field input,
+.form__field select {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: #fff;
+}
+
+.form__field input:disabled,
+.form__field select:disabled {
+  background: #f8fafc;
+  color: var(--color-muted);
+}
+
+.form__error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: 0.8rem;
+}
+
+.form__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
