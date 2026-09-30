@@ -1,0 +1,22 @@
+# ---------------------------------------------------------------------------
+# Finales de línea
+# ---------------------------------------------------------------------------
+# Todo el texto del repositorio se guarda y se chequea con LF, que es lo que
+# espera Prettier (".prettierrc.json": "endOfLine": "lf"). Sin esto, en Windows
+# `npm run format:check` fallaría por CRLF y los diffs mostrarían archivos
+# completos cambiados cuando solo cambió el final de línea.
+* text=auto eol=lf
+
+# ---------------------------------------------------------------------------
+# Binarios: Git no debe intentar convertirlos
+# ---------------------------------------------------------------------------
+*.xlsx binary
+*.xls binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

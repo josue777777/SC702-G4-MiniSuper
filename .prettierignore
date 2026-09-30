@@ -1,0 +1,12 @@
+# Archivos que Prettier NO debe tocar.
+# Los .md de docs/ se excluyen para conservar tablas y diagramas Mermaid tal cual.
+package-lock.json
+node_modules
+dist
+build
+coverage
+backend/src/generated
+*.xlsx
+*.xls
+docs/**/*.md
+

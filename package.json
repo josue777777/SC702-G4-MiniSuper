@@ -1,0 +1,33 @@
+{
+  "name": "sc702-g4-minisuper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SC-702 Grupo 4 — Sistema de gestión para minisúper (Abastecedor Nuevo Amanecer)",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "lint": "npm run lint -w backend && npm run lint -w frontend",
+    "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "prisma:generate": "npm run prisma:generate -w backend",
+    "prisma:validate": "npm run prisma:validate -w backend",
+    "db:migrate": "npm run db:migrate -w backend",
+    "db:studio": "npm run db:studio -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

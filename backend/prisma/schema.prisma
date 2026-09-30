@@ -1,0 +1,332 @@
+// =============================================================================
+// SC702-G4-MiniSuper — Esquema Prisma (PostgreSQL)
+// =============================================================================
+// Diseño del dominio para las 30 historias de usuario (HU-01 … HU-30).
+//
+// Convenciones de este esquema:
+//   * IDs UUID en todas las entidades.
+//   * Dinero SIEMPRE con Decimal(12, 2). Nunca Float (HU-17 … HU-30).
+//   * Nombres de tabla/columna = los que genera Prisma por defecto (legibilidad).
+//   * La cadena de conexión NO vive aquí: Prisma 7 la lee de prisma7.config.ts.
+//   * Bajas lógicas (isActive) en lugar de borrado físico, para no romper el
+//     historial de ventas (HU-03).
+//   * Las alertas y el saldo de fiado NO se almacenan: se derivan (ver
+//     docs/ARCHITECTURE.md, "Decisiones de modelado").
+// =============================================================================
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+/// Tipo de cambio de inventario. Toda variación de stock deja un registro.
+/// ADJUSTMENT cubre los conteos físicos (HU-10) y las correcciones.
+enum InventoryMovementType {
+  ENTRY
+  EXIT
+  ADJUSTMENT
+}
+
+/// Método de pago de una venta (HU-17: tarjeta o efectivo; HU-18: fiado).
+enum PaymentMethod {
+  CASH
+  CARD
+  CREDIT
+}
+
+/// Ciclo de vida de un pedido a proveedor (HU-22: historial de pedidos y
+/// entregas). Se mantienen solo los estados que piden las historias: un pedido
+/// se registra y se recibe.
+enum PurchaseOrderStatus {
+  PENDING
+  RECEIVED
+}
+
+// -----------------------------------------------------------------------------
+// Módulo 2 — Acceso del dueño (HU-11 … HU-15)
+// -----------------------------------------------------------------------------
+
+/// Cuenta ÚNICA del dueño del negocio (HU-12). No hay registro público de
+/// usuarios ni roles: el sistema es monousuario por definición de alcance.
+model User {
+  id       String @id @default(uuid()) @db.Uuid
+  name     String
+  email    String @unique
+  /// Nunca en texto plano: se guarda el hash (HU-12).
+  passwordHash String
+  /// Recuperación de contraseña (HU-13).
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// Módulo 1 — Productos e inventario (HU-01 … HU-10)
+// -----------------------------------------------------------------------------
+
+/// Categoría de productos (HU-04).
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+}
+
+/// Producto del catálogo (HU-01 … HU-09).
+model Product {
+  id String @id @default(uuid()) @db.Uuid
+  /// Código interno del producto, solicitado en HU-01.
+  code    String  @unique
+  /// Código de barras leído por el lector (HU-06). Puede no existir hasta
+  /// generarlo con HU-07, por eso es opcional y único.
+  barcode String? @unique
+  name        String
+  description String?
+  /// Precio de venta al público (HU-01).
+  price Decimal @db.Decimal(12, 2)
+  /// Costo de referencia actual (HU-01). El costo por proveedor vive en
+  /// SupplierProduct; este campo es el último costo conocido del producto.
+  cost    Decimal @db.Decimal(12, 2)
+  /// Cantidad disponible. Todo cambio debe generar un InventoryMovement.
+  stock    Int     @default(0)
+  /// Mínimo que dispara la alerta de stock bajo (HU-08).
+  minStock Int     @default(0)
+  /// Solo aplica a productos perecederos (HU-09).
+  expirationDate DateTime?
+  /// Desactivar en lugar de eliminar: conserva el historial de ventas (HU-03).
+  isActive   Boolean  @default(true)
+  categoryId String   @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  supplierProducts   SupplierProduct[]
+  inventoryMovements InventoryMovement[]
+  saleItems          SaleItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@index([categoryId])
+}
+
+/// Historial auditable de entradas, salidas y ajustes de inventario
+/// (HU-10, HU-16). Responde "cuánto había, cuánto se movió, cuánto quedó".
+model InventoryMovement {
+  id        String                @id @default(uuid()) @db.Uuid
+  productId String                @db.Uuid
+  type      InventoryMovementType
+  /// Cantidad siempre positiva; el signo se interpreta según `type`.
+  quantity    Int
+  stockBefore Int
+  stockAfter  Int
+  /// Motivo (conteo físico, devolución, merma, venta, recepción…).
+  reason String?
+  /// Trazabilidad opcional hacia el documento que originó el movimiento.
+  saleId          String? @db.Uuid
+  purchaseOrderId String? @db.Uuid
+  createdAt DateTime @default(now())
+
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sale          Sale?          @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  @@index([saleId])
+  @@index([purchaseOrderId])
+}
+
+// -----------------------------------------------------------------------------
+// Módulo 2 — Ventas, clientes y fiado (HU-16 … HU-20)
+// -----------------------------------------------------------------------------
+
+/// Cliente al que se le puede fiar (HU-18, HU-19) y cuyas deudas se reportan
+/// (HU-30). Su saldo NO se almacena: se calcula como suma(ventas CREDIT) -
+/// suma(abonos), por lo que nunca puede descuadrar con el historial.
+model Customer {
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String
+  phone   String?
+  email   String?
+  address String?
+  notes   String?
+  /// Un cliente con historial se desactiva, no se borra (integridad de ventas).
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales          Sale[]
+  creditPayments CreditPayment[]
+}
+
+/// Venta registrada en caja (HU-16), con su método de pago (HU-17) o a crédito
+/// / fiado (HU-18). El detalle de los productos vendidos vive en `SaleItem`.
+model Sale {
+  id String @id @default(uuid()) @db.Uuid
+  paymentMethod PaymentMethod
+  /// Importe final de la venta: lo calcula el service sumando los ítems
+  /// (HU-16: "el sistema calcula el total automáticamente"). Se guarda porque
+  /// es el monto del comprobante y alimenta el historial del día (HU-20) y las
+  /// ganancias (HU-29).
+  total Decimal @db.Decimal(12, 2)
+  notes String?
+  /// Obligatorio cuando paymentMethod = CREDIT (HU-18: "se asocia la venta a un
+  /// cliente identificado"). La regla se aplica en el service con Zod, porque el
+  /// SGDB no expresa dependencias entre columnas.
+  customerId String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items              SaleItem[]
+  creditPayments     CreditPayment[]
+  inventoryMovements InventoryMovement[]
+
+  /// HU-20: listar y totalizar las ventas del día.
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([paymentMethod, createdAt])
+}
+
+/// Línea de detalle de una venta (HU-16). Guarda el precio y el costo unitarios
+/// vigentes al momento de vender, para que el reporte de ganancias (HU-29) no
+/// cambie si el precio o el costo del producto se modifican después (HU-02).
+model SaleItem {
+  id        String @id @default(uuid()) @db.Uuid
+  saleId    String @db.Uuid
+  productId String @db.Uuid
+  quantity  Int
+  /// Precio de venta aplicado en la línea.
+  unitPrice Decimal @db.Decimal(12, 2)
+  /// Costo unitario de referencia: base de la utilidad (HU-29).
+  unitCost  Decimal @db.Decimal(12, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+/// Abono a un fiado (HU-19: "se registra el monto pagado y la fecha").
+/// Puede aplicarse a una venta concreta o ser un abono general que el service
+/// distribuye sobre las ventas a crédito más antiguas del cliente.
+model CreditPayment {
+  id          String   @id @default(uuid()) @db.Uuid
+  customerId  String   @db.Uuid
+  saleId      String?  @db.Uuid
+  amount      Decimal  @db.Decimal(12, 2)
+  paymentDate DateTime @default(now())
+  notes       String?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sale     Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, paymentDate])
+  @@index([saleId])
+}
+
+// -----------------------------------------------------------------------------
+// Módulo 3 — Proveedores y pedidos de compra (HU-21 … HU-24)
+// -----------------------------------------------------------------------------
+//
+// Los reportes (HU-25 … HU-30) no necesitan entidades nuevas: se responden con
+// consultas sobre las tablas de este esquema (stock/mínimos, vencimientos,
+// ventas, ítems y abonos).
+
+/// Proveedor del negocio y los productos que suministra (HU-21).
+model Supplier {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products       SupplierProduct[]
+  purchaseOrders PurchaseOrder[]
+}
+
+/// Catálogo producto-proveedor (HU-21: "se puede asociar un proveedor a uno o
+/// varios productos") con el costo al que se le compra. Alimenta el historial
+/// de costos y compras por proveedor (HU-22) y la lista sugerida de pedido
+/// (HU-23), donde `isPreferred` resuelve a cuál proveedor pedir cuando un
+/// producto tiene varios.
+model SupplierProduct {
+  id         String  @id @default(uuid()) @db.Uuid
+  supplierId String  @db.Uuid
+  productId  String  @db.Uuid
+  unitCost   Decimal @db.Decimal(12, 2)
+  isPreferred Boolean @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, productId])
+  @@index([productId])
+}
+
+/// Pedido de compra a un proveedor (HU-22, HU-24). Al marcarlo como recibido se
+/// generan las entradas de inventario y se actualiza el stock en la misma
+/// transacción (HU-22: "historial de pedidos, costos y entregas").
+model PurchaseOrder {
+  id String @id @default(uuid()) @db.Uuid
+  supplierId  String              @db.Uuid
+  status      PurchaseOrderStatus @default(PENDING)
+  /// Total del pedido (suma de cantidad * costo unitario de cada ítem): es el
+  /// "costo" que muestra el historial (HU-22).
+  total        Decimal @db.Decimal(12, 2) @default(0)
+  expectedDate DateTime?
+  receivedAt   DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  supplier           Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  items              PurchaseOrderItem[]
+  inventoryMovements InventoryMovement[]
+
+  @@index([supplierId, createdAt])
+  @@index([status])
+}
+
+/// Ítem de un pedido de compra. `receivedQuantity` permite recepciones
+/// parciales sin necesidad de una entidad adicional.
+model PurchaseOrderItem {
+  id               String  @id @default(uuid()) @db.Uuid
+  purchaseOrderId  String  @db.Uuid
+  productId        String  @db.Uuid
+  quantity         Int
+  unitCost         Decimal @db.Decimal(12, 2)
+  receivedQuantity Int     @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+
+
