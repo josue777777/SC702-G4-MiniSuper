@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# docker-compose.yml  —  PostgreSQL para desarrollo local
+# ---------------------------------------------------------------------------
+# Solo para desarrollo / laboratorio del curso SC-702.
+# Las credenciales son valores locales, NO secretos reales.
+#
+#   docker compose up -d      arranca PostgreSQL en localhost:5432
+#   docker compose down       detiene el contenedor (conserva los datos)
+#   docker compose down -v    detiene y borra los datos
+#
+# La cadena de conexión equivalente para backend/.env es:
+#   DATABASE_URL=postgresql://minisuper:minisuper@localhost:5432/minisuper?schema=public
+# ---------------------------------------------------------------------------
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: minisuper-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-minisuper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-minisuper}
+      POSTGRES_DB: ${POSTGRES_DB:-minisuper}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - minisuper-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-minisuper} -d ${POSTGRES_DB:-minisuper}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  minisuper-pgdata:
