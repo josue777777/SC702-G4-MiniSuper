@@ -3,9 +3,13 @@
 Sistema de gestión para el minisúper/abastecedor **Nuevo Amanecer**.
 Curso **SC-702 — Diseño y Desarrollo de Sistemas**, **Grupo 4**.
 
-Cubre las 30 historias de usuario del negocio: catálogo e inventario, ventas de caja con
-lector de código de barras, fiados y abonos, proveedores y pedidos, y reportes
-exportables. Lo usa una sola persona: el dueño del negocio.
+Cubre las 40 historias de usuario del negocio: catálogo e inventario, acceso al sistema,
+ventas de caja con lector de código de barras, fiados y abonos, proveedores y pedidos, y
+reportes exportables. Lo usa una sola persona: el dueño del negocio.
+
+Las historias de usuario se gestionan como _issues_ en el tablero de GitHub Projects
+**Historias de Usuario**, cada una con su etiqueta de sprint, su responsable y sus
+criterios de aceptación como lista de chequeo.
 
 > Esta rama deja **la base arquitectónica** lista para implementar historias: monorepo,
 > backend en capas, esquema de datos migrado, frontend enrutado y una rebanada vertical
@@ -39,7 +43,7 @@ exportables. Lo usa una sola persona: el dueño del negocio.
 
 ```bash
 # 1. Clonar el repositorio y entrar a la carpeta
-git clone https://github.com/danielaguilar14/SC702-G4-MiniSuper.git
+git clone https://github.com/josue777777/SC702-G4-MiniSuper.git
 cd SC702-G4-MiniSuper
 
 # 2. Instalar las dependencias de los dos workspaces (backend y frontend)
@@ -120,17 +124,26 @@ Para trabajar con un solo workspace: `npm run dev -w backend`, `npm run lint -w 
 ├── docs/
 │   ├── ARCHITECTURE.md capas, modelo de datos, receta para agregar una HU
 │   └── adr/            decisiones de arquitectura
-├── docker-compose.yml  PostgreSQL 16 para desarrollo
-└── Historias_Usuario.xlsx  las 30 historias con su checklist
+└── docker-compose.yml  PostgreSQL 16 para desarrollo
 ```
 
 ## Estado de las historias de usuario
 
-| Módulo                             | Historias     | Estado                                                                                  |
-| ---------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
-| 1. Productos e inventario          | HU-01 … HU-10 | Base lista (tablas `Product`, `Category`, `InventoryMovement`)                          |
-| 2. Acceso, ventas y clientes       | HU-11 … HU-20 | Base lista (tablas `User`, `Sale`, `SaleItem`, `Customer`, `CreditPayment`)             |
-| 3. Proveedores, pedidos y reportes | HU-21 … HU-30 | Base lista (tablas `Supplier`, `SupplierProduct`, `PurchaseOrder`, `PurchaseOrderItem`) |
+| Sprint   | Historias                                                | Estado al 03/10/2026                        |
+| -------- | -------------------------------------------------------- | ------------------------------------------- |
+| Sprint 1 | HU-01 … HU-07                                            | Cerró sin historias completadas; se heredan |
+| Sprint 2 | HU-01 … HU-07 (heredadas), HU-08 … HU-15, HU-31 … HU-37  | En curso: HU-01, HU-02 y HU-03 completadas  |
+| Sprint 3 | HU-16 … HU-23, HU-38 … HU-40                             | Pendiente                                   |
+| Sprint 4 | Refinamiento (ajustes, corrección de errores y pulido) ¹ | Pendiente                                   |
+
+¹ HU-24 … HU-30 (pedido en PDF y reportes) tienen hoy la etiqueta _Sprint 4_ en el tablero;
+falta definir el sprint en que se desarrollan.
+
+El estado actualizado de cada historia está en el tablero de GitHub Projects. La base de
+datos ya tiene las tablas de los tres módulos funcionales: productos e inventario
+(`Product`, `Category`, `InventoryMovement`), acceso, ventas y clientes (`User`, `Sale`,
+`SaleItem`, `Customer`, `CreditPayment`) y proveedores y pedidos (`Supplier`,
+`SupplierProduct`, `PurchaseOrder`, `PurchaseOrderItem`).
 
 Cada pantalla del frontend declara en su propio archivo qué historias le faltan y cuáles
 son las tareas pendientes, de modo que el tablero del sprint y el código coinciden.
@@ -163,14 +176,30 @@ Antes de subir un PR: `npm run build`, `npm run lint`, `npm run typecheck`, `npm
 
 ## Documentos del proyecto
 
+- Tablero de GitHub Projects **Historias de Usuario** — las 40 historias como issues, con
+  su sprint, responsable y criterios de aceptación.
+
+### Documentación técnica — José Daniel Aguilar
+
+Elaborada por José Daniel Aguilar junto con la base del proyecto (29/09/2026).
+
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — capas, modelo de datos, entorno,
   convenciones y receta para implementar una historia.
-- [`docs/adr/0001-stack-selection.md`](docs/adr/0001-stack-selection.md) — por qué este
-  stack y qué alternativas se descartaron.
-- `Historias_Usuario.xlsx` — las 30 historias con su checklist y sprint asignado.
+- [`docs/adr/0001-stack-selection.md`](docs/adr/0001-stack-selection.md) — tecnologías
+  usadas en la implementación, dentro de las opciones del documento de requerimientos.
+
+> **Pendiente de revisión (José Daniel Aguilar):** estos dos documentos todavía hablan de
+> 30 historias y mencionan `Historias_Usuario.xlsx`, que ya no está en el repositorio.
+> Deben actualizarse a las 40 historias del tablero de GitHub Projects.
 
 ## Integrantes
 
-Grupo 4 — SC-702 (Diseño y Desarrollo de Sistemas). Ver la columna
-_Módulo / Integrante asignado_ de `Historias_Usuario.xlsx` para la asignación por
-historia.
+Grupo 4 — SC-702 (Diseño y Desarrollo de Sistemas):
+
+- Aguilar Aguilar José Daniel
+- Navarro Barrantes Heblyn Josué
+- González Andrade Bayron
+- López Paniagua Adriela
+
+La asignación de cada historia se consulta en el campo _Assignees_ de su issue en el
+tablero de GitHub Projects.
