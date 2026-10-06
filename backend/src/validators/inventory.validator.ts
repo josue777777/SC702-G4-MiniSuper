@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { InventoryCountFields } from '../types/inventory.js';
 
 /**
  * Esquemas Zod del recurso inventario (HU-10).
@@ -28,3 +29,11 @@ export const createInventoryCountSchema = z.object({
 
 /** Entrada ya validada del registro de un conteo. */
 export type CreateInventoryCountInput = z.infer<typeof createInventoryCountSchema>;
+
+/**
+ * Comprobación en tiempo de compilación: si el esquema y el contrato de
+ * `types/inventory.ts` se separan, `npm run typecheck` falla y lo avisa.
+ */
+type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+const _contractCheck: Exact<CreateInventoryCountInput, InventoryCountFields> = true;
