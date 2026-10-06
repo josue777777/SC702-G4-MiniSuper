@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { healthRouter } from './health.routes.js';
+import { inventoryRouter } from './inventory.routes.js';
 import { productsRouter } from './products.routes.js';
 
 /**
@@ -14,3 +15,4 @@ export const apiRouter = Router();
 
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/products', productsRouter); // HU-01, HU-02, HU-03
+apiRouter.use('/inventory', inventoryRouter); // HU-10
