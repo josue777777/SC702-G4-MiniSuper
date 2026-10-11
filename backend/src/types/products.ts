@@ -60,6 +60,13 @@ export interface ProductDto {
   preferredSupplierName: string | null;
 }
 
+/** Criterios con los que el service le pide al repositorio el listado. */
+export interface ProductListFilter {
+  categoryId?: string;
+  /** Si es `true`, excluye los productos inactivos. */
+  activeOnly?: boolean;
+}
+
 /** Opción de un `<select>` de los formularios de producto. */
 export interface ReferenceOption {
   id: string;

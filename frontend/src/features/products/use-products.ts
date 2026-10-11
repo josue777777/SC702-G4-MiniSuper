@@ -45,6 +45,8 @@ export function useProducts() {
   });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Categoría del filtro; cadena vacía significa "todas". */
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   /**
    * Carga catálogo y opciones de formulario en paralelo.
@@ -60,7 +62,7 @@ export function useProducts() {
 
     try {
       const [products, options] = await Promise.all([
-        productsService.list(),
+        productsService.list(categoryFilter || undefined),
         productsService.getFormOptions(),
       ]);
 
@@ -73,7 +75,7 @@ export function useProducts() {
         message: describeError(error),
       });
     }
-  }, []);
+  }, [categoryFilter]);
 
   useEffect(() => {
     void load();
@@ -135,6 +137,8 @@ export function useProducts() {
     ...state,
     notice,
     busy,
+    categoryFilter,
+    setCategoryFilter,
     reload: load,
     createProduct,
     updateProduct,

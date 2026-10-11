@@ -2,6 +2,7 @@ import type { ProductsRepository } from '../repositories/products.repository.js'
 import type {
   CreateProductPlan,
   ProductDto,
+  ProductListFilter,
   ReferenceOption,
   UpdateProductPlan,
 } from '../types/products.js';
@@ -73,8 +74,14 @@ export class FakeProductsRepository implements ProductsRepository {
     this.suppliers = [...(state.suppliers ?? [{ id: SUPPLIER_ID, name: 'Distribuidora Central' }])];
   }
 
-  list(): Promise<ProductDto[]> {
-    return Promise.resolve([...this.products]);
+  list(filter: ProductListFilter = {}): Promise<ProductDto[]> {
+    return Promise.resolve(
+      this.products.filter(
+        (product) =>
+          (filter.categoryId === undefined || product.categoryId === filter.categoryId) &&
+          (filter.activeOnly !== true || product.isActive),
+      ),
+    );
   }
 
   findById(id: string): Promise<ProductDto | null> {

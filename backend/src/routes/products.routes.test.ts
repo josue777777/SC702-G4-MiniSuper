@@ -2,8 +2,10 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import {
+  buildProduct,
   CATEGORY_ID,
   FakeProductsRepository,
+  OTHER_PRODUCT_ID,
   PRODUCT_ID,
   SUPPLIER_ID,
 } from '../testing/products.repository.fake.js';
@@ -50,6 +52,31 @@ describe('GET /api/products', () => {
     expect(response.body).toEqual({
       data: [expect.objectContaining({ id: PRODUCT_ID, code: 'P001', price: '1500.00' })],
     });
+  });
+
+  it('filtra por categoría y excluye los inactivos', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({
+        products: [
+          buildProduct(),
+          buildProduct({ id: OTHER_PRODUCT_ID, code: 'P002', isActive: false }),
+        ],
+      }),
+    );
+
+    const response = await request(app).get(`/api/products?categoryId=${CATEGORY_ID}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({ id: PRODUCT_ID });
+  });
+
+  it('responde 400 si categoryId no es un UUID', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get('/api/products?categoryId=abc');
+
+    expect(response.status).toBe(400);
   });
 });
 

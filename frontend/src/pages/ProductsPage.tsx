@@ -6,6 +6,9 @@ import { ProductTable } from '../features/products/ProductTable';
 import { useProducts } from '../features/products/use-products';
 import type { Product, ProductPayload } from '../types/products';
 
+/** Valor reservado del `<select>` de categoría que no es un id real. */
+const NEW_CATEGORY_OPTION = '__new__';
+
 /**
  * Pantalla de productos: registrar (HU-01), editar (HU-02) y desactivar (HU-03).
  *
@@ -21,6 +24,8 @@ export function ProductsPage() {
     message,
     notice,
     busy,
+    categoryFilter,
+    setCategoryFilter,
     reload,
     createProduct,
     updateProduct,
@@ -53,6 +58,17 @@ export function ProductsPage() {
     setEditing(null);
   }
 
+  /** La opción "+ Nueva categoría" abre el formulario y no cambia el filtro. */
+  function handleCategorySelect(value: string): void {
+    if (value === NEW_CATEGORY_OPTION) {
+      setCategoryFormOpen(true);
+
+      return;
+    }
+
+    setCategoryFilter(value);
+  }
+
   async function handleSubmit(payload: ProductPayload): Promise<void> {
     const saved =
       editing === null ? await createProduct(payload) : await updateProduct(editing.id, payload);
@@ -80,14 +96,22 @@ export function ProductsPage() {
         >
           + Nuevo producto
         </button>
-        <button
-          type="button"
-          className="button"
-          onClick={() => setCategoryFormOpen(true)}
-          disabled={busy || categoryFormOpen}
-        >
-          + Nueva categoría
-        </button>
+        <label className="toolbar__filter">
+          Categoría{' '}
+          <select
+            value={categoryFilter}
+            onChange={(event) => handleCategorySelect(event.target.value)}
+            disabled={busy}
+          >
+            <option value={NEW_CATEGORY_OPTION}>+ Nueva categoría</option>
+            <option value="">Todas</option>
+            {options.categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {notice === null ? null : (
@@ -146,6 +170,7 @@ export function ProductsPage() {
         <ProductTable
           products={products}
           busy={busy}
+          filtered={categoryFilter !== ''}
           onEdit={openEditForm}
           onDeactivate={(product) => void deactivateProduct(product.id)}
         />
