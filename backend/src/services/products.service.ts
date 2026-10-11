@@ -7,7 +7,11 @@ import type {
   UpdateProductPlan,
 } from '../types/products.js';
 import { HttpError } from '../utils/http-error.js';
-import type { CreateProductInput, UpdateProductInput } from '../validators/products.validator.js';
+import type {
+  CreateProductInput,
+  ProductListQuery,
+  UpdateProductInput,
+} from '../validators/products.validator.js';
 
 /** Motivo del movimiento que deja el stock inicial de un producto (HU-01). */
 export const INITIAL_STOCK_REASON = 'Stock inicial';
@@ -82,11 +86,16 @@ export class ProductsService {
   constructor(private readonly repository: ProductsRepository) {}
 
   /**
-   * Lista para la pantalla de administración: incluye los productos inactivos,
-   * que es lo que permite comprobar la desactivación de HU-03.
+   * Lista para la pantalla de administración. Sin filtro incluye los productos
+   * inactivos, que es lo que permite comprobar la desactivación de HU-03. Al
+   * filtrar por categoría solo devuelve los activos.
    */
-  async listProducts(): Promise<ProductDto[]> {
-    return this.repository.list();
+  async listProducts(query: ProductListQuery = {}): Promise<ProductDto[]> {
+    if (query.categoryId === undefined) {
+      return this.repository.list();
+    }
+
+    return this.repository.list({ categoryId: query.categoryId, activeOnly: true });
   }
 
   /**

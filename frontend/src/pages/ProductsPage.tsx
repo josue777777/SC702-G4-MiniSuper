@@ -1,9 +1,13 @@
 import { useState } from 'react';
+import { CategoryForm } from '../features/categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from '../features/products/product-form';
 import { ProductForm } from '../features/products/ProductForm';
 import { ProductTable } from '../features/products/ProductTable';
 import { useProducts } from '../features/products/use-products';
 import type { Product, ProductPayload } from '../types/products';
+
+/** Valor reservado del `<select>` de categoría que no es un id real. */
+const NEW_CATEGORY_OPTION = '__new__';
 
 /**
  * Pantalla de productos: registrar (HU-01), editar (HU-02) y desactivar (HU-03).
@@ -20,16 +24,20 @@ export function ProductsPage() {
     message,
     notice,
     busy,
+    categoryFilter,
+    setCategoryFilter,
     reload,
     createProduct,
     updateProduct,
     deactivateProduct,
+    afterCategoryCreated,
     dismissNotice,
   } = useProducts();
 
   /** Producto que se está editando; `null` significa que el formulario es de alta. */
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
 
   function openCreateForm(): void {
     setEditing(null);
@@ -50,6 +58,17 @@ export function ProductsPage() {
     setEditing(null);
   }
 
+  /** La opción "+ Nueva categoría" abre el formulario y no cambia el filtro. */
+  function handleCategorySelect(value: string): void {
+    if (value === NEW_CATEGORY_OPTION) {
+      setCategoryFormOpen(true);
+
+      return;
+    }
+
+    setCategoryFilter(value);
+  }
+
   async function handleSubmit(payload: ProductPayload): Promise<void> {
     const saved =
       editing === null ? await createProduct(payload) : await updateProduct(editing.id, payload);
@@ -65,7 +84,6 @@ export function ProductsPage() {
     <>
       <header className="page-header">
         <h1>Productos</h1>
-        <p>Registrar, editar y desactivar los productos del catálogo.</p>
       </header>
 
       <div className="toolbar">
@@ -77,6 +95,22 @@ export function ProductsPage() {
         >
           + Nuevo producto
         </button>
+        <label className="toolbar__filter">
+          Categoría{' '}
+          <select
+            value={categoryFilter}
+            onChange={(event) => handleCategorySelect(event.target.value)}
+            disabled={busy}
+          >
+            <option value={NEW_CATEGORY_OPTION}>+ Nueva categoría</option>
+            <option value="">Todas</option>
+            {options.categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {notice === null ? null : (
@@ -92,6 +126,13 @@ export function ProductsPage() {
           </button>
         </p>
       )}
+
+      {categoryFormOpen ? (
+        <CategoryForm
+          onCreated={afterCategoryCreated}
+          onClose={() => setCategoryFormOpen(false)}
+        />
+      ) : null}
 
       {formOpen ? (
         <ProductForm
@@ -128,6 +169,7 @@ export function ProductsPage() {
         <ProductTable
           products={products}
           busy={busy}
+          filtered={categoryFilter !== ''}
           onEdit={openEditForm}
           onDeactivate={(product) => void deactivateProduct(product.id)}
         />

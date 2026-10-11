@@ -225,6 +225,34 @@ describe('ProductsService.updateProduct (HU-02)', () => {
   });
 });
 
+describe('ProductsService.listProducts (filtro por categoría)', () => {
+  const OTHER_CATEGORY_ID = '22222222-5555-4555-8555-555555555555';
+
+  function buildCatalog() {
+    return new FakeProductsRepository({
+      products: [
+        buildProduct(),
+        buildProduct({ id: OTHER_PRODUCT_ID, code: 'P002', isActive: false }),
+        buildProduct({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', code: 'P003', categoryId: OTHER_CATEGORY_ID }),
+      ],
+    });
+  }
+
+  it('sin filtro devuelve todos, incluidos los inactivos', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    await expect(service.listProducts()).resolves.toHaveLength(3);
+  });
+
+  it('con categoryId devuelve solo los activos de esa categoría', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ categoryId: CATEGORY_ID });
+
+    expect(listed.map((product) => product.id)).toEqual([PRODUCT_ID]);
+  });
+});
+
 describe('ProductsService.deactivateProduct (HU-03)', () => {
   it('desactiva con baja lógica: isActive pasa a false', async () => {
     const repository = new FakeProductsRepository({ products: [buildProduct()] });

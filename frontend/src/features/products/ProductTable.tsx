@@ -5,6 +5,8 @@ import { formatMoney } from './money';
 interface ProductTableProps {
   products: Product[];
   busy: boolean;
+  /** `true` si hay un filtro de categoría activo (solo se muestran productos activos). */
+  filtered?: boolean;
   onEdit: (product: Product) => void;
   onDeactivate: (product: Product) => void;
 }
@@ -22,7 +24,13 @@ const COLUMN_COUNT = 9;
  * La confirmación de la desactivación es estado local de este componente: si el
  * dueño cancela, no se llama a la API ni se toca nada (caso borde de HU-03).
  */
-export function ProductTable({ products, busy, onEdit, onDeactivate }: ProductTableProps) {
+export function ProductTable({
+  products,
+  busy,
+  filtered = false,
+  onEdit,
+  onDeactivate,
+}: ProductTableProps) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   if (products.length === 0) {
@@ -32,7 +40,9 @@ export function ProductTable({ products, busy, onEdit, onDeactivate }: ProductTa
           <h2>Catálogo</h2>
         </header>
         <p className="muted">
-          Todavía no hay productos registrados. Use «+ Nuevo producto» para registrar el primero.
+          {filtered
+            ? 'No hay productos activos en esta categoría.'
+            : 'Todavía no hay productos registrados. Use «+ Nuevo producto» para registrar el primero.'}
         </p>
       </section>
     );
