@@ -84,7 +84,6 @@ export function ProductsPage() {
     <>
       <header className="page-header">
         <h1>Productos</h1>
-        <p>Registrar, editar y desactivar los productos del catálogo.</p>
       </header>
 
       <div className="toolbar">

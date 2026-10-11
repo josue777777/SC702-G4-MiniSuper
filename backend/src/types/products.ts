@@ -75,8 +75,8 @@ export interface ReferenceOption {
 
 /**
  * Datos de apoyo de los formularios (`GET /api/products/form-options`).
- * Solo se listan categorías y proveedores ACTIVOS, y es de solo lectura: el CRUD
- * de categorías es HU-04 y el de proveedores, HU-21.
+ * Solo se listan categorías y proveedores ACTIVOS. Las categorías se crean con
+ * `POST /api/categories` (HU-04); el CRUD de proveedores es HU-21.
  */
 export interface ProductFormOptionsDto {
   categories: ReferenceOption[];
