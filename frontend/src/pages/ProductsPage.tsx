@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CategoryForm } from '../features/categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from '../features/products/product-form';
 import { ProductForm } from '../features/products/ProductForm';
 import { ProductTable } from '../features/products/ProductTable';
@@ -24,12 +25,14 @@ export function ProductsPage() {
     createProduct,
     updateProduct,
     deactivateProduct,
+    afterCategoryCreated,
     dismissNotice,
   } = useProducts();
 
   /** Producto que se está editando; `null` significa que el formulario es de alta. */
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
 
   function openCreateForm(): void {
     setEditing(null);
@@ -77,6 +80,14 @@ export function ProductsPage() {
         >
           + Nuevo producto
         </button>
+        <button
+          type="button"
+          className="button"
+          onClick={() => setCategoryFormOpen(true)}
+          disabled={busy || categoryFormOpen}
+        >
+          + Nueva categoría
+        </button>
       </div>
 
       {notice === null ? null : (
@@ -92,6 +103,13 @@ export function ProductsPage() {
           </button>
         </p>
       )}
+
+      {categoryFormOpen ? (
+        <CategoryForm
+          onCreated={afterCategoryCreated}
+          onClose={() => setCategoryFormOpen(false)}
+        />
+      ) : null}
 
       {formOpen ? (
         <ProductForm

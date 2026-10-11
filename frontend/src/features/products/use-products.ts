@@ -125,6 +125,12 @@ export function useProducts() {
 
   const dismissNotice = useCallback(() => setNotice(null), []);
 
+  /** HU-04. Al recargar, `options.categories` incluye la categoría nueva. */
+  const afterCategoryCreated = useCallback(async () => {
+    setNotice({ kind: 'success', text: 'Categoría creada correctamente.' });
+    await load();
+  }, [load]);
+
   return {
     ...state,
     notice,
@@ -133,6 +139,7 @@ export function useProducts() {
     createProduct,
     updateProduct,
     deactivateProduct,
+    afterCategoryCreated,
     dismissNotice,
   };
 }
