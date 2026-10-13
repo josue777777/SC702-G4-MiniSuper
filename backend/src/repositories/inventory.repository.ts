@@ -2,8 +2,40 @@ import { prisma } from '../config/prisma.js';
 import type {
   CreateInventoryCountPlan,
   InventoryCountDto,
+  ProductStockSettingsDto,
   StockLevel,
 } from '../types/inventory.js';
+import { dateOnlyToDate, dateToDateOnly } from '../utils/dates.js';
+
+/** Columnas de la configuración de inventario de un producto (HU-08, HU-09). */
+const settingsSelection = {
+  id: true,
+  code: true,
+  name: true,
+  stock: true,
+  minStock: true,
+  expirationDate: true,
+} as const;
+
+interface SettingsRow {
+  id: string;
+  code: string;
+  name: string;
+  stock: number;
+  minStock: number;
+  expirationDate: Date | null;
+}
+
+function toSettingsDto(row: SettingsRow): ProductStockSettingsDto {
+  return {
+    productId: row.id,
+    productCode: row.code,
+    productName: row.name,
+    stock: row.stock,
+    minStock: row.minStock,
+    expirationDate: row.expirationDate === null ? null : dateToDateOnly(row.expirationDate),
+  };
+}
 
 /** Fila de movimiento tal como la devuelve `countSelection`. */
 interface CountRow {
@@ -116,5 +148,51 @@ export class InventoryRepository {
       stock: row.stock,
       minStock: row.minStock,
     }));
+  }
+
+  /** Mínimo y vencimiento de los productos activos (HU-08, HU-09). */
+  async listProductSettings(): Promise<ProductStockSettingsDto[]> {
+    const rows = await prisma.product.findMany({
+      where: { isActive: true },
+      select: settingsSelection,
+      orderBy: { name: 'asc' },
+    });
+
+    return rows.map(toSettingsDto);
+  }
+
+  /** Configuración de un producto, o `null` si no existe. */
+  async findProductSettings(productId: string): Promise<ProductStockSettingsDto | null> {
+    const row = await prisma.product.findUnique({
+      where: { id: productId },
+      select: settingsSelection,
+    });
+
+    return row === null ? null : toSettingsDto(row);
+  }
+
+  /** Guarda el mínimo de stock (HU-08). No cambia el stock, así que no genera movimiento. */
+  async updateMinStock(productId: string, minStock: number): Promise<ProductStockSettingsDto> {
+    const row = await prisma.product.update({
+      where: { id: productId },
+      data: { minStock },
+      select: settingsSelection,
+    });
+
+    return toSettingsDto(row);
+  }
+
+  /** Guarda o quita (`null`) la fecha de vencimiento (HU-09). */
+  async updateExpirationDate(
+    productId: string,
+    expirationDate: string | null,
+  ): Promise<ProductStockSettingsDto> {
+    const row = await prisma.product.update({
+      where: { id: productId },
+      data: { expirationDate: expirationDate === null ? null : dateOnlyToDate(expirationDate) },
+      select: settingsSelection,
+    });
+
+    return toSettingsDto(row);
   }
 }

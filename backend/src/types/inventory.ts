@@ -54,6 +54,47 @@ export interface StockLevel {
  */
 export type LowStockAlertDto = StockLevel;
 
+/**
+ * Configuración de inventario de un producto activo: su mínimo de stock
+ * (HU-08) y su fecha de vencimiento (HU-09). Se administra desde el módulo de
+ * inventario, sin tocar el formulario de productos.
+ */
+export interface ProductStockSettingsDto {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  minStock: number;
+  /** `YYYY-MM-DD`, o `null` si el producto no vence. */
+  expirationDate: string | null;
+}
+
+/** Estado de un producto con fecha de vencimiento cercana o pasada (HU-09). */
+export type ExpirationStatus = 'EXPIRED' | 'EXPIRING_SOON';
+
+/** Producto vencido o próximo a vencer (HU-09). Se calcula, no se guarda. */
+export interface ExpirationAlertDto {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  expirationDate: string;
+  /** Días que faltan para vencer; negativo si ya venció, 0 si vence hoy. */
+  daysLeft: number;
+  status: ExpirationStatus;
+}
+
+/** Cuerpo de `PATCH /api/inventory/products/:id/min-stock` (HU-08). */
+export interface MinStockFields {
+  minStock: number;
+}
+
+/** Cuerpo de `PATCH /api/inventory/products/:id/expiration-date` (HU-09). */
+export interface ExpirationDateFields {
+  /** `YYYY-MM-DD`, o `null` para indicar que el producto no vence. */
+  expirationDate: string | null;
+}
+
 /** Trabajo que el service encarga al repositorio al confirmar un conteo. */
 export interface CreateInventoryCountPlan {
   productId: string;

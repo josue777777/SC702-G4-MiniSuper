@@ -1,8 +1,21 @@
 import type { InventoryRepository } from '../repositories/inventory.repository.js';
-import type { InventoryCountDto, LowStockAlertDto } from '../types/inventory.js';
+import type {
+  ExpirationAlertDto,
+  InventoryCountDto,
+  LowStockAlertDto,
+  ProductStockSettingsDto,
+} from '../types/inventory.js';
+import { daysBetween, todayInBusinessZone } from '../utils/dates.js';
 import type { InventoryMovementPlan } from '../types/products.js';
 import { HttpError } from '../utils/http-error.js';
-import type { CreateInventoryCountInput } from '../validators/inventory.validator.js';
+import type {
+  CreateInventoryCountInput,
+  UpdateExpirationDateInput,
+  UpdateMinStockInput,
+} from '../validators/inventory.validator.js';
+
+/** HU-09: con menos de estos días para vencer, el producto está "próximo a vencer". */
+export const EXPIRING_SOON_DAYS = 15;
 
 /** Motivo del movimiento que deja un conteo de inventario físico (HU-10). */
 export const PHYSICAL_COUNT_REASON = 'Conteo físico';
@@ -37,13 +50,33 @@ export function isLowStock(stock: number, minStock: number): boolean {
 }
 
 /**
+ * Clasifica un vencimiento (HU-09): vencido si la fecha ya pasó, próximo a
+ * vencer si faltan menos de `EXPIRING_SOON_DAYS` días (vencer hoy cuenta como
+ * próximo), o `null` si todavía falta tiempo.
+ */
+export function classifyExpiration(daysLeft: number): ExpirationAlertDto['status'] | null {
+  if (daysLeft < 0) {
+    return 'EXPIRED';
+  }
+
+  return daysLeft < EXPIRING_SOON_DAYS ? 'EXPIRING_SOON' : null;
+}
+
+/**
  * Reglas de negocio del conteo de inventario físico (HU-10).
  *
  * No conoce HTTP ni Prisma: recibe el repositorio por constructor, decide qué
  * movimiento corresponde y delega la persistencia.
  */
 export class InventoryService {
-  constructor(private readonly repository: InventoryRepository) {}
+  /**
+   * `today` devuelve la fecha de hoy (`YYYY-MM-DD`) en la zona del negocio. Se
+   * recibe por constructor para que las pruebas fijen el día.
+   */
+  constructor(
+    private readonly repository: InventoryRepository,
+    private readonly today: () => string = () => todayInBusinessZone(),
+  ) {}
 
   /**
    * HU-10 — registrar conteo físico.
@@ -79,5 +112,91 @@ export class InventoryService {
     const levels = await this.repository.listStockLevels();
 
     return levels.filter((level) => isLowStock(level.stock, level.minStock));
+  }
+
+  /** Mínimo y vencimiento de los productos activos, para configurarlos (HU-08, HU-09). */
+  async listProductSettings(): Promise<ProductStockSettingsDto[]> {
+    return this.repository.listProductSettings();
+  }
+
+  /** HU-08 — define el mínimo de stock de un producto (0 = sin mínimo). */
+  async updateMinStock(
+    productId: string,
+    input: UpdateMinStockInput,
+  ): Promise<ProductStockSettingsDto> {
+    await this.assertProductExists(productId);
+
+    return this.repository.updateMinStock(productId, input.minStock);
+  }
+
+  /**
+   * HU-09 — guarda o quita la fecha de vencimiento.
+   *
+   * `null` es válido: el campo es opcional para los productos que no vencen.
+   * Una fecha nueva o cambiada tiene que ser futura; volver a guardar la misma
+   * fecha que ya tenía se acepta aunque ya esté cerca o haya pasado.
+   */
+  async updateExpirationDate(
+    productId: string,
+    input: UpdateExpirationDateInput,
+  ): Promise<ProductStockSettingsDto> {
+    const current = await this.assertProductExists(productId);
+    const { expirationDate } = input;
+
+    if (
+      expirationDate !== null &&
+      expirationDate !== current.expirationDate &&
+      expirationDate <= this.today()
+    ) {
+      throw HttpError.badRequest('La fecha de vencimiento debe ser una fecha futura.', {
+        expirationDate: ['La fecha de vencimiento debe ser posterior a hoy.'],
+      });
+    }
+
+    return this.repository.updateExpirationDate(productId, expirationDate);
+  }
+
+  /**
+   * HU-09 — productos vencidos o próximos a vencer, del más urgente al menos
+   * urgente. Se calcula al consultar; no se guarda (decisión 7).
+   */
+  async listExpirations(): Promise<ExpirationAlertDto[]> {
+    const today = this.today();
+    const settings = await this.repository.listProductSettings();
+    const alerts: ExpirationAlertDto[] = [];
+
+    for (const product of settings) {
+      if (product.expirationDate === null) {
+        continue;
+      }
+
+      const daysLeft = daysBetween(today, product.expirationDate);
+      const status = classifyExpiration(daysLeft);
+
+      if (status !== null) {
+        alerts.push({
+          productId: product.productId,
+          productCode: product.productCode,
+          productName: product.productName,
+          stock: product.stock,
+          expirationDate: product.expirationDate,
+          daysLeft,
+          status,
+        });
+      }
+    }
+
+    return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
+  }
+
+  /** Lanza `404` si el producto no existe; si existe, devuelve su configuración. */
+  private async assertProductExists(productId: string): Promise<ProductStockSettingsDto> {
+    const product = await this.repository.findProductSettings(productId);
+
+    if (product === null) {
+      throw HttpError.notFound('El producto no existe.');
+    }
+
+    return product;
   }
 }
