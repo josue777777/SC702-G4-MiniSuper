@@ -514,3 +514,76 @@ code {
   padding-left: 18px;
   font-size: 0.9rem;
 }
+
+/* Inventario: aviso de "próximo a vencer" (HU-09) y bloques de configuración (HU-08, HU-09) */
+.badge--warning {
+  background: #fef9c3;
+  color: #713f12;
+}
+
+.settings__grid {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Reporte imprimible de vencimientos (HU-09): solo se imprime `.print-area` */
+.print-only {
+  display: none;
+}
+
+@media print {
+  body.printing-report {
+    background: #fff;
+  }
+
+  body.printing-report * {
+    visibility: hidden;
+  }
+
+  body.printing-report .print-area,
+  body.printing-report .print-area * {
+    visibility: visible;
+  }
+
+  body.printing-report .print-area {
+    position: absolute;
+    inset: 0 0 auto 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  body.printing-report .print-only {
+    display: block;
+  }
+
+  body.printing-report .no-print {
+    display: none;
+  }
+}
+
+/* Proveedores (HU-21): filas de productos del formulario y lista en la tabla */
+.form__section-title {
+  margin: 20px 0 8px;
+  font-size: 0.95rem;
+}
+
+.supplier-row {
+  grid-template-columns: minmax(200px, 2fr) minmax(140px, 1fr) auto;
+  align-items: end;
+  margin-bottom: 8px;
+}
+
+.supplier-row__action {
+  align-items: flex-start;
+  padding-bottom: 6px;
+}
+
+.supplier-products {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.supplier-products .badge {
+  margin-left: 6px;
+}
