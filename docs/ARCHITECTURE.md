@@ -203,6 +203,58 @@ Convenciones de este módulo, decididas al implementarlo:
 * **`updatedAt`/historial de ventas intactos**: editar un producto nunca escribe en
   `SaleItem`, cuyos `unitPrice` y `unitCost` son la foto del momento de la venta.
 
+### Endpoints de inventario (HU-08, HU-09, HU-10)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/inventory/counts` | Historial de conteos físicos, del más reciente al más antiguo |
+| `POST` | `/api/inventory/counts` | Registrar conteo físico (HU-10). Responde `201` |
+| `GET` | `/api/inventory/low-stock` | Alertas de stock bajo, calculadas al consultar (HU-08) |
+| `GET` | `/api/inventory/products` | Mínimo de stock y fecha de vencimiento de los productos activos |
+| `PATCH` | `/api/inventory/products/:id/min-stock` | Definir el mínimo de stock; `0` = sin mínimo (HU-08) |
+| `PATCH` | `/api/inventory/products/:id/expiration-date` | Guardar o quitar (`null`) la fecha de vencimiento (HU-09) |
+| `GET` | `/api/inventory/expirations` | Vencidos y próximos a vencer, del más urgente al menos (HU-09) |
+
+Convenciones de este módulo, decididas al implementarlo:
+
+* **Un conteo es un `InventoryMovement`**: tipo `ADJUSTMENT` con `reason = "Conteo físico"`,
+  `stockBefore` = stock del sistema y `stockAfter` = cantidad contada. No hay tabla propia.
+  La API lo publica como `systemStock`, `countedQuantity` y `difference` (contado − sistema).
+* **Se guarda aunque la diferencia sea 0** (`quantity = 0`), para que el historial muestre
+  que el producto se contó y estaba correcto.
+* **El stock y el movimiento se escriben en una sola transacción.**
+* **Solo lectura una vez confirmado**: no existen rutas de edición ni de borrado.
+* **El historial filtra por motivo**, porque los ajustes desde la edición de producto (HU-02)
+  también son `ADJUSTMENT` y no son conteos.
+* **Mínimo y vencimiento se administran desde inventario**, con rutas propias, sin cambiar
+  el formulario ni el contrato de productos. Ninguno de los dos cambia el stock, así que no
+  generan `InventoryMovement`.
+* **Alerta de stock bajo** = producto activo con `minStock > 0` y `stock <= minStock`. Se
+  calcula al consultar (decisión 7): desaparece sola al reponer. El panel la vuelve a pedir
+  cada 15 s y al volver a la pestaña, para cumplir "sin recargar manualmente".
+* **Vencimientos como día, no como instante**: la API usa `YYYY-MM-DD` y "hoy" se calcula en
+  la zona `America/Costa_Rica` (`utils/dates.ts`). Una fecha nueva o cambiada debe ser
+  posterior a hoy; vencido si ya pasó y "próximo a vencer" si faltan menos de 15 días. El
+  reporte de HU-09 se imprime (o guarda como PDF) desde el navegador; el reporte exportable
+  de inventario es HU-27.
+
+### Endpoints de proveedores (HU-21)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/suppliers` | Proveedores con los productos que suministran y su costo |
+| `POST` | `/api/suppliers` | Registrar proveedor con sus productos. Responde `201` |
+| `PATCH` | `/api/suppliers/:id` | Editar proveedor y su lista de productos (cuerpo completo) |
+
+* **Obligatorios**: el nombre (único, sin distinguir mayúsculas), al menos un dato de contacto
+  (teléfono o correo) y al menos un producto activo con su `unitCost`.
+* **Las relaciones nuevas nunca son principales** (`isPreferred = false`): el proveedor
+  principal de un producto se elige en el formulario de productos (HU-01, HU-02), que es el
+  que garantiza que haya uno solo.
+* **No se puede quitar desde proveedores un producto del que el proveedor es principal**
+  (`409`): dejaría al producto sin proveedor principal.
+* **Sin baja de proveedores**: HU-21 no la pide.
+
 ---
 
 ## 5. Base de datos y Prisma

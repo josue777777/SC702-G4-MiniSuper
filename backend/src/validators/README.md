@@ -9,6 +9,8 @@ Un archivo por recurso, mismo nombre que su router:
 | ------------------------------ | ------------------------------------- | ------------- | ------------ |
 | `products.validator.ts`        | cuerpo de POST/PATCH producto y `:id` | HU-01 … HU-03 | implementado |
 | `categories.validator.ts`      | cuerpo de POST/PATCH categoría        | HU-04         | pendiente    |
+| `inventory.validator.ts`       | conteo físico, mínimo y vencimiento   | HU-08 … HU-10 | implementado |
+| `suppliers.validator.ts`       | cuerpo de POST/PATCH proveedor        | HU-21         | implementado |
 | `sales.validator.ts`           | carrito, métodos de pago              | HU-16, HU-17  | pendiente    |
 | `credit-payments.validator.ts` | abonos a fiado                        | HU-19         | pendiente    |
 | `purchase-orders.validator.ts` | pedido a proveedor                    | HU-22, HU-24  | pendiente    |

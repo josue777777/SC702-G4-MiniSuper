@@ -28,7 +28,7 @@ function hasAtMostTwoDecimals(value: number): boolean {
  * dos decimales. Rechaza lo que rompería la columna o el cálculo: cadena vacía,
  * `NaN`, `Infinity`, negativos, más de dos decimales y valores fuera de rango.
  */
-function moneySchema(label: string) {
+export function moneySchema(label: string) {
   return z
     .union([z.number(), z.string()], { error: `${label} es obligatorio.` })
     .transform((value, ctx) => {
