@@ -203,6 +203,25 @@ Convenciones de este módulo, decididas al implementarlo:
 * **`updatedAt`/historial de ventas intactos**: editar un producto nunca escribe en
   `SaleItem`, cuyos `unitPrice` y `unitCost` son la foto del momento de la venta.
 
+### Endpoints de inventario (HU-10)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/inventory/counts` | Historial de conteos físicos, del más reciente al más antiguo |
+| `POST` | `/api/inventory/counts` | Registrar conteo físico (HU-10). Responde `201` |
+
+Convenciones de este módulo, decididas al implementarlo:
+
+* **Un conteo es un `InventoryMovement`**: tipo `ADJUSTMENT` con `reason = "Conteo físico"`,
+  `stockBefore` = stock del sistema y `stockAfter` = cantidad contada. No hay tabla propia.
+  La API lo publica como `systemStock`, `countedQuantity` y `difference` (contado − sistema).
+* **Se guarda aunque la diferencia sea 0** (`quantity = 0`), para que el historial muestre
+  que el producto se contó y estaba correcto.
+* **El stock y el movimiento se escriben en una sola transacción.**
+* **Solo lectura una vez confirmado**: no existen rutas de edición ni de borrado.
+* **El historial filtra por motivo**, porque los ajustes desde la edición de producto (HU-02)
+  también son `ADJUSTMENT` y no son conteos.
+
 ---
 
 ## 5. Base de datos y Prisma
