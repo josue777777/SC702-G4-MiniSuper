@@ -514,3 +514,15 @@ code {
   padding-left: 18px;
   font-size: 0.9rem;
 }
+
+/* Inventario: aviso de "próximo a vencer" (HU-09) y bloques de configuración (HU-08, HU-09) */
+.badge--warning {
+  background: #fef9c3;
+  color: #713f12;
+}
+
+.settings__grid {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}

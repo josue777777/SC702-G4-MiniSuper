@@ -2,15 +2,30 @@ import { InventoryCountForm } from './InventoryCountForm';
 import { InventoryCountHistory } from './InventoryCountHistory';
 import { useInventoryCounts } from './use-inventory-counts';
 
+interface PhysicalCountSectionProps {
+  /** Se llama después de confirmar un conteo, para refrescar otras secciones. */
+  onCountRegistered?: () => void;
+}
+
 /**
  * Sección de conteo físico (HU-10): formulario arriba, historial abajo.
  *
  * Vive como una sección aparte para que `InventoryPage` solo la componga: la
- * misma página recibirá después las historias HU-06 … HU-09.
+ * misma página recibirá también las de HU-06 … HU-09.
  */
-export function PhysicalCountSection() {
+export function PhysicalCountSection({ onCountRegistered }: PhysicalCountSectionProps = {}) {
   const { phase, products, counts, message, notice, busy, reload, registerCount, dismissNotice } =
     useInventoryCounts();
+
+  async function confirmCount(payload: Parameters<typeof registerCount>[0]): Promise<boolean> {
+    const saved = await registerCount(payload);
+
+    if (saved) {
+      onCountRegistered?.();
+    }
+
+    return saved;
+  }
 
   return (
     <>
@@ -45,7 +60,7 @@ export function PhysicalCountSection() {
 
       {phase === 'ready' ? (
         <>
-          <InventoryCountForm products={products} busy={busy} onConfirm={registerCount} />
+          <InventoryCountForm products={products} busy={busy} onConfirm={confirmCount} />
           <InventoryCountHistory counts={counts} />
         </>
       ) : null}

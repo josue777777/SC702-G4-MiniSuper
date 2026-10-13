@@ -1,5 +1,5 @@
 /**
- * Funciones puras de la pantalla de conteo físico (HU-10), sin React.
+ * Funciones puras de la pantalla de inventario (HU-08, HU-09, HU-10), sin React.
  *
  * La validación es de experiencia de usuario: la fuente de verdad sigue siendo
  * el validador del backend, que usa el mismo mensaje para la cantidad negativa.
@@ -50,4 +50,53 @@ export function describeDifference(difference: number): { value: string; text: s
 /** Fecha y hora en la zona horaria de quien mira la pantalla. */
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('es-CR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+/** Fecha de hoy (`YYYY-MM-DD`) en la zona horaria de quien usa la pantalla. */
+export function todayDateOnly(now: Date = new Date()): string {
+  return now.toLocaleDateString('en-CA');
+}
+
+/** Muestra `YYYY-MM-DD` como fecha local corta, sin desfase de zona horaria. */
+export function formatDateOnly(value: string): string {
+  const [year, month, day] = value.split('-').map(Number);
+
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1).toLocaleDateString('es-CR', {
+    dateStyle: 'medium',
+  });
+}
+
+/** Texto del estado de un vencimiento (HU-09). */
+export function describeExpiration(daysLeft: number): string {
+  if (daysLeft < 0) {
+    const days = Math.abs(daysLeft);
+    return `Vencido hace ${days} día${days === 1 ? '' : 's'}`;
+  }
+
+  if (daysLeft === 0) {
+    return 'Vence hoy';
+  }
+
+  return `Próximo a vencer: ${daysLeft} día${daysLeft === 1 ? '' : 's'}`;
+}
+
+/** Valida el mínimo escrito a mano (HU-08). */
+export function parseMinStock(
+  value: string,
+): { ok: true; quantity: number } | { ok: false; error: string } {
+  const trimmed = value.trim();
+
+  if (trimmed === '') {
+    return { ok: false, error: 'Escriba el stock mínimo (0 si no quiere alertas).' };
+  }
+
+  if (!/^-?\d+$/.test(trimmed)) {
+    return { ok: false, error: 'El stock mínimo debe ser un número entero.' };
+  }
+
+  const quantity = Number(trimmed);
+
+  return quantity < 0
+    ? { ok: false, error: 'El stock mínimo no puede ser negativo.' }
+    : { ok: true, quantity };
 }

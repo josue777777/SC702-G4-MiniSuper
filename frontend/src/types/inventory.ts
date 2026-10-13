@@ -40,3 +40,27 @@ export interface LowStockAlert {
   stock: number;
   minStock: number;
 }
+
+/** Mínimo de stock (HU-08) y vencimiento (HU-09) de un producto activo. */
+export interface ProductStockSettings {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  /** 0 = sin mínimo definido. */
+  minStock: number;
+  /** `YYYY-MM-DD`, o `null` si el producto no vence. */
+  expirationDate: string | null;
+}
+
+/** Producto vencido o próximo a vencer (HU-09). */
+export interface ExpirationAlert {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  expirationDate: string;
+  /** Negativo si ya venció; 0 si vence hoy. */
+  daysLeft: number;
+  status: 'EXPIRED' | 'EXPIRING_SOON';
+}
