@@ -15,9 +15,13 @@ interface DataResponse<T> {
 }
 
 export const productsService = {
-  /** Catálogo completo (activos e inactivos) para administrarlo. */
-  async list(): Promise<Product[]> {
-    const response = await apiGet<DataResponse<Product[]>>('/api/products');
+  /**
+   * Catálogo para administrarlo. Sin `categoryId` trae activos e inactivos; con
+   * `categoryId` el backend devuelve solo los activos de esa categoría.
+   */
+  async list(categoryId?: string): Promise<Product[]> {
+    const query = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : '';
+    const response = await apiGet<DataResponse<Product[]>>(`/api/products${query}`);
 
     return response.data;
   },

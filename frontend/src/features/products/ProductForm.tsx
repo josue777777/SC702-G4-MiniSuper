@@ -86,7 +86,7 @@ export function ProductForm({
       {missingOptions ? (
         <p className="alert alert--warning">
           Para guardar un producto primero deben existir datos de apoyo.
-          {missingCategories ? ' Todavía no hay categorías activas (se crean en HU-04).' : ''}
+          {missingCategories ? ' Todavía no hay categorías activas: cree una con la opción «+ Nueva categoría» del selector de categoría de la barra superior.' : ''}
           {missingSuppliers ? ' Todavía no hay proveedores activos.' : ''}
         </p>
       ) : null}
