@@ -1,5 +1,6 @@
 import { BackendStatusCard } from '../components/BackendStatusCard';
 import { PagePlaceholder } from '../components/PagePlaceholder';
+import { ExpirationAlertsCard } from '../features/inventory/ExpirationAlertsCard';
 import { LowStockAlertsCard } from '../features/inventory/LowStockAlertsCard';
 
 /**
@@ -22,12 +23,14 @@ export function DashboardPage() {
       {/* HU-08: alertas de stock bajo. */}
       <LowStockAlertsCard />
 
+      {/* HU-09: vencidos y próximos a vencer. */}
+      <ExpirationAlertsCard />
+
       <PagePlaceholder
         title="Alertas del panel"
         summary="Listas rápidas de lo que necesita atención hoy."
-        stories="HU-09, HU-20, HU-23"
+        stories="HU-20, HU-23"
         tasks={[
-          'Productos próximos a vencer según la fecha configurada (HU-09).',
           'Total vendido hoy, con ventas cobradas y venta a crédito (HU-20).',
           'Pedido sugerido a partir de los productos con stock bajo (HU-23).',
         ]}
