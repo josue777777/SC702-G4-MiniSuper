@@ -100,3 +100,38 @@ describe('Un conteo confirmado no se puede editar ni borrar', () => {
     }
   });
 });
+
+describe('GET /api/inventory/low-stock (HU-08)', () => {
+  it('responde 200 con las alertas calculadas dentro de data', async () => {
+    const { app } = buildApp(
+      new FakeInventoryRepository([
+        { id: COUNT_PRODUCT_ID, code: 'P001', name: 'Café molido 500 g', stock: 2, minStock: 5 },
+        { id: MISSING_PRODUCT_ID, code: 'P002', name: 'Arroz 1 kg', stock: 30, minStock: 5 },
+      ]),
+    );
+
+    const response = await request(app).get('/api/inventory/low-stock');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      data: [
+        {
+          productId: COUNT_PRODUCT_ID,
+          productCode: 'P001',
+          productName: 'Café molido 500 g',
+          stock: 2,
+          minStock: 5,
+        },
+      ],
+    });
+  });
+
+  it('responde una lista vacía cuando no hay productos con stock bajo', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get('/api/inventory/low-stock');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: [] });
+  });
+});

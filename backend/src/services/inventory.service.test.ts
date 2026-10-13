@@ -5,7 +5,7 @@ import {
   MISSING_PRODUCT_ID,
 } from '../testing/inventory.repository.fake.js';
 import { HttpError } from '../utils/http-error.js';
-import { InventoryService, PHYSICAL_COUNT_REASON } from './inventory.service.js';
+import { InventoryService, isLowStock, PHYSICAL_COUNT_REASON } from './inventory.service.js';
 
 /**
  * Reglas de negocio del conteo de inventario físico (HU-10), probadas con el
@@ -103,5 +103,61 @@ describe('InventoryService.listCounts', () => {
     const second = await service.registerCount({ productId: COUNT_PRODUCT_ID, countedQuantity: 7 });
 
     expect(await service.listCounts()).toEqual([second, first]);
+  });
+});
+
+describe('isLowStock (HU-08)', () => {
+  it('alerta cuando el stock llega al mínimo o baja de él', () => {
+    expect(isLowStock(5, 5)).toBe(true);
+    expect(isLowStock(2, 5)).toBe(true);
+  });
+
+  it('no alerta cuando el stock está por encima del mínimo', () => {
+    expect(isLowStock(6, 5)).toBe(false);
+  });
+
+  it('no genera alertas falsas si el producto no tiene mínimo definido', () => {
+    expect(isLowStock(0, 0)).toBe(false);
+  });
+});
+
+describe('InventoryService.listLowStockAlerts (HU-08)', () => {
+  function serviceWith(products: ConstructorParameters<typeof FakeInventoryRepository>[0]) {
+    const repository = new FakeInventoryRepository(products);
+
+    return { repository, service: new InventoryService(repository) };
+  }
+
+  it('devuelve solo los productos activos con stock igual o menor al mínimo', async () => {
+    const { service } = serviceWith([
+      { id: 'a', code: 'A', name: 'Arroz', stock: 3, minStock: 5 },
+      { id: 'b', code: 'B', name: 'Café', stock: 5, minStock: 5 },
+      { id: 'c', code: 'C', name: 'Frijoles', stock: 9, minStock: 5 },
+      { id: 'd', code: 'D', name: 'Sal', stock: 0 },
+      { id: 'e', code: 'E', name: 'Té', stock: 1, minStock: 5, isActive: false },
+    ]);
+
+    const alerts = await service.listLowStockAlerts();
+
+    expect(alerts.map((alert) => alert.productCode)).toEqual(['A', 'B']);
+    expect(alerts[0]).toEqual({
+      productId: 'a',
+      productCode: 'A',
+      productName: 'Arroz',
+      stock: 3,
+      minStock: 5,
+    });
+  });
+
+  it('la alerta desaparece al reponer el stock con un conteo físico', async () => {
+    const { service } = serviceWith([
+      { id: COUNT_PRODUCT_ID, code: 'P001', name: 'Café molido 500 g', stock: 2, minStock: 5 },
+    ]);
+
+    expect(await service.listLowStockAlerts()).toHaveLength(1);
+
+    await service.registerCount({ productId: COUNT_PRODUCT_ID, countedQuantity: 20 });
+
+    expect(await service.listLowStockAlerts()).toEqual([]);
   });
 });

@@ -1,5 +1,9 @@
 import type { InventoryRepository } from '../repositories/inventory.repository.js';
-import type { CreateInventoryCountPlan, InventoryCountDto } from '../types/inventory.js';
+import type {
+  CreateInventoryCountPlan,
+  InventoryCountDto,
+  StockLevel,
+} from '../types/inventory.js';
 
 /**
  * Doble de repositorio del módulo de inventario (HU-10), compartido por los tests.
@@ -19,6 +23,10 @@ export interface FakeCountProduct {
   code: string;
   name: string;
   stock: number;
+  /** Mínimo de stock (HU-08); si se omite, 0 = sin mínimo. */
+  minStock?: number;
+  /** Si se omite, el producto está activo. */
+  isActive?: boolean;
 }
 
 /** Movimiento guardado en el doble, con su motivo para poder filtrar. */
@@ -86,6 +94,20 @@ export class FakeInventoryRepository implements InventoryRepository {
         .filter((movement) => movement.reason === reason)
         .map((movement) => movement.count)
         .reverse(),
+    );
+  }
+
+  listStockLevels(): Promise<StockLevel[]> {
+    return Promise.resolve(
+      this.products
+        .filter((product) => product.isActive !== false)
+        .map((product) => ({
+          productId: product.id,
+          productCode: product.code,
+          productName: product.name,
+          stock: product.stock,
+          minStock: product.minStock ?? 0,
+        })),
     );
   }
 }
