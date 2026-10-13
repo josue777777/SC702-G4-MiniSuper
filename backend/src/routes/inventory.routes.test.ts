@@ -135,3 +135,92 @@ describe('GET /api/inventory/low-stock (HU-08)', () => {
     expect(response.body).toEqual({ data: [] });
   });
 });
+
+describe('Configuración de inventario por producto (HU-08, HU-09)', () => {
+  const TODAY = '2026-10-13';
+
+  function buildConfigApp() {
+    const repository = new FakeInventoryRepository();
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/inventory',
+      createInventoryRouter(repository, () => TODAY),
+    );
+    app.use(errorHandler);
+
+    return app;
+  }
+
+  it('GET /products responde 200 con mínimo y vencimiento', async () => {
+    const response = await request(buildConfigApp()).get('/api/inventory/products');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data[0]).toMatchObject({
+      productId: COUNT_PRODUCT_ID,
+      minStock: 0,
+      expirationDate: null,
+    });
+  });
+
+  it('PATCH /products/:id/min-stock guarda el mínimo y rechaza negativos', async () => {
+    const app = buildConfigApp();
+
+    const ok = await request(app)
+      .patch(`/api/inventory/products/${COUNT_PRODUCT_ID}/min-stock`)
+      .send({ minStock: 4 });
+    const bad = await request(app)
+      .patch(`/api/inventory/products/${COUNT_PRODUCT_ID}/min-stock`)
+      .send({ minStock: -4 });
+
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.minStock).toBe(4);
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.details).toEqual({
+      minStock: ['El stock mínimo no puede ser negativo.'],
+    });
+  });
+
+  it('PATCH /products/:id/expiration-date acepta futura o null y rechaza pasada', async () => {
+    const app = buildConfigApp();
+    const url = `/api/inventory/products/${COUNT_PRODUCT_ID}/expiration-date`;
+
+    const future = await request(app).patch(url).send({ expirationDate: '2026-11-01' });
+    const past = await request(app).patch(url).send({ expirationDate: '2026-01-01' });
+    const empty = await request(app).patch(url).send({ expirationDate: null });
+
+    expect(future.status).toBe(200);
+    expect(past.status).toBe(400);
+    expect(past.body.error.details).toEqual({
+      expirationDate: ['La fecha de vencimiento debe ser posterior a hoy.'],
+    });
+    expect(empty.status).toBe(200);
+    expect(empty.body.data.expirationDate).toBeNull();
+  });
+
+  it('PATCH sobre un producto inexistente responde 404', async () => {
+    const response = await request(buildConfigApp())
+      .patch(`/api/inventory/products/${MISSING_PRODUCT_ID}/min-stock`)
+      .send({ minStock: 1 });
+
+    expect(response.status).toBe(404);
+  });
+
+  it('GET /expirations responde 200 con los próximos a vencer', async () => {
+    const app = buildConfigApp();
+    await request(app)
+      .patch(`/api/inventory/products/${COUNT_PRODUCT_ID}/expiration-date`)
+      .send({ expirationDate: '2026-10-20' });
+
+    const response = await request(app).get('/api/inventory/expirations');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual([
+      expect.objectContaining({
+        productId: COUNT_PRODUCT_ID,
+        daysLeft: 7,
+        status: 'EXPIRING_SOON',
+      }),
+    ]);
+  });
+});

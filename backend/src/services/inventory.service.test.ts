@@ -5,7 +5,12 @@ import {
   MISSING_PRODUCT_ID,
 } from '../testing/inventory.repository.fake.js';
 import { HttpError } from '../utils/http-error.js';
-import { InventoryService, isLowStock, PHYSICAL_COUNT_REASON } from './inventory.service.js';
+import {
+  classifyExpiration,
+  InventoryService,
+  isLowStock,
+  PHYSICAL_COUNT_REASON,
+} from './inventory.service.js';
 
 /**
  * Reglas de negocio del conteo de inventario físico (HU-10), probadas con el
@@ -159,5 +164,142 @@ describe('InventoryService.listLowStockAlerts (HU-08)', () => {
     await service.registerCount({ productId: COUNT_PRODUCT_ID, countedQuantity: 20 });
 
     expect(await service.listLowStockAlerts()).toEqual([]);
+  });
+});
+
+/** Día fijo para las pruebas de vencimiento. */
+const TODAY = '2026-10-13';
+
+describe('InventoryService.updateMinStock (HU-08)', () => {
+  it('define el mínimo y hace aparecer la alerta si el stock ya está en ese nivel', async () => {
+    const { service } = setup();
+
+    const settings = await service.updateMinStock(COUNT_PRODUCT_ID, { minStock: 10 });
+
+    expect(settings.minStock).toBe(10);
+    expect(await service.listLowStockAlerts()).toHaveLength(1);
+  });
+
+  it('con mínimo 0 deja de alertar', async () => {
+    const { service } = setup();
+    await service.updateMinStock(COUNT_PRODUCT_ID, { minStock: 10 });
+
+    await service.updateMinStock(COUNT_PRODUCT_ID, { minStock: 0 });
+
+    expect(await service.listLowStockAlerts()).toEqual([]);
+  });
+
+  it('responde 404 si el producto no existe', async () => {
+    const { service } = setup();
+
+    await expect(service.updateMinStock(MISSING_PRODUCT_ID, { minStock: 3 })).rejects.toMatchObject(
+      { statusCode: 404 },
+    );
+  });
+});
+
+describe('classifyExpiration (HU-09)', () => {
+  it('marca vencido, próximo a vencer (menos de 15 días) o nada', () => {
+    expect(classifyExpiration(-1)).toBe('EXPIRED');
+    expect(classifyExpiration(0)).toBe('EXPIRING_SOON');
+    expect(classifyExpiration(14)).toBe('EXPIRING_SOON');
+    expect(classifyExpiration(15)).toBeNull();
+  });
+});
+
+describe('InventoryService.updateExpirationDate (HU-09)', () => {
+  function serviceAtToday(expirationDate: string | null = null) {
+    const repository = new FakeInventoryRepository([
+      { id: COUNT_PRODUCT_ID, code: 'P001', name: 'Leche 1 L', stock: 10, expirationDate },
+    ]);
+
+    return { repository, service: new InventoryService(repository, () => TODAY) };
+  }
+
+  it('guarda una fecha futura', async () => {
+    const { service } = serviceAtToday();
+
+    const settings = await service.updateExpirationDate(COUNT_PRODUCT_ID, {
+      expirationDate: '2026-11-01',
+    });
+
+    expect(settings.expirationDate).toBe('2026-11-01');
+  });
+
+  it('rechaza con 400 una fecha de hoy o pasada', async () => {
+    const { service } = serviceAtToday();
+
+    for (const expirationDate of [TODAY, '2026-10-01']) {
+      await expect(
+        service.updateExpirationDate(COUNT_PRODUCT_ID, { expirationDate }),
+      ).rejects.toMatchObject({ statusCode: 400 });
+    }
+  });
+
+  it('permite dejar el campo vacío (null) sin error', async () => {
+    const { service } = serviceAtToday('2026-11-01');
+
+    const settings = await service.updateExpirationDate(COUNT_PRODUCT_ID, { expirationDate: null });
+
+    expect(settings.expirationDate).toBeNull();
+  });
+
+  it('acepta volver a guardar la misma fecha aunque ya haya pasado', async () => {
+    const { service } = serviceAtToday('2026-10-01');
+
+    await expect(
+      service.updateExpirationDate(COUNT_PRODUCT_ID, { expirationDate: '2026-10-01' }),
+    ).resolves.toMatchObject({ expirationDate: '2026-10-01' });
+  });
+
+  it('responde 404 si el producto no existe', async () => {
+    const { service } = serviceAtToday();
+
+    await expect(
+      service.updateExpirationDate(MISSING_PRODUCT_ID, { expirationDate: '2026-11-01' }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe('InventoryService.listExpirations (HU-09)', () => {
+  it('lista vencidos y próximos a vencer, del más urgente al menos urgente', async () => {
+    const repository = new FakeInventoryRepository([
+      { id: 'a', code: 'A', name: 'Yogur', stock: 4, expirationDate: '2026-10-20' },
+      { id: 'b', code: 'B', name: 'Pan', stock: 2, expirationDate: '2026-10-10' },
+      { id: 'c', code: 'C', name: 'Atún', stock: 9, expirationDate: '2027-05-01' },
+      { id: 'd', code: 'D', name: 'Sal', stock: 7 },
+      {
+        id: 'e',
+        code: 'E',
+        name: 'Queso',
+        stock: 1,
+        expirationDate: '2026-10-12',
+        isActive: false,
+      },
+    ]);
+    const service = new InventoryService(repository, () => TODAY);
+
+    const alerts = await service.listExpirations();
+
+    expect(alerts).toEqual([
+      {
+        productId: 'b',
+        productCode: 'B',
+        productName: 'Pan',
+        stock: 2,
+        expirationDate: '2026-10-10',
+        daysLeft: -3,
+        status: 'EXPIRED',
+      },
+      {
+        productId: 'a',
+        productCode: 'A',
+        productName: 'Yogur',
+        stock: 4,
+        expirationDate: '2026-10-20',
+        daysLeft: 7,
+        status: 'EXPIRING_SOON',
+      },
+    ]);
   });
 });

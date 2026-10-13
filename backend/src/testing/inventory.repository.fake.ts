@@ -2,6 +2,7 @@ import type { InventoryRepository } from '../repositories/inventory.repository.j
 import type {
   CreateInventoryCountPlan,
   InventoryCountDto,
+  ProductStockSettingsDto,
   StockLevel,
 } from '../types/inventory.js';
 
@@ -27,6 +28,8 @@ export interface FakeCountProduct {
   minStock?: number;
   /** Si se omite, el producto está activo. */
   isActive?: boolean;
+  /** `YYYY-MM-DD` (HU-09); si se omite, el producto no vence. */
+  expirationDate?: string | null;
 }
 
 /** Movimiento guardado en el doble, con su motivo para poder filtrar. */
@@ -109,5 +112,57 @@ export class FakeInventoryRepository implements InventoryRepository {
           minStock: product.minStock ?? 0,
         })),
     );
+  }
+
+  private toSettings(product: FakeCountProduct): ProductStockSettingsDto {
+    return {
+      productId: product.id,
+      productCode: product.code,
+      productName: product.name,
+      stock: product.stock,
+      minStock: product.minStock ?? 0,
+      expirationDate: product.expirationDate ?? null,
+    };
+  }
+
+  private findOrFail(productId: string): FakeCountProduct {
+    const product = this.products.find((candidate) => candidate.id === productId);
+
+    if (product === undefined) {
+      throw new Error(`El doble no tiene un producto con id ${productId}.`);
+    }
+
+    return product;
+  }
+
+  listProductSettings(): Promise<ProductStockSettingsDto[]> {
+    return Promise.resolve(
+      this.products
+        .filter((product) => product.isActive !== false)
+        .map((product) => this.toSettings(product)),
+    );
+  }
+
+  findProductSettings(productId: string): Promise<ProductStockSettingsDto | null> {
+    const product = this.products.find((candidate) => candidate.id === productId);
+
+    return Promise.resolve(product === undefined ? null : this.toSettings(product));
+  }
+
+  updateMinStock(productId: string, minStock: number): Promise<ProductStockSettingsDto> {
+    const product = this.findOrFail(productId);
+    product.minStock = minStock;
+
+    return Promise.resolve(this.toSettings(product));
+  }
+
+  updateExpirationDate(
+    productId: string,
+    expirationDate: string | null,
+  ): Promise<ProductStockSettingsDto> {
+    const product = this.findOrFail(productId);
+    product.expirationDate = expirationDate;
+
+    return Promise.resolve(this.toSettings(product));
   }
 }

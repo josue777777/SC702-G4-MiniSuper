@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createInventoryCountSchema } from './inventory.validator.js';
+import {
+  createInventoryCountSchema,
+  updateExpirationDateSchema,
+  updateMinStockSchema,
+} from './inventory.validator.js';
 
 /**
  * Pruebas del esquema Zod del conteo de inventario físico (HU-10).
@@ -51,5 +55,41 @@ describe('createInventoryCountSchema', () => {
     expect(issueMessages({ productId: 'abc', countedQuantity: 8 })).toEqual([
       'Debe seleccionar un producto.',
     ]);
+  });
+});
+
+describe('updateMinStockSchema (HU-08)', () => {
+  it('acepta un entero mayor o igual a 0 (0 = sin mínimo)', () => {
+    expect(updateMinStockSchema.parse({ minStock: 5 })).toEqual({ minStock: 5 });
+    expect(updateMinStockSchema.parse({ minStock: 0 })).toEqual({ minStock: 0 });
+  });
+
+  it('rechaza negativos, decimales y texto', () => {
+    expect(updateMinStockSchema.safeParse({ minStock: -1 }).success).toBe(false);
+    expect(updateMinStockSchema.safeParse({ minStock: 1.5 }).success).toBe(false);
+    expect(updateMinStockSchema.safeParse({ minStock: '5' }).success).toBe(false);
+  });
+});
+
+describe('updateExpirationDateSchema (HU-09)', () => {
+  it('acepta una fecha AAAA-MM-DD', () => {
+    expect(updateExpirationDateSchema.parse({ expirationDate: '2026-12-31' })).toEqual({
+      expirationDate: '2026-12-31',
+    });
+  });
+
+  it('acepta null: el campo es opcional para productos que no vencen', () => {
+    expect(updateExpirationDateSchema.parse({ expirationDate: null })).toEqual({
+      expirationDate: null,
+    });
+  });
+
+  it('rechaza formatos y fechas inválidas', () => {
+    expect(updateExpirationDateSchema.safeParse({ expirationDate: '31/12/2026' }).success).toBe(
+      false,
+    );
+    expect(updateExpirationDateSchema.safeParse({ expirationDate: '2026-02-30' }).success).toBe(
+      false,
+    );
   });
 });
