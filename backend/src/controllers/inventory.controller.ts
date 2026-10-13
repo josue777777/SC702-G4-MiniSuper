@@ -16,6 +16,11 @@ export class InventoryController {
     res.status(200).json({ data: await this.service.listCounts() });
   }
 
+  /** `GET /api/inventory/low-stock` — alertas de stock bajo (HU-08). */
+  async listLowStock(_req: Request, res: Response): Promise<void> {
+    res.status(200).json({ data: await this.service.listLowStockAlerts() });
+  }
+
   /** `POST /api/inventory/counts` — registrar conteo físico (HU-10). */
   async createCount(req: Request, res: Response): Promise<void> {
     const input = createInventoryCountSchema.parse(req.body);

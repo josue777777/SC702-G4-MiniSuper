@@ -35,6 +35,25 @@ export interface InventoryCountDto {
   createdAt: string;
 }
 
+/**
+ * Producto activo con su stock y su mínimo, tal como lo lee el repositorio para
+ * que el service decida si corresponde una alerta de stock bajo (HU-08).
+ */
+export interface StockLevel {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  /** 0 significa "sin mínimo definido": nunca genera alerta. */
+  minStock: number;
+}
+
+/**
+ * Alerta de stock bajo (HU-08). No se guarda en la base: se calcula en cada
+ * consulta (decisión 7 de ARCHITECTURE.md), así desaparece sola al reponer.
+ */
+export type LowStockAlertDto = StockLevel;
+
 /** Trabajo que el service encarga al repositorio al confirmar un conteo. */
 export interface CreateInventoryCountPlan {
   productId: string;

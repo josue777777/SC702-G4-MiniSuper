@@ -1,5 +1,5 @@
 import type { InventoryRepository } from '../repositories/inventory.repository.js';
-import type { InventoryCountDto } from '../types/inventory.js';
+import type { InventoryCountDto, LowStockAlertDto } from '../types/inventory.js';
 import type { InventoryMovementPlan } from '../types/products.js';
 import { HttpError } from '../utils/http-error.js';
 import type { CreateInventoryCountInput } from '../validators/inventory.validator.js';
@@ -25,6 +25,15 @@ export function buildCountAdjustment(
     stockAfter: countedQuantity,
     reason: PHYSICAL_COUNT_REASON,
   };
+}
+
+/**
+ * `true` si el producto necesita reponerse (HU-08): el stock llegó al mínimo o
+ * bajó de él. Un mínimo de 0 significa que el dueño no lo definió, y entonces
+ * nunca hay alerta (evita alertas falsas en productos sin mínimo).
+ */
+export function isLowStock(stock: number, minStock: number): boolean {
+  return minStock > 0 && stock <= minStock;
 }
 
 /**
@@ -59,5 +68,16 @@ export class InventoryService {
   /** Historial de conteos confirmados, del más reciente al más antiguo. */
   async listCounts(): Promise<InventoryCountDto[]> {
     return this.repository.listCounts(PHYSICAL_COUNT_REASON);
+  }
+
+  /**
+   * HU-08 — alertas de stock bajo, calculadas al momento de consultar. Como no
+   * se guardan, la alerta desaparece en cuanto el stock vuelve a superar el
+   * mínimo (por un conteo, una edición o, más adelante, una compra).
+   */
+  async listLowStockAlerts(): Promise<LowStockAlertDto[]> {
+    const levels = await this.repository.listStockLevels();
+
+    return levels.filter((level) => isLowStock(level.stock, level.minStock));
   }
 }

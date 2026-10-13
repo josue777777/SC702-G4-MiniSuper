@@ -1,5 +1,9 @@
 import { prisma } from '../config/prisma.js';
-import type { CreateInventoryCountPlan, InventoryCountDto } from '../types/inventory.js';
+import type {
+  CreateInventoryCountPlan,
+  InventoryCountDto,
+  StockLevel,
+} from '../types/inventory.js';
 
 /** Fila de movimiento tal como la devuelve `countSelection`. */
 interface CountRow {
@@ -91,5 +95,26 @@ export class InventoryRepository {
     });
 
     return rows.map(toInventoryCountDto);
+  }
+
+  /**
+   * Stock y mínimo de los productos activos (HU-08). Un producto desactivado ya
+   * no se repone, así que no debe generar alertas. Si el stock está por debajo
+   * del mínimo lo decide el service.
+   */
+  async listStockLevels(): Promise<StockLevel[]> {
+    const rows = await prisma.product.findMany({
+      where: { isActive: true },
+      select: { id: true, code: true, name: true, stock: true, minStock: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return rows.map((row) => ({
+      productId: row.id,
+      productCode: row.code,
+      productName: row.name,
+      stock: row.stock,
+      minStock: row.minStock,
+    }));
   }
 }

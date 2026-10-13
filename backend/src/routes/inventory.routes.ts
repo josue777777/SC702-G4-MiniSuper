@@ -21,6 +21,9 @@ export function createInventoryRouter(repository: InventoryRepository): Router {
    */
   router.post('/counts', (req, res) => inventoryController.createCount(req, res));
 
+  /** Alertas de stock bajo para el panel principal (HU-08). */
+  router.get('/low-stock', (req, res) => inventoryController.listLowStock(req, res));
+
   return router;
 }
 
