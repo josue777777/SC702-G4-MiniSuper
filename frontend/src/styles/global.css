@@ -561,3 +561,29 @@ code {
     display: none;
   }
 }
+
+/* Proveedores (HU-21): filas de productos del formulario y lista en la tabla */
+.form__section-title {
+  margin: 20px 0 8px;
+  font-size: 0.95rem;
+}
+
+.supplier-row {
+  grid-template-columns: minmax(200px, 2fr) minmax(140px, 1fr) auto;
+  align-items: end;
+  margin-bottom: 8px;
+}
+
+.supplier-row__action {
+  align-items: flex-start;
+  padding-bottom: 6px;
+}
+
+.supplier-products {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.supplier-products .badge {
+  margin-left: 6px;
+}
