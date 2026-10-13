@@ -28,3 +28,15 @@ export interface InventoryCountPayload {
   /** Entero mayor o igual a 0; el backend rechaza los negativos. */
   countedQuantity: number;
 }
+
+/**
+ * Alerta de stock bajo (HU-08): producto activo cuyo stock llegó a su mínimo o
+ * bajó de él. No se guarda en la base; el backend la calcula en cada consulta.
+ */
+export interface LowStockAlert {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  minStock: number;
+}

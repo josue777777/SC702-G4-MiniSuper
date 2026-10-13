@@ -1,4 +1,4 @@
-import type { InventoryCount, InventoryCountPayload } from '../types/inventory';
+import type { InventoryCount, InventoryCountPayload, LowStockAlert } from '../types/inventory';
 import { apiGet, apiPost } from './api-client';
 
 /**
@@ -13,6 +13,13 @@ export const inventoryService = {
   /** Historial de conteos físicos, del más reciente al más antiguo. */
   async listCounts(): Promise<InventoryCount[]> {
     const response = await apiGet<DataResponse<InventoryCount[]>>('/api/inventory/counts');
+
+    return response.data;
+  },
+
+  /** HU-08: productos con stock igual o menor a su mínimo. */
+  async listLowStock(): Promise<LowStockAlert[]> {
+    const response = await apiGet<DataResponse<LowStockAlert[]>>('/api/inventory/low-stock');
 
     return response.data;
   },
