@@ -63,6 +63,11 @@ export interface ProductDto {
 /** Criterios con los que el service le pide al repositorio el listado. */
 export interface ProductListFilter {
   categoryId?: string;
+  /**
+   * Búsqueda de HU-05: coincide con un fragmento del nombre o del código, en
+   * ambos casos sin distinguir mayúsculas de minúsculas.
+   */
+  search?: string;
   /** Si es `true`, excluye los productos inactivos. */
   activeOnly?: boolean;
 }

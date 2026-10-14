@@ -74,12 +74,18 @@ export class FakeProductsRepository implements ProductsRepository {
     this.suppliers = [...(state.suppliers ?? [{ id: SUPPLIER_ID, name: 'Distribuidora Central' }])];
   }
 
+  /** Imita el `where` de Prisma, incluida la búsqueda sin distinguir mayúsculas (HU-05). */
   list(filter: ProductListFilter = {}): Promise<ProductDto[]> {
+    const search = filter.search?.toLowerCase();
+
     return Promise.resolve(
       this.products.filter(
         (product) =>
           (filter.categoryId === undefined || product.categoryId === filter.categoryId) &&
-          (filter.activeOnly !== true || product.isActive),
+          (filter.activeOnly !== true || product.isActive) &&
+          (search === undefined ||
+            product.name.toLowerCase().includes(search) ||
+            product.code.toLowerCase().includes(search)),
       ),
     );
   }
