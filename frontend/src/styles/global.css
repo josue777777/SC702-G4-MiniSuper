@@ -587,3 +587,30 @@ code {
 .supplier-products .badge {
   margin-left: 6px;
 }
+
+/* Pedidos a proveedor (HU-22, HU-24): cantidades del formulario y datos del pedido */
+.order-quantity {
+  width: 90px;
+  text-align: right;
+}
+
+.order-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 20px;
+  margin: 0 0 16px;
+}
+
+.order-meta dt {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.order-meta dd {
+  margin: 2px 0 0;
+}
+
+/* `.table th/td` alinea a la izquierda y es más específica que `.table__number` */
+.order-table .table__number {
+  text-align: right;
+}
