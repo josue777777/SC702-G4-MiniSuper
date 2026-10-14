@@ -64,6 +64,7 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
       status: 'PENDING',
       total: plan.total,
       itemCount: plan.items.length,
+      productNames: plan.items.map((item) => PRODUCTS[item.productId]?.name ?? '?').sort(),
       notes: plan.notes,
       // Fechas crecientes para que el orden del historial sea predecible.
       createdAt: new Date(Date.UTC(2026, 9, 14, 12, this.sequence)).toISOString(),
@@ -85,14 +86,15 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
     return Promise.resolve(
       this.orders
         .filter((order) => supplierId === undefined || order.supplierId === supplierId)
-        .map(({ id, supplierId: sid, supplierName, status, total, itemCount, createdAt }) => ({
-          id,
-          supplierId: sid,
-          supplierName,
-          status,
-          total,
-          itemCount,
-          createdAt,
+        .map((order) => ({
+          id: order.id,
+          supplierId: order.supplierId,
+          supplierName: order.supplierName,
+          status: order.status,
+          total: order.total,
+          itemCount: order.itemCount,
+          productNames: order.productNames,
+          createdAt: order.createdAt,
         }))
         .reverse(),
     );

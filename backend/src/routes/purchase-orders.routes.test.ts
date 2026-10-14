@@ -60,6 +60,14 @@ describe('GET /api/purchase-orders (HU-22)', () => {
 
     expect(mine.status).toBe(200);
     expect(mine.body.data).toHaveLength(1);
+    // Cada fila trae lo que pide el historial: fecha, productos, costo y proveedor.
+    expect(mine.body.data[0]).toMatchObject({
+      supplierName: 'Distribuidora Central',
+      total: '1000.50',
+      itemCount: 1,
+      productNames: ['Café molido 500 g'],
+    });
+    expect(mine.body.data[0].createdAt).toEqual(expect.any(String));
     expect(other.body).toEqual({ data: [] });
   });
 

@@ -28,6 +28,8 @@ export interface PurchaseOrderSummaryDto {
   status: PurchaseOrderStatus;
   total: MoneyString;
   itemCount: number;
+  /** Nombres de los productos del pedido, en orden alfabético. */
+  productNames: string[];
   /** Fecha y hora del pedido, ISO 8601. */
   createdAt: string;
 }

@@ -15,7 +15,7 @@ const summarySelection = {
   total: true,
   createdAt: true,
   supplier: { select: { id: true, name: true } },
-  _count: { select: { items: true } },
+  items: { select: { product: { select: { name: true } } }, orderBy: { product: { name: 'asc' } } },
 } as const;
 
 /** Columnas del detalle y del PDF (HU-24). */
@@ -43,7 +43,7 @@ interface SummaryRow {
   total: Money;
   createdAt: Date;
   supplier: { id: string; name: string };
-  _count: { items: number };
+  items: { product: { name: string } }[];
 }
 
 interface DetailRow {
@@ -68,7 +68,8 @@ function toSummaryDto(row: SummaryRow): PurchaseOrderSummaryDto {
     supplierName: row.supplier.name,
     status: row.status,
     total: row.total.toFixed(2),
-    itemCount: row._count.items,
+    itemCount: row.items.length,
+    productNames: row.items.map((item) => item.product.name),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -83,6 +84,7 @@ function toDetailDto(row: DetailRow): PurchaseOrderDto {
     status: row.status,
     total: row.total.toFixed(2),
     itemCount: row.items.length,
+    productNames: row.items.map((item) => item.product.name),
     notes: row.notes,
     createdAt: row.createdAt.toISOString(),
     items: row.items.map((item) => {
