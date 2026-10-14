@@ -176,7 +176,7 @@ repository → Prisma`. Responde `200` si la base responde y `503` si no.
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| `GET` | `/api/products` | Catálogo completo (activos e inactivos) para administrarlo |
+| `GET` | `/api/products` | Catálogo completo (activos e inactivos) para administrarlo. Con `?categoryId=<uuid>` y/o `?q=<texto>` (HU-05: fragmento del nombre o del código, sin distinguir mayúsculas) devuelve solo los **activos** que cumplen todos los filtros |
 | `GET` | `/api/products/form-options` | Categorías y proveedores **activos** para los `<select>` del formulario |
 | `POST` | `/api/products` | Registrar producto (HU-01). Responde `201` |
 | `PATCH` | `/api/products/:id` | Editar producto (HU-02) |

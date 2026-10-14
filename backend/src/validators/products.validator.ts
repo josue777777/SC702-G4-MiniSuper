@@ -109,9 +109,21 @@ export const createProductSchema = z.object({
  */
 export const updateProductSchema = createProductSchema;
 
-/** Query de `GET /api/products`: `categoryId` es opcional y, si viene, debe ser un UUID. */
+/**
+ * Query de `GET /api/products`.
+ *
+ * - `categoryId`: opcional y, si viene, debe ser un UUID.
+ * - `q`: término de búsqueda de HU-05. Se recorta; si queda vacío se trata como
+ *   si no se hubiera enviado (listado normal) en lugar de responder 400.
+ */
 export const productListQuerySchema = z.object({
   categoryId: z.uuid({ error: 'La categoría indicada no es válida.' }).optional(),
+  q: z
+    .string({ error: 'El término de búsqueda no es válido.' })
+    .trim()
+    .max(120, 'El término de búsqueda no puede superar 120 caracteres.')
+    .transform((value) => (value === '' ? undefined : value))
+    .optional(),
 });
 
 /** Parámetro `:id` de las rutas de detalle. */

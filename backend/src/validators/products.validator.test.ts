@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createProductSchema,
   productIdParamSchema,
+  productListQuerySchema,
   updateProductSchema,
 } from './products.validator.js';
 
@@ -188,5 +189,22 @@ describe('productIdParamSchema', () => {
     expect(productIdParamSchema.parse({ id: CATEGORY_UUID }).id).toBe(CATEGORY_UUID);
     expect(productIdParamSchema.safeParse({ id: 'producto-1' }).success).toBe(false);
     expect(productIdParamSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('productListQuerySchema (HU-05)', () => {
+  it('recorta el término de búsqueda', () => {
+    expect(productListQuerySchema.parse({ q: '  café  ' }).q).toBe('café');
+  });
+
+  it('trata un término vacío o solo de espacios como si no hubiera búsqueda', () => {
+    expect(productListQuerySchema.parse({ q: '' }).q).toBeUndefined();
+    expect(productListQuerySchema.parse({ q: '   ' }).q).toBeUndefined();
+    expect(productListQuerySchema.parse({}).q).toBeUndefined();
+  });
+
+  it('rechaza un término demasiado largo o repetido', () => {
+    expect(productListQuerySchema.safeParse({ q: 'a'.repeat(121) }).success).toBe(false);
+    expect(productListQuerySchema.safeParse({ q: ['a', 'b'] }).success).toBe(false);
   });
 });

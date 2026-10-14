@@ -100,12 +100,23 @@ export class ProductsRepository {
    * La pantalla de administración necesita ver los inactivos para comprobar la
    * desactivación (HU-03). Las consultas de venta (HU-16) filtrarán por
    * `isActive = true`; eso corresponde a esa historia, no a esta.
+   *
+   * Con `search` (HU-05) se busca por fragmento del nombre o del código, sin
+   * distinguir mayúsculas. El filtro de categoría se combina con la búsqueda.
    */
   async list(filter: ProductListFilter = {}): Promise<ProductDto[]> {
     const rows = await prisma.product.findMany({
       where: {
         ...(filter.categoryId === undefined ? {} : { categoryId: filter.categoryId }),
         ...(filter.activeOnly === true ? { isActive: true } : {}),
+        ...(filter.search === undefined
+          ? {}
+          : {
+              OR: [
+                { name: { contains: filter.search, mode: 'insensitive' as const } },
+                { code: { contains: filter.search, mode: 'insensitive' as const } },
+              ],
+            }),
       },
       select: productSelection,
       orderBy: { name: 'asc' },

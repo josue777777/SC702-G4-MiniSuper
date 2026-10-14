@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { CategoryForm } from '../features/categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from '../features/products/product-form';
 import { ProductForm } from '../features/products/ProductForm';
@@ -10,7 +10,14 @@ import type { Product, ProductPayload } from '../types/products';
 const NEW_CATEGORY_OPTION = '__new__';
 
 /**
- * Pantalla de productos: registrar (HU-01), editar (HU-02) y desactivar (HU-03).
+ * Pausa al escribir antes de buscar (HU-05): los resultados aparecen mientras el
+ * dueño escribe, pero sin pedir al servidor una consulta por cada tecla.
+ */
+const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * Pantalla de productos: registrar (HU-01), editar (HU-02), desactivar (HU-03) y
+ * buscar por nombre o código (HU-05).
  *
  * La página solo compone: el estado está en `use-products.ts`, el formulario en
  * `ProductForm.tsx` y el listado en `ProductTable.tsx`. Aquí se decide qué se ve
@@ -26,6 +33,8 @@ export function ProductsPage() {
     busy,
     categoryFilter,
     setCategoryFilter,
+    searchTerm,
+    setSearchTerm,
     reload,
     createProduct,
     updateProduct,
@@ -38,6 +47,30 @@ export function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  /** Lo que el dueño está escribiendo; se aplica solo tras una breve pausa (HU-05). */
+  const [searchInput, setSearchInput] = useState('');
+
+  /** Búsqueda en tiempo real: aplica el texto cuando el dueño deja de escribir. */
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchTerm(searchInput), SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput, setSearchTerm]);
+
+  /** Enter busca de inmediato, sin esperar la pausa. */
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    setSearchTerm(searchInput);
+  }
+
+  /** Vaciar la caja (con «Limpiar» o la × del campo) vuelve al catálogo completo al instante. */
+  function handleSearchInputChange(value: string): void {
+    setSearchInput(value);
+
+    if (value.trim() === '') {
+      setSearchTerm('');
+    }
+  }
 
   function openCreateForm(): void {
     setEditing(null);
@@ -87,6 +120,21 @@ export function ProductsPage() {
       </header>
 
       <div className="toolbar">
+        <form className="toolbar__search" role="search" onSubmit={handleSearchSubmit}>
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(event) => handleSearchInputChange(event.target.value)}
+            placeholder="Buscar por nombre o código"
+            aria-label="Buscar producto por nombre o código"
+            maxLength={120}
+          />
+          {searchInput !== '' || searchTerm !== '' ? (
+            <button type="button" className="button" onClick={() => handleSearchInputChange('')}>
+              Limpiar
+            </button>
+          ) : null}
+        </form>
         <button
           type="button"
           className="button button--primary"
@@ -170,6 +218,7 @@ export function ProductsPage() {
           products={products}
           busy={busy}
           filtered={categoryFilter !== ''}
+          searchTerm={searchTerm}
           onEdit={openEditForm}
           onDeactivate={(product) => void deactivateProduct(product.id)}
         />
