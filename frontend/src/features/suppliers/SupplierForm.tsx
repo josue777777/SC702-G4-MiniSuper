@@ -170,7 +170,7 @@ export function SupplierForm({
               </Field>
               <div className="form__field supplier-row__action">
                 {locked ? (
-                  <span className="badge badge--ok" title="Se cambia desde Productos">
+                  <span className="badge badge--ok" title="Se cambia desde Inventario">
                     Proveedor principal
                   </span>
                 ) : (

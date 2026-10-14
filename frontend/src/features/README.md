@@ -5,7 +5,7 @@ módulos de `docs/ARCHITECTURE.md`:
 
 ```
 features/
-├── products/     (HU-01 … HU-05)   ProductosPage, InventoryPage (HU-06 … HU-10)
+├── products/     (HU-01 … HU-05)   ProductsSection, mostrada en InventoryPage (HU-06 … HU-10)
 ├── sales/        (HU-16, HU-17, HU-20)
 ├── credits/      (HU-18, HU-19)    cuentas fiadas y abonos
 ├── suppliers/    (HU-21 … HU-24)
@@ -31,5 +31,6 @@ Reglas para que el folder no se convierta en un second backend:
 3. Los hooks de data fetching se quedan con el estado de carga y error; las
    páginas deciden cómo mostrarlo.
 
-Al empezar el Sprint 1, `ProductsPage` dejará de renderizar `PagePlaceholder` y
-pasará a componer `features/products/*`.
+El catálogo de productos (`features/products/ProductsSection.tsx`) ya no tiene
+pantalla propia: se muestra en `InventoryPage`, arriba del conteo físico, y la
+ruta `/products` redirige a `/inventory`.

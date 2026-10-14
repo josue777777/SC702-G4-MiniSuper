@@ -66,7 +66,7 @@ export class SuppliersService {
       const names = removedPreferred.map((product) => product.productName).join(', ');
 
       throw HttpError.conflict(
-        `No se puede quitar ${names}: este proveedor es su proveedor principal. Cámbielo primero desde Productos.`,
+        `No se puede quitar ${names}: este proveedor es su proveedor principal. Cámbielo primero desde Inventario.`,
       );
     }
 

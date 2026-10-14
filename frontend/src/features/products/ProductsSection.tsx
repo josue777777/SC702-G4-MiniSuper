@@ -198,10 +198,7 @@ export function ProductsSection({ onProductsChanged, refreshKey = 0 }: ProductsS
       )}
 
       {categoryFormOpen ? (
-        <CategoryForm
-          onCreated={afterCategoryCreated}
-          onClose={() => setCategoryFormOpen(false)}
-        />
+        <CategoryForm onCreated={afterCategoryCreated} onClose={() => setCategoryFormOpen(false)} />
       ) : null}
 
       {formOpen ? (
