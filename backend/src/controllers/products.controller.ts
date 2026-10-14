@@ -3,6 +3,7 @@ import type { ProductsService } from '../services/products.service.js';
 import {
   createProductSchema,
   productIdParamSchema,
+  productListQuerySchema,
   updateProductSchema,
 } from '../validators/products.validator.js';
 
@@ -24,11 +25,13 @@ export class ProductsController {
   constructor(private readonly service: ProductsService) {}
 
   /**
-   * `GET /api/products` — listado para administrar el catálogo.
-   * Incluye los productos inactivos a propósito (ver ProductsService).
+   * `GET /api/products[?categoryId=<uuid>]` — listado para administrar el catálogo.
+   * Sin filtro incluye los inactivos; con `categoryId` solo los activos (ver ProductsService).
    */
-  async list(_req: Request, res: Response): Promise<void> {
-    res.status(200).json({ data: await this.service.listProducts() });
+  async list(req: Request, res: Response): Promise<void> {
+    const query = productListQuerySchema.parse(req.query);
+
+    res.status(200).json({ data: await this.service.listProducts(query) });
   }
 
   /** `GET /api/products/form-options` — categorías y proveedores activos. */

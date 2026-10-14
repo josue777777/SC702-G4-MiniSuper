@@ -298,7 +298,37 @@ code {
 .toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 14px;
+}
+
+.toolbar__filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar__filter select {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 7px 32px 7px 14px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  background: #fff
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 12px center;
+}
+
+.toolbar__filter select:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.toolbar__filter select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .button--primary {
@@ -469,4 +499,91 @@ code {
   display: flex;
   gap: 10px;
   margin-top: 18px;
+}
+
+.form__error-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.category-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 0.9rem;
+}
+
+/* Inventario: aviso de "próximo a vencer" (HU-09) y bloques de configuración (HU-08, HU-09) */
+.badge--warning {
+  background: #fef9c3;
+  color: #713f12;
+}
+
+.settings__grid {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Reporte imprimible de vencimientos (HU-09): solo se imprime `.print-area` */
+.print-only {
+  display: none;
+}
+
+@media print {
+  body.printing-report {
+    background: #fff;
+  }
+
+  body.printing-report * {
+    visibility: hidden;
+  }
+
+  body.printing-report .print-area,
+  body.printing-report .print-area * {
+    visibility: visible;
+  }
+
+  body.printing-report .print-area {
+    position: absolute;
+    inset: 0 0 auto 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  body.printing-report .print-only {
+    display: block;
+  }
+
+  body.printing-report .no-print {
+    display: none;
+  }
+}
+
+/* Proveedores (HU-21): filas de productos del formulario y lista en la tabla */
+.form__section-title {
+  margin: 20px 0 8px;
+  font-size: 0.95rem;
+}
+
+.supplier-row {
+  grid-template-columns: minmax(200px, 2fr) minmax(140px, 1fr) auto;
+  align-items: end;
+  margin-bottom: 8px;
+}
+
+.supplier-row__action {
+  align-items: flex-start;
+  padding-bottom: 6px;
+}
+
+.supplier-products {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.supplier-products .badge {
+  margin-left: 6px;
 }

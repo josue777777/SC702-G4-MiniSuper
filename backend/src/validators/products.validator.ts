@@ -28,7 +28,7 @@ function hasAtMostTwoDecimals(value: number): boolean {
  * dos decimales. Rechaza lo que rompería la columna o el cálculo: cadena vacía,
  * `NaN`, `Infinity`, negativos, más de dos decimales y valores fuera de rango.
  */
-function moneySchema(label: string) {
+export function moneySchema(label: string) {
   return z
     .union([z.number(), z.string()], { error: `${label} es obligatorio.` })
     .transform((value, ctx) => {
@@ -109,10 +109,18 @@ export const createProductSchema = z.object({
  */
 export const updateProductSchema = createProductSchema;
 
+/** Query de `GET /api/products`: `categoryId` es opcional y, si viene, debe ser un UUID. */
+export const productListQuerySchema = z.object({
+  categoryId: z.uuid({ error: 'La categoría indicada no es válida.' }).optional(),
+});
+
 /** Parámetro `:id` de las rutas de detalle. */
 export const productIdParamSchema = z.object({
   id: z.uuid({ error: 'El producto indicado no es válido.' }),
 });
+
+/** Query ya validada del listado. */
+export type ProductListQuery = z.infer<typeof productListQuerySchema>;
 
 /** Entrada ya validada y normalizada de la creación. */
 export type CreateProductInput = z.infer<typeof createProductSchema>;

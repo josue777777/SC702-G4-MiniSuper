@@ -2,6 +2,7 @@ import { prisma } from '../config/prisma.js';
 import type {
   CreateProductPlan,
   ProductDto,
+  ProductListFilter,
   ReferenceOption,
   UpdateProductPlan,
 } from '../types/products.js';
@@ -94,14 +95,18 @@ async function readProduct(id: string): Promise<ProductDto> {
  */
 export class ProductsRepository {
   /**
-   * Todos los productos, activos e inactivos.
+   * Los productos, activos e inactivos salvo que el filtro diga lo contrario.
    *
    * La pantalla de administración necesita ver los inactivos para comprobar la
    * desactivación (HU-03). Las consultas de venta (HU-16) filtrarán por
    * `isActive = true`; eso corresponde a esa historia, no a esta.
    */
-  async list(): Promise<ProductDto[]> {
+  async list(filter: ProductListFilter = {}): Promise<ProductDto[]> {
     const rows = await prisma.product.findMany({
+      where: {
+        ...(filter.categoryId === undefined ? {} : { categoryId: filter.categoryId }),
+        ...(filter.activeOnly === true ? { isActive: true } : {}),
+      },
       select: productSelection,
       orderBy: { name: 'asc' },
     });
