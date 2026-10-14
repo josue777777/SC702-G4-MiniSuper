@@ -255,6 +255,25 @@ Convenciones de este módulo, decididas al implementarlo:
   (`409`): dejaría al producto sin proveedor principal.
 * **Sin baja de proveedores**: HU-21 no la pide.
 
+### Endpoints de pedidos a proveedor (HU-22, HU-24)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/api/purchase-orders` | Registrar un pedido (`supplierId`, `notes`, `items[]` con `productId` y `quantity`). Responde `201` con el detalle |
+| `GET` | `/api/purchase-orders?supplierId=` | Historial, del más reciente al más antiguo; `supplierId` es opcional. Cada fila trae fecha, proveedor, nombres de los productos y total |
+| `GET` | `/api/purchase-orders/:id` | Detalle completo: contacto del proveedor, notas y líneas con costo y subtotal. `404` si no existe |
+
+* **El costo lo pone el backend**: cada línea toma el `unitCost` que el proveedor tiene en
+  `SupplierProduct` (HU-21); el frontend solo envía cantidades. El total se suma en céntimos.
+* **Se rechaza (`400`)** un pedido sin productos, con productos repetidos, con cantidades que no
+  son enteros entre 1 y 1 000 000, a un proveedor inactivo o con un producto que ese proveedor
+  no suministra.
+* **Todo pedido nace `PENDING`**. Marcarlo como recibido, sumar el stock y crear los lotes es
+  HU-38 (Sprint 3).
+* **El PDF (HU-24) lo genera el navegador**: el detalle del pedido es un área imprimible y el
+  botón «Imprimir / Guardar PDF» abre el diálogo de impresión, que permite imprimir o guardar
+  como PDF. Es instantáneo y no agrega dependencias.
+
 ---
 
 ## 5. Base de datos y Prisma

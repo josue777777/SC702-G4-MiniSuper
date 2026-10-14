@@ -8,7 +8,8 @@ features/
 ├── products/     (HU-01 … HU-05)   ProductosPage, InventoryPage (HU-06 … HU-10)
 ├── sales/        (HU-16, HU-17, HU-20)
 ├── credits/      (HU-18, HU-19)    cuentas fiadas y abonos
-├── suppliers/    (HU-21 … HU-24)
+├── suppliers/        (HU-21)
+├── purchase-orders/  (HU-22 … HU-24)
 └── reports/      (HU-25 … HU-30)
 ```
 
