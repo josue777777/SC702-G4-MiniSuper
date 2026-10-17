@@ -57,6 +57,12 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
 * **Ruteo**: React Router con rutas declarativas (`BrowserRouter` + `Routes`) en
   `frontend/src/app/routes.tsx`. `/login` se renderiza fuera del layout; el resto
   de pantallas comparte `MainLayout` a través de `<Outlet />`.
+* **Menú lateral** (`frontend/src/layouts/navigation.ts`): agrupado por cómo se mueve la
+  mercadería — **Almacén** (Productos, Inventario, Kardex), **Entradas** (Pedidos a proveedor,
+  Proveedores) y **Salidas** (Ventas, Clientes y fiados) — más Inicio y Reportes. En Almacén se
+  manejan los *datos* del producto; las *cantidades* solo cambian por movimientos
+  (`InventoryMovement`: ventas, recepciones, conteos), y el Kardex (HU-31) los muestra con su
+  saldo (`stockAfter`).
 * **Comunicación HTTP**: centralizada en `frontend/src/services/`. Ningún componente
   ejecuta `fetch` directamente.
 * **URL del backend**: variable de entorno `VITE_API_URL`, leída una sola vez en
