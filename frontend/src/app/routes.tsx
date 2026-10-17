@@ -3,6 +3,7 @@ import { MainLayout } from '../layouts/MainLayout';
 import { CustomersPage } from '../pages/CustomersPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { InventoryPage } from '../pages/InventoryPage';
+import { KardexPage } from '../pages/KardexPage';
 import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { OrdersPage } from '../pages/OrdersPage';
@@ -27,6 +28,7 @@ export function AppRoutes() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/kardex" element={<KardexPage />} />
         <Route path="/sales" element={<SalesPage />} />
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/suppliers" element={<SuppliersPage />} />
