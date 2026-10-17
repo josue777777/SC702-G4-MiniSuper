@@ -96,7 +96,7 @@ export function PurchaseOrderForm({ suppliers, busy, onCancel, onSubmit }: Purch
           </p>
         ) : (
           <div className="table-wrapper">
-            <table className="table order-table">
+            <table className="table">
               <thead>
                 <tr>
                   <th>Código</th>

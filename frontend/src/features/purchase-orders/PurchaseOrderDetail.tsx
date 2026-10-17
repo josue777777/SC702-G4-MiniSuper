@@ -80,7 +80,7 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
       </dl>
 
       <div className="table-wrapper">
-        <table className="table order-table">
+        <table className="table">
           <thead>
             <tr>
               <th>Código</th>

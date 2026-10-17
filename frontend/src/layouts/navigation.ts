@@ -9,6 +9,8 @@
  * y el Kardex muestra esos movimientos con su saldo.
  */
 
+export type NavIconName = 'home' | 'warehouse' | 'entries' | 'exits' | 'reports' | 'user' | 'menu';
+
 export interface NavItem {
   kind: 'link';
   to: string;
@@ -17,21 +19,32 @@ export interface NavItem {
   stories: string;
   /** `true` solo en `/`, para que no quede activo en todas las rutas. */
   end?: boolean;
+  /** Solo las opciones de primer nivel llevan ícono. */
+  icon?: NavIconName;
 }
 
 export interface NavGroup {
   kind: 'group';
   id: string;
   label: string;
+  icon: NavIconName;
   items: NavItem[];
 }
 
 /** Menú en orden: enlaces sueltos y grupos desplegables. */
 export const NAVIGATION: (NavItem | NavGroup)[] = [
-  { kind: 'link', to: '/', label: 'Inicio', stories: 'HU-08, HU-09, HU-37', end: true },
+  {
+    kind: 'link',
+    to: '/',
+    label: 'Inicio',
+    stories: 'HU-08, HU-09, HU-37',
+    end: true,
+    icon: 'home',
+  },
   {
     kind: 'group',
     id: 'warehouse',
+    icon: 'warehouse',
     label: 'Almacén',
     items: [
       { kind: 'link', to: '/products', label: 'Productos', stories: 'HU-01 … HU-05' },
@@ -42,6 +55,7 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
   {
     kind: 'group',
     id: 'entries',
+    icon: 'entries',
     label: 'Entradas',
     items: [
       {
@@ -56,6 +70,7 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
   {
     kind: 'group',
     id: 'exits',
+    icon: 'exits',
     label: 'Salidas',
     items: [
       {
@@ -72,7 +87,13 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
       },
     ],
   },
-  { kind: 'link', to: '/reports', label: 'Reportes', stories: 'HU-25 … HU-30, HU-40' },
+  {
+    kind: 'link',
+    to: '/reports',
+    label: 'Reportes',
+    stories: 'HU-25 … HU-30, HU-40',
+    icon: 'reports',
+  },
 ];
 
 /** Grupo que contiene la ruta actual, para abrirlo al entrar a la pantalla. */

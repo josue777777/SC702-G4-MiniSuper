@@ -53,7 +53,7 @@ export function PurchaseOrderHistory({
         </p>
       ) : (
         <div className="table-wrapper">
-          <table className="table order-table">
+          <table className="table">
             <thead>
               <tr>
                 <th>Fecha</th>
