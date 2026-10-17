@@ -44,11 +44,16 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 
 npm run db:up          # levanta PostgreSQL
-npm run db:migrate     # crea las tablas
+npm run db:migrate     # crea las tablas y genera el cliente de Prisma
 npm run dev            # inicia backend y frontend
 ```
 
 La aplicación queda en http://localhost:5173 y la API en http://localhost:4000/api.
+
+**Después de cada `git pull`** que traiga cambios en `backend/prisma/`, vuelva a ejecutar
+`npm run db:migrate`: aplica las migraciones nuevas y regenera el cliente de Prisma. Si se
+omite, la API responde «Ha ocurrido un error interno» y en la terminal del backend aparece
+`Unknown field …`.
 
 ## Comandos principales
 

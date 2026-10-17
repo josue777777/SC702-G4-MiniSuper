@@ -435,8 +435,8 @@ Puntos que conviene tener claros:
 Se usa `HU-01 — registrar producto` como ejemplo; el resto es idéntico.
 
 1. **Modelo de datos.** Añadir/ajustar entidades en `backend/prisma/schema.prisma` y
-   generar la migración: `npm run db:migrate` (luego `npm run prisma:generate`, que en
-   Prisma 7 **ya no** se ejecuta solo después de migrar).
+   generar la migración: `npm run db:migrate`. En Prisma 7 `migrate dev` **ya no** genera
+   el cliente, así que el script ejecuta también `prisma generate`.
 2. **Validador.** `backend/src/validators/products.validator.ts` con un esquema Zod por
    operación (`createProductSchema`, `updateProductSchema`) y el parámetro `:id`. El tipo
    de la entrada se deriva del esquema para que no existan dos listas de campos.
