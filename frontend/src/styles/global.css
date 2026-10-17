@@ -1282,3 +1282,24 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* Acciones que no se pueden deshacer (borrar un producto, HU-03) */
+.action-bar__button--danger {
+  background: var(--color-error);
+}
+
+.action-bar__button--danger:hover:not(:disabled) {
+  background: #8f1414;
+}
+
+.button--danger-solid {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: #fff;
+}
+
+.button--danger-solid:hover {
+  background: #8f1414;
+  border-color: #8f1414;
+  color: #fff;
+}

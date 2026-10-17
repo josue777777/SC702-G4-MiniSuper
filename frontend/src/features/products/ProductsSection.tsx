@@ -57,6 +57,7 @@ export function ProductsSection({
     createProduct,
     updateProduct,
     deactivateProduct,
+    deleteProduct,
     afterCategoryCreated,
     dismissNotice,
   } = useProducts();
@@ -68,6 +69,7 @@ export function ProductsSection({
   /** Producto marcado en la lista (para «Modificar» y «Desactivar»). */
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
 
@@ -176,6 +178,36 @@ export function ProductsSection({
     }
 
     action(selected);
+  }
+
+  /** «Borrar» solo aplica a desactivados, que por defecto están ocultos. */
+  function requestDelete(): void {
+    if (selected === null) {
+      setSelectionHint(
+        showInactive
+          ? 'Primero seleccione en la lista el producto desactivado a borrar.'
+          : 'Marque «Mostrar inactivos» y seleccione el producto desactivado a borrar.',
+      );
+
+      return;
+    }
+
+    if (selected.isActive) {
+      setSelectionHint('Solo se puede borrar un producto desactivado. Desactívelo primero.');
+
+      return;
+    }
+
+    setConfirmingDelete(true);
+  }
+
+  async function handleDelete(product: Product): Promise<void> {
+    setConfirmingDelete(false);
+
+    if (await deleteProduct(product.id)) {
+      setSelectedId(null);
+      onProductsChanged?.();
+    }
   }
 
   async function handleDeactivate(product: Product): Promise<void> {
@@ -332,11 +364,51 @@ export function ProductsSection({
         >
           ✕ Desactivar
         </button>
+        {/* Más adelante, solo visible para el administrador (HU-11 … HU-15). */}
+        <button
+          type="button"
+          className="action-bar__button action-bar__button--danger"
+          onClick={requestDelete}
+          disabled={busy || phase !== 'ready'}
+        >
+          🗑 Borrar
+        </button>
         <span className="action-bar__status" role="status">
           {selectionHint ??
             (selected === null ? '' : `Seleccionado: ${selected.code} · ${selected.name}`)}
         </span>
       </div>
+
+      {confirmingDelete && selected !== null ? (
+        <Modal title="Borrar producto" onClose={() => setConfirmingDelete(false)}>
+          <p>
+            Confirme BORRAR el producto <strong>{selected.code}</strong> ·{' '}
+            <strong>{selected.name}</strong>.
+          </p>
+          <p className="alert alert--warning">
+            Esta operación no se puede deshacer. Si el producto aparece en ventas o pedidos no se
+            borra: se queda desactivado para conservar el historial.
+          </p>
+          <div className="form__actions modal__actions">
+            <button
+              type="button"
+              className="button button--danger-solid"
+              disabled={busy}
+              onClick={() => void handleDelete(selected)}
+            >
+              Sí, borrar para siempre
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              onClick={() => setConfirmingDelete(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </Modal>
+      ) : null}
 
       {confirmingDeactivate && selected !== null ? (
         <Modal title="Desactivar producto" onClose={() => setConfirmingDeactivate(false)}>

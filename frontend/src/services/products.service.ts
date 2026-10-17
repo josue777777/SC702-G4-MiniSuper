@@ -73,6 +73,14 @@ export const productsService = {
     return response.data;
   },
 
+  /**
+   * HU-03: borra para siempre un producto desactivado y sin ventas ni pedidos.
+   * Si no se puede, la API responde 409 con el motivo.
+   */
+  async remove(id: string): Promise<void> {
+    await apiRequest<DataResponse<{ id: string }>>(`/api/products/${id}`, { method: 'DELETE' });
+  },
+
   /** HU-01: sube o reemplaza la imagen. El cuerpo son los bytes del archivo. */
   async uploadImage(id: string, file: File): Promise<Product> {
     const response = await apiRequest<DataResponse<Product>>(`/api/products/${id}/image`, {

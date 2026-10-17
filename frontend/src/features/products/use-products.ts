@@ -195,6 +195,17 @@ export function useProducts() {
     [runAction],
   );
 
+  /** HU-03: borrar para siempre (más adelante, solo el administrador). */
+  const deleteProduct = useCallback(
+    (id: string) =>
+      runAction(async () => {
+        await productsService.remove(id);
+
+        return null;
+      }, 'Producto borrado definitivamente.'),
+    [runAction],
+  );
+
   const dismissNotice = useCallback(() => setNotice(null), []);
 
   /** HU-04. Al recargar, `options.categories` incluye la categoría nueva. */
@@ -215,6 +226,7 @@ export function useProducts() {
     createProduct,
     updateProduct,
     deactivateProduct,
+    deleteProduct,
     afterCategoryCreated,
     dismissNotice,
   };
