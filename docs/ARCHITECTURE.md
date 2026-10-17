@@ -199,6 +199,7 @@ repository → Prisma`. Responde `200` si la base responde y `503` si no.
 | `POST` | `/api/products` | Registrar producto (HU-01). Responde `201` |
 | `PATCH` | `/api/products/:id` | Editar producto (HU-02) |
 | `PATCH` | `/api/products/:id/deactivate` | Baja lógica (HU-03): solo `isActive = false` |
+| `PATCH` | `/api/products/:id/activate` | Volver a activar un producto desactivado (HU-03) |
 | `DELETE` | `/api/products/:id` | Borrar para siempre (HU-03): solo un producto **desactivado** y sin ventas ni pedidos; si no, `409` con el motivo |
 | `GET` | `/api/products/:id/image` | Imagen del producto (HU-01) para `<img src>`; `404` si no tiene |
 | `PUT` | `/api/products/:id/image` | Subir o reemplazar la imagen. El cuerpo son los bytes y `Content-Type` su tipo |
@@ -214,8 +215,8 @@ Convenciones de este módulo, decididas al implementarlo:
 * **`PATCH` recibe el cuerpo completo** (los siete campos de HU-01). HU-02 permite modificar
   todos los campos del producto y, con campos parciales, "no cambiar el stock" y "dejar el
   stock en cero" serían indistinguibles.
-* **No hay ruta de reactivación**: HU-03 no la pide. Desactivar es **idempotente**: si el
-  producto ya estaba inactivo se devuelve tal cual, sin escribir de nuevo.
+* **Desactivar y activar son idempotentes** (HU-03): si el producto ya estaba en ese
+  estado se devuelve tal cual, sin escribir de nuevo.
 * **El proveedor del formulario es el principal del producto**: se guarda en
   `SupplierProduct` con `isPreferred = true` y `unitCost = costo`. La edición libera a los
   demás proveedores antes de marcar el nuevo, de modo que nunca hay dos preferidos.

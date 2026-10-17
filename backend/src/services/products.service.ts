@@ -220,6 +220,17 @@ export class ProductsService {
   }
 
   /**
+   * HU-03 — volver a activar un producto desactivado: reaparece en ventas y en
+   * las búsquedas. Idempotente, igual que desactivar: si ya estaba activo se
+   * devuelve tal cual.
+   */
+  async activateProduct(id: string): Promise<ProductDto> {
+    const current = await this.requireProduct(id);
+
+    return current.isActive ? current : this.repository.activate(id);
+  }
+
+  /**
    * HU-03 — borrar un producto para siempre. Más adelante solo podrá hacerlo
    * el administrador (cuando existan los roles de HU-11 … HU-15).
    *

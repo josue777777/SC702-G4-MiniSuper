@@ -50,11 +50,11 @@ export function createProductsRouter(repository: ProductsRepository): Router {
   /** Editar producto (HU-02). */
   router.patch('/:id', (req, res) => productsController.update(req, res));
 
-  /**
-   * Desactivar producto (HU-03). No hay ruta de reactivación: HU-03 no la pide y
-   * no se implementa lo que ninguna historia solicita.
-   */
+  /** Desactivar producto (HU-03). */
   router.patch('/:id/deactivate', (req, res) => productsController.deactivate(req, res));
+
+  /** Volver a activar un producto desactivado (HU-03). */
+  router.patch('/:id/activate', (req, res) => productsController.activate(req, res));
 
   /**
    * Borrar para siempre (HU-03): solo un producto desactivado y sin ventas ni

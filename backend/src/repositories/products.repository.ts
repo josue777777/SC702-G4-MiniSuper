@@ -344,6 +344,12 @@ export class ProductsRepository {
     return readProduct(id);
   }
 
+  async activate(id: string): Promise<ProductDto> {
+    await prisma.product.update({ where: { id }, data: { isActive: true } });
+
+    return readProduct(id);
+  }
+
   /** Cuántas ventas y pedidos a proveedor incluyen este producto. */
   async countReferences(id: string): Promise<ProductReferences> {
     const [sales, purchaseOrders] = await Promise.all([

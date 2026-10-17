@@ -510,3 +510,26 @@ describe('ProductsService.deleteProduct (HU-03, borrar para siempre)', () => {
     });
   });
 });
+
+describe('ProductsService.activateProduct (HU-03)', () => {
+  it('vuelve a activar un producto desactivado', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    const service = new ProductsService(repository);
+
+    const activated = await service.activateProduct(PRODUCT_ID);
+
+    expect(activated.isActive).toBe(true);
+    expect(repository.activatedIds).toEqual([PRODUCT_ID]);
+  });
+
+  it('es idempotente: si ya estaba activo no escribe nada', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    await service.activateProduct(PRODUCT_ID);
+
+    expect(repository.activatedIds).toEqual([]);
+  });
+});

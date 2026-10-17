@@ -63,6 +63,13 @@ export class ProductsController {
     res.status(200).json({ data: await this.service.deactivateProduct(id) });
   }
 
+  /** `PATCH /api/products/:id/activate` — volver a ofrecerlo en ventas (HU-03). */
+  async activate(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+
+    res.status(200).json({ data: await this.service.activateProduct(id) });
+  }
+
   /** `DELETE /api/products/:id` — borrar para siempre un producto desactivado (HU-03). */
   async remove(req: Request, res: Response): Promise<void> {
     const { id } = productIdParamSchema.parse(req.params);

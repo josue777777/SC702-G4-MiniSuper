@@ -56,7 +56,7 @@ export interface FakeProductsState {
 
 /**
  * Implementa la interfaz pública de `ProductsRepository`. Se escriben a mano
- * los quince métodos para que, si el contrato cambia, la compilación de los tests
+ * los dieciséis métodos para que, si el contrato cambia, la compilación de los tests
  * lo delate en lugar de pasar por alto el método nuevo.
  */
 export class FakeProductsRepository implements ProductsRepository {
@@ -70,6 +70,8 @@ export class FakeProductsRepository implements ProductsRepository {
   readonly images = new Map<string, ProductImage>();
   /** Ventas y pedidos que mencionan a cada producto (para probar el borrado). */
   readonly references = new Map<string, ProductReferences>();
+  /** Ids que se mandaron a activar (si está vacío, no se escribió nada). */
+  readonly activatedIds: string[] = [];
   /** Ids borrados para siempre (si está vacío, no se borró nada). */
   readonly deletedIds: string[] = [];
 
@@ -206,6 +208,12 @@ export class FakeProductsRepository implements ProductsRepository {
     this.images.delete(id);
 
     return this.replace(id, { imageUrl: null });
+  }
+
+  activate(id: string): Promise<ProductDto> {
+    this.activatedIds.push(id);
+
+    return this.replace(id, { isActive: true });
   }
 
   countReferences(id: string): Promise<ProductReferences> {

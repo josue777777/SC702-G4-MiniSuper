@@ -350,3 +350,18 @@ describe('DELETE /api/products/:id (HU-03)', () => {
     expect(list.body.data).toEqual([]);
   });
 });
+
+describe('PATCH /api/products/:id/activate (HU-03)', () => {
+  it('responde 200 con el producto activo, o 404 si no existe', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({ products: [buildProduct({ isActive: false })] }),
+    );
+
+    const activated = await request(app).patch(`/api/products/${PRODUCT_ID}/activate`);
+    const missing = await request(app).patch(`/api/products/${OTHER_PRODUCT_ID}/activate`);
+
+    expect(activated.status).toBe(200);
+    expect(activated.body.data.isActive).toBe(true);
+    expect(missing.status).toBe(404);
+  });
+});
