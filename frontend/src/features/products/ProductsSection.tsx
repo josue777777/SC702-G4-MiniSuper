@@ -79,8 +79,9 @@ export function ProductsSection({
 
   /**
    * Vista de la lista: los desactivados no se venden y solo cargan la lista,
-   * así que por defecto se ven los activos. En «Desactivados» están Activar y
-   * Borrar (HU-03).
+   * así que por defecto se ven los activos. Cada acción vive en su vista:
+   * Desactivar en «Activos»; Activar y Borrar en «Desactivados» (HU-03).
+   * «Todos» es solo para consultar.
    */
   const [view, setView] = useState<ProductView>('active');
   const activeCount = products.filter((product) => product.isActive).length;
@@ -189,7 +190,7 @@ export function ProductsSection({
     action(selected);
   }
 
-  /** «Borrar» solo aplica a desactivados (vista «Desactivados» o «Todos»). */
+  /** «Borrar» solo aplica a desactivados (vista «Desactivados»). */
   function requestDelete(): void {
     if (selected === null) {
       setSelectionHint('Primero seleccione en la lista el producto desactivado a borrar.');
@@ -399,7 +400,7 @@ export function ProductsSection({
         >
           ✎ Modificar
         </button>
-        {view === 'inactive' ? null : (
+        {view === 'active' ? (
           <button
             type="button"
             className="action-bar__button"
@@ -418,8 +419,8 @@ export function ProductsSection({
           >
             ✕ Desactivar
           </button>
-        )}
-        {view === 'active' ? null : (
+        ) : null}
+        {view === 'inactive' ? (
           <>
             <button
               type="button"
@@ -439,7 +440,7 @@ export function ProductsSection({
               🗑 Borrar
             </button>
           </>
-        )}
+        ) : null}
         <span className="action-bar__status" role="status">
           {selectionHint ??
             (selected === null ? '' : `Seleccionado: ${selected.code} · ${selected.name}`)}
