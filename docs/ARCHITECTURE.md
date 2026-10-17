@@ -94,6 +94,7 @@ Cuando se implemente un módulo se espera, por ejemplo:
 
 ```
 features/products/            (implementado en HU-01 … HU-03)
+├── ProductsSection.tsx  Sección del catálogo (búsqueda, filtro, tabla, formularios); se muestra en InventoryPage
 ├── ProductTable.tsx     Tabla del catálogo con acciones y confirmación de desactivación
 ├── ProductForm.tsx      Formulario de alta y de edición
 ├── use-products.ts      Hook: catálogo, opciones, avisos y acciones (crear/editar/desactivar)
@@ -182,7 +183,7 @@ repository → Prisma`. Responde `200` si la base responde y `503` si no.
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| `GET` | `/api/products` | Catálogo completo (activos e inactivos) para administrarlo |
+| `GET` | `/api/products` | Catálogo completo (activos e inactivos) para administrarlo. Con `?categoryId=<uuid>` y/o `?q=<texto>` (HU-05: fragmento del nombre o del código, sin distinguir mayúsculas) devuelve solo los **activos** que cumplen todos los filtros |
 | `GET` | `/api/products/form-options` | Categorías y proveedores **activos** para los `<select>` del formulario |
 | `POST` | `/api/products` | Registrar producto (HU-01). Responde `201` |
 | `PATCH` | `/api/products/:id` | Editar producto (HU-02) |
@@ -440,6 +441,8 @@ Se usa `HU-01 — registrar producto` como ejemplo; el resto es idéntico.
    `api-client.ts`, con los contratos en `frontend/src/types/`.
 9. **Feature y página.** Componentes en `frontend/src/features/products/`, y
    `ProductsPage` deja de renderizar `PagePlaceholder` y compone la feature.
+   (Más tarde el catálogo pasó a `features/products/ProductsSection.tsx`, que se
+   muestra dentro de `InventoryPage`; `/products` redirige a `/inventory`.)
 10. **Pruebas.** Tres niveles, todas sin base de datos:
     * validador (`src/validators/*.test.ts`): qué entra y qué se rechaza;
     * service con un doble de repositorio de `src/testing/`: reglas de negocio;

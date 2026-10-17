@@ -447,10 +447,35 @@ code {
 /* --- Productos: barra de acciones, tabla y formulario --------------------- */
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
   margin-bottom: 14px;
+}
+
+.toolbar__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+
+.toolbar__search input {
+  width: min(280px, 60vw);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.toolbar__search input:focus {
+  border-color: var(--color-primary);
+}
+
+.toolbar__search input:disabled {
+  background: #f8fafc;
 }
 
 .toolbar__filter {

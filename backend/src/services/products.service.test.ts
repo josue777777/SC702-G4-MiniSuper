@@ -253,6 +253,76 @@ describe('ProductsService.listProducts (filtro por categoría)', () => {
   });
 });
 
+describe('ProductsService.listProducts (búsqueda HU-05)', () => {
+  const OTHER_CATEGORY_ID = '22222222-5555-4555-8555-555555555555';
+  const RICE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const COFFEE_BEANS_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+  function buildCatalog() {
+    return new FakeProductsRepository({
+      products: [
+        buildProduct({ name: 'Café molido 500 g', code: 'P001' }),
+        buildProduct({
+          id: OTHER_PRODUCT_ID,
+          name: 'Café instantáneo',
+          code: 'P002',
+          isActive: false,
+        }),
+        buildProduct({
+          id: RICE_ID,
+          name: 'Arroz 1 kg',
+          code: 'ARR-01',
+          categoryId: OTHER_CATEGORY_ID,
+        }),
+        buildProduct({
+          id: COFFEE_BEANS_ID,
+          name: 'Café en grano',
+          code: 'P010',
+          categoryId: OTHER_CATEGORY_ID,
+        }),
+      ],
+    });
+  }
+
+  it('encuentra por nombre parcial sin distinguir mayúsculas y excluye los inactivos', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'CAFÉ' });
+
+    expect(listed.map((product) => product.id)).toEqual([PRODUCT_ID, COFFEE_BEANS_ID]);
+  });
+
+  it('encuentra por código completo sin distinguir mayúsculas', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'arr-01' });
+
+    expect(listed.map((product) => product.id)).toEqual([RICE_ID]);
+  });
+
+  it('encuentra por fragmento del código y excluye los inactivos', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'P0' });
+
+    expect(listed.map((product) => product.id)).toEqual([PRODUCT_ID, COFFEE_BEANS_ID]);
+  });
+
+  it('combina la búsqueda con el filtro de categoría', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'café', categoryId: OTHER_CATEGORY_ID });
+
+    expect(listed.map((product) => product.id)).toEqual([COFFEE_BEANS_ID]);
+  });
+
+  it('devuelve una lista vacía si nada coincide', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    await expect(service.listProducts({ q: 'leche' })).resolves.toEqual([]);
+  });
+});
+
 describe('ProductsService.deactivateProduct (HU-03)', () => {
   it('desactiva con baja lógica: isActive pasa a false', async () => {
     const repository = new FakeProductsRepository({ products: [buildProduct()] });

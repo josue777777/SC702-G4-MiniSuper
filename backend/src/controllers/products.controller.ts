@@ -25,8 +25,9 @@ export class ProductsController {
   constructor(private readonly service: ProductsService) {}
 
   /**
-   * `GET /api/products[?categoryId=<uuid>]` — listado para administrar el catálogo.
-   * Sin filtro incluye los inactivos; con `categoryId` solo los activos (ver ProductsService).
+   * `GET /api/products[?categoryId=<uuid>][&q=<texto>]` — listado para administrar el catálogo.
+   * Sin filtros incluye los inactivos; con `categoryId`, `q` (HU-05) o ambos, solo los
+   * activos (ver ProductsService).
    */
   async list(req: Request, res: Response): Promise<void> {
     const query = productListQuerySchema.parse(req.query);

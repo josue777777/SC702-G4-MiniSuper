@@ -37,6 +37,16 @@ export interface ProductFormOptions {
   suppliers: ReferenceOption[];
 }
 
+/**
+ * Filtros de `GET /api/products`. Con cualquiera de los dos el backend devuelve
+ * solo productos activos; sin ninguno, el catálogo completo.
+ */
+export interface ProductListParams {
+  categoryId?: string;
+  /** Búsqueda de HU-05: fragmento del nombre o del código. */
+  search?: string;
+}
+
 /** Cuerpo que acepta la API al crear (HU-01) y al editar (HU-02). */
 export interface ProductPayload {
   code: string;

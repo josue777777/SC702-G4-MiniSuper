@@ -78,6 +78,37 @@ describe('GET /api/products', () => {
 
     expect(response.status).toBe(400);
   });
+
+  it('busca con q por nombre parcial y solo devuelve activos (HU-05)', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({
+        products: [
+          buildProduct(),
+          buildProduct({
+            id: OTHER_PRODUCT_ID,
+            code: 'P002',
+            name: 'Café inactivo',
+            isActive: false,
+          }),
+        ],
+      }),
+    );
+
+    const response = await request(app).get(`/api/products?q=${encodeURIComponent('café')}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({ id: PRODUCT_ID });
+  });
+
+  it('combina q con categoryId y responde data vacío si no hay coincidencias', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get(`/api/products?q=leche&categoryId=${CATEGORY_ID}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: [] });
+  });
 });
 
 describe('GET /api/products/form-options', () => {

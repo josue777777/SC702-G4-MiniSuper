@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../services/api-client';
 import { productsService } from '../../services/products.service';
 import type { Product, ProductFormOptions, ProductPayload } from '../../types/products';
 
 /**
- * Estado de la pantalla de productos (HU-01, HU-02, HU-03).
+ * Estado de la pantalla de productos (HU-01, HU-02, HU-03, HU-05).
  *
  * Reúne en un solo sitio el catálogo, las opciones de los formularios, el
  * indicador de trabajo y el aviso que se muestra al usuario, para que la página
@@ -47,6 +47,16 @@ export function useProducts() {
   const [busy, setBusy] = useState(false);
   /** Categoría del filtro; cadena vacía significa "todas". */
   const [categoryFilter, setCategoryFilter] = useState('');
+  /** Búsqueda confirmada (HU-05), ya recortada; cadena vacía significa "sin búsqueda". */
+  const [searchTerm, setSearchTermState] = useState('');
+  /**
+   * Número de la última carga pedida. Si el dueño cambia el filtro o busca otra
+   * vez antes de que llegue la respuesta anterior, la respuesta vieja se descarta
+   * para no pisar los resultados nuevos.
+   */
+  const latestLoad = useRef(0);
+
+  const setSearchTerm = useCallback((value: string) => setSearchTermState(value.trim()), []);
 
   /**
    * Carga catálogo y opciones de formulario en paralelo.
@@ -56,18 +66,31 @@ export function useProducts() {
    * que parpadee.
    */
   const load = useCallback(async () => {
+    const loadId = ++latestLoad.current;
+
     setState((current) =>
       current.phase === 'ready' ? current : { ...current, phase: 'loading', message: undefined },
     );
 
     try {
       const [products, options] = await Promise.all([
-        productsService.list(categoryFilter || undefined),
+        productsService.list({
+          categoryId: categoryFilter || undefined,
+          search: searchTerm || undefined,
+        }),
         productsService.getFormOptions(),
       ]);
 
+      if (loadId !== latestLoad.current) {
+        return;
+      }
+
       setState({ phase: 'ready', products, options });
     } catch (error) {
+      if (loadId !== latestLoad.current) {
+        return;
+      }
+
       setState({
         phase: 'failed',
         products: [],
@@ -75,7 +98,7 @@ export function useProducts() {
         message: describeError(error),
       });
     }
-  }, [categoryFilter]);
+  }, [categoryFilter, searchTerm]);
 
   useEffect(() => {
     void load();
@@ -139,6 +162,8 @@ export function useProducts() {
     busy,
     categoryFilter,
     setCategoryFilter,
+    searchTerm,
+    setSearchTerm,
     reload: load,
     createProduct,
     updateProduct,

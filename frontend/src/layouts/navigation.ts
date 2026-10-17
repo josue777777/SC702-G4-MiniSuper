@@ -47,8 +47,7 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
     icon: 'warehouse',
     label: 'Almacén',
     items: [
-      { kind: 'link', to: '/products', label: 'Productos', stories: 'HU-01 … HU-05' },
-      { kind: 'link', to: '/inventory', label: 'Inventario', stories: 'HU-06 … HU-10' },
+      { kind: 'link', to: '/inventory', label: 'Inventario', stories: 'HU-01 … HU-10' },
       { kind: 'link', to: '/kardex', label: 'Kardex', stories: 'HU-31' },
     ],
   },

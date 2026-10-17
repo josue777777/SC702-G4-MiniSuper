@@ -7,6 +7,8 @@ interface ProductTableProps {
   busy: boolean;
   /** `true` si hay un filtro de categoría activo (solo se muestran productos activos). */
   filtered?: boolean;
+  /** Búsqueda confirmada (HU-05); cadena vacía si no hay búsqueda. */
+  searchTerm?: string;
   onEdit: (product: Product) => void;
   onDeactivate: (product: Product) => void;
 }
@@ -15,11 +17,12 @@ interface ProductTableProps {
 const COLUMN_COUNT = 9;
 
 /**
- * Catálogo en forma de tabla (HU-01, HU-02, HU-03).
+ * Catálogo en forma de tabla (HU-01, HU-02, HU-03, HU-05).
  *
- * Muestra también los productos inactivos: es la pantalla de administración, y
- * ver el estado es lo que permite comprobar que la desactivación funcionó. Las
- * consultas de venta (HU-16) sí filtrarán por activos.
+ * Sin filtros muestra también los productos inactivos: es la pantalla de
+ * administración, y ver el estado es lo que permite comprobar que la
+ * desactivación funcionó. Con filtro de categoría o búsqueda solo llegan
+ * activos. Las consultas de venta (HU-16) sí filtrarán siempre por activos.
  *
  * La confirmación de la desactivación es estado local de este componente: si el
  * dueño cancela, no se llama a la API ni se toca nada (caso borde de HU-03).
@@ -28,22 +31,36 @@ export function ProductTable({
   products,
   busy,
   filtered = false,
+  searchTerm = '',
   onEdit,
   onDeactivate,
 }: ProductTableProps) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const searching = searchTerm !== '';
 
   if (products.length === 0) {
     return (
       <section className="card">
         <header className="card__header">
-          <h2>Catálogo</h2>
+          <h2>{searching ? 'Resultados de la búsqueda' : 'Catálogo'}</h2>
         </header>
-        <p className="muted">
-          {filtered
-            ? 'No hay productos activos en esta categoría.'
-            : 'Todavía no hay productos registrados. Use «+ Nuevo producto» para registrar el primero.'}
-        </p>
+        {searching ? (
+          <>
+            <p role="status">
+              No se encontraron productos activos que coincidan con «{searchTerm}»
+              {filtered ? ' en esta categoría' : ''}.
+            </p>
+            <p className="muted hint">
+              Revise cómo está escrito el nombre o el código del producto.
+            </p>
+          </>
+        ) : (
+          <p className="muted">
+            {filtered
+              ? 'No hay productos activos en esta categoría.'
+              : 'Todavía no hay productos registrados. Use «+ Nuevo producto» para registrar el primero.'}
+          </p>
+        )}
       </section>
     );
   }
@@ -51,8 +68,10 @@ export function ProductTable({
   return (
     <section className="card">
       <header className="card__header">
-        <h2>Catálogo</h2>
-        <span className="muted">{products.length} producto(s)</span>
+        <h2>{searching ? 'Resultados de la búsqueda' : 'Catálogo'}</h2>
+        <span className="muted" role="status">
+          {products.length} {searching ? 'resultado(s)' : 'producto(s)'}
+        </span>
       </header>
 
       <div className="table-wrapper">

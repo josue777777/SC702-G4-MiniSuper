@@ -1,4 +1,9 @@
-import type { Product, ProductFormOptions, ProductPayload } from '../types/products';
+import type {
+  Product,
+  ProductFormOptions,
+  ProductListParams,
+  ProductPayload,
+} from '../types/products';
 import { apiGet, apiPatch, apiPost } from './api-client';
 
 /**
@@ -16,12 +21,25 @@ interface DataResponse<T> {
 
 export const productsService = {
   /**
-   * Catálogo para administrarlo. Sin `categoryId` trae activos e inactivos; con
-   * `categoryId` el backend devuelve solo los activos de esa categoría.
+   * Catálogo para administrarlo. Sin filtros trae activos e inactivos; con
+   * `categoryId`, `search` (HU-05) o ambos, el backend devuelve solo los activos
+   * que cumplen todos los filtros.
    */
-  async list(categoryId?: string): Promise<Product[]> {
-    const query = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : '';
-    const response = await apiGet<DataResponse<Product[]>>(`/api/products${query}`);
+  async list({ categoryId, search }: ProductListParams = {}): Promise<Product[]> {
+    const params = new URLSearchParams();
+
+    if (categoryId) {
+      params.set('categoryId', categoryId);
+    }
+
+    if (search) {
+      params.set('q', search);
+    }
+
+    const query = params.toString();
+    const response = await apiGet<DataResponse<Product[]>>(
+      `/api/products${query === '' ? '' : `?${query}`}`,
+    );
 
     return response.data;
   },

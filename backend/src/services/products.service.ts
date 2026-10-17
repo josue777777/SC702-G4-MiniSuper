@@ -86,16 +86,19 @@ export class ProductsService {
   constructor(private readonly repository: ProductsRepository) {}
 
   /**
-   * Lista para la pantalla de administración. Sin filtro incluye los productos
+   * Lista para la pantalla de administración. Sin filtros incluye los productos
    * inactivos, que es lo que permite comprobar la desactivación de HU-03. Al
-   * filtrar por categoría solo devuelve los activos.
+   * filtrar por categoría, buscar (HU-05) o ambas cosas a la vez, solo devuelve
+   * los activos.
    */
   async listProducts(query: ProductListQuery = {}): Promise<ProductDto[]> {
-    if (query.categoryId === undefined) {
+    const { categoryId, q: search } = query;
+
+    if (categoryId === undefined && search === undefined) {
       return this.repository.list();
     }
 
-    return this.repository.list({ categoryId: query.categoryId, activeOnly: true });
+    return this.repository.list({ categoryId, search, activeOnly: true });
   }
 
   /**

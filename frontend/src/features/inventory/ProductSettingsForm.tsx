@@ -83,7 +83,9 @@ export function ProductSettingsForm({
       </header>
 
       {products.length === 0 ? (
-        <p className="muted">No hay productos activos. Registre uno en la pantalla de Productos.</p>
+        <p className="muted">
+          No hay productos activos. Registre uno en el catálogo de productos de arriba.
+        </p>
       ) : (
         <div className="form">
           <div className="form__grid">
