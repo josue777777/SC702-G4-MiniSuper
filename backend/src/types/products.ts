@@ -58,6 +58,22 @@ export interface ProductDto {
   /** Proveedor principal: el `SupplierProduct` con `isPreferred = true`. */
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;
+  /**
+   * URL de la imagen (HU-01), o `null` si no tiene. Lleva `?v=` con la fecha del
+   * cambio para que el navegador no muestre una imagen vieja de su caché.
+   */
+  imageUrl: string | null;
+}
+
+/** Formatos de imagen aceptados. Sin SVG: puede llevar código (XSS). */
+export const PRODUCT_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+
+export type ProductImageMimeType = (typeof PRODUCT_IMAGE_TYPES)[number];
+
+/** Imagen guardada de un producto (HU-01). */
+export interface ProductImage {
+  data: Uint8Array;
+  mimeType: ProductImageMimeType;
 }
 
 /** Criterios con los que el service le pide al repositorio el listado. */

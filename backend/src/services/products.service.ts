@@ -4,11 +4,14 @@ import type {
   InventoryMovementPlan,
   ProductDto,
   ProductFormOptionsDto,
+  ProductImage,
+  ProductImageMimeType,
   UpdateProductPlan,
 } from '../types/products.js';
 import { HttpError } from '../utils/http-error.js';
 import type {
   CreateProductInput,
+  ProductImageInput,
   ProductListQuery,
   UpdateProductInput,
 } from '../validators/products.validator.js';
@@ -82,6 +85,24 @@ async function assertSupplierIsUsable(
  * esperados se lanzan como `HttpError` y el middleware de errores los convierte
  * en la respuesta correspondiente.
  */
+/**
+ * Primeros bytes ("firma" o "número mágico") de cada formato aceptado. Se
+ * revisan porque la cabecera `Content-Type` la escribe el cliente: un archivo
+ * cualquiera renombrado como `.png` no tiene la firma de un PNG.
+ */
+const IMAGE_SIGNATURES: Record<ProductImageMimeType, (data: Uint8Array) => boolean> = {
+  'image/png': (data) => startsWith(data, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  'image/jpeg': (data) => startsWith(data, [0xff, 0xd8, 0xff]),
+  // WEBP: "RIFF" + 4 bytes de tamaño + "WEBP".
+  'image/webp': (data) =>
+    startsWith(data, [0x52, 0x49, 0x46, 0x46]) &&
+    startsWith(data.subarray(8), [0x57, 0x45, 0x42, 0x50]),
+};
+
+function startsWith(data: Uint8Array, signature: number[]): boolean {
+  return signature.every((byte, index) => data[index] === byte);
+}
+
 export class ProductsService {
   constructor(private readonly repository: ProductsRepository) {}
 
@@ -196,5 +217,47 @@ export class ProductsService {
     }
 
     return this.repository.deactivate(id);
+  }
+
+  /**
+   * HU-01 — imagen opcional del producto. Reemplaza la anterior si había una.
+   * Rechaza el archivo si su contenido no coincide con el tipo declarado.
+   */
+  async setProductImage(id: string, image: ProductImageInput): Promise<ProductDto> {
+    await this.requireProduct(id);
+
+    if (!IMAGE_SIGNATURES[image.mimeType](image.data)) {
+      throw HttpError.badRequest('El archivo no es una imagen PNG, JPG o WEBP válida.');
+    }
+
+    return this.repository.saveImage(id, image);
+  }
+
+  /** HU-01 — imagen guardada del producto, para mostrarla en su ficha. */
+  async getProductImage(id: string): Promise<ProductImage> {
+    const image = await this.repository.findImage(id);
+
+    if (image === null) {
+      throw HttpError.notFound('El producto no tiene imagen.');
+    }
+
+    return image;
+  }
+
+  /** HU-01 — quitar la imagen. Si no tenía, no escribe nada. */
+  async removeProductImage(id: string): Promise<ProductDto> {
+    const current = await this.requireProduct(id);
+
+    return current.imageUrl === null ? current : this.repository.removeImage(id);
+  }
+
+  private async requireProduct(id: string): Promise<ProductDto> {
+    const current = await this.repository.findById(id);
+
+    if (current === null) {
+      throw HttpError.notFound('El producto no existe.');
+    }
+
+    return current;
   }
 }

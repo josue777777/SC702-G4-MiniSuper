@@ -1,7 +1,27 @@
-import { Router } from 'express';
+import express, { Router, type NextFunction, type Request, type Response } from 'express';
 import { ProductsController } from '../controllers/products.controller.js';
 import { ProductsRepository } from '../repositories/products.repository.js';
 import { ProductsService } from '../services/products.service.js';
+import { HttpError } from '../utils/http-error.js';
+import { MAX_PRODUCT_IMAGE_BYTES } from '../validators/products.validator.js';
+
+/**
+ * Lee el cuerpo de la imagen como bytes, con tope de tamaño. Si el archivo se
+ * pasa del tope, responde 413 con un mensaje claro en vez de un error 500.
+ */
+const readImageBytes = express.raw({ type: () => true, limit: MAX_PRODUCT_IMAGE_BYTES });
+
+function imageBody(req: Request, res: Response, next: NextFunction): void {
+  void readImageBytes(req, res, (error?: unknown) => {
+    if ((error as { type?: string } | undefined)?.type === 'entity.too.large') {
+      next(new HttpError(413, 'La imagen supera el máximo de 2 MB.'));
+
+      return;
+    }
+
+    next(error);
+  });
+}
 
 /**
  * Rutas del módulo de productos.
@@ -35,6 +55,11 @@ export function createProductsRouter(repository: ProductsRepository): Router {
    * no se implementa lo que ninguna historia solicita.
    */
   router.patch('/:id/deactivate', (req, res) => productsController.deactivate(req, res));
+
+  /** Imagen opcional del producto (HU-01): verla, subirla o reemplazarla, y quitarla. */
+  router.get('/:id/image', (req, res) => productsController.getImage(req, res));
+  router.put('/:id/image', imageBody, (req, res) => productsController.setImage(req, res));
+  router.delete('/:id/image', (req, res) => productsController.removeImage(req, res));
 
   return router;
 }

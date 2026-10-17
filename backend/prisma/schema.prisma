@@ -113,6 +113,13 @@ model Product {
   /// Desactivar en lugar de eliminar: conserva el historial de ventas (HU-03).
   isActive   Boolean  @default(true)
   categoryId String   @db.Uuid
+  /// Imagen opcional del producto (HU-01). Se guarda en la base para que la app
+  /// no dependa de una carpeta del servidor; el listado nunca la selecciona.
+  imageData      Bytes?
+  /// Tipo del archivo: solo image/png, image/jpeg o image/webp.
+  imageMimeType  String?
+  /// Cuándo cambió la imagen; va en la URL para que el navegador no muestre una vieja.
+  imageUpdatedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

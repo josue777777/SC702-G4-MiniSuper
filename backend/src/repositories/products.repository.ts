@@ -2,6 +2,8 @@ import { prisma } from '../config/prisma.js';
 import type {
   CreateProductPlan,
   ProductDto,
+  ProductImage,
+  ProductImageMimeType,
   ProductListFilter,
   ReferenceOption,
   UpdateProductPlan,
@@ -22,6 +24,8 @@ interface ProductRow {
   cost: { toFixed(digits: number): string };
   stock: number;
   isActive: boolean;
+  imageMimeType: string | null;
+  imageUpdatedAt: Date | null;
   category: { id: string; name: string };
   supplierProducts: { supplierId: string; supplier: { name: string } }[];
 }
@@ -39,6 +43,9 @@ const productSelection = {
   cost: true,
   stock: true,
   isActive: true,
+  // Solo los datos de la imagen, nunca sus bytes: el listado sigue liviano.
+  imageMimeType: true,
+  imageUpdatedAt: true,
   category: { select: { id: true, name: true } },
   supplierProducts: {
     where: { isPreferred: true },
@@ -64,6 +71,10 @@ function toProductDto(row: ProductRow): ProductDto {
     isActive: row.isActive,
     preferredSupplierId: preferredSupplier?.supplierId ?? null,
     preferredSupplierName: preferredSupplier?.supplier.name ?? null,
+    imageUrl:
+      row.imageMimeType === null || row.imageUpdatedAt === null
+        ? null
+        : `/api/products/${row.id}/image?v=${row.imageUpdatedAt.getTime()}`,
   };
 }
 
@@ -276,6 +287,44 @@ export class ProductsRepository {
       if (stockMovement !== null) {
         await tx.inventoryMovement.create({ data: { productId: id, ...stockMovement } });
       }
+    });
+
+    return readProduct(id);
+  }
+
+  /** Imagen del producto (HU-01), o `null` si no tiene o el producto no existe. */
+  async findImage(id: string): Promise<ProductImage | null> {
+    const row = await prisma.product.findUnique({
+      where: { id },
+      select: { imageData: true, imageMimeType: true },
+    });
+
+    if (row === null || row.imageData === null || row.imageMimeType === null) {
+      return null;
+    }
+
+    return { data: row.imageData, mimeType: row.imageMimeType as ProductImageMimeType };
+  }
+
+  /** Guarda o reemplaza la imagen (HU-01). No es un cambio de stock: no hay movimiento. */
+  async saveImage(id: string, image: ProductImage): Promise<ProductDto> {
+    await prisma.product.update({
+      where: { id },
+      data: {
+        imageData: Buffer.from(image.data),
+        imageMimeType: image.mimeType,
+        imageUpdatedAt: new Date(),
+      },
+    });
+
+    return readProduct(id);
+  }
+
+  /** Quita la imagen del producto (HU-01). */
+  async removeImage(id: string): Promise<ProductDto> {
+    await prisma.product.update({
+      where: { id },
+      data: { imageData: null, imageMimeType: null, imageUpdatedAt: null },
     });
 
     return readProduct(id);

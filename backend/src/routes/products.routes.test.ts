@@ -262,3 +262,65 @@ describe('PATCH /api/products/:id/deactivate (HU-03)', () => {
     expect(response.body.error.message).toBe('El producto no existe.');
   });
 });
+
+describe('/api/products/:id/image (HU-01)', () => {
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+
+  it('PUT guarda la imagen y GET la devuelve con su tipo', async () => {
+    const { app } = buildApp();
+
+    const saved = await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/png')
+      .send(png);
+    const image = await request(app).get(`/api/products/${PRODUCT_ID}/image`);
+
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.imageUrl).toContain(`/api/products/${PRODUCT_ID}/image?v=`);
+    expect(image.status).toBe(200);
+    expect(image.headers['content-type']).toBe('image/png');
+    expect(Buffer.compare(image.body as Buffer, png)).toBe(0);
+  });
+
+  it('PUT rechaza tipos no permitidos, como SVG (400)', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/svg+xml')
+      .send('<svg onload="alert(1)"></svg>');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.details.mimeType).toEqual([
+      'Solo se aceptan imágenes PNG, JPG o WEBP.',
+    ]);
+  });
+
+  it('PUT responde 413 si la imagen supera 2 MB', async () => {
+    const { app } = buildApp();
+    const big = Buffer.alloc(2 * 1024 * 1024 + 1, 0);
+    png.copy(big);
+
+    const response = await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/png')
+      .send(big);
+
+    expect(response.status).toBe(413);
+    expect(response.body.error.message).toBe('La imagen supera el máximo de 2 MB.');
+  });
+
+  it('DELETE quita la imagen y después GET responde 404', async () => {
+    const { app } = buildApp();
+    await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/png')
+      .send(png);
+
+    const removed = await request(app).delete(`/api/products/${PRODUCT_ID}/image`);
+    const image = await request(app).get(`/api/products/${PRODUCT_ID}/image`);
+
+    expect(removed.body.data.imageUrl).toBeNull();
+    expect(image.status).toBe(404);
+  });
+});
