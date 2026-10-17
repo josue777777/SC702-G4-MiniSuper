@@ -1,5 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
+import { CategoryForm } from '../categories/CategoryForm';
 import { productsService } from '../../services/products.service';
 import {
   MAX_PRODUCT_IMAGE_BYTES,
@@ -24,6 +26,8 @@ interface ProductFormProps {
   options: ProductFormOptions;
   /** Valores con los que abre: vacíos, o los persistidos del producto a editar. */
   initialValues: ProductFormValues;
+  /** Recarga las opciones tras crear una categoría desde el modal (HU-04). */
+  onCategoryCreated?: () => Promise<void>;
   /** Imagen guardada del producto (HU-01); `null` si no tiene o es un alta. */
   imageUrl?: string | null;
   busy: boolean;
@@ -94,6 +98,7 @@ export function ProductForm({
   options,
   initialValues,
   imageUrl = null,
+  onCategoryCreated,
   busy,
   onCancel,
   onSubmit,
@@ -101,6 +106,8 @@ export function ProductForm({
   const [values, setValues] = useState<ProductFormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tab, setTab] = useState<Tab>('general');
+  /** Alta de categoría sin salir del modal (HU-04). */
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   /** Cambio de imagen pendiente: se aplica al guardar, no al elegir el archivo. */
   const [image, setImage] = useState<ProductImageChange>({ kind: 'keep' });
   const [imageError, setImageError] = useState<string | null>(null);
@@ -208,11 +215,19 @@ export function ProductForm({
     >
       {missingOptions ? (
         <p className="alert alert--warning">
-          Para guardar un producto primero deben existir datos de apoyo.
-          {missingCategories
-            ? ' Todavía no hay categorías activas: cree una con la opción «+ Nueva categoría» del selector de categoría de la barra superior.'
-            : ''}
-          {missingSuppliers ? ' Todavía no hay proveedores activos.' : ''}
+          <span>
+            Para guardar un producto primero deben existir datos de apoyo.
+            {missingCategories
+              ? ' Todavía no hay categorías: cree una con «+ Nueva categoría», junto al campo Categoría.'
+              : ''}
+            {missingSuppliers ? (
+              <>
+                {' Todavía no hay proveedores activos: '}
+                <Link to="/suppliers">registre uno en Proveedores</Link> (este formulario se
+                cierra).
+              </>
+            ) : null}
+          </span>
         </p>
       ) : null}
 
@@ -238,6 +253,22 @@ export function ProductForm({
         ))}
       </div>
 
+      {/*
+       * Fuera del <form> del producto: un formulario no puede ir dentro de otro.
+       * Al guardarla, la categoría nueva queda seleccionada en el producto.
+       */}
+      {categoryFormOpen ? (
+        <div className="modal__subform">
+          <CategoryForm
+            onCreated={async (category) => {
+              await onCategoryCreated?.();
+              updateField('categoryId', category.id);
+            }}
+            onClose={() => setCategoryFormOpen(false)}
+          />
+        </div>
+      ) : null}
+
       <form className="form" onSubmit={handleSubmit} noValidate>
         <div
           className="tabs__panel"
@@ -254,28 +285,44 @@ export function ProductForm({
               <input {...input('code')} autoComplete="off" />
             </Field>
             <Field label="Categoría" htmlFor="product-categoryId" error={errors.categoryId}>
-              <select {...input('categoryId')} disabled={missingCategories}>
-                <option value="">Seleccione…</option>
-                {options.categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              <div className="field-with-action">
+                <select {...input('categoryId')}>
+                  <option value="">Seleccione…</option>
+                  {options.categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setCategoryFormOpen(true)}
+                  disabled={busy || categoryFormOpen}
+                >
+                  + Nueva categoría
+                </button>
+              </div>
             </Field>
             <Field
               label="Proveedor principal"
               htmlFor="product-supplierId"
               error={errors.supplierId}
             >
-              <select {...input('supplierId')} disabled={missingSuppliers}>
-                <option value="">Seleccione…</option>
-                {options.suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
+              <div className="field-with-action">
+                <select {...input('supplierId')} disabled={missingSuppliers}>
+                  <option value="">Seleccione…</option>
+                  {options.suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+                {/* El formulario de proveedor es grande (contactos y productos): se registra en su pantalla. */}
+                <Link to="/suppliers" className="link-button">
+                  + Nuevo proveedor (en Proveedores)
+                </Link>
+              </div>
             </Field>
           </div>
         </div>

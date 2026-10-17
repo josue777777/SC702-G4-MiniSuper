@@ -342,6 +342,7 @@ export function ProductsSection({
           options={options}
           initialValues={editing === null ? EMPTY_FORM_VALUES : toFormValues(editing)}
           imageUrl={editing?.imageUrl ?? null}
+          onCategoryCreated={afterCategoryCreated}
           busy={busy}
           onCancel={closeForm}
           onSubmit={(payload, image) => void handleSubmit(payload, image)}
