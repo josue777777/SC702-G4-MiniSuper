@@ -21,13 +21,14 @@ interface ProductFormProps {
   onSubmit: (payload: ProductPayload) => void;
 }
 
-type Tab = 'general' | 'costs' | 'stock' | 'labels';
+type Tab = 'general' | 'costs' | 'stock' | 'labels' | 'image';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'costs', label: 'Costos' },
   { id: 'stock', label: 'Existencias' },
   { id: 'labels', label: 'Etiquetas' },
+  { id: 'image', label: 'Imagen' },
 ];
 
 /** Pestaña donde vive cada campo: si hay un error, se abre esa pestaña. */
@@ -272,9 +273,42 @@ export function ProductForm({
           aria-labelledby="product-tab-labels"
           hidden={tab !== 'labels'}
         >
-          <p className="muted">
-            Aquí se generará el código de barras imprimible del producto (HU-07, pendiente).
-          </p>
+          {/* Espacio reservado: se completa en la rama de HU-07. */}
+          <div className="reserved-grid">
+            <div className="reserved-box">
+              <strong>Código de barras</strong>
+              <span className="reserved-box__art" aria-hidden="true">
+                ▌▍▌▌▍▌▍▍▌▌▍▌
+              </span>
+              <p className="muted">
+                Generar un código único, imprimirlo o descargarlo (HU-07, pendiente).
+              </p>
+            </div>
+            <div className="reserved-box">
+              <strong>Código QR</strong>
+              <span className="reserved-box__art" aria-hidden="true">
+                ▦
+              </span>
+              <p className="muted">Descargar el QR del producto (HU-07, pendiente).</p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="tabs__panel"
+          role="tabpanel"
+          id="product-panel-image"
+          aria-labelledby="product-tab-image"
+          hidden={tab !== 'image'}
+        >
+          {/* Espacio reservado: HU-01 menciona «imagen si es necesario». */}
+          <div className="reserved-box">
+            <strong>Imagen del producto</strong>
+            <span className="reserved-box__art" aria-hidden="true">
+              ◫
+            </span>
+            <p className="muted">Subir una imagen opcional del producto (HU-01, pendiente).</p>
+          </div>
         </div>
 
         <div className="form__actions modal__actions">

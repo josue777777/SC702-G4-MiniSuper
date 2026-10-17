@@ -1026,3 +1026,33 @@ code {
   color: #f6c48f;
   font-size: 0.88rem;
 }
+
+/* Pestañas reservadas del producto (Etiquetas: HU-07; Imagen: HU-01) */
+.reserved-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.reserved-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.reserved-box p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.reserved-box__art {
+  color: #b6bfcc;
+  font-size: 2.6rem;
+  letter-spacing: -0.08em;
+  line-height: 1.2;
+}
