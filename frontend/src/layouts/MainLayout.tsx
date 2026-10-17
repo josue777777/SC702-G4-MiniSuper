@@ -1,25 +1,41 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { findGroupOfPath, NAVIGATION, type NavItem } from './navigation';
 
-/**
- * Secciones del sistema. El `href` coincide con la ruta y con el módulo de
- * docs/ARCHITECTURE.md, de modo que el menú es también el índice del proyecto.
- */
-const NAV_ITEMS = [
-  { to: '/', label: 'Panel', end: true },
-  { to: '/products', label: 'Productos' },
-  { to: '/inventory', label: 'Inventario' },
-  { to: '/sales', label: 'Ventas' },
-  { to: '/customers', label: 'Clientes' },
-  { to: '/suppliers', label: 'Proveedores' },
-  { to: '/orders', label: 'Pedidos' },
-  { to: '/reports', label: 'Reportes' },
-] as const;
+function NavItemLink({ item, nested = false }: { item: NavItem; nested?: boolean }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end ?? false}
+      title={item.stories}
+      className={({ isActive }) =>
+        ['nav-link', nested ? 'nav-link--nested' : '', isActive ? 'nav-link--active' : '']
+          .filter(Boolean)
+          .join(' ')
+      }
+    >
+      {item.label}
+    </NavLink>
+  );
+}
 
 /**
  * Estructura común de todas las pantallas internas: menú lateral + contenido.
  * El contenido de la ruta coincidente se renderiza en <Outlet />.
  */
 export function MainLayout() {
+  const { pathname } = useLocation();
+  const activeGroup = findGroupOfPath(pathname);
+  /**
+   * Grupos que el usuario abrió o cerró a mano. Si no lo ha tocado, un grupo
+   * se ve abierto cuando contiene la pantalla actual.
+   */
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+
+  function isOpen(groupId: string): boolean {
+    return toggled[groupId] ?? groupId === activeGroup;
+  }
+
   return (
     <div className="layout">
       <aside className="layout__sidebar">
@@ -32,16 +48,39 @@ export function MainLayout() {
         </div>
 
         <nav className="layout__nav" aria-label="Navegación principal">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={'end' in item ? item.end : false}
-              className={({ isActive }) => (isActive ? 'nav-link nav-link--active' : 'nav-link')}
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {NAVIGATION.map((entry) =>
+            entry.kind === 'link' ? (
+              <NavItemLink key={entry.to} item={entry} />
+            ) : (
+              <div key={entry.id} className="nav-group">
+                <button
+                  type="button"
+                  className={
+                    entry.id === activeGroup
+                      ? 'nav-group__toggle nav-group__toggle--active'
+                      : 'nav-group__toggle'
+                  }
+                  aria-expanded={isOpen(entry.id)}
+                  aria-controls={`nav-group-${entry.id}`}
+                  onClick={() =>
+                    setToggled((current) => ({ ...current, [entry.id]: !isOpen(entry.id) }))
+                  }
+                >
+                  {entry.label}
+                  <span className="nav-group__chevron" aria-hidden="true">
+                    ▾
+                  </span>
+                </button>
+                {isOpen(entry.id) ? (
+                  <div id={`nav-group-${entry.id}`} className="nav-group__items">
+                    {entry.items.map((item) => (
+                      <NavItemLink key={item.to} item={item} nested />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ),
+          )}
         </nav>
 
         <div className="layout__footer">
