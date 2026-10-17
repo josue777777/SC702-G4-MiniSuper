@@ -73,6 +73,13 @@ export const productsService = {
     return response.data;
   },
 
+  /** HU-03: vuelve a activar un producto desactivado. */
+  async activate(id: string): Promise<Product> {
+    const response = await apiPatch<DataResponse<Product>>(`/api/products/${id}/activate`);
+
+    return response.data;
+  },
+
   /**
    * HU-03: borra para siempre un producto desactivado y sin ventas ni pedidos.
    * Si no se puede, la API responde 409 con el motivo.

@@ -7,6 +7,9 @@ import { ProductForm } from './ProductForm';
 import { ProductTable } from './ProductTable';
 import { useProducts } from './use-products';
 
+/** Qué productos muestra la lista. */
+type ProductView = 'active' | 'inactive' | 'all';
+
 /** Valor reservado del `<select>` de categoría que no es un id real. */
 const NEW_CATEGORY_OPTION = '__new__';
 
@@ -57,6 +60,7 @@ export function ProductsSection({
     createProduct,
     updateProduct,
     deactivateProduct,
+    activateProduct,
     deleteProduct,
     afterCategoryCreated,
     dismissNotice,
@@ -74,12 +78,17 @@ export function ProductsSection({
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
 
   /**
-   * Los inactivos no se venden y solo cargan la lista: se ocultan salvo que el
-   * dueño marque «Mostrar inactivos» (por ejemplo, para comprobar una baja, HU-03).
+   * Vista de la lista: los desactivados no se venden y solo cargan la lista,
+   * así que por defecto se ven los activos. En «Desactivados» están Activar y
+   * Borrar (HU-03).
    */
-  const [showInactive, setShowInactive] = useState(false);
-  const visibleProducts = showInactive ? products : products.filter((product) => product.isActive);
-  const hiddenInactive = products.length - visibleProducts.length;
+  const [view, setView] = useState<ProductView>('active');
+  const activeCount = products.filter((product) => product.isActive).length;
+  const inactiveCount = products.length - activeCount;
+  const visibleProducts =
+    view === 'all'
+      ? products
+      : products.filter((product) => product.isActive === (view === 'active'));
 
   // Si el producto marcado ya no está a la vista (otra búsqueda, o se ocultó), se desmarca.
   const selected = visibleProducts.find((product) => product.id === selectedId) ?? null;
@@ -180,14 +189,10 @@ export function ProductsSection({
     action(selected);
   }
 
-  /** «Borrar» solo aplica a desactivados, que por defecto están ocultos. */
+  /** «Borrar» solo aplica a desactivados (vista «Desactivados» o «Todos»). */
   function requestDelete(): void {
     if (selected === null) {
-      setSelectionHint(
-        showInactive
-          ? 'Primero seleccione en la lista el producto desactivado a borrar.'
-          : 'Marque «Mostrar inactivos» y seleccione el producto desactivado a borrar.',
-      );
+      setSelectionHint('Primero seleccione en la lista el producto desactivado a borrar.');
 
       return;
     }
@@ -199,6 +204,19 @@ export function ProductsSection({
     }
 
     setConfirmingDelete(true);
+  }
+
+  /** Activar no necesita confirmación: se puede deshacer desactivándolo otra vez. */
+  async function handleActivate(product: Product): Promise<void> {
+    if (product.isActive) {
+      setSelectionHint(`«${product.name}» ya está activo.`);
+
+      return;
+    }
+
+    if (await activateProduct(product.id)) {
+      onProductsChanged?.();
+    }
   }
 
   async function handleDelete(product: Product): Promise<void> {
@@ -217,6 +235,47 @@ export function ProductsSection({
       onProductsChanged?.();
     }
   }
+
+  /** Mensaje de lista vacía según la vista (la búsqueda solo encuentra activos, HU-05). */
+  function emptyListText(): string | undefined {
+    if (view === 'inactive') {
+      return categoryFilter !== '' || searchTerm !== ''
+        ? 'La búsqueda y el filtro de categoría solo encuentran productos activos. Límpielos para ver los desactivados.'
+        : 'No hay productos desactivados.';
+    }
+
+    if (view === 'active' && inactiveCount > 0 && categoryFilter === '' && searchTerm === '') {
+      return `No hay productos activos. Hay ${inactiveCount} en «Desactivados».`;
+    }
+
+    return undefined;
+  }
+
+  /** Selector de vista; va en el encabezado de la tabla porque filtra la lista. */
+  const viewSelector = (
+    <div className="segmented" role="group" aria-label="Productos a mostrar">
+      {(
+        [
+          ['active', `Activos (${activeCount})`],
+          ['inactive', `Desactivados (${inactiveCount})`],
+          ['all', 'Todos'],
+        ] as const
+      ).map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          className={view === id ? 'segmented__item segmented__item--active' : 'segmented__item'}
+          aria-pressed={view === id}
+          onClick={() => {
+            setView(id);
+            setSelectionHint(null);
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <>
@@ -254,14 +313,6 @@ export function ProductsSection({
               </option>
             ))}
           </select>
-        </label>
-        <label className="toolbar__check">
-          <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(event) => setShowInactive(event.target.checked)}
-          />
-          Mostrar inactivos
         </label>
         {tools}
       </div>
@@ -319,7 +370,8 @@ export function ProductsSection({
       {phase === 'ready' ? (
         <ProductTable
           products={visibleProducts}
-          hiddenInactive={hiddenInactive}
+          emptyText={emptyListText()}
+          headerActions={viewSelector}
           filtered={categoryFilter !== ''}
           searchTerm={searchTerm}
           selectedId={selected?.id ?? null}
@@ -346,33 +398,47 @@ export function ProductsSection({
         >
           ✎ Modificar
         </button>
-        <button
-          type="button"
-          className="action-bar__button"
-          onClick={() =>
-            withSelection((product) => {
-              if (!product.isActive) {
-                setSelectionHint(`«${product.name}» ya está inactivo.`);
+        {view === 'inactive' ? null : (
+          <button
+            type="button"
+            className="action-bar__button"
+            onClick={() =>
+              withSelection((product) => {
+                if (!product.isActive) {
+                  setSelectionHint(`«${product.name}» ya está inactivo.`);
 
-                return;
-              }
+                  return;
+                }
 
-              setConfirmingDeactivate(true);
-            }, 'desactivar')
-          }
-          disabled={busy || phase !== 'ready'}
-        >
-          ✕ Desactivar
-        </button>
-        {/* Más adelante, solo visible para el administrador (HU-11 … HU-15). */}
-        <button
-          type="button"
-          className="action-bar__button action-bar__button--danger"
-          onClick={requestDelete}
-          disabled={busy || phase !== 'ready'}
-        >
-          🗑 Borrar
-        </button>
+                setConfirmingDeactivate(true);
+              }, 'desactivar')
+            }
+            disabled={busy || phase !== 'ready'}
+          >
+            ✕ Desactivar
+          </button>
+        )}
+        {view === 'active' ? null : (
+          <>
+            <button
+              type="button"
+              className="action-bar__button action-bar__button--ok"
+              onClick={() => withSelection((product) => void handleActivate(product), 'activar')}
+              disabled={busy || phase !== 'ready'}
+            >
+              ✓ Activar
+            </button>
+            {/* Más adelante, solo visible para el administrador (HU-11 … HU-15). */}
+            <button
+              type="button"
+              className="action-bar__button action-bar__button--danger"
+              onClick={requestDelete}
+              disabled={busy || phase !== 'ready'}
+            >
+              🗑 Borrar
+            </button>
+          </>
+        )}
         <span className="action-bar__status" role="status">
           {selectionHint ??
             (selected === null ? '' : `Seleccionado: ${selected.code} · ${selected.name}`)}

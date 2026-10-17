@@ -1107,15 +1107,6 @@ code {
   position: relative;
 }
 
-/* Casilla de la barra superior (p. ej. «Mostrar inactivos») */
-.toolbar__check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
 /* --- Panel principal: números grandes, gráficos y accesos rápidos -------- */
 .stat-grid {
   display: grid;
@@ -1302,4 +1293,52 @@ code {
   background: #8f1414;
   border-color: #8f1414;
   color: #fff;
+}
+
+/* Selector de vista: Activos | Desactivados | Todos */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.segmented__item {
+  padding: 7px 12px;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.segmented__item:last-child {
+  border-right: none;
+}
+
+.segmented__item:hover {
+  background: var(--color-row-hover);
+}
+
+.segmented__item--active,
+.segmented__item--active:hover {
+  background: var(--color-sidebar);
+  color: #fff;
+}
+
+.action-bar__button--ok {
+  background: var(--color-ok);
+}
+
+.action-bar__button--ok:hover:not(:disabled) {
+  background: #0f6630;
+}
+
+.card__header-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }

@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import type { Product } from '../../types/products';
 import { formatMoney } from './money';
 
@@ -8,8 +8,10 @@ interface ProductTableProps {
   filtered?: boolean;
   /** Búsqueda confirmada (HU-05); cadena vacía si no hay búsqueda. */
   searchTerm?: string;
-  /** Cuántos productos inactivos se ocultaron de la lista. */
-  hiddenInactive?: number;
+  /** Mensaje de lista vacía que decide la vista (activos o desactivados). */
+  emptyText?: string;
+  /** Controles del encabezado, a la derecha del título (p. ej. el selector de vista). */
+  headerActions?: ReactNode;
   /** Producto marcado en la lista; sobre él actúan «Modificar» y «Desactivar». */
   selectedId: string | null;
   onSelect: (product: Product) => void;
@@ -31,7 +33,8 @@ export function ProductTable({
   products,
   filtered = false,
   searchTerm = '',
-  hiddenInactive = 0,
+  emptyText,
+  headerActions,
   selectedId,
   onSelect,
   onOpen,
@@ -52,6 +55,7 @@ export function ProductTable({
       <section className="card">
         <header className="card__header">
           <h2>{searching ? 'Resultados de la búsqueda' : 'Catálogo'}</h2>
+          {headerActions}
         </header>
         {searching ? (
           <>
@@ -65,11 +69,10 @@ export function ProductTable({
           </>
         ) : (
           <p className="muted">
-            {filtered
-              ? 'No hay productos activos en esta categoría.'
-              : hiddenInactive > 0
-                ? `No hay productos activos. Marque «Mostrar inactivos» para ver los ${hiddenInactive} desactivados.`
-                : 'Todavía no hay productos registrados. Use «+ Crear» para registrar el primero.'}
+            {emptyText ??
+              (filtered
+                ? 'No hay productos activos en esta categoría.'
+                : 'Todavía no hay productos registrados. Use «+ Crear» para registrar el primero.')}
           </p>
         )}
       </section>
@@ -80,9 +83,11 @@ export function ProductTable({
     <section className="card">
       <header className="card__header">
         <h2>{searching ? 'Resultados de la búsqueda' : 'Catálogo'}</h2>
-        <span className="muted" role="status">
-          {products.length} {searching ? 'resultado(s)' : 'producto(s)'}
-          {hiddenInactive > 0 ? ` · ${hiddenInactive} inactivo(s) oculto(s)` : ''}
+        <span className="card__header-end">
+          <span className="muted" role="status">
+            {products.length} {searching ? 'resultado(s)' : 'producto(s)'}
+          </span>
+          {headerActions}
         </span>
       </header>
 

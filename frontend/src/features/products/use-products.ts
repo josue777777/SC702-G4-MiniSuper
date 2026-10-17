@@ -195,6 +195,17 @@ export function useProducts() {
     [runAction],
   );
 
+  /** HU-03: volver a activar un producto desactivado. */
+  const activateProduct = useCallback(
+    (id: string) =>
+      runAction(async () => {
+        await productsService.activate(id);
+
+        return null;
+      }, 'Producto activado: vuelve a estar disponible para la venta.'),
+    [runAction],
+  );
+
   /** HU-03: borrar para siempre (más adelante, solo el administrador). */
   const deleteProduct = useCallback(
     (id: string) =>
@@ -226,6 +237,7 @@ export function useProducts() {
     createProduct,
     updateProduct,
     deactivateProduct,
+    activateProduct,
     deleteProduct,
     afterCategoryCreated,
     dismissNotice,
