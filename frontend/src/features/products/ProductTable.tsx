@@ -8,6 +8,8 @@ interface ProductTableProps {
   filtered?: boolean;
   /** Búsqueda confirmada (HU-05); cadena vacía si no hay búsqueda. */
   searchTerm?: string;
+  /** Cuántos productos inactivos se ocultaron de la lista. */
+  hiddenInactive?: number;
   /** Producto marcado en la lista; sobre él actúan «Modificar» y «Desactivar». */
   selectedId: string | null;
   onSelect: (product: Product) => void;
@@ -29,6 +31,7 @@ export function ProductTable({
   products,
   filtered = false,
   searchTerm = '',
+  hiddenInactive = 0,
   selectedId,
   onSelect,
   onOpen,
@@ -64,7 +67,9 @@ export function ProductTable({
           <p className="muted">
             {filtered
               ? 'No hay productos activos en esta categoría.'
-              : 'Todavía no hay productos registrados. Use «+ Crear» para registrar el primero.'}
+              : hiddenInactive > 0
+                ? `No hay productos activos. Marque «Mostrar inactivos» para ver los ${hiddenInactive} desactivados.`
+                : 'Todavía no hay productos registrados. Use «+ Crear» para registrar el primero.'}
           </p>
         )}
       </section>
@@ -77,6 +82,7 @@ export function ProductTable({
         <h2>{searching ? 'Resultados de la búsqueda' : 'Catálogo'}</h2>
         <span className="muted" role="status">
           {products.length} {searching ? 'resultado(s)' : 'producto(s)'}
+          {hiddenInactive > 0 ? ` · ${hiddenInactive} inactivo(s) oculto(s)` : ''}
         </span>
       </header>
 

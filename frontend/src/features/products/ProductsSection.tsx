@@ -71,8 +71,16 @@ export function ProductsSection({
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
 
-  // Si el producto marcado ya no está en la lista (otra búsqueda), se desmarca.
-  const selected = products.find((product) => product.id === selectedId) ?? null;
+  /**
+   * Los inactivos no se venden y solo cargan la lista: se ocultan salvo que el
+   * dueño marque «Mostrar inactivos» (por ejemplo, para comprobar una baja, HU-03).
+   */
+  const [showInactive, setShowInactive] = useState(false);
+  const visibleProducts = showInactive ? products : products.filter((product) => product.isActive);
+  const hiddenInactive = products.length - visibleProducts.length;
+
+  // Si el producto marcado ya no está a la vista (otra búsqueda, o se ocultó), se desmarca.
+  const selected = visibleProducts.find((product) => product.id === selectedId) ?? null;
   /** Lo que el dueño está escribiendo; se aplica solo tras una breve pausa (HU-05). */
   const [searchInput, setSearchInput] = useState('');
 
@@ -215,6 +223,14 @@ export function ProductsSection({
             ))}
           </select>
         </label>
+        <label className="toolbar__check">
+          <input
+            type="checkbox"
+            checked={showInactive}
+            onChange={(event) => setShowInactive(event.target.checked)}
+          />
+          Mostrar inactivos
+        </label>
         {tools}
       </div>
 
@@ -270,7 +286,8 @@ export function ProductsSection({
 
       {phase === 'ready' ? (
         <ProductTable
-          products={products}
+          products={visibleProducts}
+          hiddenInactive={hiddenInactive}
           filtered={categoryFilter !== ''}
           searchTerm={searchTerm}
           selectedId={selected?.id ?? null}

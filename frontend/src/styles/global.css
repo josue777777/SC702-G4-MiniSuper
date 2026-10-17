@@ -462,7 +462,7 @@ code {
 }
 
 .toolbar__search input {
-  width: min(280px, 60vw);
+  width: min(240px, 60vw);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 7px 11px;
@@ -1105,4 +1105,13 @@ code {
 
 .image-field__choose {
   position: relative;
+}
+
+/* Casilla de la barra superior (p. ej. «Mostrar inactivos») */
+.toolbar__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
