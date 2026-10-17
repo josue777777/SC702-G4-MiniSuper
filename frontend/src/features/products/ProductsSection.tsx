@@ -80,8 +80,9 @@ export function ProductsSection({
   /**
    * Vista de la lista: los desactivados no se venden y solo cargan la lista,
    * así que por defecto se ven los activos. Cada acción vive en su vista:
-   * Desactivar en «Activos»; Activar y Borrar en «Desactivados» (HU-03).
-   * «Todos» es solo para consultar.
+   * Crear, Modificar y Desactivar en «Activos»; Activar y Borrar en
+   * «Desactivados» (HU-03). «Todos» sirve para consultar y permite crear o
+   * modificar productos activos.
    */
   const [view, setView] = useState<ProductView>('active');
   const activeCount = products.filter((product) => product.isActive).length;
@@ -138,6 +139,20 @@ export function ProductsSection({
   function openEditForm(product: Product): void {
     setEditing(product);
     setFormOpen(true);
+  }
+
+  /**
+   * Lo desactivado se trata como archivado: no se modifica. Para corregirlo se
+   * reactiva primero. Aplica al botón «Modificar» y al doble clic en la fila.
+   */
+  function requestEdit(product: Product): void {
+    if (!product.isActive) {
+      setSelectionHint(`Para modificar «${product.name}», actívelo primero desde «Desactivados».`);
+
+      return;
+    }
+
+    openEditForm(product);
   }
 
   /**
@@ -378,28 +393,38 @@ export function ProductsSection({
           searchTerm={searchTerm}
           selectedId={selected?.id ?? null}
           onSelect={selectProduct}
-          onOpen={openEditForm}
+          onOpen={(product) => {
+            // En «Desactivados» el doble clic no abre nada: ahí solo se activa o se borra.
+            if (view !== 'inactive') {
+              requestEdit(product);
+            }
+          }}
         />
       ) : null}
 
       {/* Barra de acciones fija al pie de la ventana, como en la referencia */}
       <div className="action-bar" role="toolbar" aria-label="Acciones del producto">
-        <button
-          type="button"
-          className="action-bar__button"
-          onClick={openCreateForm}
-          disabled={busy || phase !== 'ready'}
-        >
-          + Crear
-        </button>
-        <button
-          type="button"
-          className="action-bar__button"
-          onClick={() => withSelection(openEditForm, 'modificar')}
-          disabled={busy || phase !== 'ready'}
-        >
-          ✎ Modificar
-        </button>
+        {/* Crear y Modificar no van en «Desactivados»: lo nuevo nace activo y lo archivado no se edita. */}
+        {view === 'inactive' ? null : (
+          <>
+            <button
+              type="button"
+              className="action-bar__button"
+              onClick={openCreateForm}
+              disabled={busy || phase !== 'ready'}
+            >
+              + Crear
+            </button>
+            <button
+              type="button"
+              className="action-bar__button"
+              onClick={() => withSelection(requestEdit, 'modificar')}
+              disabled={busy || phase !== 'ready'}
+            >
+              ✎ Modificar
+            </button>
+          </>
+        )}
         {view === 'active' ? (
           <button
             type="button"

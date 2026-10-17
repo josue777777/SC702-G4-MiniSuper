@@ -947,6 +947,8 @@ code {
 /* Filas que se marcan con un clic */
 .table__row--selectable {
   cursor: pointer;
+  /* El doble clic abre el producto; sin esto, además resalta el texto de la celda */
+  user-select: none;
 }
 
 .table tbody tr.table__row--selected,
