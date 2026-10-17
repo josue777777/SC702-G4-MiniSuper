@@ -58,11 +58,17 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
   `frontend/src/app/routes.tsx`. `/login` se renderiza fuera del layout; el resto
   de pantallas comparte `MainLayout` a través de `<Outlet />`.
 * **Menú lateral** (`frontend/src/layouts/navigation.ts`): agrupado por cómo se mueve la
-  mercadería — **Almacén** (Productos, Inventario, Kardex), **Entradas** (Pedidos a proveedor,
+  mercadería — **Almacén** (Inventario, Kardex), **Entradas** (Pedidos a proveedor,
   Proveedores) y **Salidas** (Ventas, Clientes y fiados) — más Inicio y Reportes. En Almacén se
-  manejan los *datos* del producto; las *cantidades* solo cambian por movimientos
-  (`InventoryMovement`: ventas, recepciones, conteos), y el Kardex (HU-31) los muestra con su
-  saldo (`stockAfter`).
+  manejan los *datos* del producto; las *cantidades* cambian por movimientos
+  (`InventoryMovement`: ventas, recepciones, conteos y los ajustes de HU-02), y el Kardex
+  (HU-31) los muestra con su saldo (`stockAfter`).
+* **Ventana de Inventario** (`/inventory`): lista general de productos con búsqueda (HU-05) y
+  filtro por categoría; un clic marca un producto y la barra inferior tiene «Crear»,
+  «Modificar» y «Desactivar». Crear y modificar abren un modal con pestañas (General, Costos,
+  Existencias, Etiquetas); el conteo físico (HU-10) y los mínimos y vencimientos (HU-08,
+  HU-09) se abren desde botones de la barra superior. Los modales usan `<dialog>` nativo
+  (`components/Modal.tsx`).
 * **Comunicación HTTP**: centralizada en `frontend/src/services/`. Ningún componente
   ejecuta `fetch` directamente.
 * **URL del backend**: variable de entorno `VITE_API_URL`, leída una sola vez en
