@@ -194,6 +194,9 @@ repository → Prisma`. Responde `200` si la base responde y `503` si no.
 | `POST` | `/api/products` | Registrar producto (HU-01). Responde `201` |
 | `PATCH` | `/api/products/:id` | Editar producto (HU-02) |
 | `PATCH` | `/api/products/:id/deactivate` | Baja lógica (HU-03): solo `isActive = false` |
+| `GET` | `/api/products/:id/image` | Imagen del producto (HU-01) para `<img src>`; `404` si no tiene |
+| `PUT` | `/api/products/:id/image` | Subir o reemplazar la imagen. El cuerpo son los bytes y `Content-Type` su tipo |
+| `DELETE` | `/api/products/:id/image` | Quitar la imagen |
 
 Convenciones de este módulo, decididas al implementarlo:
 
@@ -213,6 +216,14 @@ Convenciones de este módulo, decididas al implementarlo:
 * **Los movimientos de inventario los decide el service y los escribe el repository** en la
   misma transacción: `ENTRY` con `reason = "Stock inicial"` al crear con stock > 0, y
   `ADJUSTMENT` con `reason = "Ajuste desde edición de producto"` al cambiar el stock a mano.
+* **Imagen del producto (HU-01)**: se guarda en la base (`imageData`, `bytea`) para no
+  depender de una carpeta del servidor; el listado solo trae `imageUrl`, nunca los bytes. Solo
+  PNG, JPG o WEBP de hasta 2 MB (`413` si se pasa). Sin SVG, porque puede llevar código
+  (XSS). El service además revisa la **firma** del archivo (sus primeros bytes): la cabecera
+  `Content-Type` la escribe el cliente y no basta. `imageUrl` lleva `?v=<fecha>` para que el
+  navegador pueda guardar la imagen en caché sin mostrar una vieja, y solo esa respuesta
+  permite que otro origen la use (`Cross-Origin-Resource-Policy: cross-origin`), porque
+  `helmet()` lo bloquea por defecto y el frontend vive en otro puerto.
 * **`updatedAt`/historial de ventas intactos**: editar un producto nunca escribe en
   `SaleItem`, cuyos `unitPrice` y `unitCost` son la foto del momento de la venta.
 
