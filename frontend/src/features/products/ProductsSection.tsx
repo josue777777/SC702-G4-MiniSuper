@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Modal } from '../../components/Modal';
 import type { Product, ProductPayload } from '../../types/products';
 import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
@@ -20,17 +21,27 @@ interface ProductsSectionProps {
   onProductsChanged?: () => void;
   /** Al cambiar, el catálogo se vuelve a cargar (p. ej. tras un conteo que cambió el stock). */
   refreshKey?: number;
+  /** Botones de otras herramientas de Inventario, a la derecha de la barra superior. */
+  tools?: ReactNode;
 }
 
 /**
  * Sección de productos: registrar (HU-01), editar (HU-02), desactivar (HU-03) y
  * buscar por nombre o código (HU-05). Se muestra dentro de `InventoryPage`.
  *
+ * Funciona como una ventana de inventario: la lista ocupa la pantalla, un clic
+ * marca un producto y la barra inferior tiene «Crear», «Modificar» y
+ * «Desactivar». Crear y modificar se hacen en una ventana modal.
+ *
  * La sección solo compone: el estado está en `use-products.ts`, el formulario en
  * `ProductForm.tsx` y el listado en `ProductTable.tsx`. Aquí se decide qué se ve
  * (cargando, error, vacío o tabla) y qué formulario está abierto.
  */
-export function ProductsSection({ onProductsChanged, refreshKey = 0 }: ProductsSectionProps = {}) {
+export function ProductsSection({
+  onProductsChanged,
+  refreshKey = 0,
+  tools,
+}: ProductsSectionProps = {}) {
   const {
     phase,
     products,
@@ -54,6 +65,14 @@ export function ProductsSection({ onProductsChanged, refreshKey = 0 }: ProductsS
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  /** Producto marcado en la lista (para «Modificar» y «Desactivar»). */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
+  /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
+  const [selectionHint, setSelectionHint] = useState<string | null>(null);
+
+  // Si el producto marcado ya no está en la lista (otra búsqueda), se desmarca.
+  const selected = products.find((product) => product.id === selectedId) ?? null;
   /** Lo que el dueño está escribiendo; se aplica solo tras una breve pausa (HU-05). */
   const [searchInput, setSearchInput] = useState('');
 
@@ -133,7 +152,25 @@ export function ProductsSection({ onProductsChanged, refreshKey = 0 }: ProductsS
     }
   }
 
+  function selectProduct(product: Product): void {
+    setSelectedId(product.id);
+    setSelectionHint(null);
+  }
+
+  /** «Modificar» y «Desactivar» necesitan un producto marcado, como en la referencia. */
+  function withSelection(action: (product: Product) => void, verb: string): void {
+    if (selected === null) {
+      setSelectionHint(`Primero seleccione en la lista el producto a ${verb}.`);
+
+      return;
+    }
+
+    action(selected);
+  }
+
   async function handleDeactivate(product: Product): Promise<void> {
+    setConfirmingDeactivate(false);
+
     if (await deactivateProduct(product.id)) {
       onProductsChanged?.();
     }
@@ -151,20 +188,15 @@ export function ProductsSection({ onProductsChanged, refreshKey = 0 }: ProductsS
             aria-label="Buscar producto por nombre o código"
             maxLength={120}
           />
+          <button type="submit" className="button button--dark">
+            Buscar
+          </button>
           {searchInput !== '' || searchTerm !== '' ? (
             <button type="button" className="button" onClick={() => handleSearchInputChange('')}>
               Limpiar
             </button>
           ) : null}
         </form>
-        <button
-          type="button"
-          className="button button--primary"
-          onClick={openCreateForm}
-          disabled={busy || formOpen}
-        >
-          + Nuevo producto
-        </button>
         <label className="toolbar__filter">
           Categoría{' '}
           <select
@@ -181,6 +213,7 @@ export function ProductsSection({ onProductsChanged, refreshKey = 0 }: ProductsS
             ))}
           </select>
         </label>
+        {tools}
       </div>
 
       {notice === null ? null : (
@@ -235,12 +268,85 @@ export function ProductsSection({ onProductsChanged, refreshKey = 0 }: ProductsS
       {phase === 'ready' ? (
         <ProductTable
           products={products}
-          busy={busy}
           filtered={categoryFilter !== ''}
           searchTerm={searchTerm}
-          onEdit={openEditForm}
-          onDeactivate={(product) => void handleDeactivate(product)}
+          selectedId={selected?.id ?? null}
+          onSelect={selectProduct}
+          onOpen={openEditForm}
         />
+      ) : null}
+
+      {/* Barra de acciones fija al pie de la ventana, como en la referencia */}
+      <div className="action-bar" role="toolbar" aria-label="Acciones del producto">
+        <button
+          type="button"
+          className="action-bar__button"
+          onClick={openCreateForm}
+          disabled={busy || phase !== 'ready'}
+        >
+          + Crear
+        </button>
+        <button
+          type="button"
+          className="action-bar__button"
+          onClick={() => withSelection(openEditForm, 'modificar')}
+          disabled={busy || phase !== 'ready'}
+        >
+          ✎ Modificar
+        </button>
+        <button
+          type="button"
+          className="action-bar__button"
+          onClick={() =>
+            withSelection((product) => {
+              if (!product.isActive) {
+                setSelectionHint(`«${product.name}» ya está inactivo.`);
+
+                return;
+              }
+
+              setConfirmingDeactivate(true);
+            }, 'desactivar')
+          }
+          disabled={busy || phase !== 'ready'}
+        >
+          ✕ Desactivar
+        </button>
+        <span className="action-bar__status" role="status">
+          {selectionHint ??
+            (selected === null ? '' : `Seleccionado: ${selected.code} · ${selected.name}`)}
+        </span>
+      </div>
+
+      {confirmingDeactivate && selected !== null ? (
+        <Modal title="Desactivar producto" onClose={() => setConfirmingDeactivate(false)}>
+          <p>
+            Confirme desactivar el producto <strong>{selected.code}</strong> ·{' '}
+            <strong>{selected.name}</strong>.
+          </p>
+          <p className="muted">
+            Ya no estará disponible para nuevas ventas; su historial de ventas e inventario se
+            conserva.
+          </p>
+          <div className="form__actions modal__actions">
+            <button
+              type="button"
+              className="button button--danger"
+              disabled={busy}
+              onClick={() => void handleDeactivate(selected)}
+            >
+              Sí, desactivar
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              onClick={() => setConfirmingDeactivate(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </Modal>
       ) : null}
     </>
   );
