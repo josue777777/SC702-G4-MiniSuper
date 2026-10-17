@@ -4,6 +4,7 @@ import type {
   ProductDto,
   ProductImage,
   ProductImageMimeType,
+  ProductReferences,
   ProductListFilter,
   ReferenceOption,
   UpdateProductPlan,
@@ -341,5 +342,27 @@ export class ProductsRepository {
     await prisma.product.update({ where: { id }, data: { isActive: false } });
 
     return readProduct(id);
+  }
+
+  /** Cuántas ventas y pedidos a proveedor incluyen este producto. */
+  async countReferences(id: string): Promise<ProductReferences> {
+    const [sales, purchaseOrders] = await Promise.all([
+      prisma.saleItem.count({ where: { productId: id } }),
+      prisma.purchaseOrderItem.count({ where: { productId: id } }),
+    ]);
+
+    return { sales, purchaseOrders };
+  }
+
+  /**
+   * Borra el producto para siempre, junto con sus movimientos de stock, en una
+   * sola transacción. Las relaciones con proveedores se borran solas (Cascade).
+   * Solo se llama cuando el service ya comprobó que no tiene ventas ni pedidos.
+   */
+  async deletePermanently(id: string): Promise<void> {
+    await prisma.$transaction([
+      prisma.inventoryMovement.deleteMany({ where: { productId: id } }),
+      prisma.product.delete({ where: { id } }),
+    ]);
   }
 }

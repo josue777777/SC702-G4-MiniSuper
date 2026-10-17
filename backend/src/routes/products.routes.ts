@@ -56,6 +56,12 @@ export function createProductsRouter(repository: ProductsRepository): Router {
    */
   router.patch('/:id/deactivate', (req, res) => productsController.deactivate(req, res));
 
+  /**
+   * Borrar para siempre (HU-03): solo un producto desactivado y sin ventas ni
+   * pedidos. Más adelante, solo para el administrador.
+   */
+  router.delete('/:id', (req, res) => productsController.remove(req, res));
+
   /** Imagen opcional del producto (HU-01): verla, subirla o reemplazarla, y quitarla. */
   router.get('/:id/image', (req, res) => productsController.getImage(req, res));
   router.put('/:id/image', imageBody, (req, res) => productsController.setImage(req, res));

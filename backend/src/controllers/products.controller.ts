@@ -63,6 +63,14 @@ export class ProductsController {
     res.status(200).json({ data: await this.service.deactivateProduct(id) });
   }
 
+  /** `DELETE /api/products/:id` — borrar para siempre un producto desactivado (HU-03). */
+  async remove(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+    await this.service.deleteProduct(id);
+
+    res.status(200).json({ data: { id } });
+  }
+
   /**
    * `GET /api/products/:id/image` — los bytes de la imagen (HU-01), para usarla
    * en `<img src>`. La URL cambia con cada imagen nueva (`?v=`), así que el

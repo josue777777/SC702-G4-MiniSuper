@@ -324,3 +324,29 @@ describe('/api/products/:id/image (HU-01)', () => {
     expect(image.status).toBe(404);
   });
 });
+
+describe('DELETE /api/products/:id (HU-03)', () => {
+  it('responde 409 con un mensaje claro si el producto sigue activo', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).delete(`/api/products/${PRODUCT_ID}`);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.message).toBe(
+      'Primero desactive el producto; solo se borra uno desactivado.',
+    );
+  });
+
+  it('responde 200 y el producto deja de aparecer en el catálogo', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({ products: [buildProduct({ isActive: false })] }),
+    );
+
+    const response = await request(app).delete(`/api/products/${PRODUCT_ID}`);
+    const list = await request(app).get('/api/products');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: { id: PRODUCT_ID } });
+    expect(list.body.data).toEqual([]);
+  });
+});

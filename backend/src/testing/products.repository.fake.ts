@@ -3,6 +3,7 @@ import type {
   CreateProductPlan,
   ProductDto,
   ProductImage,
+  ProductReferences,
   ProductListFilter,
   ReferenceOption,
   UpdateProductPlan,
@@ -55,7 +56,7 @@ export interface FakeProductsState {
 
 /**
  * Implementa la interfaz pública de `ProductsRepository`. Se escriben a mano
- * los trece métodos para que, si el contrato cambia, la compilación de los tests
+ * los quince métodos para que, si el contrato cambia, la compilación de los tests
  * lo delate en lugar de pasar por alto el método nuevo.
  */
 export class FakeProductsRepository implements ProductsRepository {
@@ -67,6 +68,10 @@ export class FakeProductsRepository implements ProductsRepository {
   readonly deactivatedIds: string[] = [];
   /** Imágenes guardadas por id de producto (HU-01). */
   readonly images = new Map<string, ProductImage>();
+  /** Ventas y pedidos que mencionan a cada producto (para probar el borrado). */
+  readonly references = new Map<string, ProductReferences>();
+  /** Ids borrados para siempre (si está vacío, no se borró nada). */
+  readonly deletedIds: string[] = [];
 
   private readonly products: ProductDto[];
   private readonly categories: ReferenceOption[];
@@ -201,6 +206,18 @@ export class FakeProductsRepository implements ProductsRepository {
     this.images.delete(id);
 
     return this.replace(id, { imageUrl: null });
+  }
+
+  countReferences(id: string): Promise<ProductReferences> {
+    return Promise.resolve(this.references.get(id) ?? { sales: 0, purchaseOrders: 0 });
+  }
+
+  deletePermanently(id: string): Promise<void> {
+    this.deletedIds.push(id);
+    const index = this.products.findIndex((product) => product.id === id);
+    this.products.splice(index, 1);
+
+    return Promise.resolve();
   }
 
   private replace(id: string, changes: Partial<ProductDto>): Promise<ProductDto> {

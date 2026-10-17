@@ -132,3 +132,9 @@ export interface UpdateProductPlan {
   /** Ajuste de stock, o `null` si el stock no cambió. */
   stockMovement: InventoryMovementPlan | null;
 }
+
+/** Documentos de otros módulos que mencionan al producto: impiden borrarlo (HU-03). */
+export interface ProductReferences {
+  sales: number;
+  purchaseOrders: number;
+}

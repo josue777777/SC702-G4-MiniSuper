@@ -466,3 +466,47 @@ describe('ProductsService: imagen del producto (HU-01)', () => {
     expect(repository.images.has(PRODUCT_ID)).toBe(false);
   });
 });
+
+describe('ProductsService.deleteProduct (HU-03, borrar para siempre)', () => {
+  it('no borra un producto activo: primero hay que desactivarlo (409)', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    await expect(service.deleteProduct(PRODUCT_ID)).rejects.toMatchObject({ statusCode: 409 });
+    expect(repository.deletedIds).toEqual([]);
+  });
+
+  it('no borra un producto con ventas o pedidos: conserva el historial (409)', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    repository.references.set(PRODUCT_ID, { sales: 2, purchaseOrders: 1 });
+    const service = new ProductsService(repository);
+
+    await expect(service.deleteProduct(PRODUCT_ID)).rejects.toMatchObject({
+      statusCode: 409,
+      details: { sales: 2, purchaseOrders: 1 },
+    });
+    expect(repository.deletedIds).toEqual([]);
+  });
+
+  it('borra un producto desactivado sin ventas ni pedidos', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    const service = new ProductsService(repository);
+
+    await service.deleteProduct(PRODUCT_ID);
+
+    expect(repository.deletedIds).toEqual([PRODUCT_ID]);
+    expect(await repository.findById(PRODUCT_ID)).toBeNull();
+  });
+
+  it('responde 404 si el producto no existe', async () => {
+    const service = new ProductsService(new FakeProductsRepository());
+
+    await expect(service.deleteProduct(OTHER_PRODUCT_ID)).rejects.toMatchObject({
+      statusCode: 404,
+    });
+  });
+});

@@ -220,6 +220,36 @@ export class ProductsService {
   }
 
   /**
+   * HU-03 — borrar un producto para siempre. Más adelante solo podrá hacerlo
+   * el administrador (cuando existan los roles de HU-11 … HU-15).
+   *
+   * Reglas, para no perder historial (criterio de HU-03):
+   * - Solo se borra un producto ya desactivado: son dos pasos a propósito.
+   * - Si aparece en ventas o pedidos, no se borra: esos documentos son el
+   *   historial del negocio. Se queda desactivado.
+   * - Si no, se borra con sus movimientos de stock (p. ej. uno creado por error).
+   */
+  async deleteProduct(id: string): Promise<void> {
+    const current = await this.requireProduct(id);
+
+    if (current.isActive) {
+      throw HttpError.conflict('Primero desactive el producto; solo se borra uno desactivado.');
+    }
+
+    const references = await this.repository.countReferences(id);
+
+    if (references.sales > 0 || references.purchaseOrders > 0) {
+      throw HttpError.conflict(
+        `No se puede borrar: aparece en ${references.sales} venta(s) y ` +
+          `${references.purchaseOrders} pedido(s). Se queda desactivado para conservar el historial.`,
+        references,
+      );
+    }
+
+    await this.repository.deletePermanently(id);
+  }
+
+  /**
    * HU-01 — imagen opcional del producto. Reemplaza la anterior si había una.
    * Rechaza el archivo si su contenido no coincide con el tipo declarado.
    */
