@@ -137,7 +137,11 @@ export function SupplierForm({
           </Field>
         </div>
 
-        <h3 className="form__section-title">Productos que suministra *</h3>
+        <h3 className="form__section-title">Productos que suministra</h3>
+        <p className="muted hint">
+          Opcional al registrar: si todavía no hay productos, guarde el proveedor y asócielos
+          después, al editarlo o al registrar cada producto.
+        </p>
         {values.products.map((row, index) => {
           const locked = lockedProductIds.includes(row.productId);
 

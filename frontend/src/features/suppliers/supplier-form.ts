@@ -44,6 +44,14 @@ function textOrNull(value: string): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
+/**
+ * Filas con algo escrito. Una fila totalmente vacía no cuenta: el proveedor
+ * puede registrarse sin productos y asociarlos después.
+ */
+function filledRows(rows: SupplierProductRow[]): SupplierProductRow[] {
+  return rows.filter((row) => row.productId !== '' || row.unitCost.trim() !== '');
+}
+
 export function toSupplierPayload(values: SupplierFormValues): SupplierPayload {
   return {
     name: values.name.trim(),
@@ -52,7 +60,7 @@ export function toSupplierPayload(values: SupplierFormValues): SupplierPayload {
     email: textOrNull(values.email),
     address: textOrNull(values.address),
     notes: textOrNull(values.notes),
-    products: values.products.map((row) => ({
+    products: filledRows(values.products).map((row) => ({
       productId: row.productId,
       unitCost: row.unitCost.trim(),
     })),
@@ -81,13 +89,14 @@ export function validateSupplierForm(values: SupplierFormValues): SupplierFormEr
     errors.email = 'El correo no es válido.';
   }
 
-  const chosen = values.products.map((row) => row.productId);
+  const rows = filledRows(values.products);
+  const chosen = rows.map((row) => row.productId);
 
-  if (values.products.length === 0 || chosen.some((productId) => productId === '')) {
-    errors.products = 'Seleccione el producto de cada fila (al menos uno).';
+  if (chosen.some((productId) => productId === '')) {
+    errors.products = 'Seleccione el producto de cada fila con costo, o deje la fila vacía.';
   } else if (new Set(chosen).size !== chosen.length) {
     errors.products = 'Hay un producto repetido en la lista.';
-  } else if (values.products.some((row) => !/^\d+(\.\d{1,2})?$/.test(row.unitCost.trim()))) {
+  } else if (rows.some((row) => !/^\d+(\.\d{1,2})?$/.test(row.unitCost.trim()))) {
     errors.products = 'El costo de cada producto debe ser un número ≥ 0 con máximo dos decimales.';
   }
 

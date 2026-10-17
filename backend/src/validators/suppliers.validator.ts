@@ -40,9 +40,14 @@ export const supplierSchema = z
     ),
     address: optionalText(250, 'La dirección'),
     notes: optionalText(500, 'Las notas'),
-    products: z
-      .array(supplierProductSchema, { error: 'Indique los productos que suministra.' })
-      .min(1, 'Asocie al menos un producto que suministre el proveedor.'),
+    /*
+     * Puede registrarse sin productos: un producto exige proveedor (HU-01), así
+     * que con la base vacía el primer proveedor tiene que poder existir antes.
+     * Los productos se le asocian después, al editarlo o al registrar productos.
+     */
+    products: z.array(supplierProductSchema, {
+      error: 'Indique los productos que suministra.',
+    }),
   })
   .superRefine((value, ctx) => {
     if (value.phone === null && value.email === null) {

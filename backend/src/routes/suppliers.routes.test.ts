@@ -51,6 +51,15 @@ describe('POST /api/suppliers', () => {
     });
   });
 
+  it('responde 201 con un proveedor sin productos (primer paso con la base vacía)', async () => {
+    const response = await request(buildApp())
+      .post('/api/suppliers')
+      .send({ ...body, products: [] });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data).toMatchObject({ name: 'Lácteos del Valle', products: [] });
+  });
+
   it('responde 400 sin nombre ni contacto', async () => {
     const response = await request(buildApp())
       .post('/api/suppliers')
