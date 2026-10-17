@@ -199,6 +199,7 @@ repository → Prisma`. Responde `200` si la base responde y `503` si no.
 | `POST` | `/api/products` | Registrar producto (HU-01). Responde `201` |
 | `PATCH` | `/api/products/:id` | Editar producto (HU-02) |
 | `PATCH` | `/api/products/:id/deactivate` | Baja lógica (HU-03): solo `isActive = false` |
+| `DELETE` | `/api/products/:id` | Borrar para siempre (HU-03): solo un producto **desactivado** y sin ventas ni pedidos; si no, `409` con el motivo |
 | `GET` | `/api/products/:id/image` | Imagen del producto (HU-01) para `<img src>`; `404` si no tiene |
 | `PUT` | `/api/products/:id/image` | Subir o reemplazar la imagen. El cuerpo son los bytes y `Content-Type` su tipo |
 | `DELETE` | `/api/products/:id/image` | Quitar la imagen |
@@ -221,6 +222,11 @@ Convenciones de este módulo, decididas al implementarlo:
 * **Los movimientos de inventario los decide el service y los escribe el repository** en la
   misma transacción: `ENTRY` con `reason = "Stock inicial"` al crear con stock > 0, y
   `ADJUSTMENT` con `reason = "Ajuste desde edición de producto"` al cambiar el stock a mano.
+* **Borrar es distinto de desactivar** (HU-03 pide no perder el historial de ventas): solo
+  se borra un producto ya desactivado, y nunca si aparece en ventas o pedidos (`409`; se
+  queda desactivado). Si no, se borra junto con sus movimientos de stock en una
+  transacción; sus relaciones con proveedores se borran solas (`Cascade`). Más adelante
+  quedará limitado al administrador (HU-11 … HU-15).
 * **Imagen del producto (HU-01)**: se guarda en la base (`imageData`, `bytea`) para no
   depender de una carpeta del servidor; el listado solo trae `imageUrl`, nunca los bytes. Solo
   PNG, JPG o WEBP de hasta 2 MB (`413` si se pasa). Sin SVG, porque puede llevar código
