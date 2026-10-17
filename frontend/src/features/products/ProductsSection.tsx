@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Modal } from '../../components/Modal';
-import type { Product, ProductPayload } from '../../types/products';
+import type { Product, ProductImageChange, ProductPayload } from '../../types/products';
 import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
@@ -140,9 +140,11 @@ export function ProductsSection({
     setCategoryFilter(value);
   }
 
-  async function handleSubmit(payload: ProductPayload): Promise<void> {
+  async function handleSubmit(payload: ProductPayload, image: ProductImageChange): Promise<void> {
     const saved =
-      editing === null ? await createProduct(payload) : await updateProduct(editing.id, payload);
+      editing === null
+        ? await createProduct(payload, image)
+        : await updateProduct(editing.id, payload, image);
 
     // Solo se cierra si se guardó: si hubo un error (código duplicado, por
     // ejemplo) el formulario queda abierto con lo que escribió el dueño.
@@ -240,9 +242,10 @@ export function ProductsSection({
           mode={editing === null ? 'create' : 'edit'}
           options={options}
           initialValues={editing === null ? EMPTY_FORM_VALUES : toFormValues(editing)}
+          imageUrl={editing?.imageUrl ?? null}
           busy={busy}
           onCancel={closeForm}
-          onSubmit={(payload) => void handleSubmit(payload)}
+          onSubmit={(payload, image) => void handleSubmit(payload, image)}
         />
       ) : null}
 

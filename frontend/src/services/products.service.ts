@@ -4,7 +4,8 @@ import type {
   ProductListParams,
   ProductPayload,
 } from '../types/products';
-import { apiGet, apiPatch, apiPost } from './api-client';
+import { API_BASE_URL } from '../config/env';
+import { apiGet, apiPatch, apiPost, apiRequest } from './api-client';
 
 /**
  * Service de productos (HU-01, HU-02, HU-03).
@@ -70,5 +71,30 @@ export const productsService = {
     const response = await apiPatch<DataResponse<Product>>(`/api/products/${id}/deactivate`);
 
     return response.data;
+  },
+
+  /** HU-01: sube o reemplaza la imagen. El cuerpo son los bytes del archivo. */
+  async uploadImage(id: string, file: File): Promise<Product> {
+    const response = await apiRequest<DataResponse<Product>>(`/api/products/${id}/image`, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type },
+    });
+
+    return response.data;
+  },
+
+  /** HU-01: quita la imagen del producto. */
+  async removeImage(id: string): Promise<Product> {
+    const response = await apiRequest<DataResponse<Product>>(`/api/products/${id}/image`, {
+      method: 'DELETE',
+    });
+
+    return response.data;
+  },
+
+  /** Dirección completa de la imagen para `<img src>`. */
+  imageSrc(imageUrl: string): string {
+    return `${API_BASE_URL}${imageUrl}`;
   },
 };

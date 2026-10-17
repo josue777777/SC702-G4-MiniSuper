@@ -23,7 +23,19 @@ export interface Product {
   isActive: boolean;
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;
+  /** Ruta de la imagen en la API (HU-01), o `null` si no tiene. */
+  imageUrl: string | null;
 }
+
+/** Formatos de imagen que acepta la API (sin SVG, que puede llevar código). */
+export const PRODUCT_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+/** Tamaño máximo de la imagen: 2 MB, igual que en el backend. */
+export const MAX_PRODUCT_IMAGE_BYTES = 2 * 1024 * 1024;
+
+/** Qué hacer con la imagen al guardar el formulario (HU-01). */
+export type ProductImageChange =
+  { kind: 'keep' } | { kind: 'set'; file: File } | { kind: 'remove' };
 
 /** Opción de un `<select>` (categoría o proveedor). */
 export interface ReferenceOption {

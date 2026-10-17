@@ -1,6 +1,14 @@
-import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { Modal } from '../../components/Modal';
-import type { ProductFormOptions, ProductFormValues, ProductPayload } from '../../types/products';
+import { productsService } from '../../services/products.service';
+import {
+  MAX_PRODUCT_IMAGE_BYTES,
+  PRODUCT_IMAGE_TYPES,
+  type ProductFormOptions,
+  type ProductFormValues,
+  type ProductImageChange,
+  type ProductPayload,
+} from '../../types/products';
 import { formatMoney } from './money';
 import {
   describeMargin,
@@ -16,9 +24,11 @@ interface ProductFormProps {
   options: ProductFormOptions;
   /** Valores con los que abre: vacíos, o los persistidos del producto a editar. */
   initialValues: ProductFormValues;
+  /** Imagen guardada del producto (HU-01); `null` si no tiene o es un alta. */
+  imageUrl?: string | null;
   busy: boolean;
   onCancel: () => void;
-  onSubmit: (payload: ProductPayload) => void;
+  onSubmit: (payload: ProductPayload, image: ProductImageChange) => void;
 }
 
 type Tab = 'general' | 'costs' | 'stock' | 'labels' | 'image';
@@ -83,6 +93,7 @@ export function ProductForm({
   mode,
   options,
   initialValues,
+  imageUrl = null,
   busy,
   onCancel,
   onSubmit,
@@ -90,6 +101,62 @@ export function ProductForm({
   const [values, setValues] = useState<ProductFormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tab, setTab] = useState<Tab>('general');
+  /** Cambio de imagen pendiente: se aplica al guardar, no al elegir el archivo. */
+  const [image, setImage] = useState<ProductImageChange>({ kind: 'keep' });
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Vista previa del archivo elegido. La URL temporal se libera al cambiarlo o
+  // al cerrar el modal, para no dejar memoria ocupada en el navegador.
+  useEffect(() => {
+    if (image.kind !== 'set') {
+      setPreviewUrl(null);
+
+      return;
+    }
+
+    const url = URL.createObjectURL(image.file);
+    setPreviewUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [image]);
+
+  const shownImage =
+    image.kind === 'set'
+      ? previewUrl
+      : image.kind === 'remove' || imageUrl === null
+        ? null
+        : productsService.imageSrc(imageUrl);
+
+  /** Revisa el archivo antes de aceptarlo; el backend lo vuelve a revisar. */
+  function chooseImage(event: ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (file === undefined) {
+      return;
+    }
+
+    if (!PRODUCT_IMAGE_TYPES.includes(file.type)) {
+      setImageError('Solo se aceptan imágenes PNG, JPG o WEBP.');
+
+      return;
+    }
+
+    if (file.size > MAX_PRODUCT_IMAGE_BYTES) {
+      setImageError('La imagen supera el máximo de 2 MB.');
+
+      return;
+    }
+
+    setImageError(null);
+    setImage({ kind: 'set', file });
+  }
+
+  function removeImage(): void {
+    setImageError(null);
+    setImage(imageUrl === null ? { kind: 'keep' } : { kind: 'remove' });
+  }
 
   const missingCategories = options.categories.length === 0;
   const missingSuppliers = options.suppliers.length === 0;
@@ -120,7 +187,7 @@ export function ProductForm({
       return;
     }
 
-    onSubmit(toPayload(values));
+    onSubmit(toPayload(values), image);
   }
 
   const input = (field: keyof ProductFormValues) => ({
@@ -301,13 +368,45 @@ export function ProductForm({
           aria-labelledby="product-tab-image"
           hidden={tab !== 'image'}
         >
-          {/* Espacio reservado: HU-01 menciona «imagen si es necesario». */}
-          <div className="reserved-box">
-            <strong>Imagen del producto</strong>
-            <span className="reserved-box__art" aria-hidden="true">
-              ◫
-            </span>
-            <p className="muted">Subir una imagen opcional del producto (HU-01, pendiente).</p>
+          <div className="image-field">
+            <div className="image-field__preview">
+              {shownImage === null ? (
+                <span className="reserved-box__art" aria-hidden="true">
+                  ◫
+                </span>
+              ) : (
+                <img src={shownImage} alt={`Imagen de ${values.name || 'el producto'}`} />
+              )}
+            </div>
+            <div className="image-field__actions">
+              <strong>Imagen del producto (opcional)</strong>
+              <p className="muted hint">
+                PNG, JPG o WEBP de hasta 2 MB. Se muestra en la ficha del producto.
+              </p>
+              <label className="button button--tool image-field__choose">
+                {shownImage === null ? 'Elegir imagen' : 'Cambiar imagen'}
+                <input
+                  type="file"
+                  accept={PRODUCT_IMAGE_TYPES.join(',')}
+                  onChange={chooseImage}
+                  disabled={busy}
+                />
+              </label>
+              {shownImage === null ? null : (
+                <button type="button" className="button" onClick={removeImage} disabled={busy}>
+                  Quitar imagen
+                </button>
+              )}
+              {image.kind === 'set' ? (
+                <p className="muted hint">
+                  Nueva imagen: {image.file.name}. Se guarda con el producto.
+                </p>
+              ) : null}
+              {image.kind === 'remove' ? (
+                <p className="muted hint">La imagen se quitará al guardar.</p>
+              ) : null}
+              {imageError === null ? null : <p className="form__error">{imageError}</p>}
+            </div>
           </div>
         </div>
 

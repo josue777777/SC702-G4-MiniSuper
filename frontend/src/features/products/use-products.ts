@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../services/api-client';
 import { productsService } from '../../services/products.service';
-import type { Product, ProductFormOptions, ProductPayload } from '../../types/products';
+import type {
+  Product,
+  ProductFormOptions,
+  ProductImageChange,
+  ProductPayload,
+} from '../../types/products';
 
 /**
  * Estado de la pantalla de productos (HU-01, HU-02, HU-03, HU-05).
@@ -14,7 +19,7 @@ import type { Product, ProductFormOptions, ProductPayload } from '../../types/pr
 
 /** Aviso posterior a una acción: éxito o error, en lenguaje del dueño. */
 export interface Notice {
-  kind: 'success' | 'error';
+  kind: 'success' | 'warning' | 'error';
   text: string;
 }
 
@@ -104,15 +109,23 @@ export function useProducts() {
     void load();
   }, [load]);
 
-  /** Ejecuta una acción, informa al usuario y recarga el catálogo si salió bien. */
+  /**
+   * Ejecuta una acción, informa al usuario y recarga el catálogo si salió bien.
+   * La acción puede devolver una advertencia: lo principal se guardó, pero algo
+   * secundario no (por ejemplo la imagen).
+   */
   const runAction = useCallback(
-    async (action: () => Promise<Product>, successText: string): Promise<boolean> => {
+    async (action: () => Promise<string | null>, successText: string): Promise<boolean> => {
       setBusy(true);
       setNotice(null);
 
       try {
-        await action();
-        setNotice({ kind: 'success', text: successText });
+        const warning = await action();
+        setNotice(
+          warning === null
+            ? { kind: 'success', text: successText }
+            : { kind: 'warning', text: warning },
+        );
         await load();
 
         return true;
@@ -127,24 +140,58 @@ export function useProducts() {
     [load],
   );
 
+  /**
+   * Imagen del producto (HU-01), DESPUÉS de guardarlo: al crear se necesita su
+   * `id`. Si falla, el producto ya quedó guardado; se avisa en vez de dejar el
+   * formulario abierto (reenviarlo daría "código duplicado").
+   */
+  const applyImageChange = useCallback(
+    async (id: string, image: ProductImageChange): Promise<string | null> => {
+      try {
+        if (image.kind === 'set') {
+          await productsService.uploadImage(id, image.file);
+        } else if (image.kind === 'remove') {
+          await productsService.removeImage(id);
+        }
+
+        return null;
+      } catch (error) {
+        return `El producto se guardó, pero la imagen no: ${describeError(error)} Puede intentarlo de nuevo con «Modificar».`;
+      }
+    },
+    [],
+  );
+
   /** HU-01. Devuelve `true` si se guardó: el formulario se cierra solo entonces. */
   const createProduct = useCallback(
-    (payload: ProductPayload) =>
-      runAction(() => productsService.create(payload), 'Producto registrado correctamente.'),
-    [runAction],
+    (payload: ProductPayload, image: ProductImageChange = { kind: 'keep' }) =>
+      runAction(async () => {
+        const created = await productsService.create(payload);
+
+        return applyImageChange(created.id, image);
+      }, 'Producto registrado correctamente.'),
+    [runAction, applyImageChange],
   );
 
   /** HU-02. */
   const updateProduct = useCallback(
-    (id: string, payload: ProductPayload) =>
-      runAction(() => productsService.update(id, payload), 'Producto actualizado correctamente.'),
-    [runAction],
+    (id: string, payload: ProductPayload, image: ProductImageChange = { kind: 'keep' }) =>
+      runAction(async () => {
+        await productsService.update(id, payload);
+
+        return applyImageChange(id, image);
+      }, 'Producto actualizado correctamente.'),
+    [runAction, applyImageChange],
   );
 
   /** HU-03. */
   const deactivateProduct = useCallback(
     (id: string) =>
-      runAction(() => productsService.deactivate(id), 'Producto desactivado correctamente.'),
+      runAction(async () => {
+        await productsService.deactivate(id);
+
+        return null;
+      }, 'Producto desactivado correctamente.'),
     [runAction],
   );
 
