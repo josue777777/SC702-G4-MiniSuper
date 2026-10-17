@@ -35,7 +35,7 @@ type Tab = 'general' | 'costs' | 'stock' | 'labels' | 'image';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'general', label: 'General' },
-  { id: 'costs', label: 'Costos' },
+  { id: 'costs', label: 'Precios' },
   { id: 'stock', label: 'Existencias' },
   { id: 'labels', label: 'Etiquetas' },
   { id: 'image', label: 'Imagen' },
@@ -288,7 +288,7 @@ export function ProductForm({
           hidden={tab !== 'costs'}
         >
           <div className="form__grid">
-            <Field label="Costo (₡)" htmlFor="product-cost" error={errors.cost}>
+            <Field label="Precio de compra (₡)" htmlFor="product-cost" error={errors.cost}>
               <input {...input('cost')} type="number" min="0" step="0.01" />
             </Field>
             <Field label="Precio de venta (₡)" htmlFor="product-price" error={errors.price}>

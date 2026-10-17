@@ -93,8 +93,13 @@ export function ProductTable({
               <th>Código</th>
               <th>Nombre</th>
               <th>Categoría</th>
-              <th className="table__number">Precio</th>
-              <th className="table__number">Costo</th>
+              {/* Compra = lo que cuesta al negocio (cost); venta = lo que paga el cliente (price). */}
+              <th className="table__number" title="Lo que le cuesta al negocio (costo)">
+                Precio compra
+              </th>
+              <th className="table__number" title="Lo que paga el cliente">
+                Precio venta
+              </th>
               <th className="table__number">Stock</th>
               <th>Proveedor</th>
               <th>Estado</th>
@@ -122,8 +127,8 @@ export function ProductTable({
                   <td>{product.code}</td>
                   <td>{product.name}</td>
                   <td>{product.categoryName}</td>
-                  <td className="table__number">{formatMoney(product.price)}</td>
                   <td className="table__number">{formatMoney(product.cost)}</td>
+                  <td className="table__number">{formatMoney(product.price)}</td>
                   <td className="table__number">{product.stock}</td>
                   <td>{product.preferredSupplierName ?? '—'}</td>
                   <td>

@@ -100,12 +100,12 @@ export function validateForm(values: ProductFormValues): FormErrors {
     errors.supplierId = 'Seleccione un proveedor.';
   }
 
-  const priceError = validateMoney(values.price, 'precio');
+  const priceError = validateMoney(values.price, 'precio de venta');
   if (priceError !== undefined) {
     errors.price = priceError;
   }
 
-  const costError = validateMoney(values.cost, 'costo');
+  const costError = validateMoney(values.cost, 'precio de compra');
   if (costError !== undefined) {
     errors.cost = costError;
   }
