@@ -9,7 +9,19 @@
  * y el Kardex muestra esos movimientos con su saldo.
  */
 
-export type NavIconName = 'home' | 'warehouse' | 'entries' | 'exits' | 'reports' | 'user' | 'menu';
+export type NavIconName =
+  | 'home'
+  | 'warehouse'
+  | 'entries'
+  | 'exits'
+  | 'reports'
+  | 'user'
+  | 'menu'
+  | 'list'
+  | 'cart'
+  | 'truck'
+  | 'cash'
+  | 'users';
 
 export interface NavItem {
   kind: 'link';

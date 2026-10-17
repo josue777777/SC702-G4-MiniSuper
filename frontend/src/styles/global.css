@@ -1115,3 +1115,170 @@ code {
   font-size: 0.9rem;
   cursor: pointer;
 }
+
+/* --- Panel principal: números grandes, gráficos y accesos rápidos -------- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-bottom: 4px solid var(--color-primary);
+  border-radius: 4px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.stat-tile:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+}
+
+/* Solo los números que piden atención: color + ícono + texto, nunca color solo */
+.stat-tile--alert {
+  border-bottom-color: var(--color-error);
+}
+
+.stat-tile__label {
+  color: var(--color-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-tile__value {
+  font-size: 1.65rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile__detail {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.stat-tile__flag {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 16px;
+}
+
+.dashboard-grid > .card {
+  min-width: 0;
+}
+
+.chart-card__header {
+  margin-bottom: 12px;
+}
+
+.chart-card__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--color-primary-dark);
+}
+
+.chart-card__header p {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+}
+
+/* Barras horizontales: delgadas, extremo redondeado, valor como texto */
+.bar-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-list__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 7px 6px;
+  border-radius: 4px;
+}
+
+.bar-list__row:hover {
+  background: var(--color-row-hover);
+}
+
+.bar-list__label {
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-list__track {
+  grid-column: 1 / -1;
+  height: 12px;
+  background: var(--color-row-alt);
+  border-radius: 0 4px 4px 0;
+}
+
+.bar-list__bar {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 0 4px 4px 0;
+}
+
+.bar-list__value {
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bar-list__value small {
+  color: var(--color-muted);
+}
+
+/* Accesos rápidos: botones grandes con ícono, como en la referencia */
+.quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.quick-links__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 112px;
+  padding: 18px 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-sidebar);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.quick-links__item:hover {
+  border-color: var(--color-primary);
+  background: var(--color-row-hover);
+  color: var(--color-primary-dark);
+}
+
+@media (max-width: 759px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}

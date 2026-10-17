@@ -12,15 +12,30 @@ const PATHS: Record<NavIconName, string[]> = {
   reports: ['M4 20h16', 'M7 16v-5', 'M12 16V7', 'M17 16v-8'],
   user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4 21c0-4 4-6 8-6s8 2 8 6'],
   menu: ['M4 6h16', 'M4 12h16', 'M4 18h16'],
+  list: ['M9 6h11', 'M9 12h11', 'M9 18h11', 'M4 6h1', 'M4 12h1', 'M4 18h1'],
+  cart: ['M3 4h2l2.4 11h11l2-8H6.2', 'M9 20h.01', 'M17 20h.01'],
+  truck: [
+    'M2 6h12v10H2z',
+    'M14 10h4l3 3v3h-7',
+    'M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+    'M17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  ],
+  cash: ['M3 7h18v10H3z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M6 10v.01', 'M18 14v.01'],
+  users: [
+    'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    'M2 21c0-4 3-6 7-6s7 2 7 6',
+    'M17 11a3 3 0 1 0-1-5.8',
+    'M22 21c0-3-2-5-5-5.5',
+  ],
 };
 
-export function NavIcon({ name }: { name: NavIconName }) {
+export function NavIcon({ name, size = 20 }: { name: NavIconName; size?: number }) {
   return (
     <svg
       className="nav-icon"
       viewBox="0 0 24 24"
-      width="20"
-      height="20"
+      width={size}
+      height={size}
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
