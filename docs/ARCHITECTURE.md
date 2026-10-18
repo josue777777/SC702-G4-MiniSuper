@@ -288,8 +288,11 @@ Convenciones de este módulo, decididas al implementarlo:
 | `POST` | `/api/suppliers` | Registrar proveedor con sus productos. Responde `201` |
 | `PATCH` | `/api/suppliers/:id` | Editar proveedor y su lista de productos (cuerpo completo) |
 
-* **Obligatorios**: el nombre (único, sin distinguir mayúsculas), al menos un dato de contacto
-  (teléfono o correo) y al menos un producto activo con su `unitCost`.
+* **Obligatorios**: el nombre (único, sin distinguir mayúsculas) y al menos un dato de contacto
+  (teléfono o correo). La lista de productos puede ir vacía: la ventana de registro solo pide
+  los datos de contacto (el producto se liga a su proveedor principal desde Inventario) y la de
+  edición agrega los productos que el proveedor también vende, cada uno activo y con su
+  `unitCost`.
 * **Las relaciones nuevas nunca son principales** (`isPreferred = false`): el proveedor
   principal de un producto se elige en el formulario de productos (HU-01, HU-02), que es el
   que garantiza que haya uno solo.

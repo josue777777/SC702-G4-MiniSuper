@@ -19,7 +19,8 @@ export const EMPTY_SUPPLIER_VALUES: SupplierFormValues = {
   email: '',
   address: '',
   notes: '',
-  products: [EMPTY_PRODUCT_ROW],
+  // Al registrar no se piden productos: se asocian desde Inventario o al editar.
+  products: [],
 };
 
 /** Precarga de la edición a partir de lo guardado. */
