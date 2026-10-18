@@ -76,7 +76,9 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
   stock mínimo (HU-08) y la fecha de vencimiento (HU-09). Desde la barra superior se abren
   el conteo físico (HU-10) y «Imprimir reporte»: siempre de productos activos, por
   categoría o de todas (opcionalmente agrupado, con subtotales), con las secciones que se
-  elijan (productos, vencimientos, stock bajo); se imprime la vista previa. Los
+  elijan (productos, vencimientos, stock bajo). El dueño escoge las columnas de productos,
+  el orden y la orientación de la hoja (se recuerdan en el navegador); se imprime la vista
+  previa. Las columnas se definen como datos en `features/products/inventory-report.ts`. Los
   modales usan `<dialog>` nativo (`components/Modal.tsx`).
 * **Comunicación HTTP**: centralizada en `frontend/src/services/`. Ningún componente
   ejecuta `fetch` directamente.

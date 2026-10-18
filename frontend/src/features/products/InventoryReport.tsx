@@ -6,7 +6,21 @@ import { productsService } from '../../services/products.service';
 import type { ExpirationAlert, LowStockAlert } from '../../types/inventory';
 import type { Product, ReferenceOption } from '../../types/products';
 import { describeExpiration, formatDateOnly, formatDateTime } from '../inventory/inventory-count';
-import { formatMoney } from './money';
+import {
+  DEFAULT_PREFERENCES,
+  groupByCategory,
+  loadPreferences,
+  REPORT_COLUMNS,
+  REPORT_SORTS,
+  savePreferences,
+  sortProducts,
+  summarize,
+  visibleColumns,
+  type ProductGroup,
+  type ReportColumnKey,
+  type ReportPreferences,
+  type ReportSort,
+} from './inventory-report';
 
 type ExpirationFilter = 'ALL' | ExpirationAlert['status'];
 
@@ -32,13 +46,6 @@ interface ReportData {
   message?: string;
 }
 
-/** Un bloque de la tabla de productos: una categoría, o todo junto. */
-interface ProductGroup {
-  key: string;
-  title: string | null;
-  products: Product[];
-}
-
 /** Imprime solo la vista previa: marca el `body` y la hoja de estilos oculta el resto. */
 function printReport(): void {
   document.body.classList.add('printing-report');
@@ -46,36 +53,6 @@ function printReport(): void {
     once: true,
   });
   window.print();
-}
-
-function toCents(value: string): number {
-  return Math.round(Number(value) * 100);
-}
-
-function summarize(products: Product[]): { units: number; value: string } {
-  return {
-    units: products.reduce((sum, product) => sum + product.stock, 0),
-    value: (
-      products.reduce((sum, product) => sum + toCents(product.cost) * product.stock, 0) / 100
-    ).toFixed(2),
-  };
-}
-
-/** Agrupa por categoría (ya vienen ordenados por categoría y nombre). */
-function groupByCategory(products: Product[]): ProductGroup[] {
-  const groups: ProductGroup[] = [];
-
-  for (const product of products) {
-    const last = groups[groups.length - 1];
-
-    if (last !== undefined && last.key === product.categoryId) {
-      last.products.push(product);
-    } else {
-      groups.push({ key: product.categoryId, title: product.categoryName, products: [product] });
-    }
-  }
-
-  return groups;
 }
 
 /**
@@ -90,6 +67,8 @@ function groupByCategory(products: Product[]): ProductGroup[] {
 export function InventoryReport({ categories, initialCategoryId, onClose }: InventoryReportProps) {
   const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [grouped, setGrouped] = useState(false);
+  /** Columnas, orden y hoja: se recuerdan en este navegador para la próxima vez. */
+  const [preferences, setPreferences] = useState<ReportPreferences>(loadPreferences);
   const [include, setInclude] = useState({ products: true, expirations: false, lowStock: false });
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('ALL');
   const [data, setData] = useState<ReportData>({
@@ -98,6 +77,8 @@ export function InventoryReport({ categories, initialCategoryId, onClose }: Inve
     expirations: [],
     lowStock: [],
   });
+
+  useEffect(() => savePreferences(preferences), [preferences]);
 
   // El reporte no depende de lo que muestre la lista: carga todo y filtra aquí.
   useEffect(() => {
@@ -131,14 +112,12 @@ export function InventoryReport({ categories, initialCategoryId, onClose }: Inve
     };
   }, []);
 
-  const products = data.products
-    .filter(
+  const products = sortProducts(
+    data.products.filter(
       (product) => product.isActive && (categoryId === '' || product.categoryId === categoryId),
-    )
-    .sort(
-      (a, b) =>
-        a.categoryName.localeCompare(b.categoryName, 'es') || a.name.localeCompare(b.name, 'es'),
-    );
+    ),
+    preferences.sort,
+  );
   // Vencimientos y stock bajo respetan la misma categoría.
   const inScope = new Set(products.map((product) => product.id));
   const expirations = data.expirations.filter(
@@ -154,71 +133,178 @@ export function InventoryReport({ categories, initialCategoryId, onClose }: Inve
     grouped && categoryId === ''
       ? groupByCategory(products)
       : [{ key: 'all', title: null, products }];
-  const total = summarize(products);
+  const columns = visibleColumns(preferences.columns);
   const nothingChosen = !include.products && !include.expirations && !include.lowStock;
 
   function toggle(section: keyof typeof include): void {
     setInclude((current) => ({ ...current, [section]: !current[section] }));
   }
 
+  function toggleColumn(key: ReportColumnKey): void {
+    setPreferences((current) => ({
+      ...current,
+      columns: current.columns.includes(key)
+        ? current.columns.filter((column) => column !== key)
+        : [...current.columns, key],
+    }));
+  }
+
+  function renderRow(product: Product) {
+    return (
+      <tr key={product.id}>
+        {columns.map((column) => (
+          <td key={column.key} className={column.numeric ? 'table__number' : undefined}>
+            {column.render(product)}
+          </td>
+        ))}
+      </tr>
+    );
+  }
+
   return (
     <Modal title="Imprimir reporte de inventario" size="wide" onClose={onClose}>
       {/* Opciones: no se imprimen (no están dentro de la vista previa). */}
-      <fieldset className="report-options">
-        <legend>¿Qué incluir en el reporte?</legend>
-        <label>
-          Categoría:
-          <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-            <option value="">Todas</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          <span className="muted">Siempre productos activos.</span>
-        </label>
-        <label>
-          <input type="checkbox" checked={include.products} onChange={() => toggle('products')} />
-          Productos
-        </label>
-        {include.products && categoryId === '' ? (
-          <label className="report-options__nested">
+      {/* La hoja horizontal solo aplica al imprimir este reporte. */}
+      {preferences.orientation === 'landscape' ? (
+        <style>{'@media print { @page { size: landscape; } }'}</style>
+      ) : null}
+
+      {/* Opciones: no se imprimen (no están dentro de la vista previa). */}
+      <div className="report-options">
+        <fieldset className="report-options__group">
+          <legend>Contenido</legend>
+          <label>
+            Categoría
+            <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+              <option value="">Todas</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="muted hint">Siempre productos activos.</p>
+          <label>
+            <input type="checkbox" checked={include.products} onChange={() => toggle('products')} />
+            Productos
+          </label>
+          {include.products && categoryId === '' ? (
+            <label className="report-options__nested">
+              <input
+                type="checkbox"
+                checked={grouped}
+                onChange={() => setGrouped((current) => !current)}
+              />
+              Agrupar por categoría, con subtotales
+            </label>
+          ) : null}
+          <label>
             <input
               type="checkbox"
-              checked={grouped}
-              onChange={() => setGrouped((current) => !current)}
+              checked={include.expirations}
+              onChange={() => toggle('expirations')}
             />
-            Agrupar por categoría, con subtotales
+            Vencidos y por vencer
           </label>
-        ) : null}
-        <label>
-          <input
-            type="checkbox"
-            checked={include.expirations}
-            onChange={() => toggle('expirations')}
-          />
-          Vencidos y por vencer
           {include.expirations ? (
-            <select
-              aria-label="Filtro de vencimientos"
-              value={expirationFilter}
-              onChange={(event) => setExpirationFilter(event.target.value as ExpirationFilter)}
-            >
-              <option value="ALL">Todos</option>
-              <option value="EXPIRED">Solo vencidos</option>
-              <option value="EXPIRING_SOON">Solo próximos a vencer</option>
-            </select>
+            <label className="report-options__nested">
+              <select
+                aria-label="Filtro de vencimientos"
+                value={expirationFilter}
+                onChange={(event) => setExpirationFilter(event.target.value as ExpirationFilter)}
+              >
+                <option value="ALL">Vencidos y próximos a vencer</option>
+                <option value="EXPIRED">Solo vencidos</option>
+                <option value="EXPIRING_SOON">Solo próximos a vencer</option>
+              </select>
+            </label>
           ) : null}
-        </label>
-        <label>
-          <input type="checkbox" checked={include.lowStock} onChange={() => toggle('lowStock')} />
-          Stock bajo
-        </label>
-        <label className="report-options__disabled" title="Llega con HU-38">
-          <input type="checkbox" disabled />
-          Lotes <span className="badge badge--muted">Próximamente (HU-38)</span>
-        </label>
+          <label>
+            <input type="checkbox" checked={include.lowStock} onChange={() => toggle('lowStock')} />
+            Stock bajo
+          </label>
+          <label className="report-options__disabled" title="Llega con HU-38">
+            <input type="checkbox" disabled />
+            Lotes <span className="badge badge--muted">Próximamente (HU-38)</span>
+          </label>
+        </fieldset>
+
+        <fieldset className="report-options__group" disabled={!include.products}>
+          <legend>Columnas de productos</legend>
+          <div className="report-options__columns">
+            {REPORT_COLUMNS.map((column) => (
+              <label key={column.key} title={column.required ? 'Siempre se incluye' : undefined}>
+                <input
+                  type="checkbox"
+                  checked={column.required === true || preferences.columns.includes(column.key)}
+                  disabled={column.required}
+                  onChange={() => toggleColumn(column.key)}
+                />
+                {column.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="report-options__group">
+          <legend>Formato</legend>
+          <label>
+            Ordenar por
+            <select
+              value={preferences.sort}
+              onChange={(event) =>
+                setPreferences((current) => ({
+                  ...current,
+                  sort: event.target.value as ReportSort,
+                }))
+              }
+            >
+              {Object.entries(REPORT_SORTS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div
+            className="report-options__radios"
+            role="radiogroup"
+            aria-label="Orientación de la hoja"
+          >
+            Hoja
+            <label>
+              <input
+                type="radio"
+                name="report-orientation"
+                checked={preferences.orientation === 'portrait'}
+                onChange={() =>
+                  setPreferences((current) => ({ ...current, orientation: 'portrait' }))
+                }
+              />
+              Vertical
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="report-orientation"
+                checked={preferences.orientation === 'landscape'}
+                onChange={() =>
+                  setPreferences((current) => ({ ...current, orientation: 'landscape' }))
+                }
+              />
+              Horizontal
+            </label>
+          </div>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setPreferences(DEFAULT_PREFERENCES)}
+          >
+            Restablecer columnas y formato
+          </button>
+        </fieldset>
+
         <div className="report-options__actions">
           <button
             type="button"
@@ -229,8 +315,9 @@ export function InventoryReport({ categories, initialCategoryId, onClose }: Inve
             🖨 Imprimir / Guardar PDF
           </button>
           {nothingChosen ? <span className="muted">Marque al menos una sección.</span> : null}
+          <span className="muted">Sus columnas y formato se recuerdan en este navegador.</span>
         </div>
-      </fieldset>
+      </div>
 
       {/* Vista previa: es exactamente lo que se imprime. */}
       <div className="print-area report-preview">
@@ -254,65 +341,34 @@ export function InventoryReport({ categories, initialCategoryId, onClose }: Inve
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Código</th>
-                    <th>Producto</th>
-                    <th>Categoría</th>
-                    <th className="table__number">P. compra</th>
-                    <th className="table__number">P. venta</th>
-                    <th className="table__number">Stock</th>
-                    <th className="table__number">Mínimo</th>
-                    <th>Vence</th>
+                    {columns.map((column) => (
+                      <th key={column.key} className={column.numeric ? 'table__number' : undefined}>
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                {groups.map((group) => {
-                  const subtotal = summarize(group.products);
-
-                  return (
-                    <tbody key={group.key}>
-                      {group.title === null ? null : (
-                        <tr className="report-preview__group">
-                          <th colSpan={8}>{group.title}</th>
-                        </tr>
-                      )}
-                      {group.products.map((product) => (
-                        <tr key={product.id}>
-                          <td>{product.code}</td>
-                          <td>{product.name}</td>
-                          <td>{product.categoryName}</td>
-                          <td className="table__number">{formatMoney(product.cost)}</td>
-                          <td className="table__number">{formatMoney(product.price)}</td>
-                          <td className="table__number">{product.stock}</td>
-                          <td className="table__number">
-                            {product.minStock === 0 ? '—' : product.minStock}
-                          </td>
-                          <td>
-                            {product.expirationDate === null
-                              ? '—'
-                              : formatDateOnly(product.expirationDate)}
-                          </td>
-                        </tr>
-                      ))}
-                      {group.title === null ? null : (
-                        <tr className="report-preview__subtotal">
-                          <td colSpan={5} className="table__number">
-                            Subtotal {group.title}: {group.products.length} producto(s) · valor al
-                            costo {formatMoney(subtotal.value)}
-                          </td>
-                          <td className="table__number">{subtotal.units}</td>
-                          <td colSpan={2} />
-                        </tr>
-                      )}
-                    </tbody>
-                  );
-                })}
+                {groups.map((group) => (
+                  <tbody key={group.key}>
+                    {group.title === null ? null : (
+                      <tr className="report-preview__group">
+                        <th colSpan={columns.length}>{group.title}</th>
+                      </tr>
+                    )}
+                    {group.products.map(renderRow)}
+                    {/* Una sola celda a lo ancho: no se desalinea al ocultar columnas. */}
+                    {group.title === null ? null : (
+                      <tr className="report-preview__subtotal">
+                        <td colSpan={columns.length}>
+                          Subtotal {group.title}: {summarize(group.products)}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                ))}
                 <tfoot>
                   <tr>
-                    <th colSpan={5} className="table__number">
-                      Total: {products.length} producto(s) · valor al costo{' '}
-                      {formatMoney(total.value)}
-                    </th>
-                    <th className="table__number">{total.units}</th>
-                    <th colSpan={2} />
+                    <th colSpan={columns.length}>Total: {summarize(products)}</th>
                   </tr>
                 </tfoot>
               </table>
