@@ -68,12 +68,15 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
   por categoría, accesos rápidos y las alertas de HU-08 y HU-09. Todo se calcula en el
   frontend con datos que ya expone la API (`features/dashboard/dashboard-metrics.ts`) y se
   actualiza cada 15 s. Las cifras de ventas llegan con HU-16 … HU-20 y HU-37.
-* **Ventana de Inventario** (`/inventory`): lista general de productos con búsqueda (HU-05) y
-  filtro por categoría; un clic marca un producto y la barra inferior tiene «Crear»,
-  «Modificar» y «Desactivar». Crear y modificar abren un modal con pestañas (General, Costos,
-  Existencias, Etiquetas); el conteo físico (HU-10) y los mínimos y vencimientos (HU-08,
-  HU-09) se abren desde botones de la barra superior. Los modales usan `<dialog>` nativo
-  (`components/Modal.tsx`).
+* **Ventana de Inventario** (`/inventory`): lista general de productos con búsqueda (HU-05),
+  filtro por categoría y vistas Activos / Desactivados / Todos. Un clic marca un producto y
+  la barra inferior tiene las acciones de esa vista (Crear, Modificar y Desactivar en
+  Activos; Activar y Borrar en Desactivados). Crear y modificar abren un modal con pestañas
+  (General, Precios, Existencias, Etiquetas, Imagen); en Existencias también se definen el
+  stock mínimo (HU-08) y la fecha de vencimiento (HU-09). Desde la barra superior se abren
+  el conteo físico (HU-10) y «Imprimir reporte», donde se eligen las secciones (productos
+  según la vista y los filtros, vencimientos, stock bajo) y se imprime la vista previa. Los
+  modales usan `<dialog>` nativo (`components/Modal.tsx`).
 * **Comunicación HTTP**: centralizada en `frontend/src/services/`. Ningún componente
   ejecuta `fetch` directamente.
 * **URL del backend**: variable de entorno `VITE_API_URL`, leída una sola vez en
