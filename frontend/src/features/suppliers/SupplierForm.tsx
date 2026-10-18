@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { Modal } from '../../components/Modal';
 import type { Product } from '../../types/products';
 import type { SupplierFormValues, SupplierPayload } from '../../types/suppliers';
 import {
@@ -16,6 +17,8 @@ interface SupplierFormProps {
   /** Productos de los que este proveedor es el principal: no se pueden quitar aquí. */
   lockedProductIds: string[];
   busy: boolean;
+  /** Error que devolvió la API al guardar; se muestra dentro de la ventana. */
+  serverError?: string | null;
   onCancel: () => void;
   onSubmit: (payload: SupplierPayload) => void;
 }
@@ -40,6 +43,7 @@ function Field({
 /**
  * Formulario de proveedor (HU-21): datos de contacto y productos que
  * suministra, cada uno con su costo. Sirve para registrar y para editar.
+ * Se abre en una ventana modal, igual que los productos y los pedidos.
  */
 export function SupplierForm({
   mode,
@@ -47,6 +51,7 @@ export function SupplierForm({
   initialValues,
   lockedProductIds,
   busy,
+  serverError = null,
   onCancel,
   onSubmit,
 }: SupplierFormProps) {
@@ -107,11 +112,16 @@ export function SupplierForm({
   });
 
   return (
-    <section className="card">
-      <header className="card__header">
-        <h2>{mode === 'create' ? 'Nuevo proveedor' : 'Editar proveedor'}</h2>
-      </header>
-
+    <Modal
+      title={mode === 'create' ? 'Nuevo proveedor' : 'Editar proveedor'}
+      size="wide"
+      onClose={() => {
+        // Mientras se guarda no se cierra: el cambio podría quedar a medias.
+        if (!busy) {
+          onCancel();
+        }
+      }}
+    >
       <form className="form" onSubmit={handleSubmit} noValidate>
         <div className="form__grid">
           <Field label="Nombre *" htmlFor="supplier-name">
@@ -196,7 +206,9 @@ export function SupplierForm({
           + Agregar producto
         </button>
 
-        <div className="form__actions">
+        {serverError === null ? null : <p className="form__error">{serverError}</p>}
+
+        <div className="form__actions modal__actions">
           <button type="submit" className="button button--primary" disabled={busy}>
             {busy ? 'Guardando…' : 'Guardar'}
           </button>
@@ -205,6 +217,6 @@ export function SupplierForm({
           </button>
         </div>
       </form>
-    </section>
+    </Modal>
   );
 }
