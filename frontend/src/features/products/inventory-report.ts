@@ -96,10 +96,12 @@ export const REPORT_COLUMNS: ReportColumn[] = [
   },
 ];
 
-export type ReportSort = 'category' | 'name' | 'stockAsc' | 'valueDesc';
+export type ReportSort = 'category' | 'code' | 'name' | 'stockAsc' | 'valueDesc';
 
 export const REPORT_SORTS: Record<ReportSort, string> = {
   category: 'Categoría y nombre',
+  // Útil cuando el código indica la sección (p. ej. B-001 bebidas, L-001 lácteos).
+  code: 'Código',
   name: 'Nombre',
   stockAsc: 'Stock (de menor a mayor)',
   valueDesc: 'Valor en inventario (de mayor a menor)',
@@ -176,6 +178,11 @@ export function sortProducts(products: Product[], sort: ReportSort): Product[] {
   const sorted = [...products];
 
   switch (sort) {
+    case 'code':
+      // Orden natural: «P2» antes que «P10», como lo leería una persona.
+      return sorted.sort((a, b) =>
+        a.code.localeCompare(b.code, 'es', { numeric: true, sensitivity: 'base' }),
+      );
     case 'name':
       return sorted.sort(byName);
     case 'stockAsc':
