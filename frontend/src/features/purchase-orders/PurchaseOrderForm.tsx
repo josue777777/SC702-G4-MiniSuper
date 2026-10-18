@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Modal } from '../../components/Modal';
 import type { PurchaseOrderPayload } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import { formatMoney } from '../products/money';
@@ -13,6 +14,8 @@ import {
 interface PurchaseOrderFormProps {
   suppliers: Supplier[];
   busy: boolean;
+  /** Error que devolvió la API al guardar; se muestra dentro de la ventana. */
+  serverError?: string | null;
   onCancel: () => void;
   onSubmit: (payload: PurchaseOrderPayload) => void;
 }
@@ -21,8 +24,17 @@ interface PurchaseOrderFormProps {
  * Armar un pedido a un proveedor (HU-24): se elige el proveedor, aparecen los
  * productos que él suministra con el costo acordado (HU-21) y se escribe la
  * cantidad de cada uno. Sin productos no se puede generar el pedido.
+ *
+ * Se abre en una ventana modal, encima del historial, para que la pantalla de
+ * atrás no distraiga mientras se arma el pedido.
  */
-export function PurchaseOrderForm({ suppliers, busy, onCancel, onSubmit }: PurchaseOrderFormProps) {
+export function PurchaseOrderForm({
+  suppliers,
+  busy,
+  serverError = null,
+  onCancel,
+  onSubmit,
+}: PurchaseOrderFormProps) {
   const [supplierId, setSupplierId] = useState('');
   const [quantities, setQuantities] = useState<QuantityInputs>({});
   const [notes, setNotes] = useState('');
@@ -54,11 +66,16 @@ export function PurchaseOrderForm({ suppliers, busy, onCancel, onSubmit }: Purch
   }
 
   return (
-    <section className="card">
-      <header className="card__header">
-        <h2>Nuevo pedido</h2>
-      </header>
-
+    <Modal
+      title="Nuevo pedido"
+      size="wide"
+      onClose={() => {
+        // Mientras se guarda no se cierra: el pedido podría quedar a medias.
+        if (!busy) {
+          onCancel();
+        }
+      }}
+    >
       <form className="form" onSubmit={handleSubmit} noValidate>
         <div className="form__grid">
           <div className="form__field">
@@ -151,9 +168,11 @@ export function PurchaseOrderForm({ suppliers, busy, onCancel, onSubmit }: Purch
           </div>
         )}
 
-        {(liveError ?? error) === null ? null : <p className="form__error">{liveError ?? error}</p>}
+        {(liveError ?? error ?? serverError) === null ? null : (
+          <p className="form__error">{liveError ?? error ?? serverError}</p>
+        )}
 
-        <div className="form__actions">
+        <div className="form__actions modal__actions">
           <button
             type="submit"
             className="button button--primary"
@@ -167,6 +186,6 @@ export function PurchaseOrderForm({ suppliers, busy, onCancel, onSubmit }: Purch
           </button>
         </div>
       </form>
-    </section>
+    </Modal>
   );
 }

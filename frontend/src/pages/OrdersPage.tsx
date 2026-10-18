@@ -57,7 +57,8 @@ export function OrdersPage() {
         </button>
       </div>
 
-      {notice === null ? null : (
+      {/* Con el formulario abierto, el error se ve dentro de la ventana modal. */}
+      {notice === null || (formOpen && notice.kind === 'error') ? null : (
         <p className={`alert alert--${notice.kind}`} role="status">
           {notice.text}
           <button
@@ -75,7 +76,11 @@ export function OrdersPage() {
         <PurchaseOrderForm
           suppliers={suppliers}
           busy={busy}
-          onCancel={() => setFormOpen(false)}
+          serverError={notice?.kind === 'error' ? notice.text : null}
+          onCancel={() => {
+            setFormOpen(false);
+            dismissNotice();
+          }}
           onSubmit={(payload) => void handleSubmit(payload)}
         />
       ) : null}
