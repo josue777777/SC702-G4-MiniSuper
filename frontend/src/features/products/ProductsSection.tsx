@@ -278,22 +278,6 @@ export function ProductsSection({
     return undefined;
   }
 
-  /** Qué se está viendo, para el encabezado del reporte (p. ej. «Activos · Bebidas»). */
-  function describeCriteria(): string {
-    const parts = [view === 'active' ? 'Activos' : view === 'inactive' ? 'Desactivados' : 'Todos'];
-    const category = options.categories.find((item) => item.id === categoryFilter);
-
-    if (category !== undefined) {
-      parts.push(`categoría ${category.name}`);
-    }
-
-    if (searchTerm !== '') {
-      parts.push(`búsqueda «${searchTerm}»`);
-    }
-
-    return parts.join(' · ');
-  }
-
   /** Selector de vista; va en el encabezado de la tabla porque filtra la lista. */
   const viewSelector = (
     <div className="segmented" role="group" aria-label="Productos a mostrar">
@@ -511,8 +495,8 @@ export function ProductsSection({
 
       {reportOpen ? (
         <InventoryReport
-          products={visibleProducts}
-          criteria={describeCriteria()}
+          categories={options.categories}
+          initialCategoryId={categoryFilter}
           onClose={() => setReportOpen(false)}
         />
       ) : null}

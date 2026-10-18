@@ -1451,3 +1451,26 @@ code {
     padding: 0;
   }
 }
+
+.report-options__nested {
+  margin-left: 26px;
+}
+
+/* Reporte agrupado por categoría: encabezado y subtotal de cada grupo */
+.table tbody tr.report-preview__group th {
+  padding-top: 12px;
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  font-size: 0.9rem;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.table tbody tr.report-preview__subtotal td {
+  background: var(--color-row-alt);
+  color: var(--color-primary-dark);
+  font-size: 0.82rem;
+  font-weight: 600;
+}

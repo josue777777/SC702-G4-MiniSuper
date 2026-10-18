@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Modal } from '../../components/Modal';
 import { ApiError } from '../../services/api-client';
 import { inventoryService } from '../../services/inventory.service';
+import { productsService } from '../../services/products.service';
 import type { ExpirationAlert, LowStockAlert } from '../../types/inventory';
-import type { Product } from '../../types/products';
+import type { Product, ReferenceOption } from '../../types/products';
 import { describeExpiration, formatDateOnly, formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from './money';
 
@@ -16,18 +17,26 @@ const EXPIRATION_FILTERS: Record<ExpirationFilter, string> = {
 };
 
 interface InventoryReportProps {
-  /** Los productos que se están viendo en la lista (vista, categoría y búsqueda). */
-  products: Product[];
-  /** Qué se está viendo, para el encabezado del reporte (p. ej. «Activos · Bebidas»). */
-  criteria: string;
+  /** Categorías para el selector del reporte. */
+  categories: ReferenceOption[];
+  /** Categoría con la que abre: la que estaba filtrada en la lista (`''` = todas). */
+  initialCategoryId: string;
   onClose: () => void;
 }
 
-interface Alerts {
+interface ReportData {
   phase: 'loading' | 'ready' | 'failed';
+  products: Product[];
   expirations: ExpirationAlert[];
   lowStock: LowStockAlert[];
   message?: string;
+}
+
+/** Un bloque de la tabla de productos: una categoría, o todo junto. */
+interface ProductGroup {
+  key: string;
+  title: string | null;
+  products: Product[];
 }
 
 /** Imprime solo la vista previa: marca el `body` y la hoja de estilos oculta el resto. */
@@ -43,39 +52,75 @@ function toCents(value: string): number {
   return Math.round(Number(value) * 100);
 }
 
+function summarize(products: Product[]): { units: number; value: string } {
+  return {
+    units: products.reduce((sum, product) => sum + product.stock, 0),
+    value: (
+      products.reduce((sum, product) => sum + toCents(product.cost) * product.stock, 0) / 100
+    ).toFixed(2),
+  };
+}
+
+/** Agrupa por categoría (ya vienen ordenados por categoría y nombre). */
+function groupByCategory(products: Product[]): ProductGroup[] {
+  const groups: ProductGroup[] = [];
+
+  for (const product of products) {
+    const last = groups[groups.length - 1];
+
+    if (last !== undefined && last.key === product.categoryId) {
+      last.products.push(product);
+    } else {
+      groups.push({ key: product.categoryId, title: product.categoryName, products: [product] });
+    }
+  }
+
+  return groups;
+}
+
 /**
- * Reporte imprimible del inventario: el dueño marca qué secciones incluir y ve
- * la vista previa antes de imprimir o guardar en PDF.
+ * Reporte imprimible del inventario: el dueño elige la categoría y las
+ * secciones, ve la vista previa y la imprime o la guarda en PDF.
  *
- * - Productos: exactamente lo que se ve en la lista (vista, categoría, búsqueda).
- * - Vencidos y por vencer (HU-09), con su filtro.
- * - Stock bajo (HU-08).
- * - Lotes: llega con HU-38.
+ * Siempre es de productos ACTIVOS: es el inventario disponible para vender; los
+ * desactivados no se incluyen. Secciones: productos (opcionalmente agrupados
+ * por categoría), vencidos y por vencer (HU-09) y stock bajo (HU-08). Lotes
+ * llega con HU-38.
  */
-export function InventoryReport({ products, criteria, onClose }: InventoryReportProps) {
+export function InventoryReport({ categories, initialCategoryId, onClose }: InventoryReportProps) {
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [grouped, setGrouped] = useState(false);
   const [include, setInclude] = useState({ products: true, expirations: false, lowStock: false });
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('ALL');
-  const [alerts, setAlerts] = useState<Alerts>({ phase: 'loading', expirations: [], lowStock: [] });
+  const [data, setData] = useState<ReportData>({
+    phase: 'loading',
+    products: [],
+    expirations: [],
+    lowStock: [],
+  });
 
+  // El reporte no depende de lo que muestre la lista: carga todo y filtra aquí.
   useEffect(() => {
     let active = true;
 
-    Promise.all([inventoryService.listExpirations(), inventoryService.listLowStock()])
-      .then(([expirations, lowStock]) => {
+    Promise.all([
+      productsService.list(),
+      inventoryService.listExpirations(),
+      inventoryService.listLowStock(),
+    ])
+      .then(([products, expirations, lowStock]) => {
         if (active) {
-          setAlerts({ phase: 'ready', expirations, lowStock });
+          setData({ phase: 'ready', products, expirations, lowStock });
         }
       })
       .catch((error: unknown) => {
         if (active) {
-          setAlerts({
+          setData({
             phase: 'failed',
+            products: [],
             expirations: [],
             lowStock: [],
-            message:
-              error instanceof ApiError
-                ? error.message
-                : 'No se pudieron cargar los vencimientos y el stock bajo.',
+            message: error instanceof ApiError ? error.message : 'No se pudieron cargar los datos.',
           });
         }
       });
@@ -86,15 +131,31 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
     };
   }, []);
 
-  const expirations =
-    expirationFilter === 'ALL'
-      ? alerts.expirations
-      : alerts.expirations.filter((alert) => alert.status === expirationFilter);
+  const products = data.products
+    .filter(
+      (product) => product.isActive && (categoryId === '' || product.categoryId === categoryId),
+    )
+    .sort(
+      (a, b) =>
+        a.categoryName.localeCompare(b.categoryName, 'es') || a.name.localeCompare(b.name, 'es'),
+    );
+  // Vencimientos y stock bajo respetan la misma categoría.
+  const inScope = new Set(products.map((product) => product.id));
+  const expirations = data.expirations.filter(
+    (alert) =>
+      inScope.has(alert.productId) &&
+      (expirationFilter === 'ALL' || alert.status === expirationFilter),
+  );
+  const lowStock = data.lowStock.filter((alert) => inScope.has(alert.productId));
+
+  const categoryName = categories.find((category) => category.id === categoryId)?.name;
+  const scope = categoryName === undefined ? 'todas las categorías' : `categoría ${categoryName}`;
+  const groups: ProductGroup[] =
+    grouped && categoryId === ''
+      ? groupByCategory(products)
+      : [{ key: 'all', title: null, products }];
+  const total = summarize(products);
   const nothingChosen = !include.products && !include.expirations && !include.lowStock;
-  const totalUnits = products.reduce((sum, product) => sum + product.stock, 0);
-  const totalValue = (
-    products.reduce((sum, product) => sum + toCents(product.cost) * product.stock, 0) / 100
-  ).toFixed(2);
 
   function toggle(section: keyof typeof include): void {
     setInclude((current) => ({ ...current, [section]: !current[section] }));
@@ -106,9 +167,31 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
       <fieldset className="report-options">
         <legend>¿Qué incluir en el reporte?</legend>
         <label>
-          <input type="checkbox" checked={include.products} onChange={() => toggle('products')} />
-          Productos de la lista <span className="muted">({criteria})</span>
+          Categoría:
+          <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+            <option value="">Todas</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          <span className="muted">Siempre productos activos.</span>
         </label>
+        <label>
+          <input type="checkbox" checked={include.products} onChange={() => toggle('products')} />
+          Productos
+        </label>
+        {include.products && categoryId === '' ? (
+          <label className="report-options__nested">
+            <input
+              type="checkbox"
+              checked={grouped}
+              onChange={() => setGrouped((current) => !current)}
+            />
+            Agrupar por categoría, con subtotales
+          </label>
+        ) : null}
         <label>
           <input
             type="checkbox"
@@ -141,7 +224,7 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
             type="button"
             className="button button--primary"
             onClick={printReport}
-            disabled={nothingChosen}
+            disabled={nothingChosen || data.phase !== 'ready'}
           >
             🖨 Imprimir / Guardar PDF
           </button>
@@ -153,16 +236,20 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
       <div className="print-area report-preview">
         <header className="report-preview__header">
           <h1>Reporte de inventario</h1>
-          <p className="muted">Generado el {formatDateTime(new Date().toISOString())}</p>
+          <p className="muted">
+            Productos activos · {scope} · generado el {formatDateTime(new Date().toISOString())}
+          </p>
         </header>
 
+        {data.phase === 'loading' ? <p className="muted">Cargando…</p> : null}
+        {data.phase === 'failed' ? <p className="alert alert--error">{data.message}</p> : null}
         {nothingChosen ? <p className="muted">No hay secciones marcadas.</p> : null}
 
-        {include.products ? (
+        {include.products && data.phase === 'ready' ? (
           <section className="report-preview__section">
-            <h2>Productos · {criteria}</h2>
+            <h2>Productos</h2>
             {products.length === 0 ? (
-              <p className="muted">No hay productos en la lista con estos filtros.</p>
+              <p className="muted">No hay productos activos en {scope}.</p>
             ) : (
               <table className="table">
                 <thead>
@@ -175,37 +262,57 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
                     <th className="table__number">Stock</th>
                     <th className="table__number">Mínimo</th>
                     <th>Vence</th>
-                    <th>Estado</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <td>{product.code}</td>
-                      <td>{product.name}</td>
-                      <td>{product.categoryName}</td>
-                      <td className="table__number">{formatMoney(product.cost)}</td>
-                      <td className="table__number">{formatMoney(product.price)}</td>
-                      <td className="table__number">{product.stock}</td>
-                      <td className="table__number">
-                        {product.minStock === 0 ? '—' : product.minStock}
-                      </td>
-                      <td>
-                        {product.expirationDate === null
-                          ? '—'
-                          : formatDateOnly(product.expirationDate)}
-                      </td>
-                      <td>{product.isActive ? 'Activo' : 'Desactivado'}</td>
-                    </tr>
-                  ))}
-                </tbody>
+                {groups.map((group) => {
+                  const subtotal = summarize(group.products);
+
+                  return (
+                    <tbody key={group.key}>
+                      {group.title === null ? null : (
+                        <tr className="report-preview__group">
+                          <th colSpan={8}>{group.title}</th>
+                        </tr>
+                      )}
+                      {group.products.map((product) => (
+                        <tr key={product.id}>
+                          <td>{product.code}</td>
+                          <td>{product.name}</td>
+                          <td>{product.categoryName}</td>
+                          <td className="table__number">{formatMoney(product.cost)}</td>
+                          <td className="table__number">{formatMoney(product.price)}</td>
+                          <td className="table__number">{product.stock}</td>
+                          <td className="table__number">
+                            {product.minStock === 0 ? '—' : product.minStock}
+                          </td>
+                          <td>
+                            {product.expirationDate === null
+                              ? '—'
+                              : formatDateOnly(product.expirationDate)}
+                          </td>
+                        </tr>
+                      ))}
+                      {group.title === null ? null : (
+                        <tr className="report-preview__subtotal">
+                          <td colSpan={5} className="table__number">
+                            Subtotal {group.title}: {group.products.length} producto(s) · valor al
+                            costo {formatMoney(subtotal.value)}
+                          </td>
+                          <td className="table__number">{subtotal.units}</td>
+                          <td colSpan={2} />
+                        </tr>
+                      )}
+                    </tbody>
+                  );
+                })}
                 <tfoot>
                   <tr>
                     <th colSpan={5} className="table__number">
-                      {products.length} producto(s) · valor al costo {formatMoney(totalValue)}
+                      Total: {products.length} producto(s) · valor al costo{' '}
+                      {formatMoney(total.value)}
                     </th>
-                    <th className="table__number">{totalUnits}</th>
-                    <th colSpan={3} />
+                    <th className="table__number">{total.units}</th>
+                    <th colSpan={2} />
                   </tr>
                 </tfoot>
               </table>
@@ -213,14 +320,7 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
           </section>
         ) : null}
 
-        {(include.expirations || include.lowStock) && alerts.phase === 'loading' ? (
-          <p className="muted">Cargando…</p>
-        ) : null}
-        {(include.expirations || include.lowStock) && alerts.phase === 'failed' ? (
-          <p className="alert alert--error">{alerts.message}</p>
-        ) : null}
-
-        {include.expirations && alerts.phase === 'ready' ? (
+        {include.expirations && data.phase === 'ready' ? (
           <section className="report-preview__section">
             <h2>{EXPIRATION_FILTERS[expirationFilter]}</h2>
             {expirations.length === 0 ? (
@@ -252,10 +352,10 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
           </section>
         ) : null}
 
-        {include.lowStock && alerts.phase === 'ready' ? (
+        {include.lowStock && data.phase === 'ready' ? (
           <section className="report-preview__section">
             <h2>Stock bajo</h2>
-            {alerts.lowStock.length === 0 ? (
+            {lowStock.length === 0 ? (
               <p className="muted">Ningún producto está en su mínimo de stock.</p>
             ) : (
               <table className="table">
@@ -268,7 +368,7 @@ export function InventoryReport({ products, criteria, onClose }: InventoryReport
                   </tr>
                 </thead>
                 <tbody>
-                  {alerts.lowStock.map((alert) => (
+                  {lowStock.map((alert) => (
                     <tr key={alert.productId}>
                       <td>{alert.productCode}</td>
                       <td>{alert.productName}</td>

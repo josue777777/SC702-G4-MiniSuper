@@ -74,8 +74,9 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
   Activos; Activar y Borrar en Desactivados). Crear y modificar abren un modal con pestañas
   (General, Precios, Existencias, Etiquetas, Imagen); en Existencias también se definen el
   stock mínimo (HU-08) y la fecha de vencimiento (HU-09). Desde la barra superior se abren
-  el conteo físico (HU-10) y «Imprimir reporte», donde se eligen las secciones (productos
-  según la vista y los filtros, vencimientos, stock bajo) y se imprime la vista previa. Los
+  el conteo físico (HU-10) y «Imprimir reporte»: siempre de productos activos, por
+  categoría o de todas (opcionalmente agrupado, con subtotales), con las secciones que se
+  elijan (productos, vencimientos, stock bajo); se imprime la vista previa. Los
   modales usan `<dialog>` nativo (`components/Modal.tsx`).
 * **Comunicación HTTP**: centralizada en `frontend/src/services/`. Ningún componente
   ejecuta `fetch` directamente.
