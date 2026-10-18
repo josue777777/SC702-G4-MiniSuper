@@ -314,7 +314,12 @@ Convenciones de este módulo, decididas al implementarlo:
   HU-38 (Sprint 3).
 * **El PDF (HU-24) lo genera el navegador**: el detalle del pedido es un área imprimible y el
   botón «Imprimir / Guardar PDF» abre el diálogo de impresión, que permite imprimir o guardar
-  como PDF. Es instantáneo y no agrega dependencias.
+  como PDF. Es instantáneo y no agrega dependencias. Es el documento que se entrega al
+  proveedor: trae la cantidad solicitada, una columna «Cant. recibida» en blanco y espacio
+  para nombre, fecha y firma de quien recibe.
+* **El pedido no mueve stock**: es una intención de compra. La mercadería que realmente
+  llega se registra como entrada (con o sin pedido) en el Kardex, y entonces el pedido pasa a
+  recibido (HU-38, Sprint 3).
 
 ---
 

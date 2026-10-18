@@ -1545,3 +1545,35 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* Documento del pedido (HU-24): espacios para llenar a mano al recibir */
+.write-in {
+  display: inline-block;
+  width: 72px;
+  height: 1.1em;
+  border-bottom: 1px solid var(--color-muted);
+  vertical-align: bottom;
+}
+
+.order-reception {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 36px;
+}
+
+.order-reception > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-reception__line {
+  border-bottom: 1px solid var(--color-text);
+  height: 28px;
+}
+
+.order-reception__label {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}

@@ -23,6 +23,11 @@ function printOrder(): void {
 /**
  * Detalle completo de un pedido (HU-22) y documento del pedido (HU-24).
  *
+ * El documento se imprime para entregarlo al proveedor: trae la cantidad
+ * solicitada y una columna «Cant. recibida» en blanco, más espacio para nombre,
+ * fecha y firma de quien recibe. Ese papel respalda la entrada de mercadería que
+ * después se registra en el sistema.
+ *
  * «Imprimir / Guardar PDF» abre el diálogo de impresión del navegador, que
  * permite imprimirlo o elegir «Guardar como PDF» para enviarlo al proveedor.
  * Así el PDF sale al instante y sin una librería extra.
@@ -85,7 +90,9 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
             <tr>
               <th>Código</th>
               <th>Producto</th>
-              <th className="table__number">Cantidad</th>
+              <th className="table__number">Cant. solicitada</th>
+              {/* En blanco: se llena a mano al recibir la mercadería. */}
+              <th className="table__number">Cant. recibida</th>
               <th className="table__number">Costo unitario</th>
               <th className="table__number">Subtotal</th>
             </tr>
@@ -96,6 +103,9 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
                 <td>{item.productCode}</td>
                 <td>{item.productName}</td>
                 <td className="table__number">{item.quantity}</td>
+                <td className="table__number">
+                  <span className="write-in" aria-label="Para anotar a mano" />
+                </td>
                 <td className="table__number">{formatMoney(item.unitCost)}</td>
                 <td className="table__number">{formatMoney(item.subtotal)}</td>
               </tr>
@@ -103,13 +113,26 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
           </tbody>
           <tfoot>
             <tr>
-              <th colSpan={4} className="table__number">
+              <th colSpan={5} className="table__number">
                 Total
               </th>
               <th className="table__number">{formatMoney(order.total)}</th>
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* Constancia de recepción: el papel firmado respalda la entrada que luego se registra. */}
+      <p className="muted hint">
+        Al recibir la mercadería, anote en «Cant. recibida» lo que realmente llegó y firme abajo.
+      </p>
+      <div className="order-reception">
+        {['Recibido por', 'Fecha de recepción', 'Firma'].map((label) => (
+          <div key={label}>
+            <span className="order-reception__line" />
+            <span className="order-reception__label">{label}</span>
+          </div>
+        ))}
       </div>
     </section>
   );

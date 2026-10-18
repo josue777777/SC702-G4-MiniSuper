@@ -40,7 +40,7 @@ export function OrdersPage() {
       tasks={[
         'Mostrar los productos con stock por debajo del mínimo y su proveedor sugerido (HU-23).',
         'Permitir ajustar la cantidad sugerida antes de confirmar el pedido (HU-23).',
-        'Marcar un pedido como recibido, actualizando el stock y registrando los lotes (HU-38).',
+        'Al llegar la mercadería, registrar la entrada en el Kardex (con o sin pedido) y dejar el pedido como recibido, actualizando el stock y los lotes (HU-38).',
       ]}
     >
       <div className="toolbar">
