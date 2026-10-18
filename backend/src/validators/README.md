@@ -13,7 +13,7 @@ Un archivo por recurso, mismo nombre que su router:
 | `suppliers.validator.ts`       | cuerpo de POST/PATCH proveedor        | HU-21         | implementado |
 | `sales.validator.ts`           | carrito, métodos de pago              | HU-16, HU-17  | pendiente    |
 | `credit-payments.validator.ts` | abonos a fiado                        | HU-19         | pendiente    |
-| `purchase-orders.validator.ts` | pedido a proveedor                    | HU-22, HU-24  | pendiente    |
+| `purchase-orders.validator.ts` | pedido a proveedor                    | HU-22, HU-24  | implementado |
 
 ## Cómo se usa en un controller
 

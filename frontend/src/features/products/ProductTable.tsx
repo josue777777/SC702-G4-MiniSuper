@@ -1,49 +1,80 @@
-import { Fragment, useState } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import type { Product } from '../../types/products';
 import { formatMoney } from './money';
 
 interface ProductTableProps {
   products: Product[];
-  busy: boolean;
   /** `true` si hay un filtro de categoría activo (solo se muestran productos activos). */
   filtered?: boolean;
-  onEdit: (product: Product) => void;
-  onDeactivate: (product: Product) => void;
+  /** Búsqueda confirmada (HU-05); cadena vacía si no hay búsqueda. */
+  searchTerm?: string;
+  /** Mensaje de lista vacía que decide la vista (activos o desactivados). */
+  emptyText?: string;
+  /** Controles del encabezado, a la derecha del título (p. ej. el selector de vista). */
+  headerActions?: ReactNode;
+  /** Producto marcado en la lista; sobre él actúan «Modificar» y «Desactivar». */
+  selectedId: string | null;
+  onSelect: (product: Product) => void;
+  /** Doble clic o Enter sobre una fila: abrir el producto para modificarlo. */
+  onOpen: (product: Product) => void;
 }
 
-/** Cuántas columnas tiene la tabla: lo necesita la fila de confirmación. */
-const COLUMN_COUNT = 9;
-
 /**
- * Catálogo en forma de tabla (HU-01, HU-02, HU-03).
+ * Catálogo en forma de tabla (HU-01, HU-02, HU-03, HU-05), como la ventana de
+ * inventario de un sistema de escritorio: un clic marca el producto y las
+ * acciones están en la barra inferior; doble clic lo abre para modificarlo.
  *
- * Muestra también los productos inactivos: es la pantalla de administración, y
- * ver el estado es lo que permite comprobar que la desactivación funcionó. Las
- * consultas de venta (HU-16) sí filtrarán por activos.
- *
- * La confirmación de la desactivación es estado local de este componente: si el
- * dueño cancela, no se llama a la API ni se toca nada (caso borde de HU-03).
+ * Sin filtros muestra también los productos inactivos: es la pantalla de
+ * administración, y ver el estado es lo que permite comprobar que la
+ * desactivación funcionó. Con filtro de categoría o búsqueda solo llegan
+ * activos. Las consultas de venta (HU-16) sí filtrarán siempre por activos.
  */
 export function ProductTable({
   products,
-  busy,
   filtered = false,
-  onEdit,
-  onDeactivate,
+  searchTerm = '',
+  emptyText,
+  headerActions,
+  selectedId,
+  onSelect,
+  onOpen,
 }: ProductTableProps) {
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const searching = searchTerm !== '';
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTableRowElement>, product: Product): void {
+    if (event.key === 'Enter') {
+      onOpen(product);
+    } else if (event.key === ' ') {
+      event.preventDefault();
+      onSelect(product);
+    }
+  }
 
   if (products.length === 0) {
     return (
       <section className="card">
         <header className="card__header">
-          <h2>Catálogo</h2>
+          <h2>{searching ? 'Resultados de la búsqueda' : 'Catálogo'}</h2>
+          {headerActions}
         </header>
-        <p className="muted">
-          {filtered
-            ? 'No hay productos activos en esta categoría.'
-            : 'Todavía no hay productos registrados. Use «+ Nuevo producto» para registrar el primero.'}
-        </p>
+        {searching ? (
+          <>
+            <p role="status">
+              No se encontraron productos activos que coincidan con «{searchTerm}»
+              {filtered ? ' en esta categoría' : ''}.
+            </p>
+            <p className="muted hint">
+              Revise cómo está escrito el nombre o el código del producto.
+            </p>
+          </>
+        ) : (
+          <p className="muted">
+            {emptyText ??
+              (filtered
+                ? 'No hay productos activos en esta categoría.'
+                : 'Todavía no hay productos registrados. Use «+ Crear» para registrar el primero.')}
+          </p>
+        )}
       </section>
     );
   }
@@ -51,34 +82,58 @@ export function ProductTable({
   return (
     <section className="card">
       <header className="card__header">
-        <h2>Catálogo</h2>
-        <span className="muted">{products.length} producto(s)</span>
+        <h2>{searching ? 'Resultados de la búsqueda' : 'Catálogo'}</h2>
+        <span className="card__header-end">
+          <span className="muted" role="status">
+            {products.length} {searching ? 'resultado(s)' : 'producto(s)'}
+          </span>
+          {headerActions}
+        </span>
       </header>
 
       <div className="table-wrapper">
-        <table className="table">
+        <table className="table" aria-label="Productos del inventario">
           <thead>
             <tr>
               <th>Código</th>
               <th>Nombre</th>
               <th>Categoría</th>
-              <th className="table__number">Precio</th>
-              <th className="table__number">Costo</th>
+              {/* Compra = lo que cuesta al negocio (cost); venta = lo que paga el cliente (price). */}
+              <th className="table__number" title="Lo que le cuesta al negocio (costo)">
+                Precio compra
+              </th>
+              <th className="table__number" title="Lo que paga el cliente">
+                Precio venta
+              </th>
               <th className="table__number">Stock</th>
               <th>Proveedor</th>
               <th>Estado</th>
-              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
-              <Fragment key={product.id}>
-                <tr className={product.isActive ? undefined : 'table__row--inactive'}>
+            {products.map((product) => {
+              const selected = product.id === selectedId;
+              const classes = [
+                'table__row--selectable',
+                product.isActive ? '' : 'table__row--inactive',
+                selected ? 'table__row--selected' : '',
+              ];
+
+              return (
+                <tr
+                  key={product.id}
+                  className={classes.filter(Boolean).join(' ')}
+                  tabIndex={0}
+                  aria-selected={selected}
+                  onClick={() => onSelect(product)}
+                  onDoubleClick={() => onOpen(product)}
+                  onKeyDown={(event) => handleKeyDown(event, product)}
+                >
                   <td>{product.code}</td>
                   <td>{product.name}</td>
                   <td>{product.categoryName}</td>
-                  <td className="table__number">{formatMoney(product.price)}</td>
                   <td className="table__number">{formatMoney(product.cost)}</td>
+                  <td className="table__number">{formatMoney(product.price)}</td>
                   <td className="table__number">{product.stock}</td>
                   <td>{product.preferredSupplierName ?? '—'}</td>
                   <td>
@@ -88,65 +143,9 @@ export function ProductTable({
                       <span className="badge badge--muted">Inactivo</span>
                     )}
                   </td>
-                  <td>
-                    <div className="row-actions">
-                      <button
-                        type="button"
-                        className="button"
-                        disabled={busy}
-                        onClick={() => onEdit(product)}
-                      >
-                        Editar
-                      </button>
-                      {product.isActive ? (
-                        <button
-                          type="button"
-                          className="button button--danger"
-                          disabled={busy}
-                          onClick={() => setConfirmingId(product.id)}
-                        >
-                          Desactivar
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
                 </tr>
-
-                {confirmingId === product.id ? (
-                  <tr className="table__confirm-row">
-                    <td colSpan={COLUMN_COUNT}>
-                      <div className="confirm">
-                        <p>
-                          ¿Desea desactivar <strong>{product.name}</strong>? Ya no estará disponible
-                          para nuevas ventas; su historial de ventas e inventario se conserva.
-                        </p>
-                        <div className="row-actions">
-                          <button
-                            type="button"
-                            className="button button--danger"
-                            disabled={busy}
-                            onClick={() => {
-                              setConfirmingId(null);
-                              onDeactivate(product);
-                            }}
-                          >
-                            Sí, desactivar
-                          </button>
-                          <button
-                            type="button"
-                            className="button"
-                            disabled={busy}
-                            onClick={() => setConfirmingId(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : null}
-              </Fragment>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -233,7 +233,11 @@ describe('ProductsService.listProducts (filtro por categoría)', () => {
       products: [
         buildProduct(),
         buildProduct({ id: OTHER_PRODUCT_ID, code: 'P002', isActive: false }),
-        buildProduct({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', code: 'P003', categoryId: OTHER_CATEGORY_ID }),
+        buildProduct({
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          code: 'P003',
+          categoryId: OTHER_CATEGORY_ID,
+        }),
       ],
     });
   }
@@ -250,6 +254,76 @@ describe('ProductsService.listProducts (filtro por categoría)', () => {
     const listed = await service.listProducts({ categoryId: CATEGORY_ID });
 
     expect(listed.map((product) => product.id)).toEqual([PRODUCT_ID]);
+  });
+});
+
+describe('ProductsService.listProducts (búsqueda HU-05)', () => {
+  const OTHER_CATEGORY_ID = '22222222-5555-4555-8555-555555555555';
+  const RICE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const COFFEE_BEANS_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+  function buildCatalog() {
+    return new FakeProductsRepository({
+      products: [
+        buildProduct({ name: 'Café molido 500 g', code: 'P001' }),
+        buildProduct({
+          id: OTHER_PRODUCT_ID,
+          name: 'Café instantáneo',
+          code: 'P002',
+          isActive: false,
+        }),
+        buildProduct({
+          id: RICE_ID,
+          name: 'Arroz 1 kg',
+          code: 'ARR-01',
+          categoryId: OTHER_CATEGORY_ID,
+        }),
+        buildProduct({
+          id: COFFEE_BEANS_ID,
+          name: 'Café en grano',
+          code: 'P010',
+          categoryId: OTHER_CATEGORY_ID,
+        }),
+      ],
+    });
+  }
+
+  it('encuentra por nombre parcial sin distinguir mayúsculas y excluye los inactivos', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'CAFÉ' });
+
+    expect(listed.map((product) => product.id)).toEqual([PRODUCT_ID, COFFEE_BEANS_ID]);
+  });
+
+  it('encuentra por código completo sin distinguir mayúsculas', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'arr-01' });
+
+    expect(listed.map((product) => product.id)).toEqual([RICE_ID]);
+  });
+
+  it('encuentra por fragmento del código y excluye los inactivos', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'P0' });
+
+    expect(listed.map((product) => product.id)).toEqual([PRODUCT_ID, COFFEE_BEANS_ID]);
+  });
+
+  it('combina la búsqueda con el filtro de categoría', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    const listed = await service.listProducts({ q: 'café', categoryId: OTHER_CATEGORY_ID });
+
+    expect(listed.map((product) => product.id)).toEqual([COFFEE_BEANS_ID]);
+  });
+
+  it('devuelve una lista vacía si nada coincide', async () => {
+    const service = new ProductsService(buildCatalog());
+
+    await expect(service.listProducts({ q: 'leche' })).resolves.toEqual([]);
   });
 });
 
@@ -339,5 +413,123 @@ describe('buildStockAdjustment', () => {
       stockBefore: 10,
       stockAfter: 7,
     });
+  });
+});
+
+/** Primeros bytes de un PNG real, más relleno: suficiente para la firma. */
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+
+describe('ProductsService: imagen del producto (HU-01)', () => {
+  it('guarda la imagen y el producto devuelve su URL', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    const saved = await service.setProductImage(PRODUCT_ID, {
+      mimeType: 'image/png',
+      data: PNG_BYTES,
+    });
+
+    expect(saved.imageUrl).toContain(`/api/products/${PRODUCT_ID}/image`);
+    expect(repository.images.get(PRODUCT_ID)?.mimeType).toBe('image/png');
+  });
+
+  it('rechaza un archivo cuyo contenido no es del tipo declarado (400)', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+    const notAnImage = new TextEncoder().encode('MZ esto es un ejecutable renombrado');
+
+    await expect(
+      service.setProductImage(PRODUCT_ID, { mimeType: 'image/png', data: notAnImage }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(repository.images.size).toBe(0);
+  });
+
+  it('responde 404 si el producto no existe o no tiene imagen', async () => {
+    const service = new ProductsService(new FakeProductsRepository());
+
+    await expect(
+      service.setProductImage(OTHER_PRODUCT_ID, { mimeType: 'image/png', data: PNG_BYTES }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(service.getProductImage(PRODUCT_ID)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('quita la imagen; si no tenía, no escribe nada', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    expect((await service.removeProductImage(PRODUCT_ID)).imageUrl).toBeNull();
+
+    await service.setProductImage(PRODUCT_ID, { mimeType: 'image/png', data: PNG_BYTES });
+    const removed = await service.removeProductImage(PRODUCT_ID);
+
+    expect(removed.imageUrl).toBeNull();
+    expect(repository.images.has(PRODUCT_ID)).toBe(false);
+  });
+});
+
+describe('ProductsService.deleteProduct (HU-03, borrar para siempre)', () => {
+  it('no borra un producto activo: primero hay que desactivarlo (409)', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    await expect(service.deleteProduct(PRODUCT_ID)).rejects.toMatchObject({ statusCode: 409 });
+    expect(repository.deletedIds).toEqual([]);
+  });
+
+  it('no borra un producto con ventas o pedidos: conserva el historial (409)', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    repository.references.set(PRODUCT_ID, { sales: 2, purchaseOrders: 1 });
+    const service = new ProductsService(repository);
+
+    await expect(service.deleteProduct(PRODUCT_ID)).rejects.toMatchObject({
+      statusCode: 409,
+      details: { sales: 2, purchaseOrders: 1 },
+    });
+    expect(repository.deletedIds).toEqual([]);
+  });
+
+  it('borra un producto desactivado sin ventas ni pedidos', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    const service = new ProductsService(repository);
+
+    await service.deleteProduct(PRODUCT_ID);
+
+    expect(repository.deletedIds).toEqual([PRODUCT_ID]);
+    expect(await repository.findById(PRODUCT_ID)).toBeNull();
+  });
+
+  it('responde 404 si el producto no existe', async () => {
+    const service = new ProductsService(new FakeProductsRepository());
+
+    await expect(service.deleteProduct(OTHER_PRODUCT_ID)).rejects.toMatchObject({
+      statusCode: 404,
+    });
+  });
+});
+
+describe('ProductsService.activateProduct (HU-03)', () => {
+  it('vuelve a activar un producto desactivado', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    const service = new ProductsService(repository);
+
+    const activated = await service.activateProduct(PRODUCT_ID);
+
+    expect(activated.isActive).toBe(true);
+    expect(repository.activatedIds).toEqual([PRODUCT_ID]);
+  });
+
+  it('es idempotente: si ya estaba activo no escribe nada', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    await service.activateProduct(PRODUCT_ID);
+
+    expect(repository.activatedIds).toEqual([]);
   });
 });

@@ -4,11 +4,14 @@ import type {
   InventoryMovementPlan,
   ProductDto,
   ProductFormOptionsDto,
+  ProductImage,
+  ProductImageMimeType,
   UpdateProductPlan,
 } from '../types/products.js';
 import { HttpError } from '../utils/http-error.js';
 import type {
   CreateProductInput,
+  ProductImageInput,
   ProductListQuery,
   UpdateProductInput,
 } from '../validators/products.validator.js';
@@ -82,20 +85,41 @@ async function assertSupplierIsUsable(
  * esperados se lanzan como `HttpError` y el middleware de errores los convierte
  * en la respuesta correspondiente.
  */
+/**
+ * Primeros bytes ("firma" o "número mágico") de cada formato aceptado. Se
+ * revisan porque la cabecera `Content-Type` la escribe el cliente: un archivo
+ * cualquiera renombrado como `.png` no tiene la firma de un PNG.
+ */
+const IMAGE_SIGNATURES: Record<ProductImageMimeType, (data: Uint8Array) => boolean> = {
+  'image/png': (data) => startsWith(data, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  'image/jpeg': (data) => startsWith(data, [0xff, 0xd8, 0xff]),
+  // WEBP: "RIFF" + 4 bytes de tamaño + "WEBP".
+  'image/webp': (data) =>
+    startsWith(data, [0x52, 0x49, 0x46, 0x46]) &&
+    startsWith(data.subarray(8), [0x57, 0x45, 0x42, 0x50]),
+};
+
+function startsWith(data: Uint8Array, signature: number[]): boolean {
+  return signature.every((byte, index) => data[index] === byte);
+}
+
 export class ProductsService {
   constructor(private readonly repository: ProductsRepository) {}
 
   /**
-   * Lista para la pantalla de administración. Sin filtro incluye los productos
+   * Lista para la pantalla de administración. Sin filtros incluye los productos
    * inactivos, que es lo que permite comprobar la desactivación de HU-03. Al
-   * filtrar por categoría solo devuelve los activos.
+   * filtrar por categoría, buscar (HU-05) o ambas cosas a la vez, solo devuelve
+   * los activos.
    */
   async listProducts(query: ProductListQuery = {}): Promise<ProductDto[]> {
-    if (query.categoryId === undefined) {
+    const { categoryId, q: search } = query;
+
+    if (categoryId === undefined && search === undefined) {
       return this.repository.list();
     }
 
-    return this.repository.list({ categoryId: query.categoryId, activeOnly: true });
+    return this.repository.list({ categoryId, search, activeOnly: true });
   }
 
   /**
@@ -193,5 +217,88 @@ export class ProductsService {
     }
 
     return this.repository.deactivate(id);
+  }
+
+  /**
+   * HU-03 — volver a activar un producto desactivado: reaparece en ventas y en
+   * las búsquedas. Idempotente, igual que desactivar: si ya estaba activo se
+   * devuelve tal cual.
+   */
+  async activateProduct(id: string): Promise<ProductDto> {
+    const current = await this.requireProduct(id);
+
+    return current.isActive ? current : this.repository.activate(id);
+  }
+
+  /**
+   * HU-03 — borrar un producto para siempre. Más adelante solo podrá hacerlo
+   * el administrador (cuando existan los roles de HU-11 … HU-15).
+   *
+   * Reglas, para no perder historial (criterio de HU-03):
+   * - Solo se borra un producto ya desactivado: son dos pasos a propósito.
+   * - Si aparece en ventas o pedidos, no se borra: esos documentos son el
+   *   historial del negocio. Se queda desactivado.
+   * - Si no, se borra con sus movimientos de stock (p. ej. uno creado por error).
+   */
+  async deleteProduct(id: string): Promise<void> {
+    const current = await this.requireProduct(id);
+
+    if (current.isActive) {
+      throw HttpError.conflict('Primero desactive el producto; solo se borra uno desactivado.');
+    }
+
+    const references = await this.repository.countReferences(id);
+
+    if (references.sales > 0 || references.purchaseOrders > 0) {
+      throw HttpError.conflict(
+        `No se puede borrar: aparece en ${references.sales} venta(s) y ` +
+          `${references.purchaseOrders} pedido(s). Se queda desactivado para conservar el historial.`,
+        references,
+      );
+    }
+
+    await this.repository.deletePermanently(id);
+  }
+
+  /**
+   * HU-01 — imagen opcional del producto. Reemplaza la anterior si había una.
+   * Rechaza el archivo si su contenido no coincide con el tipo declarado.
+   */
+  async setProductImage(id: string, image: ProductImageInput): Promise<ProductDto> {
+    await this.requireProduct(id);
+
+    if (!IMAGE_SIGNATURES[image.mimeType](image.data)) {
+      throw HttpError.badRequest('El archivo no es una imagen PNG, JPG o WEBP válida.');
+    }
+
+    return this.repository.saveImage(id, image);
+  }
+
+  /** HU-01 — imagen guardada del producto, para mostrarla en su ficha. */
+  async getProductImage(id: string): Promise<ProductImage> {
+    const image = await this.repository.findImage(id);
+
+    if (image === null) {
+      throw HttpError.notFound('El producto no tiene imagen.');
+    }
+
+    return image;
+  }
+
+  /** HU-01 — quitar la imagen. Si no tenía, no escribe nada. */
+  async removeProductImage(id: string): Promise<ProductDto> {
+    const current = await this.requireProduct(id);
+
+    return current.imageUrl === null ? current : this.repository.removeImage(id);
+  }
+
+  private async requireProduct(id: string): Promise<ProductDto> {
+    const current = await this.repository.findById(id);
+
+    if (current === null) {
+      throw HttpError.notFound('El producto no existe.');
+    }
+
+    return current;
   }
 }

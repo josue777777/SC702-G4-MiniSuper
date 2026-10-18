@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { Modal } from '../../components/Modal';
 import type { Product } from '../../types/products';
 import type { SupplierFormValues, SupplierPayload } from '../../types/suppliers';
 import {
@@ -16,6 +17,8 @@ interface SupplierFormProps {
   /** Productos de los que este proveedor es el principal: no se pueden quitar aquí. */
   lockedProductIds: string[];
   busy: boolean;
+  /** Error que devolvió la API al guardar; se muestra dentro de la ventana. */
+  serverError?: string | null;
   onCancel: () => void;
   onSubmit: (payload: SupplierPayload) => void;
 }
@@ -39,7 +42,10 @@ function Field({
 
 /**
  * Formulario de proveedor (HU-21): datos de contacto y productos que
- * suministra, cada uno con su costo. Sirve para registrar y para editar.
+ * suministra, cada uno con su costo. Sirve para registrar y para editar; al
+ * registrar solo se piden los datos de contacto, porque el producto se liga a
+ * su proveedor principal desde Inventario.
+ * Se abre en una ventana modal, igual que los productos y los pedidos.
  */
 export function SupplierForm({
   mode,
@@ -47,6 +53,7 @@ export function SupplierForm({
   initialValues,
   lockedProductIds,
   busy,
+  serverError = null,
   onCancel,
   onSubmit,
 }: SupplierFormProps) {
@@ -107,11 +114,16 @@ export function SupplierForm({
   });
 
   return (
-    <section className="card">
-      <header className="card__header">
-        <h2>{mode === 'create' ? 'Nuevo proveedor' : 'Editar proveedor'}</h2>
-      </header>
-
+    <Modal
+      title={mode === 'create' ? 'Nuevo proveedor' : 'Editar proveedor'}
+      size="wide"
+      onClose={() => {
+        // Mientras se guarda no se cierra: el cambio podría quedar a medias.
+        if (!busy) {
+          onCancel();
+        }
+      }}
+    >
       <form className="form" onSubmit={handleSubmit} noValidate>
         <div className="form__grid">
           <Field label="Nombre *" htmlFor="supplier-name">
@@ -137,62 +149,90 @@ export function SupplierForm({
           </Field>
         </div>
 
-        <h3 className="form__section-title">Productos que suministra *</h3>
-        {values.products.map((row, index) => {
-          const locked = lockedProductIds.includes(row.productId);
+        {mode === 'create' ? (
+          <p className="muted hint">
+            Los productos se asocian después: al crear cada producto en Inventario se elige su
+            proveedor principal. Si este proveedor también vende productos de otro principal,
+            agréguelos al editarlo, con el costo que él cobra.
+          </p>
+        ) : (
+          <>
+            <h3 className="form__section-title">Productos que suministra</h3>
+            <p className="muted hint">
+              El proveedor principal se elige en Inventario. Aquí se agregan los demás productos que
+              este proveedor también vende, con su costo, para poder pedírselos.
+            </p>
+            {values.products.map((row, index) => {
+              const locked = lockedProductIds.includes(row.productId);
 
-          return (
-            <div className="form__grid supplier-row" key={index}>
-              <Field label="Producto" htmlFor={`supplier-product-${index}`}>
-                <select
-                  id={`supplier-product-${index}`}
-                  value={row.productId}
-                  disabled={locked}
-                  onChange={(event) => updateRow(index, 'productId', event.target.value)}
-                >
-                  <option value="">Seleccione…</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.code} — {product.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Costo unitario (₡)" htmlFor={`supplier-cost-${index}`}>
-                <input
-                  id={`supplier-cost-${index}`}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={row.unitCost}
-                  onChange={(event) => updateRow(index, 'unitCost', event.target.value)}
-                />
-              </Field>
-              <div className="form__field supplier-row__action">
-                {locked ? (
-                  <span className="badge badge--ok" title="Se cambia desde Productos">
-                    Proveedor principal
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="button"
-                    disabled={busy || values.products.length === 1}
-                    onClick={() => removeRow(index)}
-                  >
-                    Quitar
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-        {errors.products === undefined ? null : <p className="form__error">{errors.products}</p>}
-        <button type="button" className="button" onClick={addRow} disabled={busy}>
-          + Agregar producto
-        </button>
+              return (
+                <div className="form__grid supplier-row" key={index}>
+                  <Field label="Producto" htmlFor={`supplier-product-${index}`}>
+                    <select
+                      id={`supplier-product-${index}`}
+                      value={row.productId}
+                      disabled={locked}
+                      onChange={(event) => updateRow(index, 'productId', event.target.value)}
+                    >
+                      <option value="">Seleccione…</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.code} — {product.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Costo unitario (₡)" htmlFor={`supplier-cost-${index}`}>
+                    <input
+                      id={`supplier-cost-${index}`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={row.unitCost}
+                      onChange={(event) => updateRow(index, 'unitCost', event.target.value)}
+                    />
+                  </Field>
+                  <div className="form__field supplier-row__action">
+                    {locked ? (
+                      <span className="badge badge--ok" title="Se cambia desde Inventario">
+                        Proveedor principal
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button"
+                        disabled={busy}
+                        onClick={() => removeRow(index)}
+                      >
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {values.products.length === 0 ? (
+              <p className="muted">Sin productos asociados.</p>
+            ) : null}
+            {lockedProductIds.length === 0 ? null : (
+              <p className="muted hint">
+                Los productos marcados como «Proveedor principal» no se quitan aquí: el producto se
+                quedaría sin proveedor. Para quitarlo, primero elija otro proveedor principal en
+                Inventario (Modificar → General) y luego vuelva a esta ventana.
+              </p>
+            )}
+            {errors.products === undefined ? null : (
+              <p className="form__error">{errors.products}</p>
+            )}
+            <button type="button" className="button" onClick={addRow} disabled={busy}>
+              + Agregar producto
+            </button>
+          </>
+        )}
 
-        <div className="form__actions">
+        {serverError === null ? null : <p className="form__error">{serverError}</p>}
+
+        <div className="form__actions modal__actions">
           <button type="submit" className="button button--primary" disabled={busy}>
             {busy ? 'Guardando…' : 'Guardar'}
           </button>
@@ -201,6 +241,6 @@ export function SupplierForm({
           </button>
         </div>
       </form>
-    </section>
+    </Modal>
   );
 }

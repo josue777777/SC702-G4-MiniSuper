@@ -78,6 +78,37 @@ describe('GET /api/products', () => {
 
     expect(response.status).toBe(400);
   });
+
+  it('busca con q por nombre parcial y solo devuelve activos (HU-05)', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({
+        products: [
+          buildProduct(),
+          buildProduct({
+            id: OTHER_PRODUCT_ID,
+            code: 'P002',
+            name: 'Café inactivo',
+            isActive: false,
+          }),
+        ],
+      }),
+    );
+
+    const response = await request(app).get(`/api/products?q=${encodeURIComponent('café')}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({ id: PRODUCT_ID });
+  });
+
+  it('combina q con categoryId y responde data vacío si no hay coincidencias', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get(`/api/products?q=leche&categoryId=${CATEGORY_ID}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: [] });
+  });
 });
 
 describe('GET /api/products/form-options', () => {
@@ -229,5 +260,108 @@ describe('PATCH /api/products/:id/deactivate (HU-03)', () => {
 
     expect(response.status).toBe(404);
     expect(response.body.error.message).toBe('El producto no existe.');
+  });
+});
+
+describe('/api/products/:id/image (HU-01)', () => {
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+
+  it('PUT guarda la imagen y GET la devuelve con su tipo', async () => {
+    const { app } = buildApp();
+
+    const saved = await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/png')
+      .send(png);
+    const image = await request(app).get(`/api/products/${PRODUCT_ID}/image`);
+
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.imageUrl).toContain(`/api/products/${PRODUCT_ID}/image?v=`);
+    expect(image.status).toBe(200);
+    expect(image.headers['content-type']).toBe('image/png');
+    expect(Buffer.compare(image.body as Buffer, png)).toBe(0);
+  });
+
+  it('PUT rechaza tipos no permitidos, como SVG (400)', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/svg+xml')
+      .send('<svg onload="alert(1)"></svg>');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.details.mimeType).toEqual([
+      'Solo se aceptan imágenes PNG, JPG o WEBP.',
+    ]);
+  });
+
+  it('PUT responde 413 si la imagen supera 2 MB', async () => {
+    const { app } = buildApp();
+    const big = Buffer.alloc(2 * 1024 * 1024 + 1, 0);
+    png.copy(big);
+
+    const response = await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/png')
+      .send(big);
+
+    expect(response.status).toBe(413);
+    expect(response.body.error.message).toBe('La imagen supera el máximo de 2 MB.');
+  });
+
+  it('DELETE quita la imagen y después GET responde 404', async () => {
+    const { app } = buildApp();
+    await request(app)
+      .put(`/api/products/${PRODUCT_ID}/image`)
+      .set('Content-Type', 'image/png')
+      .send(png);
+
+    const removed = await request(app).delete(`/api/products/${PRODUCT_ID}/image`);
+    const image = await request(app).get(`/api/products/${PRODUCT_ID}/image`);
+
+    expect(removed.body.data.imageUrl).toBeNull();
+    expect(image.status).toBe(404);
+  });
+});
+
+describe('DELETE /api/products/:id (HU-03)', () => {
+  it('responde 409 con un mensaje claro si el producto sigue activo', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).delete(`/api/products/${PRODUCT_ID}`);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.message).toBe(
+      'Primero desactive el producto; solo se borra uno desactivado.',
+    );
+  });
+
+  it('responde 200 y el producto deja de aparecer en el catálogo', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({ products: [buildProduct({ isActive: false })] }),
+    );
+
+    const response = await request(app).delete(`/api/products/${PRODUCT_ID}`);
+    const list = await request(app).get('/api/products');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: { id: PRODUCT_ID } });
+    expect(list.body.data).toEqual([]);
+  });
+});
+
+describe('PATCH /api/products/:id/activate (HU-03)', () => {
+  it('responde 200 con el producto activo, o 404 si no existe', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({ products: [buildProduct({ isActive: false })] }),
+    );
+
+    const activated = await request(app).patch(`/api/products/${PRODUCT_ID}/activate`);
+    const missing = await request(app).patch(`/api/products/${OTHER_PRODUCT_ID}/activate`);
+
+    expect(activated.status).toBe(200);
+    expect(activated.body.data.isActive).toBe(true);
+    expect(missing.status).toBe(404);
   });
 });

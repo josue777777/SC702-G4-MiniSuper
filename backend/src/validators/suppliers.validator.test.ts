@@ -56,10 +56,11 @@ describe('supplierSchema', () => {
     ]);
   });
 
-  it('exige al menos un producto, sin repetidos y con costo válido', () => {
-    expect(messages({ ...validPayload(), products: [] })).toEqual([
-      'Asocie al menos un producto que suministre el proveedor.',
-    ]);
+  it('acepta un proveedor sin productos (con la base vacía es el primer paso)', () => {
+    expect(supplierSchema.safeParse({ ...validPayload(), products: [] }).success).toBe(true);
+  });
+
+  it('rechaza productos repetidos o con costo inválido', () => {
     expect(
       messages({
         ...validPayload(),

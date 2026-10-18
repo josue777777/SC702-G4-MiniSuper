@@ -13,7 +13,7 @@ export interface CategoryFormError {
  * Estado del formulario de categoría (HU-04): envío, error en línea y lista de
  * categorías existentes. `onCreated` permite a la pantalla refrescar sus datos.
  */
-export function useCategoryForm(onCreated: () => Promise<void>) {
+export function useCategoryForm(onCreated: (category: Category) => Promise<void>) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<CategoryFormError | null>(null);
   const [existing, setExisting] = useState<Category[] | null>(null);
@@ -26,8 +26,8 @@ export function useCategoryForm(onCreated: () => Promise<void>) {
       setError(null);
 
       try {
-        await categoriesService.create(payload);
-        await onCreated();
+        const created = await categoriesService.create(payload);
+        await onCreated(created);
 
         return true;
       } catch (caught) {

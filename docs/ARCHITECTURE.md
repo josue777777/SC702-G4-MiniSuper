@@ -57,6 +57,29 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
 * **Ruteo**: React Router con rutas declarativas (`BrowserRouter` + `Routes`) en
   `frontend/src/app/routes.tsx`. `/login` se renderiza fuera del layout; el resto
   de pantallas comparte `MainLayout` a través de `<Outlet />`.
+* **Menú lateral** (`frontend/src/layouts/navigation.ts`): agrupado por cómo se mueve la
+  mercadería — **Almacén** (Inventario, Kardex), **Entradas** (Pedidos a proveedor,
+  Proveedores) y **Salidas** (Ventas, Clientes y fiados) — más Inicio y Reportes. En Almacén se
+  manejan los *datos* del producto; las *cantidades* cambian por movimientos
+  (`InventoryMovement`: ventas, recepciones, conteos y los ajustes de HU-02), y el Kardex
+  (HU-31) los muestra con su saldo (`stockAfter`).
+* **Panel principal** (`/`): números grandes (inventario valorizado al costo, productos
+  activos, pedidos pendientes, stock bajo y vencimientos), barras de valor por producto y
+  por categoría, accesos rápidos y las alertas de HU-08 y HU-09. Todo se calcula en el
+  frontend con datos que ya expone la API (`features/dashboard/dashboard-metrics.ts`) y se
+  actualiza cada 15 s. Las cifras de ventas llegan con HU-16 … HU-20 y HU-37.
+* **Ventana de Inventario** (`/inventory`): lista general de productos con búsqueda (HU-05),
+  filtro por categoría y vistas Activos / Desactivados / Todos. Un clic marca un producto y
+  la barra inferior tiene las acciones de esa vista (Crear, Modificar y Desactivar en
+  Activos; Activar y Borrar en Desactivados). Crear y modificar abren un modal con pestañas
+  (General, Precios, Existencias, Etiquetas, Imagen); en Existencias también se definen el
+  stock mínimo (HU-08) y la fecha de vencimiento (HU-09). Desde la barra superior se abren
+  el conteo físico (HU-10) y «Imprimir reporte»: siempre de productos activos, por
+  categoría o de todas (opcionalmente agrupado, con subtotales), con las secciones que se
+  elijan (productos, vencimientos, stock bajo). El dueño escoge las columnas de productos,
+  el orden y la orientación de la hoja (se recuerdan en el navegador); se imprime la vista
+  previa. Las columnas se definen como datos en `features/products/inventory-report.ts`. Los
+  modales usan `<dialog>` nativo (`components/Modal.tsx`).
 * **Comunicación HTTP**: centralizada en `frontend/src/services/`. Ningún componente
   ejecuta `fetch` directamente.
 * **URL del backend**: variable de entorno `VITE_API_URL`, leída una sola vez en
@@ -88,6 +111,7 @@ Cuando se implemente un módulo se espera, por ejemplo:
 
 ```
 features/products/            (implementado en HU-01 … HU-03)
+├── ProductsSection.tsx  Sección del catálogo (búsqueda, filtro, tabla, formularios); se muestra en InventoryPage
 ├── ProductTable.tsx     Tabla del catálogo con acciones y confirmación de desactivación
 ├── ProductForm.tsx      Formulario de alta y de edición
 ├── use-products.ts      Hook: catálogo, opciones, avisos y acciones (crear/editar/desactivar)
@@ -176,11 +200,16 @@ repository → Prisma`. Responde `200` si la base responde y `503` si no.
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| `GET` | `/api/products` | Catálogo completo (activos e inactivos) para administrarlo |
+| `GET` | `/api/products` | Catálogo completo (activos e inactivos) para administrarlo. Con `?categoryId=<uuid>` y/o `?q=<texto>` (HU-05: fragmento del nombre o del código, sin distinguir mayúsculas) devuelve solo los **activos** que cumplen todos los filtros |
 | `GET` | `/api/products/form-options` | Categorías y proveedores **activos** para los `<select>` del formulario |
 | `POST` | `/api/products` | Registrar producto (HU-01). Responde `201` |
 | `PATCH` | `/api/products/:id` | Editar producto (HU-02) |
 | `PATCH` | `/api/products/:id/deactivate` | Baja lógica (HU-03): solo `isActive = false` |
+| `PATCH` | `/api/products/:id/activate` | Volver a activar un producto desactivado (HU-03) |
+| `DELETE` | `/api/products/:id` | Borrar para siempre (HU-03): solo un producto **desactivado** y sin ventas ni pedidos; si no, `409` con el motivo |
+| `GET` | `/api/products/:id/image` | Imagen del producto (HU-01) para `<img src>`; `404` si no tiene |
+| `PUT` | `/api/products/:id/image` | Subir o reemplazar la imagen. El cuerpo son los bytes y `Content-Type` su tipo |
+| `DELETE` | `/api/products/:id/image` | Quitar la imagen |
 
 Convenciones de este módulo, decididas al implementarlo:
 
@@ -192,14 +221,27 @@ Convenciones de este módulo, decididas al implementarlo:
 * **`PATCH` recibe el cuerpo completo** (los siete campos de HU-01). HU-02 permite modificar
   todos los campos del producto y, con campos parciales, "no cambiar el stock" y "dejar el
   stock en cero" serían indistinguibles.
-* **No hay ruta de reactivación**: HU-03 no la pide. Desactivar es **idempotente**: si el
-  producto ya estaba inactivo se devuelve tal cual, sin escribir de nuevo.
+* **Desactivar y activar son idempotentes** (HU-03): si el producto ya estaba en ese
+  estado se devuelve tal cual, sin escribir de nuevo.
 * **El proveedor del formulario es el principal del producto**: se guarda en
   `SupplierProduct` con `isPreferred = true` y `unitCost = costo`. La edición libera a los
   demás proveedores antes de marcar el nuevo, de modo que nunca hay dos preferidos.
 * **Los movimientos de inventario los decide el service y los escribe el repository** en la
   misma transacción: `ENTRY` con `reason = "Stock inicial"` al crear con stock > 0, y
   `ADJUSTMENT` con `reason = "Ajuste desde edición de producto"` al cambiar el stock a mano.
+* **Borrar es distinto de desactivar** (HU-03 pide no perder el historial de ventas): solo
+  se borra un producto ya desactivado, y nunca si aparece en ventas o pedidos (`409`; se
+  queda desactivado). Si no, se borra junto con sus movimientos de stock en una
+  transacción; sus relaciones con proveedores se borran solas (`Cascade`). Más adelante
+  quedará limitado al administrador (HU-11 … HU-15).
+* **Imagen del producto (HU-01)**: se guarda en la base (`imageData`, `bytea`) para no
+  depender de una carpeta del servidor; el listado solo trae `imageUrl`, nunca los bytes. Solo
+  PNG, JPG o WEBP de hasta 2 MB (`413` si se pasa). Sin SVG, porque puede llevar código
+  (XSS). El service además revisa la **firma** del archivo (sus primeros bytes): la cabecera
+  `Content-Type` la escribe el cliente y no basta. `imageUrl` lleva `?v=<fecha>` para que el
+  navegador pueda guardar la imagen en caché sin mostrar una vieja, y solo esa respuesta
+  permite que otro origen la use (`Cross-Origin-Resource-Policy: cross-origin`), porque
+  `helmet()` lo bloquea por defecto y el frontend vive en otro puerto.
 * **`updatedAt`/historial de ventas intactos**: editar un producto nunca escribe en
   `SaleItem`, cuyos `unitPrice` y `unitCost` son la foto del momento de la venta.
 
@@ -246,14 +288,45 @@ Convenciones de este módulo, decididas al implementarlo:
 | `POST` | `/api/suppliers` | Registrar proveedor con sus productos. Responde `201` |
 | `PATCH` | `/api/suppliers/:id` | Editar proveedor y su lista de productos (cuerpo completo) |
 
-* **Obligatorios**: el nombre (único, sin distinguir mayúsculas), al menos un dato de contacto
-  (teléfono o correo) y al menos un producto activo con su `unitCost`.
+* **Obligatorios**: el nombre (único, sin distinguir mayúsculas) y al menos un dato de contacto
+  (teléfono o correo). La lista de productos puede ir vacía: la ventana de registro solo pide
+  los datos de contacto (el producto se liga a su proveedor principal desde Inventario) y la de
+  edición agrega los productos que el proveedor también vende, cada uno activo y con su
+  `unitCost`.
 * **Las relaciones nuevas nunca son principales** (`isPreferred = false`): el proveedor
   principal de un producto se elige en el formulario de productos (HU-01, HU-02), que es el
   que garantiza que haya uno solo.
 * **No se puede quitar desde proveedores un producto del que el proveedor es principal**
   (`409`): dejaría al producto sin proveedor principal.
 * **Sin baja de proveedores**: HU-21 no la pide.
+
+### Endpoints de pedidos a proveedor (HU-22, HU-24)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/api/purchase-orders` | Registrar un pedido (`supplierId`, `notes`, `items[]` con `productId` y `quantity`). Responde `201` con el detalle |
+| `GET` | `/api/purchase-orders?supplierId=` | Historial, del más reciente al más antiguo; `supplierId` es opcional. Cada fila trae fecha, proveedor, nombres de los productos y total |
+| `GET` | `/api/purchase-orders/:id` | Detalle completo: contacto del proveedor, notas y líneas con costo y subtotal. `404` si no existe |
+
+* **El costo lo pone el backend**: cada línea toma el `unitCost` que el proveedor tiene en
+  `SupplierProduct` (HU-21); el frontend solo envía cantidades. El total se suma en céntimos.
+* **Se rechaza (`400`)** un pedido sin productos, con productos repetidos, con cantidades que no
+  son enteros entre 1 y 1 000 000, a un proveedor inactivo o con un producto que ese proveedor
+  no suministra.
+* **Todo pedido nace `PENDING`**. Marcarlo como recibido, sumar el stock y crear los lotes es
+  HU-38 (Sprint 3).
+* **El PDF (HU-24) lo genera el navegador**: el detalle del pedido es un área imprimible y el
+  botón «Imprimir / Guardar PDF» abre el diálogo de impresión, que permite imprimir o guardar
+  como PDF. Es instantáneo y no agrega dependencias. Es el documento que se entrega al
+  proveedor: trae la cantidad solicitada, una columna «Cant. recibida» en blanco y espacio
+  para nombre, fecha y firma de quien recibe.
+* **Número consecutivo** (`PurchaseOrder.number`, autoincremental y único): se muestra como
+  `PED-0007` en el historial y en el papel. Es el número que se usará para buscar el pedido
+  al registrar la entrada de la mercadería (HU-38). La migración numeró los pedidos que ya
+  existían por fecha de creación.
+* **El pedido no mueve stock**: es una intención de compra. La mercadería que realmente
+  llega se registra como entrada (con o sin pedido) en el Kardex, y entonces el pedido pasa a
+  recibido (HU-38, Sprint 3).
 
 ---
 
@@ -392,8 +465,8 @@ Puntos que conviene tener claros:
 Se usa `HU-01 — registrar producto` como ejemplo; el resto es idéntico.
 
 1. **Modelo de datos.** Añadir/ajustar entidades en `backend/prisma/schema.prisma` y
-   generar la migración: `npm run db:migrate` (luego `npm run prisma:generate`, que en
-   Prisma 7 **ya no** se ejecuta solo después de migrar).
+   generar la migración: `npm run db:migrate`. En Prisma 7 `migrate dev` **ya no** genera
+   el cliente, así que el script ejecuta también `prisma generate`.
 2. **Validador.** `backend/src/validators/products.validator.ts` con un esquema Zod por
    operación (`createProductSchema`, `updateProductSchema`) y el parámetro `:id`. El tipo
    de la entrada se deriva del esquema para que no existan dos listas de campos.
@@ -415,6 +488,8 @@ Se usa `HU-01 — registrar producto` como ejemplo; el resto es idéntico.
    `api-client.ts`, con los contratos en `frontend/src/types/`.
 9. **Feature y página.** Componentes en `frontend/src/features/products/`, y
    `ProductsPage` deja de renderizar `PagePlaceholder` y compone la feature.
+   (Más tarde el catálogo pasó a `features/products/ProductsSection.tsx`, que se
+   muestra dentro de `InventoryPage`; `/products` redirige a `/inventory`.)
 10. **Pruebas.** Tres niveles, todas sin base de datos:
     * validador (`src/validators/*.test.ts`): qué entra y qué se rechaza;
     * service con un doble de repositorio de `src/testing/`: reglas de negocio;

@@ -3,6 +3,7 @@ import { categoriesRouter } from './categories.routes.js';
 import { healthRouter } from './health.routes.js';
 import { inventoryRouter } from './inventory.routes.js';
 import { productsRouter } from './products.routes.js';
+import { purchaseOrdersRouter } from './purchase-orders.routes.js';
 import { suppliersRouter } from './suppliers.routes.js';
 
 /**
@@ -20,3 +21,4 @@ apiRouter.use('/products', productsRouter); // HU-01, HU-02, HU-03
 apiRouter.use('/categories', categoriesRouter); // HU-04
 apiRouter.use('/inventory', inventoryRouter); // HU-08, HU-09, HU-10
 apiRouter.use('/suppliers', suppliersRouter); // HU-21
+apiRouter.use('/purchase-orders', purchaseOrdersRouter); // HU-22, HU-24

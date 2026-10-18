@@ -36,7 +36,8 @@ Un componente nunca llama a `fetch` ni conoce rutas de la API.
 ## Carpetas
 
 - `src/app/` — componente raíz y mapa de rutas.
-- `src/layouts/` — `MainLayout`: menú lateral + `<Outlet />`.
+- `src/layouts/` — `MainLayout`: menú lateral + `<Outlet />`; las opciones y sus grupos
+  (Almacén, Entradas, Salidas) se definen en `navigation.ts`.
 - `src/pages/` — una pantalla por ruta; las que aún no tienen historia muestran un
   `PagePlaceholder` con sus HU y tareas pendientes.
 - `src/features/` — componentes y hooks por dominio (ver su `README.md`).
