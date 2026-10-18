@@ -57,6 +57,8 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
 
     const order: PurchaseOrderDto = {
       id: `88888888-0000-4000-8000-${String(this.sequence).padStart(12, '0')}`,
+      // Como el consecutivo de la base: 1, 2, 3…
+      number: this.sequence,
       supplierId: plan.supplierId,
       supplierName: SUPPLIERS[plan.supplierId]?.name ?? '?',
       supplierPhone: null,
@@ -88,6 +90,7 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
         .filter((order) => supplierId === undefined || order.supplierId === supplierId)
         .map((order) => ({
           id: order.id,
+          number: order.number,
           supplierId: order.supplierId,
           supplierName: order.supplierName,
           status: order.status,

@@ -29,6 +29,7 @@ describe('POST /api/purchase-orders (HU-24)', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.data).toMatchObject({
+      number: 1,
       supplierName: 'Distribuidora Central',
       status: 'PENDING',
       total: '2001.00',
@@ -62,6 +63,7 @@ describe('GET /api/purchase-orders (HU-22)', () => {
     expect(mine.body.data).toHaveLength(1);
     // Cada fila trae lo que pide el historial: fecha, productos, costo y proveedor.
     expect(mine.body.data[0]).toMatchObject({
+      number: 1,
       supplierName: 'Distribuidora Central',
       total: '1000.50',
       itemCount: 1,

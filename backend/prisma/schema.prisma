@@ -299,6 +299,9 @@ model SupplierProduct {
 /// transacción (HU-22: "historial de pedidos, costos y entregas").
 model PurchaseOrder {
   id String @id @default(uuid()) @db.Uuid
+  /// Consecutivo para las personas (PED-0007): va en el papel que se entrega al
+  /// proveedor y con él se buscará el pedido al registrar la entrada (HU-38).
+  number Int @unique @default(autoincrement())
   supplierId  String              @db.Uuid
   status      PurchaseOrderStatus @default(PENDING)
   /// Total del pedido (suma de cantidad * costo unitario de cada ítem): es el

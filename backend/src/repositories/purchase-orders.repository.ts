@@ -11,6 +11,7 @@ type Money = { toFixed(digits: number): string };
 /** Columnas del historial (HU-22). */
 const summarySelection = {
   id: true,
+  number: true,
   status: true,
   total: true,
   createdAt: true,
@@ -21,6 +22,7 @@ const summarySelection = {
 /** Columnas del detalle y del PDF (HU-24). */
 const detailSelection = {
   id: true,
+  number: true,
   status: true,
   total: true,
   notes: true,
@@ -39,6 +41,7 @@ const detailSelection = {
 
 interface SummaryRow {
   id: string;
+  number: number;
   status: 'PENDING' | 'RECEIVED';
   total: Money;
   createdAt: Date;
@@ -48,6 +51,7 @@ interface SummaryRow {
 
 interface DetailRow {
   id: string;
+  number: number;
   status: 'PENDING' | 'RECEIVED';
   total: Money;
   notes: string | null;
@@ -64,6 +68,7 @@ interface DetailRow {
 function toSummaryDto(row: SummaryRow): PurchaseOrderSummaryDto {
   return {
     id: row.id,
+    number: row.number,
     supplierId: row.supplier.id,
     supplierName: row.supplier.name,
     status: row.status,
@@ -77,6 +82,7 @@ function toSummaryDto(row: SummaryRow): PurchaseOrderSummaryDto {
 function toDetailDto(row: DetailRow): PurchaseOrderDto {
   return {
     id: row.id,
+    number: row.number,
     supplierId: row.supplier.id,
     supplierName: row.supplier.name,
     supplierPhone: row.supplier.phone,
