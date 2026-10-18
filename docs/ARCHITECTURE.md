@@ -317,6 +317,10 @@ Convenciones de este módulo, decididas al implementarlo:
   como PDF. Es instantáneo y no agrega dependencias. Es el documento que se entrega al
   proveedor: trae la cantidad solicitada, una columna «Cant. recibida» en blanco y espacio
   para nombre, fecha y firma de quien recibe.
+* **Número consecutivo** (`PurchaseOrder.number`, autoincremental y único): se muestra como
+  `PED-0007` en el historial y en el papel. Es el número que se usará para buscar el pedido
+  al registrar la entrada de la mercadería (HU-38). La migración numeró los pedidos que ya
+  existían por fecha de creación.
 * **El pedido no mueve stock**: es una intención de compra. La mercadería que realmente
   llega se registra como entrada (con o sin pedido) en el Kardex, y entonces el pedido pasa a
   recibido (HU-38, Sprint 3).
