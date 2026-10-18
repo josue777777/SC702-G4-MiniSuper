@@ -29,6 +29,11 @@ export function SuppliersPage() {
     setEditing(null);
   }
 
+  function cancelForm(): void {
+    closeForm();
+    dismissNotice();
+  }
+
   async function handleSubmit(payload: SupplierPayload): Promise<void> {
     const saved =
       editing === null ? await createSupplier(payload) : await updateSupplier(editing.id, payload);
@@ -59,7 +64,8 @@ export function SuppliersPage() {
         </button>
       </div>
 
-      {notice === null ? null : (
+      {/* Con el formulario abierto, el error se ve dentro de la ventana modal. */}
+      {notice === null || (formOpen && notice.kind === 'error') ? null : (
         <p className={`alert alert--${notice.kind}`} role="status">
           {notice.text}
           <button
@@ -87,7 +93,8 @@ export function SuppliersPage() {
                   .map((product) => product.productId)
           }
           busy={busy}
-          onCancel={closeForm}
+          serverError={notice?.kind === 'error' ? notice.text : null}
+          onCancel={cancelForm}
           onSubmit={(payload) => void handleSubmit(payload)}
         />
       ) : null}

@@ -3,6 +3,7 @@ import type { ProductsService } from '../services/products.service.js';
 import {
   createProductSchema,
   productIdParamSchema,
+  productImageSchema,
   productListQuerySchema,
   updateProductSchema,
 } from '../validators/products.validator.js';
@@ -60,5 +61,55 @@ export class ProductsController {
     const { id } = productIdParamSchema.parse(req.params);
 
     res.status(200).json({ data: await this.service.deactivateProduct(id) });
+  }
+
+  /** `PATCH /api/products/:id/activate` — volver a ofrecerlo en ventas (HU-03). */
+  async activate(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+
+    res.status(200).json({ data: await this.service.activateProduct(id) });
+  }
+
+  /** `DELETE /api/products/:id` — borrar para siempre un producto desactivado (HU-03). */
+  async remove(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+    await this.service.deleteProduct(id);
+
+    res.status(200).json({ data: { id } });
+  }
+
+  /**
+   * `GET /api/products/:id/image` — los bytes de la imagen (HU-01), para usarla
+   * en `<img src>`. La URL cambia con cada imagen nueva (`?v=`), así que el
+   * navegador puede guardarla en caché sin riesgo de mostrar una vieja.
+   */
+  async getImage(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+    const image = await this.service.getProductImage(id);
+
+    // helmet() bloquea por defecto que otro origen use los recursos de la API;
+    // la imagen de un producto no es un dato sensible y el frontend vive en
+    // otro puerto, así que solo esta respuesta lo permite.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+    res.type(image.mimeType).send(Buffer.from(image.data));
+  }
+
+  /** `PUT /api/products/:id/image` — subir o reemplazar la imagen (HU-01). */
+  async setImage(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+    const image = productImageSchema.parse({
+      mimeType: req.headers['content-type']?.split(';')[0]?.trim().toLowerCase(),
+      data: req.body,
+    });
+
+    res.status(200).json({ data: await this.service.setProductImage(id, image) });
+  }
+
+  /** `DELETE /api/products/:id/image` — quitar la imagen (HU-01). */
+  async removeImage(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+
+    res.status(200).json({ data: await this.service.removeProductImage(id) });
   }
 }

@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../services/api-client';
+import { inventoryService } from '../../services/inventory.service';
 import { productsService } from '../../services/products.service';
-import type { Product, ProductFormOptions, ProductPayload } from '../../types/products';
+import type {
+  Product,
+  ProductFormOptions,
+  ProductImageChange,
+  ProductPayload,
+  ProductSettingsChange,
+} from '../../types/products';
 
 /**
  * Estado de la pantalla de productos (HU-01, HU-02, HU-03, HU-05).
@@ -14,7 +21,7 @@ import type { Product, ProductFormOptions, ProductPayload } from '../../types/pr
 
 /** Aviso posterior a una acción: éxito o error, en lenguaje del dueño. */
 export interface Notice {
-  kind: 'success' | 'error';
+  kind: 'success' | 'warning' | 'error';
   text: string;
 }
 
@@ -104,15 +111,23 @@ export function useProducts() {
     void load();
   }, [load]);
 
-  /** Ejecuta una acción, informa al usuario y recarga el catálogo si salió bien. */
+  /**
+   * Ejecuta una acción, informa al usuario y recarga el catálogo si salió bien.
+   * La acción puede devolver una advertencia: lo principal se guardó, pero algo
+   * secundario no (por ejemplo la imagen).
+   */
   const runAction = useCallback(
-    async (action: () => Promise<Product>, successText: string): Promise<boolean> => {
+    async (action: () => Promise<string | null>, successText: string): Promise<boolean> => {
       setBusy(true);
       setNotice(null);
 
       try {
-        await action();
-        setNotice({ kind: 'success', text: successText });
+        const warning = await action();
+        setNotice(
+          warning === null
+            ? { kind: 'success', text: successText }
+            : { kind: 'warning', text: warning },
+        );
         await load();
 
         return true;
@@ -127,24 +142,110 @@ export function useProducts() {
     [load],
   );
 
+  /**
+   * Lo que se guarda DESPUÉS del producto, porque al crear se necesita su `id`:
+   * la imagen (HU-01) y el mínimo y vencimiento (HU-08, HU-09). Si algo falla,
+   * el producto ya quedó guardado: se avisa en vez de dejar el formulario
+   * abierto (reenviarlo daría "código duplicado").
+   */
+  const applyExtras = useCallback(
+    async (
+      id: string,
+      image: ProductImageChange,
+      settings: ProductSettingsChange,
+    ): Promise<string | null> => {
+      const failures: string[] = [];
+
+      try {
+        if (image.kind === 'set') {
+          await productsService.uploadImage(id, image.file);
+        } else if (image.kind === 'remove') {
+          await productsService.removeImage(id);
+        }
+      } catch (error) {
+        failures.push(`la imagen (${describeError(error)})`);
+      }
+
+      try {
+        if (settings.minStock !== undefined) {
+          await inventoryService.updateMinStock(id, settings.minStock);
+        }
+
+        if (settings.expirationDate !== undefined) {
+          await inventoryService.updateExpirationDate(id, settings.expirationDate);
+        }
+      } catch (error) {
+        failures.push(`el mínimo o el vencimiento (${describeError(error)})`);
+      }
+
+      return failures.length === 0
+        ? null
+        : `El producto se guardó, pero no ${failures.join(' ni ')}. Puede intentarlo de nuevo con «Modificar».`;
+    },
+    [],
+  );
+
   /** HU-01. Devuelve `true` si se guardó: el formulario se cierra solo entonces. */
   const createProduct = useCallback(
-    (payload: ProductPayload) =>
-      runAction(() => productsService.create(payload), 'Producto registrado correctamente.'),
-    [runAction],
+    (
+      payload: ProductPayload,
+      image: ProductImageChange = { kind: 'keep' },
+      settings: ProductSettingsChange = {},
+    ) =>
+      runAction(async () => {
+        const created = await productsService.create(payload);
+
+        return applyExtras(created.id, image, settings);
+      }, 'Producto registrado correctamente.'),
+    [runAction, applyExtras],
   );
 
   /** HU-02. */
   const updateProduct = useCallback(
-    (id: string, payload: ProductPayload) =>
-      runAction(() => productsService.update(id, payload), 'Producto actualizado correctamente.'),
-    [runAction],
+    (
+      id: string,
+      payload: ProductPayload,
+      image: ProductImageChange = { kind: 'keep' },
+      settings: ProductSettingsChange = {},
+    ) =>
+      runAction(async () => {
+        await productsService.update(id, payload);
+
+        return applyExtras(id, image, settings);
+      }, 'Producto actualizado correctamente.'),
+    [runAction, applyExtras],
   );
 
   /** HU-03. */
   const deactivateProduct = useCallback(
     (id: string) =>
-      runAction(() => productsService.deactivate(id), 'Producto desactivado correctamente.'),
+      runAction(async () => {
+        await productsService.deactivate(id);
+
+        return null;
+      }, 'Producto desactivado correctamente.'),
+    [runAction],
+  );
+
+  /** HU-03: volver a activar un producto desactivado. */
+  const activateProduct = useCallback(
+    (id: string) =>
+      runAction(async () => {
+        await productsService.activate(id);
+
+        return null;
+      }, 'Producto activado: vuelve a estar disponible para la venta.'),
+    [runAction],
+  );
+
+  /** HU-03: borrar para siempre (más adelante, solo el administrador). */
+  const deleteProduct = useCallback(
+    (id: string) =>
+      runAction(async () => {
+        await productsService.remove(id);
+
+        return null;
+      }, 'Producto borrado definitivamente.'),
     [runAction],
   );
 
@@ -168,6 +269,8 @@ export function useProducts() {
     createProduct,
     updateProduct,
     deactivateProduct,
+    activateProduct,
+    deleteProduct,
     afterCategoryCreated,
     dismissNotice,
   };

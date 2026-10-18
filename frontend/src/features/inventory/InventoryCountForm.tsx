@@ -57,7 +57,7 @@ export function InventoryCountForm({ products, busy, onConfirm }: InventoryCount
 
       {products.length === 0 ? (
         <p className="muted">
-          No hay productos activos para contar. Registre uno en la pantalla de Productos.
+          No hay productos activos para contar. Registre uno en el catálogo de productos de arriba.
         </p>
       ) : (
         <form className="form" onSubmit={(event) => void handleSubmit(event)} noValidate>

@@ -233,7 +233,11 @@ describe('ProductsService.listProducts (filtro por categoría)', () => {
       products: [
         buildProduct(),
         buildProduct({ id: OTHER_PRODUCT_ID, code: 'P002', isActive: false }),
-        buildProduct({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', code: 'P003', categoryId: OTHER_CATEGORY_ID }),
+        buildProduct({
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          code: 'P003',
+          categoryId: OTHER_CATEGORY_ID,
+        }),
       ],
     });
   }
@@ -409,5 +413,123 @@ describe('buildStockAdjustment', () => {
       stockBefore: 10,
       stockAfter: 7,
     });
+  });
+});
+
+/** Primeros bytes de un PNG real, más relleno: suficiente para la firma. */
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+
+describe('ProductsService: imagen del producto (HU-01)', () => {
+  it('guarda la imagen y el producto devuelve su URL', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    const saved = await service.setProductImage(PRODUCT_ID, {
+      mimeType: 'image/png',
+      data: PNG_BYTES,
+    });
+
+    expect(saved.imageUrl).toContain(`/api/products/${PRODUCT_ID}/image`);
+    expect(repository.images.get(PRODUCT_ID)?.mimeType).toBe('image/png');
+  });
+
+  it('rechaza un archivo cuyo contenido no es del tipo declarado (400)', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+    const notAnImage = new TextEncoder().encode('MZ esto es un ejecutable renombrado');
+
+    await expect(
+      service.setProductImage(PRODUCT_ID, { mimeType: 'image/png', data: notAnImage }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(repository.images.size).toBe(0);
+  });
+
+  it('responde 404 si el producto no existe o no tiene imagen', async () => {
+    const service = new ProductsService(new FakeProductsRepository());
+
+    await expect(
+      service.setProductImage(OTHER_PRODUCT_ID, { mimeType: 'image/png', data: PNG_BYTES }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(service.getProductImage(PRODUCT_ID)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('quita la imagen; si no tenía, no escribe nada', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    expect((await service.removeProductImage(PRODUCT_ID)).imageUrl).toBeNull();
+
+    await service.setProductImage(PRODUCT_ID, { mimeType: 'image/png', data: PNG_BYTES });
+    const removed = await service.removeProductImage(PRODUCT_ID);
+
+    expect(removed.imageUrl).toBeNull();
+    expect(repository.images.has(PRODUCT_ID)).toBe(false);
+  });
+});
+
+describe('ProductsService.deleteProduct (HU-03, borrar para siempre)', () => {
+  it('no borra un producto activo: primero hay que desactivarlo (409)', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    await expect(service.deleteProduct(PRODUCT_ID)).rejects.toMatchObject({ statusCode: 409 });
+    expect(repository.deletedIds).toEqual([]);
+  });
+
+  it('no borra un producto con ventas o pedidos: conserva el historial (409)', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    repository.references.set(PRODUCT_ID, { sales: 2, purchaseOrders: 1 });
+    const service = new ProductsService(repository);
+
+    await expect(service.deleteProduct(PRODUCT_ID)).rejects.toMatchObject({
+      statusCode: 409,
+      details: { sales: 2, purchaseOrders: 1 },
+    });
+    expect(repository.deletedIds).toEqual([]);
+  });
+
+  it('borra un producto desactivado sin ventas ni pedidos', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    const service = new ProductsService(repository);
+
+    await service.deleteProduct(PRODUCT_ID);
+
+    expect(repository.deletedIds).toEqual([PRODUCT_ID]);
+    expect(await repository.findById(PRODUCT_ID)).toBeNull();
+  });
+
+  it('responde 404 si el producto no existe', async () => {
+    const service = new ProductsService(new FakeProductsRepository());
+
+    await expect(service.deleteProduct(OTHER_PRODUCT_ID)).rejects.toMatchObject({
+      statusCode: 404,
+    });
+  });
+});
+
+describe('ProductsService.activateProduct (HU-03)', () => {
+  it('vuelve a activar un producto desactivado', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ isActive: false })],
+    });
+    const service = new ProductsService(repository);
+
+    const activated = await service.activateProduct(PRODUCT_ID);
+
+    expect(activated.isActive).toBe(true);
+    expect(repository.activatedIds).toEqual([PRODUCT_ID]);
+  });
+
+  it('es idempotente: si ya estaba activo no escribe nada', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    await service.activateProduct(PRODUCT_ID);
+
+    expect(repository.activatedIds).toEqual([]);
   });
 });

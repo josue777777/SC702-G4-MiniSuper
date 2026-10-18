@@ -1,9 +1,13 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import type { Category } from '../../types/categories';
 import { useCategoryForm } from './use-category-form';
 
 interface CategoryFormProps {
-  /** Se llama tras guardar, para que la pantalla refresque sus opciones. */
-  onCreated: () => Promise<void>;
+  /**
+   * Se llama tras guardar con la categoría creada, para que la pantalla
+   * refresque sus opciones (y, en el modal de producto, la deje seleccionada).
+   */
+  onCreated: (category: Category) => Promise<void>;
   onClose: () => void;
 }
 

@@ -100,12 +100,12 @@ export function validateForm(values: ProductFormValues): FormErrors {
     errors.supplierId = 'Seleccione un proveedor.';
   }
 
-  const priceError = validateMoney(values.price, 'precio');
+  const priceError = validateMoney(values.price, 'precio de venta');
   if (priceError !== undefined) {
     errors.price = priceError;
   }
 
-  const costError = validateMoney(values.cost, 'costo');
+  const costError = validateMoney(values.cost, 'precio de compra');
   if (costError !== undefined) {
     errors.cost = costError;
   }
@@ -123,4 +123,32 @@ export function validateForm(values: ProductFormValues): FormErrors {
 /** `true` si la validación encontró algo. */
 export function hasErrors(errors: FormErrors): boolean {
   return Object.keys(errors).length > 0;
+}
+
+/** Ganancia por unidad y margen sobre el precio, para la pestaña Costos. */
+export interface ProductMargin {
+  profit: string;
+  /** Porcentaje del precio que queda como ganancia, con un decimal. */
+  percent: string;
+}
+
+/** `null` si el precio o el costo todavía no son importes válidos. */
+export function describeMargin(price: string, cost: string): ProductMargin | null {
+  const priceCents = Math.round(Number(price) * 100);
+  const costCents = Math.round(Number(cost) * 100);
+
+  if (price.trim() === '' || cost.trim() === '' || !Number.isFinite(priceCents + costCents)) {
+    return null;
+  }
+
+  if (priceCents <= 0) {
+    return null;
+  }
+
+  const profitCents = priceCents - costCents;
+
+  return {
+    profit: (profitCents / 100).toFixed(2),
+    percent: ((profitCents / priceCents) * 100).toFixed(1),
+  };
 }

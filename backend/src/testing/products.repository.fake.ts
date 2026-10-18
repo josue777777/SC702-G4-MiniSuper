@@ -2,6 +2,8 @@ import type { ProductsRepository } from '../repositories/products.repository.js'
 import type {
   CreateProductPlan,
   ProductDto,
+  ProductImage,
+  ProductReferences,
   ProductListFilter,
   ReferenceOption,
   UpdateProductPlan,
@@ -41,6 +43,9 @@ export function buildProduct(overrides: Partial<ProductDto> = {}): ProductDto {
     isActive: true,
     preferredSupplierId: SUPPLIER_ID,
     preferredSupplierName: 'Distribuidora Central',
+    minStock: 0,
+    expirationDate: null,
+    imageUrl: null,
     ...overrides,
   };
 }
@@ -53,7 +58,7 @@ export interface FakeProductsState {
 
 /**
  * Implementa la interfaz pública de `ProductsRepository`. Se escriben a mano
- * los diez métodos para que, si el contrato cambia, la compilación de los tests
+ * los dieciséis métodos para que, si el contrato cambia, la compilación de los tests
  * lo delate en lugar de pasar por alto el método nuevo.
  */
 export class FakeProductsRepository implements ProductsRepository {
@@ -63,6 +68,14 @@ export class FakeProductsRepository implements ProductsRepository {
   readonly updatedPlans: { id: string; plan: UpdateProductPlan }[] = [];
   /** Ids que se mandaron a desactivar (si está vacío, no se escribió nada). */
   readonly deactivatedIds: string[] = [];
+  /** Imágenes guardadas por id de producto (HU-01). */
+  readonly images = new Map<string, ProductImage>();
+  /** Ventas y pedidos que mencionan a cada producto (para probar el borrado). */
+  readonly references = new Map<string, ProductReferences>();
+  /** Ids que se mandaron a activar (si está vacío, no se escribió nada). */
+  readonly activatedIds: string[] = [];
+  /** Ids borrados para siempre (si está vacío, no se borró nada). */
+  readonly deletedIds: string[] = [];
 
   private readonly products: ProductDto[];
   private readonly categories: ReferenceOption[];
@@ -181,5 +194,53 @@ export class FakeProductsRepository implements ProductsRepository {
     this.products[index] = deactivated;
 
     return Promise.resolve(deactivated);
+  }
+
+  findImage(id: string): Promise<ProductImage | null> {
+    return Promise.resolve(this.images.get(id) ?? null);
+  }
+
+  saveImage(id: string, image: ProductImage): Promise<ProductDto> {
+    this.images.set(id, image);
+
+    return this.replace(id, { imageUrl: `/api/products/${id}/image?v=1` });
+  }
+
+  removeImage(id: string): Promise<ProductDto> {
+    this.images.delete(id);
+
+    return this.replace(id, { imageUrl: null });
+  }
+
+  activate(id: string): Promise<ProductDto> {
+    this.activatedIds.push(id);
+
+    return this.replace(id, { isActive: true });
+  }
+
+  countReferences(id: string): Promise<ProductReferences> {
+    return Promise.resolve(this.references.get(id) ?? { sales: 0, purchaseOrders: 0 });
+  }
+
+  deletePermanently(id: string): Promise<void> {
+    this.deletedIds.push(id);
+    const index = this.products.findIndex((product) => product.id === id);
+    this.products.splice(index, 1);
+
+    return Promise.resolve();
+  }
+
+  private replace(id: string, changes: Partial<ProductDto>): Promise<ProductDto> {
+    const index = this.products.findIndex((product) => product.id === id);
+    const current = this.products[index];
+
+    if (current === undefined) {
+      return Promise.reject(new Error(`El doble no tiene un producto con id ${id}.`));
+    }
+
+    const next: ProductDto = { ...current, ...changes };
+    this.products[index] = next;
+
+    return Promise.resolve(next);
   }
 }

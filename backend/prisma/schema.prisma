@@ -113,6 +113,13 @@ model Product {
   /// Desactivar en lugar de eliminar: conserva el historial de ventas (HU-03).
   isActive   Boolean  @default(true)
   categoryId String   @db.Uuid
+  /// Imagen opcional del producto (HU-01). Se guarda en la base para que la app
+  /// no dependa de una carpeta del servidor; el listado nunca la selecciona.
+  imageData      Bytes?
+  /// Tipo del archivo: solo image/png, image/jpeg o image/webp.
+  imageMimeType  String?
+  /// Cuándo cambió la imagen; va en la URL para que el navegador no muestre una vieja.
+  imageUpdatedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -292,6 +299,9 @@ model SupplierProduct {
 /// transacción (HU-22: "historial de pedidos, costos y entregas").
 model PurchaseOrder {
   id String @id @default(uuid()) @db.Uuid
+  /// Consecutivo para las personas (PED-0007): va en el papel que se entrega al
+  /// proveedor y con él se buscará el pedido al registrar la entrada (HU-38).
+  number Int @unique @default(autoincrement())
   supplierId  String              @db.Uuid
   status      PurchaseOrderStatus @default(PENDING)
   /// Total del pedido (suma de cantidad * costo unitario de cada ítem): es el

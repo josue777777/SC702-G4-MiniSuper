@@ -1,7 +1,11 @@
 import { prisma } from '../config/prisma.js';
+import { dateToDateOnly } from '../utils/dates.js';
 import type {
   CreateProductPlan,
   ProductDto,
+  ProductImage,
+  ProductImageMimeType,
+  ProductReferences,
   ProductListFilter,
   ReferenceOption,
   UpdateProductPlan,
@@ -22,6 +26,10 @@ interface ProductRow {
   cost: { toFixed(digits: number): string };
   stock: number;
   isActive: boolean;
+  minStock: number;
+  expirationDate: Date | null;
+  imageMimeType: string | null;
+  imageUpdatedAt: Date | null;
   category: { id: string; name: string };
   supplierProducts: { supplierId: string; supplier: { name: string } }[];
 }
@@ -39,6 +47,11 @@ const productSelection = {
   cost: true,
   stock: true,
   isActive: true,
+  minStock: true,
+  expirationDate: true,
+  // Solo los datos de la imagen, nunca sus bytes: el listado sigue liviano.
+  imageMimeType: true,
+  imageUpdatedAt: true,
   category: { select: { id: true, name: true } },
   supplierProducts: {
     where: { isPreferred: true },
@@ -64,6 +77,12 @@ function toProductDto(row: ProductRow): ProductDto {
     isActive: row.isActive,
     preferredSupplierId: preferredSupplier?.supplierId ?? null,
     preferredSupplierName: preferredSupplier?.supplier.name ?? null,
+    minStock: row.minStock,
+    expirationDate: row.expirationDate === null ? null : dateToDateOnly(row.expirationDate),
+    imageUrl:
+      row.imageMimeType === null || row.imageUpdatedAt === null
+        ? null
+        : `/api/products/${row.id}/image?v=${row.imageUpdatedAt.getTime()}`,
   };
 }
 
@@ -281,6 +300,44 @@ export class ProductsRepository {
     return readProduct(id);
   }
 
+  /** Imagen del producto (HU-01), o `null` si no tiene o el producto no existe. */
+  async findImage(id: string): Promise<ProductImage | null> {
+    const row = await prisma.product.findUnique({
+      where: { id },
+      select: { imageData: true, imageMimeType: true },
+    });
+
+    if (row === null || row.imageData === null || row.imageMimeType === null) {
+      return null;
+    }
+
+    return { data: row.imageData, mimeType: row.imageMimeType as ProductImageMimeType };
+  }
+
+  /** Guarda o reemplaza la imagen (HU-01). No es un cambio de stock: no hay movimiento. */
+  async saveImage(id: string, image: ProductImage): Promise<ProductDto> {
+    await prisma.product.update({
+      where: { id },
+      data: {
+        imageData: Buffer.from(image.data),
+        imageMimeType: image.mimeType,
+        imageUpdatedAt: new Date(),
+      },
+    });
+
+    return readProduct(id);
+  }
+
+  /** Quita la imagen del producto (HU-01). */
+  async removeImage(id: string): Promise<ProductDto> {
+    await prisma.product.update({
+      where: { id },
+      data: { imageData: null, imageMimeType: null, imageUpdatedAt: null },
+    });
+
+    return readProduct(id);
+  }
+
   /**
    * Baja lógica del producto (HU-03): solo `isActive = false`.
    *
@@ -292,5 +349,33 @@ export class ProductsRepository {
     await prisma.product.update({ where: { id }, data: { isActive: false } });
 
     return readProduct(id);
+  }
+
+  async activate(id: string): Promise<ProductDto> {
+    await prisma.product.update({ where: { id }, data: { isActive: true } });
+
+    return readProduct(id);
+  }
+
+  /** Cuántas ventas y pedidos a proveedor incluyen este producto. */
+  async countReferences(id: string): Promise<ProductReferences> {
+    const [sales, purchaseOrders] = await Promise.all([
+      prisma.saleItem.count({ where: { productId: id } }),
+      prisma.purchaseOrderItem.count({ where: { productId: id } }),
+    ]);
+
+    return { sales, purchaseOrders };
+  }
+
+  /**
+   * Borra el producto para siempre, junto con sus movimientos de stock, en una
+   * sola transacción. Las relaciones con proveedores se borran solas (Cascade).
+   * Solo se llama cuando el service ya comprobó que no tiene ventas ni pedidos.
+   */
+  async deletePermanently(id: string): Promise<void> {
+    await prisma.$transaction([
+      prisma.inventoryMovement.deleteMany({ where: { productId: id } }),
+      prisma.product.delete({ where: { id } }),
+    ]);
   }
 }

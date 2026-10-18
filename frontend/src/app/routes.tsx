@@ -1,12 +1,12 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
 import { CustomersPage } from '../pages/CustomersPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { InventoryPage } from '../pages/InventoryPage';
+import { KardexPage } from '../pages/KardexPage';
 import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { OrdersPage } from '../pages/OrdersPage';
-import { ProductsPage } from '../pages/ProductsPage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { SalesPage } from '../pages/SalesPage';
 import { SuppliersPage } from '../pages/SuppliersPage';
@@ -25,8 +25,10 @@ export function AppRoutes() {
 
       <Route element={<MainLayout />}>
         <Route path="/" element={<DashboardPage />} />
-        <Route path="/products" element={<ProductsPage />} />
+        {/* Productos se muestra ahora dentro de Inventario. */}
+        <Route path="/products" element={<Navigate to="/inventory" replace />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/kardex" element={<KardexPage />} />
         <Route path="/sales" element={<SalesPage />} />
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/suppliers" element={<SuppliersPage />} />

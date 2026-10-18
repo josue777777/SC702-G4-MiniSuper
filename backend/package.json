@@ -15,7 +15,7 @@
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma migrate dev && prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
   },

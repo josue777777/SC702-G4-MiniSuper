@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ProductWritableFields } from '../types/products.js';
+import { PRODUCT_IMAGE_TYPES, type ProductWritableFields } from '../types/products.js';
 
 /**
  * Esquemas Zod del recurso productos (HU-01, HU-02).
@@ -131,11 +131,35 @@ export const productIdParamSchema = z.object({
   id: z.uuid({ error: 'El producto indicado no es válido.' }),
 });
 
+/** Tamaño máximo de la imagen de un producto: 2 MB. */
+export const MAX_PRODUCT_IMAGE_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Imagen del producto (HU-01): el tipo viene de la cabecera `Content-Type` y
+ * los bytes del cuerpo. Que el contenido sea de verdad de ese tipo lo
+ * comprueba el service mirando la firma del archivo.
+ */
+export const productImageSchema = z.object({
+  mimeType: z.enum(PRODUCT_IMAGE_TYPES, {
+    error: 'Solo se aceptan imágenes PNG, JPG o WEBP.',
+  }),
+  data: z
+    .instanceof(Uint8Array, { error: 'Adjunte la imagen del producto.' })
+    .refine((data) => data.length > 0, 'Adjunte la imagen del producto.')
+    .refine(
+      (data) => data.length <= MAX_PRODUCT_IMAGE_BYTES,
+      'La imagen supera el máximo de 2 MB.',
+    ),
+});
+
 /** Query ya validada del listado. */
 export type ProductListQuery = z.infer<typeof productListQuerySchema>;
 
 /** Entrada ya validada y normalizada de la creación. */
 export type CreateProductInput = z.infer<typeof createProductSchema>;
+
+/** Imagen ya validada (tipo permitido y tamaño). */
+export type ProductImageInput = z.infer<typeof productImageSchema>;
 
 /** Entrada ya validada y normalizada de la edición. */
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
