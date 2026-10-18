@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { dateToDateOnly } from '../utils/dates.js';
 import type {
   CreateProductPlan,
   ProductDto,
@@ -25,6 +26,8 @@ interface ProductRow {
   cost: { toFixed(digits: number): string };
   stock: number;
   isActive: boolean;
+  minStock: number;
+  expirationDate: Date | null;
   imageMimeType: string | null;
   imageUpdatedAt: Date | null;
   category: { id: string; name: string };
@@ -44,6 +47,8 @@ const productSelection = {
   cost: true,
   stock: true,
   isActive: true,
+  minStock: true,
+  expirationDate: true,
   // Solo los datos de la imagen, nunca sus bytes: el listado sigue liviano.
   imageMimeType: true,
   imageUpdatedAt: true,
@@ -72,6 +77,8 @@ function toProductDto(row: ProductRow): ProductDto {
     isActive: row.isActive,
     preferredSupplierId: preferredSupplier?.supplierId ?? null,
     preferredSupplierName: preferredSupplier?.supplier.name ?? null,
+    minStock: row.minStock,
+    expirationDate: row.expirationDate === null ? null : dateToDateOnly(row.expirationDate),
     imageUrl:
       row.imageMimeType === null || row.imageUpdatedAt === null
         ? null

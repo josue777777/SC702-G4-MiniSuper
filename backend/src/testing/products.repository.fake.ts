@@ -43,6 +43,8 @@ export function buildProduct(overrides: Partial<ProductDto> = {}): ProductDto {
     isActive: true,
     preferredSupplierId: SUPPLIER_ID,
     preferredSupplierName: 'Distribuidora Central',
+    minStock: 0,
+    expirationDate: null,
     imageUrl: null,
     ...overrides,
   };

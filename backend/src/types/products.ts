@@ -58,6 +58,10 @@ export interface ProductDto {
   /** Proveedor principal: el `SupplierProduct` con `isPreferred = true`. */
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;
+  /** Mínimo que dispara la alerta de stock bajo (HU-08); 0 = sin mínimo. */
+  minStock: number;
+  /** Fecha de vencimiento `YYYY-MM-DD` (HU-09), o `null` si no vence. */
+  expirationDate: string | null;
   /**
    * URL de la imagen (HU-01), o `null` si no tiene. Lleva `?v=` con la fecha del
    * cambio para que el navegador no muestre una imagen vieja de su caché.
