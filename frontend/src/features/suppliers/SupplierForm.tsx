@@ -191,7 +191,7 @@ export function SupplierForm({
                   <button
                     type="button"
                     className="button"
-                    disabled={busy || values.products.length === 1}
+                    disabled={busy}
                     onClick={() => removeRow(index)}
                   >
                     Quitar
@@ -201,6 +201,14 @@ export function SupplierForm({
             </div>
           );
         })}
+        {values.products.length === 0 ? <p className="muted">Sin productos asociados.</p> : null}
+        {lockedProductIds.length === 0 ? null : (
+          <p className="muted hint">
+            Los productos marcados como «Proveedor principal» no se quitan aquí: el producto se
+            quedaría sin proveedor. Para quitarlo, primero elija otro proveedor principal en
+            Inventario (Modificar → General) y luego vuelva a esta ventana.
+          </p>
+        )}
         {errors.products === undefined ? null : <p className="form__error">{errors.products}</p>}
         <button type="button" className="button" onClick={addRow} disabled={busy}>
           + Agregar producto
