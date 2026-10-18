@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Modal } from '../../components/Modal';
-import type { Product, ProductImageChange, ProductPayload } from '../../types/products';
+import { InventoryReport } from './InventoryReport';
+import type {
+  Product,
+  ProductImageChange,
+  ProductPayload,
+  ProductSettingsChange,
+} from '../../types/products';
 import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
@@ -74,6 +80,7 @@ export function ProductsSection({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
 
@@ -175,11 +182,15 @@ export function ProductsSection({
     setCategoryFilter(value);
   }
 
-  async function handleSubmit(payload: ProductPayload, image: ProductImageChange): Promise<void> {
+  async function handleSubmit(
+    payload: ProductPayload,
+    image: ProductImageChange,
+    settings: ProductSettingsChange,
+  ): Promise<void> {
     const saved =
       editing === null
-        ? await createProduct(payload, image)
-        : await updateProduct(editing.id, payload, image);
+        ? await createProduct(payload, image, settings)
+        : await updateProduct(editing.id, payload, image, settings);
 
     // Solo se cierra si se guardó: si hubo un error (código duplicado, por
     // ejemplo) el formulario queda abierto con lo que escribió el dueño.
@@ -267,6 +278,22 @@ export function ProductsSection({
     return undefined;
   }
 
+  /** Qué se está viendo, para el encabezado del reporte (p. ej. «Activos · Bebidas»). */
+  function describeCriteria(): string {
+    const parts = [view === 'active' ? 'Activos' : view === 'inactive' ? 'Desactivados' : 'Todos'];
+    const category = options.categories.find((item) => item.id === categoryFilter);
+
+    if (category !== undefined) {
+      parts.push(`categoría ${category.name}`);
+    }
+
+    if (searchTerm !== '') {
+      parts.push(`búsqueda «${searchTerm}»`);
+    }
+
+    return parts.join(' · ');
+  }
+
   /** Selector de vista; va en el encabezado de la tabla porque filtra la lista. */
   const viewSelector = (
     <div className="segmented" role="group" aria-label="Productos a mostrar">
@@ -331,6 +358,14 @@ export function ProductsSection({
           </select>
         </label>
         {tools}
+        <button
+          type="button"
+          className="button button--tool"
+          onClick={() => setReportOpen(true)}
+          disabled={phase !== 'ready'}
+        >
+          🖨 Imprimir reporte
+        </button>
       </div>
 
       {notice === null ? null : (
@@ -358,10 +393,12 @@ export function ProductsSection({
           options={options}
           initialValues={editing === null ? EMPTY_FORM_VALUES : toFormValues(editing)}
           imageUrl={editing?.imageUrl ?? null}
+          initialMinStock={editing?.minStock ?? 0}
+          initialExpirationDate={editing?.expirationDate ?? null}
           onCategoryCreated={afterCategoryCreated}
           busy={busy}
           onCancel={closeForm}
-          onSubmit={(payload, image) => void handleSubmit(payload, image)}
+          onSubmit={(payload, image, settings) => void handleSubmit(payload, image, settings)}
         />
       ) : null}
 
@@ -471,6 +508,14 @@ export function ProductsSection({
             (selected === null ? '' : `Seleccionado: ${selected.code} · ${selected.name}`)}
         </span>
       </div>
+
+      {reportOpen ? (
+        <InventoryReport
+          products={visibleProducts}
+          criteria={describeCriteria()}
+          onClose={() => setReportOpen(false)}
+        />
+      ) : null}
 
       {confirmingDelete && selected !== null ? (
         <Modal title="Borrar producto" onClose={() => setConfirmingDelete(false)}>

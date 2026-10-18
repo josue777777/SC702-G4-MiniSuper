@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../services/api-client';
+import { inventoryService } from '../../services/inventory.service';
 import { productsService } from '../../services/products.service';
 import type {
   Product,
   ProductFormOptions,
   ProductImageChange,
   ProductPayload,
+  ProductSettingsChange,
 } from '../../types/products';
 
 /**
@@ -141,47 +143,77 @@ export function useProducts() {
   );
 
   /**
-   * Imagen del producto (HU-01), DESPUÉS de guardarlo: al crear se necesita su
-   * `id`. Si falla, el producto ya quedó guardado; se avisa en vez de dejar el
-   * formulario abierto (reenviarlo daría "código duplicado").
+   * Lo que se guarda DESPUÉS del producto, porque al crear se necesita su `id`:
+   * la imagen (HU-01) y el mínimo y vencimiento (HU-08, HU-09). Si algo falla,
+   * el producto ya quedó guardado: se avisa en vez de dejar el formulario
+   * abierto (reenviarlo daría "código duplicado").
    */
-  const applyImageChange = useCallback(
-    async (id: string, image: ProductImageChange): Promise<string | null> => {
+  const applyExtras = useCallback(
+    async (
+      id: string,
+      image: ProductImageChange,
+      settings: ProductSettingsChange,
+    ): Promise<string | null> => {
+      const failures: string[] = [];
+
       try {
         if (image.kind === 'set') {
           await productsService.uploadImage(id, image.file);
         } else if (image.kind === 'remove') {
           await productsService.removeImage(id);
         }
-
-        return null;
       } catch (error) {
-        return `El producto se guardó, pero la imagen no: ${describeError(error)} Puede intentarlo de nuevo con «Modificar».`;
+        failures.push(`la imagen (${describeError(error)})`);
       }
+
+      try {
+        if (settings.minStock !== undefined) {
+          await inventoryService.updateMinStock(id, settings.minStock);
+        }
+
+        if (settings.expirationDate !== undefined) {
+          await inventoryService.updateExpirationDate(id, settings.expirationDate);
+        }
+      } catch (error) {
+        failures.push(`el mínimo o el vencimiento (${describeError(error)})`);
+      }
+
+      return failures.length === 0
+        ? null
+        : `El producto se guardó, pero no ${failures.join(' ni ')}. Puede intentarlo de nuevo con «Modificar».`;
     },
     [],
   );
 
   /** HU-01. Devuelve `true` si se guardó: el formulario se cierra solo entonces. */
   const createProduct = useCallback(
-    (payload: ProductPayload, image: ProductImageChange = { kind: 'keep' }) =>
+    (
+      payload: ProductPayload,
+      image: ProductImageChange = { kind: 'keep' },
+      settings: ProductSettingsChange = {},
+    ) =>
       runAction(async () => {
         const created = await productsService.create(payload);
 
-        return applyImageChange(created.id, image);
+        return applyExtras(created.id, image, settings);
       }, 'Producto registrado correctamente.'),
-    [runAction, applyImageChange],
+    [runAction, applyExtras],
   );
 
   /** HU-02. */
   const updateProduct = useCallback(
-    (id: string, payload: ProductPayload, image: ProductImageChange = { kind: 'keep' }) =>
+    (
+      id: string,
+      payload: ProductPayload,
+      image: ProductImageChange = { kind: 'keep' },
+      settings: ProductSettingsChange = {},
+    ) =>
       runAction(async () => {
         await productsService.update(id, payload);
 
-        return applyImageChange(id, image);
+        return applyExtras(id, image, settings);
       }, 'Producto actualizado correctamente.'),
-    [runAction, applyImageChange],
+    [runAction, applyExtras],
   );
 
   /** HU-03. */

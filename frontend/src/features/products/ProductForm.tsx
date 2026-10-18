@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode }
 import { Link } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { CategoryForm } from '../categories/CategoryForm';
+import { parseMinStock, todayDateOnly } from '../inventory/inventory-count';
 import { productsService } from '../../services/products.service';
 import {
   MAX_PRODUCT_IMAGE_BYTES,
@@ -10,6 +11,7 @@ import {
   type ProductFormValues,
   type ProductImageChange,
   type ProductPayload,
+  type ProductSettingsChange,
 } from '../../types/products';
 import { formatMoney } from './money';
 import {
@@ -30,9 +32,16 @@ interface ProductFormProps {
   onCategoryCreated?: () => Promise<void>;
   /** Imagen guardada del producto (HU-01); `null` si no tiene o es un alta. */
   imageUrl?: string | null;
+  /** Mínimo (HU-08) y vencimiento (HU-09) guardados; en un alta, 0 y sin fecha. */
+  initialMinStock?: number;
+  initialExpirationDate?: string | null;
   busy: boolean;
   onCancel: () => void;
-  onSubmit: (payload: ProductPayload, image: ProductImageChange) => void;
+  onSubmit: (
+    payload: ProductPayload,
+    image: ProductImageChange,
+    settings: ProductSettingsChange,
+  ) => void;
 }
 
 type Tab = 'general' | 'costs' | 'stock' | 'labels' | 'image';
@@ -98,6 +107,8 @@ export function ProductForm({
   options,
   initialValues,
   imageUrl = null,
+  initialMinStock = 0,
+  initialExpirationDate = null,
   onCategoryCreated,
   busy,
   onCancel,
@@ -106,6 +117,15 @@ export function ProductForm({
   const [values, setValues] = useState<ProductFormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tab, setTab] = useState<Tab>('general');
+  /** Mínimo y vencimiento: se guardan con los endpoints de HU-08 y HU-09. */
+  const [minStock, setMinStock] = useState(String(initialMinStock));
+  const [expirationDate, setExpirationDate] = useState(initialExpirationDate ?? '');
+  const [settingsErrors, setSettingsErrors] = useState<{
+    minStock?: string;
+    expirationDate?: string;
+  }>({});
+  const today = todayDateOnly();
+
   /** Alta de categoría sin salir del modal (HU-04). */
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   /** Cambio de imagen pendiente: se aplica al guardar, no al elegir el archivo. */
@@ -175,6 +195,10 @@ export function ProductForm({
   }
 
   function tabHasErrors(id: Tab): boolean {
+    if (id === 'stock' && Object.keys(settingsErrors).length > 0) {
+      return true;
+    }
+
     return Object.entries(errors).some(
       ([field, message]) =>
         message !== undefined && FIELD_TAB[field as keyof ProductFormValues] === id,
@@ -187,6 +211,20 @@ export function ProductForm({
     const found = validateForm(values);
     setErrors(found);
 
+    // Mismas reglas que el backend de HU-08 y HU-09.
+    const parsedMin = parseMinStock(minStock);
+    const foundSettings: { minStock?: string; expirationDate?: string } = {};
+
+    if (!parsedMin.ok) {
+      foundSettings.minStock = parsedMin.error;
+    }
+
+    if (expirationDate !== '' && expirationDate < today) {
+      foundSettings.expirationDate = 'La fecha de vencimiento no puede ser anterior a hoy.';
+    }
+
+    setSettingsErrors(foundSettings);
+
     if (hasErrors(found)) {
       const firstField = Object.keys(found)[0] as keyof ProductFormValues;
       setTab(FIELD_TAB[firstField]);
@@ -194,7 +232,25 @@ export function ProductForm({
       return;
     }
 
-    onSubmit(toPayload(values), image);
+    if (!parsedMin.ok || foundSettings.expirationDate !== undefined) {
+      setTab('stock');
+
+      return;
+    }
+
+    // Solo viaja lo que cambió: si no se tocó, no se llama a la API.
+    const settings: ProductSettingsChange = {};
+    const nextExpiration = expirationDate === '' ? null : expirationDate;
+
+    if (parsedMin.quantity !== initialMinStock) {
+      settings.minStock = parsedMin.quantity;
+    }
+
+    if (nextExpiration !== initialExpirationDate) {
+      settings.expirationDate = nextExpiration;
+    }
+
+    onSubmit(toPayload(values), image, settings);
   }
 
   const input = (field: keyof ProductFormValues) => ({
@@ -371,12 +427,51 @@ export function ProductForm({
             >
               <input {...input('stock')} type="number" min="0" step="1" />
             </Field>
+            <Field
+              label="Stock mínimo (0 = sin alerta)"
+              htmlFor="product-minStock"
+              error={settingsErrors.minStock}
+            >
+              <input
+                id="product-minStock"
+                type="number"
+                min="0"
+                step="1"
+                value={minStock}
+                onChange={(event) => setMinStock(event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Fecha de vencimiento (opcional)"
+              htmlFor="product-expirationDate"
+              error={settingsErrors.expirationDate}
+            >
+              <div className="field-with-action">
+                <input
+                  id="product-expirationDate"
+                  type="date"
+                  min={today}
+                  value={expirationDate}
+                  onChange={(event) => setExpirationDate(event.target.value)}
+                />
+                {expirationDate === '' ? null : (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setExpirationDate('')}
+                  >
+                    Quitar fecha (no vence)
+                  </button>
+                )}
+              </div>
+            </Field>
           </div>
           <p className="muted hint">
             {mode === 'create'
-              ? 'Queda registrado como la entrada inicial del producto en el Kardex.'
-              : 'Si cambia esta cantidad, la diferencia queda registrada como un ajuste en el Kardex. Para el día a día use el «Conteo físico».'}{' '}
-            El stock mínimo y la fecha de vencimiento se definen en «Mínimos y vencimientos».
+              ? 'El stock inicial queda registrado como la entrada del producto en el Kardex.'
+              : 'Si cambia las existencias, la diferencia queda registrada como un ajuste en el Kardex. Para el día a día use el «Conteo físico».'}{' '}
+            Con un mínimo mayor que 0, el panel avisa cuando el stock llega a ese nivel (HU-08); la
+            fecha de vencimiento activa las alertas de vencidos y por vencer (HU-09).
           </p>
         </div>
 

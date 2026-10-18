@@ -23,6 +23,10 @@ export interface Product {
   isActive: boolean;
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;
+  /** Mínimo que dispara la alerta de stock bajo (HU-08); 0 = sin mínimo. */
+  minStock: number;
+  /** Fecha de vencimiento `YYYY-MM-DD` (HU-09), o `null` si no vence. */
+  expirationDate: string | null;
   /** Ruta de la imagen en la API (HU-01), o `null` si no tiene. */
   imageUrl: string | null;
 }
@@ -84,4 +88,13 @@ export interface ProductFormValues {
   cost: string;
   stock: string;
   supplierId: string;
+}
+
+/**
+ * Mínimo y vencimiento que cambiaron en el formulario (HU-08, HU-09). Solo
+ * trae lo que cambió; se guarda con los endpoints de inventario.
+ */
+export interface ProductSettingsChange {
+  minStock?: number;
+  expirationDate?: string | null;
 }

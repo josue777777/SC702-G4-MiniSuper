@@ -2,38 +2,19 @@ import { useState } from 'react';
 import { Modal } from '../components/Modal';
 import { PagePlaceholder } from '../components/PagePlaceholder';
 import { PhysicalCountSection } from '../features/inventory/PhysicalCountSection';
-import { ProductSettingsSection } from '../features/inventory/ProductSettingsSection';
 import { ProductsSection } from '../features/products/ProductsSection';
-
-/** Herramientas de la ventana de inventario que se abren en una ventana modal. */
-type Tool = 'count' | 'settings';
 
 /**
  * Ventana de inventario (HU-01 … HU-10): la lista general de productos con
- * búsqueda y filtro, y en ventanas modales crear, modificar y desactivar
- * productos, el conteo físico (HU-10) y los mínimos y vencimientos (HU-08,
- * HU-09). Las cantidades del día a día no se cambian aquí: entran por pedidos y
- * ventas, y se consultan en el Kardex.
+ * búsqueda y filtro; en ventanas modales, crear y modificar productos (con su
+ * mínimo, HU-08, y su vencimiento, HU-09), el conteo físico (HU-10) y el
+ * reporte imprimible. Las cantidades del día a día no se cambian aquí: entran
+ * por pedidos y ventas, y se consultan en el Kardex.
  */
 export function InventoryPage() {
-  /**
-   * Un cambio en productos o un conteo cambian los datos de las demás secciones:
-   * estas versiones se incrementan para que se vuelvan a cargar con datos frescos.
-   */
-  const [settingsVersion, setSettingsVersion] = useState(0);
-  const [countVersion, setCountVersion] = useState(0);
+  const [countOpen, setCountOpen] = useState(false);
+  /** Un conteo cambia el stock: al confirmarlo, la lista se vuelve a cargar. */
   const [productsVersion, setProductsVersion] = useState(0);
-  const [tool, setTool] = useState<Tool | null>(null);
-
-  function handleProductsChanged(): void {
-    setCountVersion((version) => version + 1);
-    setSettingsVersion((version) => version + 1);
-  }
-
-  function handleCountRegistered(): void {
-    setSettingsVersion((version) => version + 1);
-    setProductsVersion((version) => version + 1);
-  }
 
   return (
     <PagePlaceholder
@@ -47,38 +28,20 @@ export function InventoryPage() {
     >
       {/* HU-01 … HU-05: lista de productos; crear, modificar y desactivar en modales. */}
       <ProductsSection
-        onProductsChanged={handleProductsChanged}
         refreshKey={productsVersion}
         tools={
-          <>
-            <button type="button" className="button button--tool" onClick={() => setTool('count')}>
-              Conteo físico
-            </button>
-            <button
-              type="button"
-              className="button button--tool"
-              onClick={() => setTool('settings')}
-            >
-              Mínimos y vencimientos
-            </button>
-          </>
+          <button type="button" className="button button--tool" onClick={() => setCountOpen(true)}>
+            Conteo físico
+          </button>
         }
       />
 
       {/* HU-10: conteo de inventario físico. */}
-      {tool === 'count' ? (
-        <Modal title="Conteo físico" size="wide" onClose={() => setTool(null)}>
+      {countOpen ? (
+        <Modal title="Conteo físico" size="wide" onClose={() => setCountOpen(false)}>
           <PhysicalCountSection
-            key={`count-${countVersion}`}
-            onCountRegistered={handleCountRegistered}
+            onCountRegistered={() => setProductsVersion((version) => version + 1)}
           />
-        </Modal>
-      ) : null}
-
-      {/* HU-08 y HU-09: stock mínimo y fecha de vencimiento. */}
-      {tool === 'settings' ? (
-        <Modal title="Mínimos y vencimientos" size="wide" onClose={() => setTool(null)}>
-          <ProductSettingsSection key={`settings-${settingsVersion}`} />
         </Modal>
       ) : null}
     </PagePlaceholder>
