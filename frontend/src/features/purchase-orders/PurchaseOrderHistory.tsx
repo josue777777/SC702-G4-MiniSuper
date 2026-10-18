@@ -2,7 +2,7 @@ import type { PurchaseOrderSummary } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import { formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
-import { STATUS_LABELS } from './purchase-order-form';
+import { formatOrderNumber, STATUS_LABELS } from './purchase-order-form';
 
 interface PurchaseOrderHistoryProps {
   orders: PurchaseOrderSummary[];
@@ -56,6 +56,7 @@ export function PurchaseOrderHistory({
           <table className="table">
             <thead>
               <tr>
+                <th>N.º</th>
                 <th>Fecha</th>
                 <th>Proveedor</th>
                 <th>Productos</th>
@@ -67,6 +68,9 @@ export function PurchaseOrderHistory({
             <tbody>
               {orders.map((order) => (
                 <tr key={order.id}>
+                  <td>
+                    <strong>{formatOrderNumber(order.number)}</strong>
+                  </td>
                   <td>{formatDateTime(order.createdAt)}</td>
                   <td>{order.supplierName}</td>
                   <td>{order.productNames.join(', ')}</td>

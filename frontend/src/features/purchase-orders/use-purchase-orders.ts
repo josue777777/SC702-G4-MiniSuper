@@ -9,6 +9,7 @@ import type {
 } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import type { Notice } from '../products/use-products';
+import { formatOrderNumber } from './purchase-order-form';
 
 interface PurchaseOrdersState {
   phase: 'loading' | 'ready' | 'failed';
@@ -68,7 +69,10 @@ export function usePurchaseOrders() {
         const created = await purchaseOrdersService.create(payload);
         // Se abre el pedido recién guardado para imprimirlo o guardarlo en PDF.
         setSelected(created);
-        setNotice({ kind: 'success', text: 'Pedido guardado en el historial.' });
+        setNotice({
+          kind: 'success',
+          text: `Pedido ${formatOrderNumber(created.number)} guardado en el historial.`,
+        });
         await load(filter);
 
         return true;

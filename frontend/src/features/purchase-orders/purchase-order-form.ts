@@ -21,6 +21,11 @@ export interface OrderLine {
 
 export const MAX_QUANTITY = 1_000_000;
 
+/** Número del pedido como lo lee una persona: 7 → «PED-0007». */
+export function formatOrderNumber(number: number): string {
+  return `PED-${String(number).padStart(4, '0')}`;
+}
+
 export const STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
   PENDING: 'Pendiente',
   RECEIVED: 'Recibido',

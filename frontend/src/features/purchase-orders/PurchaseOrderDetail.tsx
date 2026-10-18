@@ -1,7 +1,7 @@
 import type { PurchaseOrder } from '../../types/purchase-orders';
 import { formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
-import { STATUS_LABELS } from './purchase-order-form';
+import { formatOrderNumber, STATUS_LABELS } from './purchase-order-form';
 
 interface PurchaseOrderDetailProps {
   order: PurchaseOrder;
@@ -38,11 +38,13 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
   return (
     <section className="card print-area">
       <div className="print-only">
-        <h1>Pedido a proveedor</h1>
+        <h1>Pedido a proveedor {formatOrderNumber(order.number)}</h1>
       </div>
 
       <header className="card__header">
-        <h2>Pedido a {order.supplierName}</h2>
+        <h2>
+          Pedido {formatOrderNumber(order.number)} · {order.supplierName}
+        </h2>
         <div className="toolbar no-print">
           <button type="button" className="button button--primary" onClick={printOrder}>
             Imprimir / Guardar PDF
@@ -74,7 +76,9 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
         </div>
         <div>
           <dt>N.º de pedido</dt>
-          <dd>{order.id.slice(0, 8).toUpperCase()}</dd>
+          <dd>
+            <strong>{formatOrderNumber(order.number)}</strong>
+          </dd>
         </div>
         {order.notes === null ? null : (
           <div>

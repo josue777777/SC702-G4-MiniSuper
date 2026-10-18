@@ -19,6 +19,8 @@ export interface PurchaseOrderItem {
 /** Fila del historial de pedidos (HU-22). */
 export interface PurchaseOrderSummary {
   id: string;
+  /** Consecutivo para las personas; se muestra como PED-0007. */
+  number: number;
   supplierId: string;
   supplierName: string;
   status: PurchaseOrderStatus;
