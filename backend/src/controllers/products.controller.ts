@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express';
 import type { ProductsService } from '../services/products.service.js';
+import { XLSX_CONTENT_TYPE } from '../utils/catalog-xlsx.js';
 import {
   createProductSchema,
+  productExportQuerySchema,
   productIdParamSchema,
   productImageSchema,
   productListQuerySchema,
@@ -34,6 +36,24 @@ export class ProductsController {
     const query = productListQuerySchema.parse(req.query);
 
     res.status(200).json({ data: await this.service.listProducts(query) });
+  }
+
+  /**
+   * `GET /api/products/export[?categoryId=<uuid>]` — descarga el catálogo de
+   * productos activos en Excel (HU-33).
+   */
+  async exportCatalog(req: Request, res: Response): Promise<void> {
+    const { categoryId } = productExportQuerySchema.parse(req.query);
+    const { fileName, content } = await this.service.exportCatalog(categoryId);
+
+    res
+      .status(200)
+      .set({
+        'Content-Type': XLSX_CONTENT_TYPE,
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Cache-Control': 'no-store',
+      })
+      .send(content);
   }
 
   /** `GET /api/products/form-options` — categorías y proveedores activos. */

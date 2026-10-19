@@ -22,7 +22,14 @@ export function createApp() {
   app.use(helmet());
   // cors(): solo el frontend indicado puede llamar a la API.
   // `credentials`: el navegador envía la cookie de sesión al frontend autorizado.
-  app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+  // `exposedHeaders`: el frontend lee el nombre del archivo de las descargas (HU-33).
+  app.use(
+    cors({
+      origin: env.CORS_ORIGIN,
+      credentials: true,
+      exposedHeaders: ['Content-Disposition'],
+    }),
+  );
   // JSON en el cuerpo de las peticiones (los formularios vendrán como JSON).
   app.use(express.json());
 
