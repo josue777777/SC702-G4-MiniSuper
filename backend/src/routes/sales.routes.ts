@@ -1,0 +1,26 @@
+import { Router } from 'express';
+import { SalesController } from '../controllers/sales.controller.js';
+import { CustomersRepository } from '../repositories/customers.repository.js';
+import { SalesRepository } from '../repositories/sales.repository.js';
+import { SalesService } from '../services/sales.service.js';
+
+/** Fábrica de rutas: permite montarlas con repositorios falsos en las pruebas. */
+export function createSalesRouter(
+  repository: SalesRepository,
+  customers: CustomersRepository,
+): Router {
+  const controller = new SalesController(new SalesService(repository, customers));
+  const router = Router();
+
+  /** Producto por código o código de barras (HU-16). Antes de `/:id`. */
+  router.get('/lookup', (req, res) => controller.lookup(req, res));
+  /** Historial mínimo con filtro por método de pago (HU-17). */
+  router.get('/', (req, res) => controller.list(req, res));
+  router.get('/:id', (req, res) => controller.get(req, res));
+  /** Confirmar la venta (HU-16, HU-17, HU-18). */
+  router.post('/', (req, res) => controller.create(req, res));
+
+  return router;
+}
+
+export const salesRouter = createSalesRouter(new SalesRepository(), new CustomersRepository());

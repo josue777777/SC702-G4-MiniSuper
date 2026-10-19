@@ -189,6 +189,9 @@ model Customer {
 /// / fiado (HU-18). El detalle de los productos vendidos vive en `SaleItem`.
 model Sale {
   id String @id @default(uuid()) @db.Uuid
+  /// Consecutivo para las personas (Venta #12): va en el comprobante (HU-34) y
+  /// en el historial (HU-20).
+  number Int @unique @default(autoincrement())
   paymentMethod PaymentMethod
   /// Importe final de la venta: lo calcula el service sumando los ítems
   /// (HU-16: "el sistema calcula el total automáticamente"). Se guarda porque
@@ -200,6 +203,12 @@ model Sale {
   /// cliente identificado"). La regla se aplica en el service con Zod, porque el
   /// SGDB no expresa dependencias entre columnas.
   customerId String?  @db.Uuid
+  /// Efectivo recibido (HU-17); solo en ventas CASH. El cambio no se guarda: se
+  /// deriva como cashReceived - total, para que no pueda descuadrar.
+  cashReceived Decimal? @db.Decimal(12, 2)
+  /// Llave que genera la pantalla por cada intento de cobro. Al ser única, un
+  /// doble clic o un reintento de la misma confirmación no duplica la venta.
+  idempotencyKey String? @unique
   createdAt    DateTime @default(now())
 
   customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: Restrict)
