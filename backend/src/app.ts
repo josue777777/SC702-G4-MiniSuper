@@ -21,7 +21,8 @@ export function createApp() {
   // helmet(): cabeceras de seguridad HTTP.
   app.use(helmet());
   // cors(): solo el frontend indicado puede llamar a la API.
-  app.use(cors({ origin: env.CORS_ORIGIN }));
+  // `credentials`: el navegador envía la cookie de sesión al frontend autorizado.
+  app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
   // JSON en el cuerpo de las peticiones (los formularios vendrán como JSON).
   app.use(express.json());
 

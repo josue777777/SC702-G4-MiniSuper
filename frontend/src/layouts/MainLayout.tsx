@@ -94,6 +94,10 @@ export function MainLayout() {
         </nav>
 
         <div className="layout__footer">
+          <NavLink to="/profile" className="nav-link nav-link--muted">
+            <NavIcon name="user" />
+            Mi perfil
+          </NavLink>
           <NavLink to="/login" className="nav-link nav-link--muted">
             <NavIcon name="user" />
             Iniciar sesión

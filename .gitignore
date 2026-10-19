@@ -16,6 +16,11 @@ backend/dist/
 .vite/
 coverage/
 
+# Playwright: resultados, trazas e informes (se generan fuera del repositorio,
+# esto es solo una red de seguridad si se ejecuta con otra configuración)
+test-results/
+playwright-report/
+
 # ---------------------------------------------------------------------------
 # Variables de entorno (NUNCA subir secretos reales)
 # ---------------------------------------------------------------------------

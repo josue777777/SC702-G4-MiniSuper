@@ -66,6 +66,10 @@ model User {
   email    String @unique
   /// Nunca en texto plano: se guarda el hash (HU-12).
   passwordHash String
+  /// Siempre `true`. Al ser único, la base de datos solo admite UNA fila de
+  /// usuario aunque dos peticiones de configuración inicial lleguen a la vez
+  /// (HU-12: cuenta única). No hay registro público ni roles.
+  isOwner Boolean @unique @default(true)
   /// Recuperación de contraseña (HU-13).
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?

@@ -41,6 +41,11 @@ export class HttpError extends Error {
     return new HttpError(409, message, details);
   }
 
+  /** Demasiados intentos en poco tiempo (429). */
+  static tooManyRequests(message: string): HttpError {
+    return new HttpError(429, message);
+  }
+
   /** Falló la integración con un sistema externo (502). */
   static externalService(message: string, details?: unknown): HttpError {
     return new HttpError(502, message, details);
