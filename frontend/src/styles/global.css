@@ -1595,3 +1595,147 @@ code {
 .form__field small {
   font-size: 0.78rem;
 }
+
+/* --- Caja / punto de venta (HU-16, HU-17, HU-18) ---------------------------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.pos {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .pos {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pos__scanner {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.pos__scanner label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.pos__scanner-row {
+  display: flex;
+  gap: 10px;
+}
+
+.pos__scanner-row input {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 1.05rem;
+}
+
+.pos__qty {
+  width: 72px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 5px 6px;
+  text-align: right;
+}
+
+.pos__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.pos__total strong {
+  font-size: 1.6rem;
+}
+
+.pos__methods {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin: 0 0 14px;
+  padding: 8px 12px 10px;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.pos__methods legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+.pos__method {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.pos__change {
+  margin: 4px 0 0;
+  color: var(--color-ok);
+}
+
+.pos__customer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pos__balance,
+.pos__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 0 0 12px;
+}
+
+.pos__balance dt,
+.pos__summary dt {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.pos__balance dd,
+.pos__summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.pos__new-customer {
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pos__result {
+  margin-bottom: 16px;
+}
+
+.pos__lines {
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
