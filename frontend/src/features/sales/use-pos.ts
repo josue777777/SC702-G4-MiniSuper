@@ -43,7 +43,7 @@ function describe(caught: unknown): string {
  * Se conserva mientras nada cambie (un reintento tras un corte de red devuelve
  * la misma venta) y se renueva con cualquier cambio del carrito o del pago.
  */
-export function usePos() {
+export function usePos(onConfirmed?: (sale: Sale) => void) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [notice, setNotice] = useState<PosNotice | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -60,6 +60,11 @@ export function usePos() {
   const cartRef = useRef<CartLine[]>([]);
   const keyRef = useRef(newKey());
   const submittingRef = useRef(false);
+  const onConfirmedRef = useRef(onConfirmed);
+
+  useEffect(() => {
+    onConfirmedRef.current = onConfirmed;
+  }, [onConfirmed]);
 
   const applyCart = useCallback((next: CartLine[]): void => {
     cartRef.current = next;
@@ -223,6 +228,7 @@ export function usePos() {
       });
 
       setResult(sale);
+      onConfirmedRef.current?.(sale);
       applyCart([]);
       setMethod(null);
       setCashReceived('');

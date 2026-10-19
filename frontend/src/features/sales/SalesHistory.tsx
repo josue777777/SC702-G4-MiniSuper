@@ -9,10 +9,12 @@ import { PAYMENT_LABELS } from './payment-labels';
 interface SalesHistoryProps {
   /** Cambia tras cada venta confirmada para recargar el historial. */
   version: number;
+  /** Abre el comprobante de una venta del historial (HU-34). */
+  onOpenReceipt: (saleId: string) => void;
 }
 
 /** Historial mínimo de ventas con filtro por método de pago (HU-17). El módulo completo es HU-20. */
-export function SalesHistory({ version }: SalesHistoryProps) {
+export function SalesHistory({ version, onOpenReceipt }: SalesHistoryProps) {
   const [filter, setFilter] = useState<PaymentMethod | ''>('');
   const [sales, setSales] = useState<SaleSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +91,9 @@ export function SalesHistory({ version }: SalesHistoryProps) {
                 <th>Cliente</th>
                 <th className="table__number">Productos</th>
                 <th className="table__number">Total</th>
+                <th>
+                  <span className="visually-hidden">Comprobante</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -100,6 +105,16 @@ export function SalesHistory({ version }: SalesHistoryProps) {
                   <td>{sale.customerName ?? '—'}</td>
                   <td className="table__number">{sale.itemCount}</td>
                   <td className="table__number">{formatMoney(sale.total)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="button"
+                      aria-label={`Ver comprobante de la venta ${sale.number}`}
+                      onClick={() => onOpenReceipt(sale.id)}
+                    >
+                      Comprobante
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

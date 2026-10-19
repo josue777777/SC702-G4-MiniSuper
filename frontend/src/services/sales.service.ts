@@ -26,6 +26,11 @@ export const salesService = {
     return (await apiPost<DataResponse<Sale>>('/api/sales', payload)).data;
   },
 
+  /** HU-34: una venta guardada, con sus líneas, para su comprobante. 404 si no existe. */
+  async get(id: string): Promise<Sale> {
+    return (await apiGet<DataResponse<Sale>>(`/api/sales/${encodeURIComponent(id)}`)).data;
+  },
+
   /** HU-17: historial mínimo, con filtro por método de pago. */
   async list(paymentMethod?: PaymentMethod): Promise<SaleSummary[]> {
     const query = paymentMethod === undefined ? '' : `?paymentMethod=${paymentMethod}`;

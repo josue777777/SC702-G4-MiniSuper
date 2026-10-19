@@ -101,6 +101,14 @@ async function addByField(page: Page, code: string, name: string): Promise<void>
   await expect(page.getByRole('table', { name: 'Productos de la venta' })).toContainText(name);
 }
 
+/** Tras confirmar, el comprobante (HU-34) se abre solo: se cierra para seguir con la caja. */
+async function closeReceipt(page: Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'Comprobante de venta' });
+
+  await dialog.getByRole('button', { name: 'Cerrar', exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+}
+
 test.describe('HU-16 — venta con código de barras', () => {
   test('escanea varios productos, cambia cantidades, recalcula el total y confirma la venta', async ({
     page,
@@ -136,6 +144,7 @@ test.describe('HU-16 — venta con código de barras', () => {
     await expect(confirmed).toContainText('Venta #');
     await expect(confirmed).toContainText(/5\s700,00/);
     await expect(page.getByText('El carrito está vacío')).toBeVisible();
+    await closeReceipt(page);
     await saveEvidence(page, 'HU-16', 'HU-16-venta-confirmada.png');
 
     // Persistencia: venta, stock real y movimientos EXIT asociados a la venta.
@@ -354,6 +363,7 @@ test.describe('HU-17 — método de pago', () => {
     await page.getByRole('radio', { name: 'Efectivo' }).check();
     await page.getByLabel('Monto recibido').fill('1500');
     await page.getByRole('button', { name: 'Finalizar venta' }).click();
+    await closeReceipt(page);
     await expect(page.getByRole('region', { name: 'Venta confirmada' })).toBeVisible();
 
     // Venta con tarjeta.
@@ -362,6 +372,7 @@ test.describe('HU-17 — método de pago', () => {
     await expect(page.getByLabel('Monto recibido')).toHaveCount(0);
     await page.getByRole('button', { name: 'Finalizar venta' }).click();
     await expect(page.getByRole('region', { name: 'Venta confirmada' })).toContainText('Tarjeta');
+    await closeReceipt(page);
 
     expect((await readSales()).map((sale) => sale.paymentMethod)).toEqual(['CASH', 'CARD']);
 
@@ -406,6 +417,7 @@ test.describe('HU-18 — venta a crédito (fiado)', () => {
     await expect(confirmed).toContainText('Fiado');
     await expect(confirmed).toContainText('Doña Marta');
     await expect(page.getByTestId('customer-balance')).toContainText(/7\s500,00/);
+    await closeReceipt(page);
     await saveEvidence(page, 'HU-18', 'HU-18-deuda-acumulada.png');
 
     // Persistencia: venta CREDIT con cliente, stock descontado y movimiento.

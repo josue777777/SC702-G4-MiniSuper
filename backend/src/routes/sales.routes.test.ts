@@ -408,3 +408,35 @@ describe('/api/customers (HU-18)', () => {
     expect((await request(app).post('/api/customers').send({ name: '  ' })).status).toBe(400);
   });
 });
+
+describe('GET /api/sales/:id — base del comprobante (HU-34)', () => {
+  it('devuelve las líneas con el precio guardado y los datos de pago', async () => {
+    const { app } = buildApp();
+    const created = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CASH', cashReceived: '5000' }));
+
+    const response = await request(app).get(`/api/sales/${created.body.data.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual(
+      expect.objectContaining({
+        number: 1,
+        paymentMethod: 'CASH',
+        total: '3000.00',
+        cashReceived: '5000.00',
+        change: '2000.00',
+      }),
+    );
+    expect(response.body.data.items[0]).toEqual(
+      expect.objectContaining({ name: 'Café molido 500 g', quantity: 2, unitPrice: '1500.00' }),
+    );
+  });
+
+  it('responde 404 si la venta no existe y 400 si el identificador no es válido', async () => {
+    const { app } = buildApp();
+
+    expect((await request(app).get(`/api/sales/${MISSING_ID}`)).status).toBe(404);
+    expect((await request(app).get('/api/sales/no-es-un-uuid')).status).toBe(400);
+  });
+});
