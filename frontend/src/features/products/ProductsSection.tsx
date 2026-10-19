@@ -11,6 +11,7 @@ import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
 import { ProductTable } from './ProductTable';
+import { useCatalogExport } from './use-catalog-export';
 import { useProducts } from './use-products';
 
 /** Qué productos muestra la lista. */
@@ -92,6 +93,8 @@ export function ProductsSection({
    * modificar productos activos.
    */
   const [view, setView] = useState<ProductView>('active');
+  /** HU-33: exportar el catálogo a Excel (con la categoría elegida en el filtro). */
+  const catalogExport = useCatalogExport();
   const activeCount = products.filter((product) => product.isActive).length;
   const inactiveCount = products.length - activeCount;
   const visibleProducts =
@@ -350,7 +353,29 @@ export function ProductsSection({
         >
           🖨 Imprimir reporte
         </button>
+        <button
+          type="button"
+          className="button button--tool"
+          onClick={() => void catalogExport.exportCatalog(categoryFilter)}
+          disabled={phase !== 'ready' || catalogExport.exporting}
+        >
+          {catalogExport.exporting ? 'Exportando…' : '⭳ Exportar a Excel'}
+        </button>
       </div>
+
+      {catalogExport.notice === null ? null : (
+        <p className={`alert alert--${catalogExport.notice.kind}`} role="status">
+          {catalogExport.notice.text}
+          <button
+            type="button"
+            className="alert__close"
+            onClick={catalogExport.dismiss}
+            aria-label="Cerrar aviso de exportación"
+          >
+            ×
+          </button>
+        </p>
+      )}
 
       {notice === null ? null : (
         <p className={`alert alert--${notice.kind}`} role="status">

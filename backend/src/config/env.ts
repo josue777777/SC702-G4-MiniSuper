@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 /**
@@ -17,6 +18,16 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .min(1, 'Falta DATABASE_URL. Copia backend/.env.example como backend/.env'),
+  /** Clave para firmar las sesiones (HU-12/HU-14). Obligatoria en producción. */
+  SESSION_SECRET: z
+    .string()
+    .min(32, 'SESSION_SECRET debe tener al menos 32 caracteres.')
+    .optional(),
+  /**
+   * Token de un solo uso para la configuración inicial (HU-12). Lo define quien
+   * instala el sistema, fuera del repositorio; en producción es obligatorio.
+   */
+  SETUP_TOKEN: z.string().min(16, 'SETUP_TOKEN debe tener al menos 16 caracteres.').optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -31,3 +42,15 @@ if (!parsedEnv.success) {
 export const env = parsedEnv.data;
 
 export const isProduction = env.NODE_ENV === 'production';
+
+if (isProduction && env.SESSION_SECRET === undefined) {
+  console.error('❌ Falta SESSION_SECRET: es obligatoria en producción para firmar las sesiones.');
+  process.exit(1);
+}
+
+/**
+ * Clave de las sesiones. Sin `SESSION_SECRET` (desarrollo y pruebas) se genera
+ * una al azar: no hay ningún secreto escrito en el código, y las sesiones
+ * simplemente se cierran al reiniciar el servidor.
+ */
+export const sessionSecret = env.SESSION_SECRET ?? randomBytes(32).toString('hex');

@@ -126,6 +126,11 @@ export const productListQuerySchema = z.object({
     .optional(),
 });
 
+/** Query de `GET /api/products/export` (HU-33): categoría opcional. */
+export const productExportQuerySchema = z.object({
+  categoryId: z.uuid({ error: 'La categoría indicada no es válida.' }).optional(),
+});
+
 /** Parámetro `:id` de las rutas de detalle. */
 export const productIdParamSchema = z.object({
   id: z.uuid({ error: 'El producto indicado no es válido.' }),
@@ -154,6 +159,8 @@ export const productImageSchema = z.object({
 
 /** Query ya validada del listado. */
 export type ProductListQuery = z.infer<typeof productListQuerySchema>;
+
+export type ProductExportQuery = z.infer<typeof productExportQuerySchema>;
 
 /** Entrada ya validada y normalizada de la creación. */
 export type CreateProductInput = z.infer<typeof createProductSchema>;

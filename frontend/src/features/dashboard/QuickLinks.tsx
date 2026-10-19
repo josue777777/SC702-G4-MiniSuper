@@ -16,8 +16,8 @@ const LINKS: QuickLink[] = [
   { to: '/kardex', label: 'Kardex', icon: 'list', pending: true },
   { to: '/orders', label: 'Pedidos a proveedor', icon: 'cart' },
   { to: '/suppliers', label: 'Proveedores', icon: 'truck' },
-  { to: '/sales', label: 'Ventas', icon: 'cash', pending: true },
-  { to: '/customers', label: 'Clientes y fiados', icon: 'users', pending: true },
+  { to: '/sales', label: 'Ventas', icon: 'cash' },
+  { to: '/customers', label: 'Clientes y fiados', icon: 'users' },
   { to: '/reports', label: 'Reportes', icon: 'reports', pending: true },
 ];
 

@@ -14,6 +14,8 @@
     "lint": "npm run lint -w backend && npm run lint -w frontend",
     "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
     "test": "npm run test --workspaces --if-present",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "typecheck:e2e": "tsc -p e2e/tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d",
@@ -24,7 +26,10 @@
     "db:studio": "npm run db:studio -w backend"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/pg": "^8.23.1",
     "concurrently": "^10.0.5",
+    "pg": "^8.23.1",
     "prettier": "^3.6.2"
   },
   "engines": {

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { profileService } from '../services/auth.service';
 import { findGroupOfPath, NAVIGATION, type NavItem } from './navigation';
 import { NavIcon } from './NavIcon';
 
@@ -40,6 +41,25 @@ export function MainLayout() {
    */
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [menuOpen, setMenuOpen] = useState(startsWithMenuOpen);
+  /**
+   * ¿Hay sesión abierta? Se pregunta al cambiar de pantalla (así se entera
+   * justo después de iniciar sesión): con sesión se ofrece «Mi perfil» y, sin
+   * ella, «Iniciar sesión», nunca los dos a la vez.
+   */
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    let current = true;
+
+    profileService.get().then(
+      () => current && setSignedIn(true),
+      () => current && setSignedIn(false),
+    );
+
+    return () => {
+      current = false;
+    };
+  }, [pathname]);
 
   function isOpen(groupId: string): boolean {
     return toggled[groupId] ?? groupId === activeGroup;
@@ -94,10 +114,17 @@ export function MainLayout() {
         </nav>
 
         <div className="layout__footer">
-          <NavLink to="/login" className="nav-link nav-link--muted">
-            <NavIcon name="user" />
-            Iniciar sesión
-          </NavLink>
+          {signedIn ? (
+            <NavLink to="/profile" className="nav-link nav-link--muted">
+              <NavIcon name="user" />
+              Mi perfil
+            </NavLink>
+          ) : (
+            <NavLink to="/login" className="nav-link nav-link--muted">
+              <NavIcon name="user" />
+              Iniciar sesión
+            </NavLink>
+          )}
           <small>SC-702 · Grupo 4</small>
         </div>
       </aside>
