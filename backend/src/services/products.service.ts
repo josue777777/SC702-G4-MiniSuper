@@ -8,6 +8,8 @@ import type {
   ProductImageMimeType,
   UpdateProductPlan,
 } from '../types/products.js';
+import { buildCatalogWorkbook } from '../utils/catalog-xlsx.js';
+import { todayInBusinessZone } from '../utils/dates.js';
 import { HttpError } from '../utils/http-error.js';
 import type {
   CreateProductInput,
@@ -120,6 +122,28 @@ export class ProductsService {
     }
 
     return this.repository.list({ categoryId, search, activeOnly: true });
+  }
+
+  /**
+   * Exporta a Excel el catálogo de productos ACTIVOS, completo (HU-33), o solo el
+   * de una categoría. Sin productos no genera un archivo vacío: responde 404 con
+   * un mensaje claro para el dueño.
+   */
+  async exportCatalog(categoryId?: string): Promise<{ fileName: string; content: Buffer }> {
+    const products = await this.repository.list({ categoryId, activeOnly: true });
+
+    if (products.length === 0) {
+      throw HttpError.notFound(
+        categoryId === undefined
+          ? 'No hay productos activos para exportar.'
+          : 'No hay productos activos en esa categoría para exportar.',
+      );
+    }
+
+    return {
+      fileName: `catalogo-productos-${todayInBusinessZone()}.xlsx`,
+      content: await buildCatalogWorkbook(products),
+    };
   }
 
   /**

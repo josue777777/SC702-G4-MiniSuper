@@ -5,7 +5,7 @@ import type {
   ProductPayload,
 } from '../types/products';
 import { API_BASE_URL } from '../config/env';
-import { apiGet, apiPatch, apiPost, apiRequest } from './api-client';
+import { apiDownload, apiGet, apiPatch, apiPost, apiRequest } from './api-client';
 
 /**
  * Service de productos (HU-01, HU-02, HU-03).
@@ -43,6 +43,13 @@ export const productsService = {
     );
 
     return response.data;
+  },
+
+  /** HU-33: catálogo activo en Excel, completo o de una categoría. 404 si no hay productos. */
+  exportCatalog(categoryId?: string): Promise<{ blob: Blob; fileName: string }> {
+    const query = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : '';
+
+    return apiDownload(`/api/products/export${query}`, 'catalogo-productos.xlsx');
   },
 
   /** Categorías y proveedores activos para los `<select>` del formulario. */

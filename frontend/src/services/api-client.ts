@@ -67,6 +67,37 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   return payload as T;
 }
 
+/**
+ * Descarga un archivo (Excel, etc.). Los errores llegan como en `apiRequest`
+ * (`ApiError` con el mensaje del backend); el nombre sale de `Content-Disposition`.
+ */
+export async function apiDownload(
+  path: string,
+  fallbackName: string,
+): Promise<{ blob: Blob; fileName: string }> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' });
+  } catch {
+    throw new ApiError(0, `No hay conexión con el servidor (${API_BASE_URL}).`);
+  }
+
+  if (!response.ok) {
+    const body = parseJson(await response.text()) as ApiErrorBody | null;
+
+    throw new ApiError(
+      response.status,
+      body?.error?.message ?? `La descarga falló (${response.status}).`,
+    );
+  }
+
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const fileName = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallbackName;
+
+  return { blob: await response.blob(), fileName };
+}
+
 /** GET tipado. Equivale a `apiRequest<T>(path, { method: 'GET' })`. */
 export function apiGet<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: 'GET' });

@@ -38,6 +38,9 @@ export function createProductsRouter(repository: ProductsRepository): Router {
   /** Listado del catálogo (HU-01, HU-02 y HU-03 lo usan para refrescarse). */
   router.get('/', (req, res) => productsController.list(req, res));
 
+  /** Exportar el catálogo activo a Excel (HU-33). Antes de `/:id`, como `form-options`. */
+  router.get('/export', (req, res) => productsController.exportCatalog(req, res));
+
   /**
    * Datos de apoyo de los formularios de HU-01/HU-02. Declarado antes de
    * `/:id` para que no lo capture una ruta con parámetro.
