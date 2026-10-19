@@ -34,6 +34,8 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
+      // La sesión viaja en una cookie HttpOnly: el navegador debe enviarla a la API.
+      credentials: 'include',
       ...init,
       headers: {
         'Content-Type': 'application/json',

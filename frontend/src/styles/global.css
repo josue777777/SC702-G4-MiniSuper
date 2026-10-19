@@ -436,6 +436,15 @@ code {
   background: #f8fafc;
 }
 
+.field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.field small {
+  font-size: 0.78rem;
+}
+
 .button--block {
   width: 100%;
   margin-top: 18px;
@@ -1576,4 +1585,13 @@ code {
 .order-reception__label {
   color: var(--color-muted);
   font-size: 0.8rem;
+}
+
+/* --- Perfil del dueño (HU-14) ---------------------------------------------- */
+.profile-card {
+  max-width: 820px;
+}
+
+.form__field small {
+  font-size: 0.78rem;
 }

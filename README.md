@@ -66,6 +66,23 @@ omite, la API responde «Ha ocurrido un error interno» y en la terminal del bac
 | `npm run typecheck` | Revisa los tipos de TypeScript          |
 | `npm run db:studio` | Abre el explorador de la base de datos  |
 
+### Pruebas E2E (Playwright)
+
+Abren Chromium contra el backend y el frontend reales, sobre una base PostgreSQL
+**exclusiva** para E2E (su nombre debe terminar en `_e2e`; las pruebas borran datos).
+Con las migraciones ya aplicadas a esa base:
+
+```bash
+# Linux/macOS/Git Bash
+E2E_DATABASE_URL="postgresql://usuario:clave@localhost:5432/minisuper_e2e?schema=public" npm run test:e2e
+# Primera vez: npx playwright install chromium
+```
+
+Las capturas de evidencia y los resultados se guardan **fuera del repositorio**, en la
+carpeta hermana `<repo>-evidencias/` (se puede cambiar con `EVIDENCE_DIR`).
+Las pruebas de integración con PostgreSQL de `npm test` solo corren si `DATABASE_URL`
+apunta a una base cuyo nombre termina en `_test`; si no, se omiten.
+
 ## Estructura
 
 ```
