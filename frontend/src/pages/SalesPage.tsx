@@ -1,3 +1,5 @@
+import { useSearchParams } from 'react-router-dom';
+import { ReceiptModal } from '../features/sales/ReceiptModal';
 import { useWedgeScanner } from '../features/sales/barcode-scanner';
 import { CartTable } from '../features/sales/CartTable';
 import { CheckoutPanel } from '../features/sales/CheckoutPanel';
@@ -14,10 +16,25 @@ import { usePos } from '../features/sales/use-pos';
  * y el stock los decide el backend.
  */
 export function SalesPage() {
-  const pos = usePos();
+  /**
+   * El comprobante abierto vive en la URL (`/sales?receipt=<id>`): se muestra al
+   * confirmar una venta, se abre desde el historial y se puede volver a abrir
+   * después con el mismo enlace (HU-34).
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const receiptId = searchParams.get('receipt');
+  const pos = usePos((sale) => setSearchParams({ receipt: sale.id }));
+
+  function openReceipt(saleId: string): void {
+    setSearchParams({ receipt: saleId });
+  }
+
+  function closeReceipt(): void {
+    setSearchParams({});
+  }
 
   // Lector USB tipo teclado cuando el foco no está en un campo de texto.
-  useWedgeScanner((code) => void pos.scan(code), !pos.submitting);
+  useWedgeScanner((code) => void pos.scan(code), !pos.submitting && receiptId === null);
 
   return (
     <>
@@ -26,7 +43,9 @@ export function SalesPage() {
         <p>Escanee los productos, elija cómo paga el cliente y finalice la venta.</p>
       </header>
 
-      {pos.result === null ? null : <SaleResult sale={pos.result} onNewSale={pos.dismissResult} />}
+      {pos.result === null ? null : (
+        <SaleResult sale={pos.result} onNewSale={pos.dismissResult} onOpenReceipt={openReceipt} />
+      )}
 
       <ScannerBar busy={pos.scanning} onScan={pos.scan} />
 
@@ -73,7 +92,9 @@ export function SalesPage() {
         />
       </div>
 
-      <SalesHistory version={pos.historyVersion} />
+      <SalesHistory version={pos.historyVersion} onOpenReceipt={openReceipt} />
+
+      {receiptId === null ? null : <ReceiptModal saleId={receiptId} onClose={closeReceipt} />}
 
       <section className="card">
         <header className="card__header">
@@ -86,7 +107,6 @@ export function SalesPage() {
             HU-06 debe conectarlo y validarlo.
           </li>
           <li>Historial completo del día, con totales y detalle (HU-20).</li>
-          <li>Comprobante imprimible de la venta confirmada (HU-34).</li>
         </ul>
       </section>
     </>

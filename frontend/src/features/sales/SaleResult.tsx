@@ -6,13 +6,14 @@ import { PAYMENT_LABELS } from './payment-labels';
 interface SaleResultProps {
   sale: Sale;
   onNewSale: () => void;
+  onOpenReceipt: (saleId: string) => void;
 }
 
 /**
  * Resumen de la venta recién confirmada (HU-16, HU-17, HU-18). El comprobante
- * imprimible es HU-34: se montará aquí, sobre esta misma venta persistida.
+ * imprimible (HU-34) se abre sobre esta misma venta ya guardada.
  */
-export function SaleResult({ sale, onNewSale }: SaleResultProps) {
+export function SaleResult({ sale, onNewSale, onOpenReceipt }: SaleResultProps) {
   return (
     <section className="card pos__result" aria-label="Venta confirmada">
       <div className="alert alert--success" role="status">
@@ -62,9 +63,14 @@ export function SaleResult({ sale, onNewSale }: SaleResultProps) {
         ))}
       </ul>
 
-      <button type="button" className="button button--primary" onClick={onNewSale}>
-        Nueva venta
-      </button>
+      <div className="form__actions">
+        <button type="button" className="button button--primary" onClick={onNewSale}>
+          Nueva venta
+        </button>
+        <button type="button" className="button" onClick={() => onOpenReceipt(sale.id)}>
+          Ver comprobante
+        </button>
+      </div>
     </section>
   );
 }

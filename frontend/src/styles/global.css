@@ -1739,3 +1739,119 @@ code {
   margin: 0 0 12px;
   padding-left: 18px;
 }
+
+/* --- Comprobante de venta (HU-34) -------------------------------------------- */
+.receipt {
+  width: 302px; /* ≈ 80 mm */
+  margin: 0 auto 14px;
+  padding: 14px 12px;
+  background: #fff;
+  color: #000;
+  border: 1px dashed var(--color-border);
+  font-family: 'Courier New', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.receipt__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #000;
+}
+
+.receipt__business {
+  font-size: 14px;
+}
+
+.receipt__lines {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.receipt__lines th,
+.receipt__lines td {
+  padding: 2px 0;
+  text-align: left;
+  vertical-align: top;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.receipt__lines thead th {
+  border-bottom: 1px solid #000;
+  font-weight: 700;
+}
+
+.receipt__lines .receipt__num {
+  text-align: right;
+  padding-left: 6px;
+  white-space: nowrap;
+}
+
+.receipt__totals {
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px dashed #000;
+}
+
+.receipt__totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.receipt__totals dt,
+.receipt__totals dd {
+  margin: 0;
+}
+
+.receipt__total {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.receipt__footer {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Solo se imprime el ticket: la aplicación y la ventana modal se ocultan. */
+  @page {
+    size: 80mm auto;
+    margin: 3mm;
+  }
+
+  #root {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .print-only .receipt {
+    width: 100%;
+    max-width: 80mm;
+    margin: 0 auto;
+    padding: 0;
+    border: 0;
+  }
+}
