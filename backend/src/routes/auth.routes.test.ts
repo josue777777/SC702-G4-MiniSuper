@@ -8,7 +8,7 @@ import { LoginRateLimiter } from '../utils/login-rate-limiter.js';
 import { createAuthRouter } from './auth.routes.js';
 import { createProfileRouter } from './profile.routes.js';
 
-/** HTTP de la cuenta única (HU-12) y del perfil (HU-14), con repositorio falso. */
+/** HTTP de la cuenta única (HU-12), del perfil (HU-14) y del cierre de sesión (HU-15), con repositorio falso. */
 
 const ORIGIN = 'http://localhost:5173';
 const OWNER = { name: 'Ana Pérez', email: 'ana@correo.cr', password: 'ClaveSegura123' };
@@ -148,6 +148,76 @@ describe('POST /api/auth/login y GET /api/auth/session', () => {
     const { agent } = await loggedInAgent();
 
     expect((await agent.get('/api/auth/session')).body.data.email).toBe('ana@correo.cr');
+  });
+});
+
+describe('POST /api/auth/logout (HU-15)', () => {
+  it('responde 204, borra la cookie y la sesión deja de valer', async () => {
+    const { agent } = await loggedInAgent();
+
+    const response = await agent.post('/api/auth/logout');
+
+    expect(response.status).toBe(204);
+    expect(response.headers['cache-control']).toBe('no-store');
+
+    const cleared = String(response.headers['set-cookie']?.[0]);
+
+    expect(cleared).toMatch(/^ms_session=;/);
+    expect(cleared).toContain('Expires=Thu, 01 Jan 1970');
+    expect(cleared).toContain('HttpOnly');
+    expect(cleared).toContain('SameSite=Strict');
+    expect((await agent.get('/api/auth/session')).status).toBe(401);
+    expect((await agent.get('/api/profile')).status).toBe(401);
+  });
+
+  it('una copia de la cookie guardada antes del cierre ya no sirve', async () => {
+    const { app } = buildApp();
+    await request(app).post('/api/auth/setup').send(OWNER);
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: OWNER.email, password: OWNER.password });
+    const copied = String(String(login.headers['set-cookie']?.[0]).split(';')[0]);
+
+    await request(app).post('/api/auth/logout').set('Cookie', copied).expect(204);
+
+    expect((await request(app).get('/api/auth/session').set('Cookie', copied)).status).toBe(401);
+    expect((await request(app).get('/api/profile').set('Cookie', copied)).status).toBe(401);
+  });
+
+  it('se puede volver a iniciar sesión después de cerrarla', async () => {
+    const { agent } = await loggedInAgent();
+    await agent.post('/api/auth/logout').expect(204);
+
+    await agent
+      .post('/api/auth/login')
+      .send({ email: OWNER.email, password: OWNER.password })
+      .expect(200);
+
+    expect((await agent.get('/api/auth/session')).status).toBe(200);
+  });
+
+  it('sin sesión responde 204 igual y no invalida otras sesiones', async () => {
+    const { agent, app, repository } = await loggedInAgent();
+
+    await request(app).post('/api/auth/logout').expect(204);
+    await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', 'ms_session=eyJ1aWQiOiJ4In0.firma-falsa')
+      .expect(204);
+
+    expect(repository.stored[0]?.sessionVersion).toBe(0);
+    expect((await agent.get('/api/auth/session')).status).toBe(200);
+  });
+
+  it('rechaza con 403 un cierre de sesión pedido desde otro origen (CSRF)', async () => {
+    const { agent } = await loggedInAgent();
+
+    const response = await agent
+      .post('/api/auth/logout')
+      .set('Origin', 'https://sitio-malicioso.example');
+
+    expect(response.status).toBe(403);
+    expect((await agent.get('/api/auth/session')).status).toBe(200);
   });
 });
 

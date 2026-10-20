@@ -6,11 +6,13 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
  * Formato: `base64url(payload).base64url(firma)`. El navegador NUNCA decide quién
  * es el usuario: el `userId` viaja dentro de un token que solo el servidor puede
  * firmar. `passwordVersion` es una huella del hash vigente, por lo que cambiar la
- * contraseña invalida las sesiones anteriores.
+ * contraseña invalida las sesiones anteriores. `sessionVersion` hace lo mismo al
+ * cerrar sesión (HU-15): el servidor la incrementa y los tokens previos ya no coinciden.
  */
 export interface SessionPayload {
   userId: string;
   passwordVersion: string;
+  sessionVersion: number;
   /** Expiración en segundos desde epoch. */
   expiresAt: number;
 }
@@ -18,6 +20,7 @@ export interface SessionPayload {
 interface WirePayload {
   uid: string;
   pv: string;
+  sv: number;
   exp: number;
 }
 
@@ -34,6 +37,7 @@ export function createSessionToken(payload: SessionPayload, secret: string): str
   const wire: WirePayload = {
     uid: payload.userId,
     pv: payload.passwordVersion,
+    sv: payload.sessionVersion,
     exp: payload.expiresAt,
   };
   const body = Buffer.from(JSON.stringify(wire)).toString('base64url');
@@ -68,13 +72,19 @@ export function verifySessionToken(
     if (
       typeof wire.uid !== 'string' ||
       typeof wire.pv !== 'string' ||
+      typeof wire.sv !== 'number' ||
       typeof wire.exp !== 'number' ||
       wire.exp <= nowSeconds
     ) {
       return null;
     }
 
-    return { userId: wire.uid, passwordVersion: wire.pv, expiresAt: wire.exp };
+    return {
+      userId: wire.uid,
+      passwordVersion: wire.pv,
+      sessionVersion: wire.sv,
+      expiresAt: wire.exp,
+    };
   } catch {
     return null;
   }

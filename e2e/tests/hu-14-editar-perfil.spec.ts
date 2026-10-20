@@ -39,9 +39,7 @@ test('un visitante sin sesión no puede ver ni cambiar el perfil', async ({ page
   await page.goto('/profile');
 
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole('status')).toContainText(
-    'Inicie sesión para ver y editar su perfil.',
-  );
+  await expect(page.getByRole('status')).toContainText('Inicie sesión para continuar.');
 
   const read = await request.get(`${BACKEND_URL}/api/profile`);
   const write = await request.patch(`${BACKEND_URL}/api/profile`, {

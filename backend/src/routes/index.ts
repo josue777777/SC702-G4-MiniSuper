@@ -21,7 +21,7 @@ import { suppliersRouter } from './suppliers.routes.js';
 export const apiRouter = Router();
 
 apiRouter.use('/health', healthRouter);
-apiRouter.use('/auth', authRouter); // HU-12 (cuenta única) y sesión mínima para HU-14
+apiRouter.use('/auth', authRouter); // HU-12 (cuenta única), sesión mínima para HU-14 y cierre (HU-15)
 apiRouter.use('/profile', profileRouter); // HU-14
 apiRouter.use('/products', productsRouter); // HU-01, HU-02, HU-03
 apiRouter.use('/categories', categoriesRouter); // HU-04

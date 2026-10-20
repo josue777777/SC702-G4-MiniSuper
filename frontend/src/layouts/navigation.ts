@@ -21,7 +21,8 @@ export type NavIconName =
   | 'cart'
   | 'truck'
   | 'cash'
-  | 'users';
+  | 'users'
+  | 'logout';
 
 export interface NavItem {
   kind: 'link';

@@ -4,11 +4,11 @@ import { withDb } from '../support/db';
 import { BACKEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
 import {
-  ensureOwner,
   readSales,
   resetCatalog,
   seedCustomer,
   seedProducts,
+  signInAsOwner,
 } from '../support/fixtures';
 
 /**
@@ -20,8 +20,8 @@ import {
 
 const BUSINESS = 'Abastecedor Nuevo Amanecer';
 
-test.beforeEach(async ({ page, request }) => {
-  await ensureOwner(request);
+test.beforeEach(async ({ page }) => {
+  await signInAsOwner(page);
   await resetCatalog();
   await seedProducts([
     {

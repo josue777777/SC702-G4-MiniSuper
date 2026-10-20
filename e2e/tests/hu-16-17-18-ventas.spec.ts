@@ -5,11 +5,11 @@ import { BACKEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
 import {
   countExitMovements,
-  ensureOwner,
   readSales,
   resetCatalog,
   seedCustomer,
   seedProducts,
+  signInAsOwner,
   stockOf,
 } from '../support/fixtures';
 
@@ -28,8 +28,8 @@ const CODE = {
   inactive: '7501000000059',
 };
 
-test.beforeEach(async ({ request }) => {
-  await ensureOwner(request);
+test.beforeEach(async ({ page }) => {
+  await signInAsOwner(page);
   await resetCatalog();
   await seedProducts([
     {

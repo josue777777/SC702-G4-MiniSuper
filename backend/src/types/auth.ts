@@ -18,6 +18,8 @@ export interface ProfileDto {
 /** Registro completo del dueño: solo lo ven repositorio y services. */
 export interface UserRecord extends ProfileDto {
   passwordHash: string;
+  /** Sube al cerrar sesión (HU-15): los tokens con otra versión dejan de valer. */
+  sessionVersion: number;
 }
 
 /** Campos del alta de la cuenta del dueño (la contraseña ya viene con hash). */

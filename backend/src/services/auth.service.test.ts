@@ -140,3 +140,57 @@ describe('AuthService.login y resolveSession', () => {
     expect(await service.resolveSession(session.token)).toBeNull();
   });
 });
+
+describe('AuthService.logout (HU-15)', () => {
+  async function loggedIn() {
+    const context = setup();
+    await context.service.setupOwner(SETUP);
+    const session = await context.service.login(
+      { email: SETUP.email, password: SETUP.password },
+      'ip-1',
+    );
+
+    return { ...context, session };
+  }
+
+  it('invalida el token de la sesión cerrada', async () => {
+    const { service, session } = await loggedIn();
+
+    await service.logout(session.token);
+
+    expect(await service.resolveSession(session.token)).toBeNull();
+  });
+
+  it('invalida también las demás sesiones abiertas del dueño', async () => {
+    const { service, session } = await loggedIn();
+    const other = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-2');
+
+    await service.logout(session.token);
+
+    expect(await service.resolveSession(other.token)).toBeNull();
+  });
+
+  it('una sesión nueva tras el cierre vuelve a funcionar', async () => {
+    const { service, session } = await loggedIn();
+    await service.logout(session.token);
+
+    const next = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+
+    expect(await service.resolveSession(next.token)).toEqual(next.user);
+  });
+
+  it('sin token válido no hace nada (cerrar dos veces no es un error)', async () => {
+    const { repository, service, session } = await loggedIn();
+
+    await service.logout(undefined);
+    await service.logout('token.falso');
+
+    expect(repository.stored[0]?.sessionVersion).toBe(0);
+    expect(await service.resolveSession(session.token)).toEqual(session.user);
+
+    await service.logout(session.token);
+    await service.logout(session.token);
+
+    expect(repository.stored[0]?.sessionVersion).toBe(1);
+  });
+});

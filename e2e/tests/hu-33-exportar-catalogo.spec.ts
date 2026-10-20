@@ -4,7 +4,7 @@ import { expect, test, type Download, type Page } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import { OUTPUT_DIR } from '../support/env';
 import { saveEvidence } from '../support/evidence';
-import { ensureOwner, resetCatalog, seedProducts } from '../support/fixtures';
+import { resetCatalog, seedProducts, signInAsOwner } from '../support/fixtures';
 
 /**
  * HU-33 — Exportar catálogo de productos (issue #33).
@@ -14,8 +14,8 @@ import { ensureOwner, resetCatalog, seedProducts } from '../support/fixtures';
 const HEADERS = ['Código', 'Nombre', 'Categoría', 'Precio', 'Costo', 'Stock', 'Proveedor'];
 const FORMULA_NAME = '=HYPERLINK("http://malo.example")';
 
-test.beforeEach(async ({ request }) => {
-  await ensureOwner(request);
+test.beforeEach(async ({ page }) => {
+  await signInAsOwner(page);
   await resetCatalog();
   await seedProducts([
     {

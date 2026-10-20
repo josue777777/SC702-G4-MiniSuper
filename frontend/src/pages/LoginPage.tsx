@@ -10,9 +10,9 @@ interface LoginLocationState {
 /**
  * Acceso al sistema.
  *
- * Contiene solo el inicio de sesión mínimo que HU-14 necesita para saber quién
- * edita el perfil. Siguen pendientes de HU-11 la protección del resto de las
- * pantallas, de HU-13 la recuperación de contraseña y de HU-15 cerrar sesión.
+ * Inicio de sesión del dueño; al cerrar sesión (HU-15) se vuelve aquí con un
+ * aviso. Siguen pendientes de HU-11 la protección de la API del resto de los
+ * módulos y de HU-13 la recuperación de contraseña.
  */
 export function LoginPage() {
   const navigate = useNavigate();
@@ -92,8 +92,7 @@ export function LoginPage() {
         </button>
 
         <p className="muted hint">
-          Pendiente: HU-11 completa (proteger las pantallas), HU-13 (recuperar contraseña) y HU-15
-          (cerrar sesión).
+          Pendiente: HU-11 completa (proteger la API) y HU-13 (recuperar contraseña).
         </p>
       </form>
     </div>

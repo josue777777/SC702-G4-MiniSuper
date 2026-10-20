@@ -47,7 +47,7 @@ function toProfile(user: ProfileDto): ProfileDto {
   return { id: user.id, name: user.name, email: user.email };
 }
 
-/** Reglas de negocio de la cuenta única (HU-12) y de la sesión mínima (base de HU-11). */
+/** Reglas de negocio de la cuenta única (HU-12) y de la sesión (base de HU-11; cierre en HU-15). */
 export class AuthService {
   constructor(
     private readonly repository: UsersRepository,
@@ -121,18 +121,22 @@ export class AuthService {
   }
 
   /** Emite un token nuevo (también tras cambiar la contraseña, para no cerrar la sesión actual). */
-  issueToken(user: { id: string; passwordHash: string }): string {
+  issueToken(user: { id: string; passwordHash: string; sessionVersion: number }): string {
     return createSessionToken(
       {
         userId: user.id,
         passwordVersion: passwordVersionOf(user.passwordHash),
+        sessionVersion: user.sessionVersion,
         expiresAt: this.nowSeconds() + SESSION_TTL_SECONDS,
       },
       this.options.sessionSecret,
     );
   }
 
-  /** Usuario de la sesión, o `null` si el token es falso, venció o la contraseña cambió. */
+  /**
+   * Usuario de la sesión, o `null` si el token es falso, venció, la contraseña
+   * cambió o la sesión se cerró (HU-15).
+   */
   async resolveSession(token: string | undefined): Promise<ProfileDto | null> {
     if (token === undefined) {
       return null;
@@ -146,10 +150,27 @@ export class AuthService {
 
     const user = await this.repository.findById(payload.userId);
 
-    if (user === null || passwordVersionOf(user.passwordHash) !== payload.passwordVersion) {
+    if (
+      user === null ||
+      passwordVersionOf(user.passwordHash) !== payload.passwordVersion ||
+      user.sessionVersion !== payload.sessionVersion
+    ) {
       return null;
     }
 
     return toProfile(user);
+  }
+
+  /**
+   * Cierra la sesión (HU-15): invalida en el servidor todo token ya emitido, de
+   * modo que una copia guardada de la cookie tampoco sirve. Sin sesión válida no
+   * hace nada: cerrar dos veces no es un error.
+   */
+  async logout(token: string | undefined): Promise<void> {
+    const user = await this.resolveSession(token);
+
+    if (user !== null) {
+      await this.repository.revokeSessions(user.id);
+    }
   }
 }
