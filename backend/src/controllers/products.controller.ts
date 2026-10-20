@@ -76,6 +76,16 @@ export class ProductsController {
     res.status(200).json({ data: await this.service.updateProduct(id, input) });
   }
 
+  /** `POST /api/products/:id/barcode` — genera o reemplaza con confirmación (HU-07). */
+  async generateBarcode(req: Request, res: Response): Promise<void> {
+    const { id } = productIdParamSchema.parse(req.params);
+    const replaceExisting = req.body?.replaceExisting === true;
+
+    res.status(200).json({
+      data: await this.service.generateProductBarcode(id, replaceExisting),
+    });
+  }
+
   /** `PATCH /api/products/:id/deactivate` — baja lógica (HU-03). */
   async deactivate(req: Request, res: Response): Promise<void> {
     const { id } = productIdParamSchema.parse(req.params);

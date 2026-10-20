@@ -124,6 +124,7 @@ describe('GET /api/products/form-options', () => {
         suppliers: [{ id: SUPPLIER_ID, name: 'Distribuidora Central' }],
       },
     });
+
   });
 
   it('responde 200 con arreglos vacíos si todavía no hay datos de apoyo', async () => {
@@ -135,6 +136,43 @@ describe('GET /api/products/form-options', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: { categories: [], suppliers: [] } });
+  });
+});
+
+describe('POST /api/products/:id/barcode (HU-07)', () => {
+  it('genera y devuelve el código asociado al producto', async () => {
+    const { app, repository } = buildApp();
+
+    const response = await request(app).post(`/api/products/${PRODUCT_ID}/barcode`).send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.barcode).toMatch(/^\d{13}$/);
+    await expect(repository.findById(PRODUCT_ID)).resolves.toMatchObject({
+      barcode: response.body.data.barcode,
+    });
+  });
+
+  it('advierte si ya tiene código y solo lo reemplaza con confirmación', async () => {
+    const { app } = buildApp(
+      new FakeProductsRepository({
+        products: [buildProduct({ barcode: '4006381333931' })],
+      }),
+    );
+
+    const response = await request(app)
+      .post(`/api/products/${PRODUCT_ID}/barcode`)
+      .send({ replaceExisting: false });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.message).toBe('El producto ya tiene un código de barras.');
+  });
+
+  it('rechaza identificadores que no sean UUID', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).post('/api/products/no-valido/barcode').send({});
+
+    expect(response.status).toBe(400);
   });
 });
 

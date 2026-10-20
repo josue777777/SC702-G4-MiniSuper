@@ -73,6 +73,15 @@ export const productsService = {
     return response.data;
   },
 
+  /** HU-07: genera un EAN-13 interno; `replaceExisting` solo se envía tras confirmación. */
+  async generateBarcode(id: string, replaceExisting: boolean): Promise<Product> {
+    const response = await apiPost<DataResponse<Product>>(`/api/products/${id}/barcode`, {
+      replaceExisting,
+    });
+
+    return response.data;
+  },
+
   /** HU-03: desactiva un producto (baja lógica, conserva el historial). */
   async deactivate(id: string): Promise<Product> {
     const response = await apiPatch<DataResponse<Product>>(`/api/products/${id}/deactivate`);

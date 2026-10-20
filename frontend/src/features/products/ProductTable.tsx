@@ -96,6 +96,7 @@ export function ProductTable({
           <thead>
             <tr>
               <th>Código</th>
+              <th>Código de barras</th>
               <th>Nombre</th>
               <th>Categoría</th>
               {/* Compra = lo que cuesta al negocio (cost); venta = lo que paga el cliente (price). */}
@@ -130,6 +131,7 @@ export function ProductTable({
                   onKeyDown={(event) => handleKeyDown(event, product)}
                 >
                   <td>{product.code}</td>
+                  <td>{product.barcode ?? '—'}</td>
                   <td>{product.name}</td>
                   <td>{product.categoryName}</td>
                   <td className="table__number">{formatMoney(product.cost)}</td>

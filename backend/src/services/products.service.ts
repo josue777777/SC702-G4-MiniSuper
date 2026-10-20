@@ -1,4 +1,5 @@
 import type { ProductsRepository } from '../repositories/products.repository.js';
+import { randomInt } from 'node:crypto';
 import type {
   CreateProductPlan,
   InventoryMovementPlan,
@@ -23,6 +24,18 @@ export const INITIAL_STOCK_REASON = 'Stock inicial';
 
 /** Motivo del movimiento que deja un ajuste manual de stock (HU-02). */
 export const STOCK_ADJUSTMENT_REASON = 'Ajuste desde edición de producto';
+const BARCODE_GENERATION_ATTEMPTS = 5;
+
+/** Genera un EAN-13 válido para uso interno; no equivale a un código comercial GS1. */
+export function generateInternalEan13(randomNumber: (max: number) => number = randomInt): string {
+  const payload = String(randomNumber(1_000_000_000_000)).padStart(12, '0');
+  const sum = [...payload].reduce(
+    (total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3),
+    0,
+  );
+
+  return `${payload}${(10 - (sum % 10)) % 10}`;
+}
 
 /**
  * Ajuste de stock que corresponde a una edición, o `null` si el stock no cambió.
@@ -157,6 +170,40 @@ export class ProductsService {
     ]);
 
     return { categories, suppliers };
+  }
+
+  /*
+   * HU-07: genera y persiste un codigo con el formato EAN-13. Se impone en la base de
+   * datos y la escritura condicional evita reemplazos sin confirmación.
+   */
+  async generateProductBarcode(id: string, replaceExisting: boolean): Promise<ProductDto> {
+    const current = await this.requireProduct(id);
+
+    if (current.barcode !== null && !replaceExisting) {
+      throw HttpError.conflict('El producto ya tiene un código de barras.');
+    }
+
+    for (let attempt = 0; attempt < BARCODE_GENERATION_ATTEMPTS; attempt += 1) {
+      const updated = await this.repository.assignBarcode(
+        id,
+        generateInternalEan13(),
+        replaceExisting,
+      );
+
+      if (updated !== null) {
+        return updated;
+      }
+
+      const latest = await this.requireProduct(id);
+
+      if (latest.barcode !== null && !replaceExisting) {
+        throw HttpError.conflict('El producto ya tiene un código de barras.');
+      }
+    }
+
+    throw HttpError.conflict(
+      'No se pudo generar un código único. Intente de nuevo.',
+    );
   }
 
   /**
