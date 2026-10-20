@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Modal } from '../components/Modal';
-import { PagePlaceholder } from '../components/PagePlaceholder';
 import { PhysicalCountSection } from '../features/inventory/PhysicalCountSection';
 import { ProductsSection } from '../features/products/ProductsSection';
 
@@ -17,15 +16,14 @@ export function InventoryPage() {
   const [productsVersion, setProductsVersion] = useState(0);
 
   return (
-    <PagePlaceholder
-      title="Inventario"
-      summary="Lista general de productos: buscar, crear, modificar y desactivar. Las cantidades se consultan en el Kardex."
-      stories="HU-06, HU-07"
-      tasks={[
-        'Reconocer el código leído por el lector y cargar el producto, o avisar si no está registrado (HU-06).',
-        'Generar un código único para los productos que no tienen, imprimible o exportable (HU-07).',
-      ]}
-    >
+    <>
+      <header className="page-header">
+        <h1>Inventario</h1>
+        <p>
+          Administre productos y existencias. Use el lector para identificarlos en ventas y conteos
+          físicos.
+        </p>
+      </header>
       {/* HU-01 … HU-05: lista de productos; crear, modificar y desactivar en modales. */}
       <ProductsSection
         refreshKey={productsVersion}
@@ -44,6 +42,6 @@ export function InventoryPage() {
           />
         </Modal>
       ) : null}
-    </PagePlaceholder>
+    </>
   );
 }

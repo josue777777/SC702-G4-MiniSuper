@@ -27,7 +27,7 @@ export function buildSaleProduct(overrides: Partial<SaleProductDto> = {}): SaleP
   return {
     id: COFFEE_ID,
     code: 'P001',
-    barcode: '7501000000011',
+    barcode: '7501000000012',
     name: 'Café molido 500 g',
     price: '1500.00',
     stock: 10,

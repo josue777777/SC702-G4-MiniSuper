@@ -3,6 +3,7 @@ import { ApiError } from '../../services/api-client';
 import { customersService, salesService } from '../../services/sales.service';
 import type { Customer, CustomerPayload, PaymentMethod, Sale } from '../../types/sales';
 import { addProduct, cartTotal, removeLine, setQuantity, type CartLine } from './cart';
+import { hasValidGtinCheckDigit } from './barcode-scanner';
 import { formatCents, isMoneyText, toCents } from './cents';
 
 export interface PosNotice {
@@ -110,14 +111,22 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
       const code = rawCode.trim();
 
       if (code === '') {
-        setNotice({ kind: 'error', text: 'Escanee o escriba un código de producto.' });
+        setNotice({ kind: 'error', text: 'Lectura incompleta. Escanee de nuevo el código.' });
         return;
       }
 
       if (!CODE_PATTERN.test(code) || code.length > 64) {
         setNotice({
           kind: 'error',
-          text: `Código inválido: "${code}". Solo letras, números, punto, guion y guion bajo.`,
+          text: 'Lectura incompleta o dañada. Revise el lector y escanee de nuevo.',
+        });
+        return;
+      }
+
+      if (!hasValidGtinCheckDigit(code)) {
+        setNotice({
+          kind: 'error',
+          text: 'El código leído está incompleto o dañado. Escanee de nuevo el producto.',
         });
         return;
       }

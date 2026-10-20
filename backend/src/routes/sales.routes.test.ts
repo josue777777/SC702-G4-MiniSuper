@@ -45,7 +45,7 @@ describe('GET /api/sales/lookup (HU-16)', () => {
     const { app } = buildApp();
 
     const byCode = await request(app).get('/api/sales/lookup?code=P001');
-    const byBarcode = await request(app).get('/api/sales/lookup?code=7501000000011');
+    const byBarcode = await request(app).get('/api/sales/lookup?code=7501000000012');
 
     expect(byCode.status).toBe(200);
     expect(byCode.body.data).toEqual(expect.objectContaining({ id: COFFEE_ID, price: '1500.00' }));
@@ -55,7 +55,10 @@ describe('GET /api/sales/lookup (HU-16)', () => {
   it('responde 404 si el código no existe y 409 si el producto está desactivado', async () => {
     const { app } = buildApp();
 
-    expect((await request(app).get('/api/sales/lookup?code=NOEXISTE')).status).toBe(404);
+    const missing = await request(app).get('/api/sales/lookup?code=NOEXISTE');
+    expect(missing.status).toBe(404);
+    expect(missing.body.error.message).toContain('Regístrelo en el catálogo de inventario.');
+    expect((await request(app).get('/api/sales/lookup?code=P003')).status).toBe(409);
     expect((await request(app).get('/api/sales/lookup?code=P003')).status).toBe(409);
   });
 

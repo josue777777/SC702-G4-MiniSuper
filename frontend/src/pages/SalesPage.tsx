@@ -101,11 +101,6 @@ export function SalesPage() {
           <h2>Pendiente de implementar</h2>
         </header>
         <ul className="todo-list">
-          <li>
-            Lector físico (HU-06): el adaptador de teclado ya está listo en{' '}
-            <code>features/sales/barcode-scanner.ts</code>, pero aún no se probó con un lector real;
-            HU-06 debe conectarlo y validarlo.
-          </li>
           <li>Historial completo del día, con totales y detalle (HU-20).</li>
         </ul>
       </section>
