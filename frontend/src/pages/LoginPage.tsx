@@ -23,8 +23,8 @@ interface LoginFieldErrors {
  * Valida que vengan ambos campos y su formato antes de llamar al servidor, que
  * repite las mismas reglas. Un fallo de credenciales muestra siempre el mismo
  * mensaje, sin decir si falló el correo o la contraseña. Al cerrar sesión
- * (HU-15) se vuelve aquí con un aviso. Siguen pendientes de HU-11 la protección
- * de la API del resto de los módulos y de HU-13 la recuperación de contraseña.
+ * (HU-15) se vuelve aquí con un aviso. Sigue pendiente HU-13 (recuperar la
+ * contraseña).
  */
 export function LoginPage() {
   const navigate = useNavigate();
@@ -142,9 +142,7 @@ export function LoginPage() {
           {busy ? 'Iniciando sesión…' : 'Iniciar sesión'}
         </button>
 
-        <p className="muted hint">
-          Pendiente: HU-11 completa (proteger la API) y HU-13 (recuperar contraseña).
-        </p>
+        <p className="muted hint">Pendiente: HU-13 (recuperar contraseña).</p>
       </form>
     </div>
   );

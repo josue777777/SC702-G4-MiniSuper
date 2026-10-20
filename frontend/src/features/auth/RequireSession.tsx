@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ApiError } from '../../services/api-client';
+import { ApiError, UNAUTHORIZED_EVENT } from '../../services/api-client';
 import { authService } from '../../services/auth.service';
 import type { Profile } from '../../types/auth';
 import { SessionContext, SIGN_IN_REQUIRED_NOTICE, SIGNED_OUT_NOTICE } from './session-context';
@@ -61,12 +61,19 @@ export function RequireSession({ children }: { children: ReactNode }) {
       void verify();
     }
 
+    // Cualquier 401 de la API (sesión vencida o cerrada en otra pestaña) saca al login.
+    function onUnauthorized(): void {
+      setState({ phase: 'signed-out' });
+    }
+
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('focus', onFocus);
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
 
     return () => {
       window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     };
   }, [verify]);
 

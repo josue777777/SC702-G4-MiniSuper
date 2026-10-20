@@ -196,6 +196,20 @@ backend/src/
 `/api/health/database` demuestra el flujo completo `route → controller → service →
 repository → Prisma`. Responde `200` si la base responde y `503` si no.
 
+### Acceso a la API (HU-11, HU-15)
+
+Solo son públicos `/api/health` y `/api/auth` (configuración inicial, login, sesión y
+cierre de sesión). **Todos los demás endpoints exigen la sesión del dueño**: en
+`routes/index.ts` cada router se monta detrás de `sessionRequired`, que rechaza con
+`403` los cambios pedidos desde otro origen (CSRF) y con `401` cualquier petición sin
+una cookie de sesión válida, antes de llegar al controller. La sesión es una cookie
+`HttpOnly` y `SameSite=Strict` con un token firmado. Cerrar sesión la invalida en el
+servidor (`User.sessionVersion`), y todas las respuestas de `/api` llevan
+`Cache-Control: no-store`.
+
+En el frontend, `<RequireSession />` no muestra ninguna pantalla interna sin sesión y
+cualquier `401` de la API lleva al login.
+
 ### Endpoints de productos (HU-01 … HU-03)
 
 | Método | Ruta | Descripción |
@@ -232,8 +246,8 @@ Convenciones de este módulo, decididas al implementarlo:
 * **Borrar es distinto de desactivar** (HU-03 pide no perder el historial de ventas): solo
   se borra un producto ya desactivado, y nunca si aparece en ventas o pedidos (`409`; se
   queda desactivado). Si no, se borra junto con sus movimientos de stock en una
-  transacción; sus relaciones con proveedores se borran solas (`Cascade`). Más adelante
-  quedará limitado al administrador (HU-11 … HU-15).
+  transacción; sus relaciones con proveedores se borran solas (`Cascade`). Como toda la
+  API, exige la sesión del dueño (HU-11).
 * **Imagen del producto (HU-01)**: se guarda en la base (`imageData`, `bytea`) para no
   depender de una carpeta del servidor; el listado solo trae `imageUrl`, nunca los bytes. Solo
   PNG, JPG o WEBP de hasta 2 MB (`413` si se pasa). Sin SVG, porque puede llevar código
@@ -483,7 +497,8 @@ Se usa `HU-01 — registrar producto` como ejemplo; el resto es idéntico.
    esquema, llama al service, elige el status code (`201` al crear) y envuelve en `data`.
 7. **Routes.** `backend/src/routes/products.routes.ts` con una fábrica
    `createProductsRouter(repository)` y una línea en `backend/src/routes/index.ts`:
-   `apiRouter.use('/products', productsRouter)`.
+   `apiRouter.use('/products', ...sessionRequired, productsRouter)` (sin
+   `sessionRequired` el endpoint quedaría público).
 8. **Servicio HTTP del frontend.** `frontend/src/services/products.service.ts` usando
    `api-client.ts`, con los contratos en `frontend/src/types/`.
 9. **Feature y página.** Componentes en `frontend/src/features/products/`, y
