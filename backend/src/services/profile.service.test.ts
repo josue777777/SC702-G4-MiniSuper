@@ -17,6 +17,7 @@ beforeEach(async () => {
       name: 'Ana Pérez',
       email: 'ana@correo.cr',
       passwordHash: await hashPassword(PASSWORD),
+      sessionVersion: 0,
     },
   ]);
   service = new ProfileService(repository);
@@ -37,7 +38,7 @@ describe('ProfileService.updateProfile', () => {
     const result = await service.updateProfile(OWNER_ID, { name: 'Ana María' });
 
     expect(result.profile.name).toBe('Ana María');
-    expect(result.passwordHash).toBeUndefined();
+    expect(result.renewedSession).toBeUndefined();
   });
 
   it('cambiar el correo exige la contraseña actual correcta', async () => {
@@ -66,7 +67,8 @@ describe('ProfileService.updateProfile', () => {
       currentPassword: PASSWORD,
     });
 
-    expect(result.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(result.renewedSession?.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(result.renewedSession?.sessionVersion).toBe(0);
     expect(await verifyPassword(repository.stored[0]?.passwordHash ?? '', 'OtraClave456789')).toBe(
       true,
     );

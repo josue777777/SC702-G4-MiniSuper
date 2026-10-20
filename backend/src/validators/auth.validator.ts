@@ -48,13 +48,28 @@ export const setupSchema = z
 
 export type SetupInput = z.infer<typeof setupSchema>;
 
-/** Cuerpo de `POST /api/auth/login`: aquí NO se aplica la política (solo se compara). */
+/**
+ * Cuerpo de `POST /api/auth/login` (HU-11). Se valida el FORMATO (correo válido y
+ * longitud de la contraseña), pero no la política completa: el login solo compara.
+ * Toda cuenta se creó con al menos `PASSWORD_MIN_LENGTH` caracteres; si algún día
+ * sube ese mínimo, aquí debe quedarse el anterior para no dejar fuera a nadie.
+ */
 export const loginSchema = z.object({
-  email: z.string({ error: 'El correo es obligatorio.' }).trim().toLowerCase().min(1).max(254),
+  email: z
+    .string({ error: 'El correo es obligatorio.' })
+    .trim()
+    .toLowerCase()
+    .min(1, 'El correo es obligatorio.')
+    .max(254, 'El correo no puede superar 254 caracteres.')
+    .pipe(z.email({ error: 'El correo no es válido.' })),
   password: z
     .string({ error: 'La contraseña es obligatoria.' })
-    .min(1, 'La contraseña es obligatoria.')
-    .max(PASSWORD_MAX_LENGTH),
+    .min(1, { error: 'La contraseña es obligatoria.', abort: true })
+    .min(
+      PASSWORD_MIN_LENGTH,
+      `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`,
+    )
+    .max(PASSWORD_MAX_LENGTH, `La contraseña no puede superar ${PASSWORD_MAX_LENGTH} caracteres.`),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

@@ -5,11 +5,11 @@ import { BACKEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
 import {
   countExitMovements,
-  ensureOwner,
   readSales,
   resetCatalog,
   seedCustomer,
   seedProducts,
+  signInAsOwner,
   stockOf,
 } from '../support/fixtures';
 
@@ -28,8 +28,8 @@ const CODE = {
   inactive: '7501000000059',
 };
 
-test.beforeEach(async ({ request }) => {
-  await ensureOwner(request);
+test.beforeEach(async ({ page }) => {
+  await signInAsOwner(page);
   await resetCatalog();
   await seedProducts([
     {
@@ -231,8 +231,10 @@ test.describe('HU-16 — venta con código de barras', () => {
   });
 
   test('dos ventas simultáneas del último producto: una se confirma y la otra se rechaza', async ({
-    request,
+    page,
   }) => {
+    // Sesión del dueño abierta en el beforeEach: la API exige sesión (HU-11).
+    const { request } = page;
     const idForLastUnit = await withDb(async (client) => {
       const result = await client.query<{ id: string }>(
         `SELECT id FROM "Product" WHERE code = 'P004'`,
@@ -259,9 +261,9 @@ test.describe('HU-16 — venta con código de barras', () => {
     expect(await readSales()).toHaveLength(1);
   });
 
-  test('reintentar la misma confirmación (misma llave) no duplica la venta', async ({
-    request,
-  }) => {
+  test('reintentar la misma confirmación (misma llave) no duplica la venta', async ({ page }) => {
+    // Sesión del dueño abierta en el beforeEach: la API exige sesión (HU-11).
+    const { request } = page;
     const productId = await withDb(async (client) => {
       const result = await client.query<{ id: string }>(
         `SELECT id FROM "Product" WHERE code = 'P001'`,
@@ -285,9 +287,9 @@ test.describe('HU-16 — venta con código de barras', () => {
     expect(await stockOf('P001')).toBe(8);
   });
 
-  test('el servidor ignora los precios y totales enviados por el navegador', async ({
-    request,
-  }) => {
+  test('el servidor ignora los precios y totales enviados por el navegador', async ({ page }) => {
+    // Sesión del dueño abierta en el beforeEach: la API exige sesión (HU-11).
+    const { request } = page;
     const productId = await withDb(async (client) => {
       const result = await client.query<{ id: string }>(
         `SELECT id FROM "Product" WHERE code = 'P001'`,
@@ -477,8 +479,10 @@ test.describe('HU-18 — venta a crédito (fiado)', () => {
   });
 
   test('un cliente inexistente o inactivo es rechazado por el servidor y no se vende', async ({
-    request,
+    page,
   }) => {
+    // Sesión del dueño abierta en el beforeEach: la API exige sesión (HU-11).
+    const { request } = page;
     const productId = await withDb(async (client) => {
       const result = await client.query<{ id: string }>(
         `SELECT id FROM "Product" WHERE code = 'P001'`,

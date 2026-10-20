@@ -1,6 +1,6 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { withDb } from './db';
+import { resetOwner, withDb } from './db';
 import { BACKEND_URL, E2E_SETUP_TOKEN } from './env';
 
 /** Cuenta del dueño de pruebas (valores de fixture, no reales). */
@@ -10,19 +10,34 @@ export const E2E_OWNER = {
   password: 'ClaveSegura123',
 };
 
-/** Garantiza que exista la cuenta del dueño; sin ella la app redirige a /setup. */
+/**
+ * Deja la cuenta del dueño con las credenciales de `E2E_OWNER`; sin ella la app
+ * redirige a /setup. Se recrea siempre porque otra prueba (HU-14) pudo cambiar
+ * el correo o la contraseña.
+ */
 export async function ensureOwner(request: APIRequestContext): Promise<void> {
-  const status = await request.get(`${BACKEND_URL}/api/auth/setup-status`);
-
-  if (((await status.json()) as { data: { configured: boolean } }).data.configured) {
-    return;
-  }
+  await resetOwner();
 
   const created = await request.post(`${BACKEND_URL}/api/auth/setup`, {
     data: { ...E2E_OWNER, setupToken: E2E_SETUP_TOKEN },
   });
 
   expect(created.status()).toBe(201);
+}
+
+/**
+ * Cuenta del dueño + sesión abierta en el navegador de la prueba: las pantallas
+ * internas exigen sesión (HU-15). `page.request` comparte las cookies con la
+ * página, así que la cookie HttpOnly queda igual que tras el login real.
+ */
+export async function signInAsOwner(page: Page): Promise<void> {
+  await ensureOwner(page.request);
+
+  const login = await page.request.post(`${BACKEND_URL}/api/auth/login`, {
+    data: { email: E2E_OWNER.email, password: E2E_OWNER.password },
+  });
+
+  expect(login.status()).toBe(200);
 }
 
 /** Borra el catálogo y todo lo que lo referencia (solo en la base `_e2e`). */

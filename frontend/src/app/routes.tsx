@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { RequireSession } from '../features/auth/RequireSession';
 import { SetupGate } from '../features/auth/SetupGate';
 import { MainLayout } from '../layouts/MainLayout';
 import { CustomersPage } from '../pages/CustomersPage';
@@ -21,7 +22,8 @@ import { SuppliersPage } from '../pages/SuppliersPage';
  * navegación (React Router renderiza ahí el `<Outlet />` del layout).
  * `/login` y `/setup` quedan fuera: las pantallas de acceso no muestran el menú
  * (HU-11 … HU-15). <SetupGate /> manda a `/setup` mientras no exista la cuenta del
- * dueño y, una vez creada, impide volver a esa pantalla (HU-12).
+ * dueño y, una vez creada, impide volver a esa pantalla (HU-12). <RequireSession />
+ * exige una sesión válida para las pantallas internas y ofrece el cierre (HU-15).
  */
 export function AppRoutes() {
   return (
@@ -30,7 +32,13 @@ export function AppRoutes() {
         <Route path="/setup" element={<SetupPage />} />
         <Route path="/login" element={<LoginPage />} />
 
-        <Route element={<MainLayout />}>
+        <Route
+          element={
+            <RequireSession>
+              <MainLayout />
+            </RequireSession>
+          }
+        >
           <Route path="/" element={<DashboardPage />} />
           {/* Productos se muestra ahora dentro de Inventario. */}
           <Route path="/products" element={<Navigate to="/inventory" replace />} />

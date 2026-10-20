@@ -7,7 +7,13 @@ import type {
   UserRecord,
 } from '../types/auth.js';
 
-const userSelection = { id: true, name: true, email: true, passwordHash: true } as const;
+const userSelection = {
+  id: true,
+  name: true,
+  email: true,
+  passwordHash: true,
+  sessionVersion: true,
+} as const;
 const profileSelection = { id: true, name: true, email: true } as const;
 
 function isUniqueViolation(error: unknown): boolean {
@@ -15,7 +21,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * Capa de acceso a datos de la cuenta del dueño (HU-12, HU-14).
+ * Capa de acceso a datos de la cuenta del dueño (HU-12, HU-14, HU-15).
  *
  * Sin miembros privados a propósito: el service se prueba con un repositorio
  * falso que `implements UsersRepository`.
@@ -49,6 +55,14 @@ export class UsersRepository {
 
       throw error;
     }
+  }
+
+  /**
+   * Invalida todas las sesiones emitidas (HU-15). El incremento es atómico en
+   * la base, así que dos cierres simultáneos no se pisan.
+   */
+  async revokeSessions(id: string): Promise<void> {
+    await prisma.user.updateMany({ where: { id }, data: { sessionVersion: { increment: 1 } } });
   }
 
   /** Actualiza el perfil; `null` si el correo ya lo usa otra cuenta (P2002). */

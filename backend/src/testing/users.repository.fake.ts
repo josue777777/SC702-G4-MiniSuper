@@ -42,11 +42,22 @@ export class FakeUsersRepository implements UsersRepository {
       return Promise.resolve(null);
     }
 
-    const created: UserRecord = { id: OWNER_ID, ...fields };
+    const created: UserRecord = { id: OWNER_ID, ...fields, sessionVersion: 0 };
 
     this.users.push(created);
 
     return Promise.resolve({ id: created.id, name: created.name, email: created.email });
+  }
+
+  revokeSessions(id: string): Promise<void> {
+    const index = this.users.findIndex((user) => user.id === id);
+    const current = this.users[index];
+
+    if (current !== undefined) {
+      this.users[index] = { ...current, sessionVersion: current.sessionVersion + 1 };
+    }
+
+    return Promise.resolve();
   }
 
   update(id: string, fields: UpdateProfileFields): Promise<ProfileDto | null> {

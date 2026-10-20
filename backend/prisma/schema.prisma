@@ -70,6 +70,9 @@ model User {
   /// usuario aunque dos peticiones de configuración inicial lleguen a la vez
   /// (HU-12: cuenta única). No hay registro público ni roles.
   isOwner Boolean @unique @default(true)
+  /// Se incrementa al cerrar sesión (HU-15): todo token emitido con una versión
+  /// anterior deja de ser válido, aunque alguien conserve una copia.
+  sessionVersion Int @default(0)
   /// Recuperación de contraseña (HU-13).
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?

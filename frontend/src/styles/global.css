@@ -175,6 +175,42 @@ code {
   letter-spacing: 0.01em;
 }
 
+/* HU-15: dueño de la sesión y «Cerrar sesión», siempre a la derecha */
+.topbar__session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.topbar__user {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.topbar__logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.layout__alert {
+  margin: 12px clamp(14px, 3vw, 32px) 0;
+}
+
+@media (max-width: 560px) {
+  .topbar__title,
+  .topbar__user {
+    display: none;
+  }
+}
+
 /* Enlaces del menú lateral */
 .nav-icon {
   flex-shrink: 0;
@@ -450,6 +486,12 @@ code {
   margin-top: 18px;
   background: var(--color-primary);
   border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Sin esto, `.button:hover` pinta el texto del mismo azul que el fondo */
+.button--block:hover {
+  background: #1e40af;
   color: #fff;
 }
 

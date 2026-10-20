@@ -6,8 +6,8 @@ import type { UpdateProfileInput } from '../validators/auth.validator.js';
 
 export interface UpdatedProfile {
   profile: ProfileDto;
-  /** Nuevo hash si cambió la contraseña: el controller renueva la cookie de sesión. */
-  passwordHash?: string;
+  /** Datos para renovar la cookie si cambió la contraseña (el hash viejo invalida el token). */
+  renewedSession?: { passwordHash: string; sessionVersion: number };
 }
 
 /**
@@ -84,7 +84,14 @@ export class ProfileService {
 
     return {
       profile: updated,
-      ...(changes.passwordHash === undefined ? {} : { passwordHash: changes.passwordHash }),
+      ...(changes.passwordHash === undefined
+        ? {}
+        : {
+            renewedSession: {
+              passwordHash: changes.passwordHash,
+              sessionVersion: user.sessionVersion,
+            },
+          }),
     };
   }
 }

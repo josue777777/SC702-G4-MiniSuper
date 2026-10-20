@@ -22,6 +22,18 @@ function parseJson(text: string): unknown {
 }
 
 /**
+ * Evento que se emite cuando la API responde 401 (sesión vencida o cerrada en
+ * otra pestaña). <RequireSession /> lo escucha y lleva al login (HU-11).
+ */
+export const UNAUTHORIZED_EVENT = 'minisuper:unauthorized';
+
+function notifyIfUnauthorized(status: number): void {
+  if (status === 401) {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+}
+
+/**
  * Única función del frontend que usa `fetch`.
  *
  * Centraliza: URL base, cabeceras, parseo de JSON y traducción de los errores
@@ -57,6 +69,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   if (!response.ok) {
     const body = payload as ApiErrorBody | null;
 
+    notifyIfUnauthorized(response.status);
     throw new ApiError(
       response.status,
       body?.error?.message ?? `La petición falló (${response.status}).`,
@@ -86,6 +99,7 @@ export async function apiDownload(
   if (!response.ok) {
     const body = parseJson(await response.text()) as ApiErrorBody | null;
 
+    notifyIfUnauthorized(response.status);
     throw new ApiError(
       response.status,
       body?.error?.message ?? `La descarga falló (${response.status}).`,

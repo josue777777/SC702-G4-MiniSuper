@@ -36,3 +36,8 @@ export function setSessionCookie(res: Response, token: string, secure: boolean):
     maxAge: SESSION_TTL_SECONDS * 1000,
   });
 }
+
+/** Borra la cookie de sesión (HU-15). Los atributos deben coincidir con los de `setSessionCookie`. */
+export function clearSessionCookie(res: Response, secure: boolean): void {
+  res.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: 'strict', secure, path: '/' });
+}

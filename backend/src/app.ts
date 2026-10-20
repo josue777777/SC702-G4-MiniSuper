@@ -33,6 +33,13 @@ export function createApp() {
   // JSON en el cuerpo de las peticiones (los formularios vendrán como JSON).
   app.use(express.json());
 
+  // Las respuestas de la API traen datos privados del negocio: el navegador no
+  // las guarda, así que «Atrás» tras cerrar sesión no las vuelve a mostrar (HU-15).
+  app.use('/api', (_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
+
   // --- Rutas ----------------------------------------------------------------
   app.use('/api', apiRouter);
 
