@@ -128,6 +128,28 @@ describe('POST /api/auth/login y GET /api/auth/session', () => {
     expect(JSON.stringify(response.body)).not.toContain(OWNER.password);
   });
 
+  it('responde 400 con el error de cada campo si falta un dato o el formato no es válido', async () => {
+    const { app } = buildApp();
+    await request(app).post('/api/auth/setup').send(OWNER);
+
+    const empty = await request(app).post('/api/auth/login').send({ email: '', password: '' });
+    const badFormat = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'ana-sin-arroba', password: 'corta' });
+
+    expect(empty.status).toBe(400);
+    expect(empty.body.error.details).toEqual({
+      email: ['El correo es obligatorio.'],
+      password: ['La contraseña es obligatoria.'],
+    });
+    expect(badFormat.status).toBe(400);
+    expect(badFormat.body.error.details).toEqual({
+      email: ['El correo no es válido.'],
+      password: ['La contraseña debe tener al menos 10 caracteres.'],
+    });
+    expect(badFormat.headers['set-cookie']).toBeUndefined();
+  });
+
   it('responde 401 con credenciales incorrectas y sin cookie', async () => {
     const { app } = buildApp();
     await request(app).post('/api/auth/setup').send(OWNER);

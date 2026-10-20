@@ -489,6 +489,12 @@ code {
   color: #fff;
 }
 
+/* Sin esto, `.button:hover` pinta el texto del mismo azul que el fondo */
+.button--block:hover {
+  background: #1e40af;
+  color: #fff;
+}
+
 /* --- Productos: barra de acciones, tabla y formulario --------------------- */
 .toolbar {
   display: flex;

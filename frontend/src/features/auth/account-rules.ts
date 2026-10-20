@@ -5,6 +5,7 @@
  */
 
 export const PASSWORD_MIN_LENGTH = 10;
+export const PASSWORD_MAX_LENGTH = 128;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,6 +23,24 @@ export function validateEmail(email: string): string | undefined {
   }
 
   return EMAIL_PATTERN.test(email.trim()) ? undefined : 'El correo no es válido.';
+}
+
+/**
+ * Formato de la contraseña al iniciar sesión (HU-11): solo la longitud. La
+ * política completa (letra y número) es de las contraseñas nuevas.
+ */
+export function validateLoginPassword(password: string): string | undefined {
+  if (password === '') {
+    return 'Escriba su contraseña.';
+  }
+
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`;
+  }
+
+  return password.length > PASSWORD_MAX_LENGTH
+    ? `La contraseña no puede superar ${PASSWORD_MAX_LENGTH} caracteres.`
+    : undefined;
 }
 
 export function validateNewPassword(password: string): string | undefined {
