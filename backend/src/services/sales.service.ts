@@ -31,7 +31,9 @@ export class SalesService {
     const product = await this.repository.findProductByCode(code);
 
     if (product === null) {
-      throw HttpError.notFound(`No existe un producto con el código "${code}".`);
+      throw HttpError.notFound(
+        `No se encontró un producto con el código "${code}". Regístrelo en el catálogo de inventario.`,
+      );
     }
 
     if (!product.isActive) {

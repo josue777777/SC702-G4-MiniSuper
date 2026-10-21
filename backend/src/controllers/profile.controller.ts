@@ -25,10 +25,10 @@ export class ProfileController {
     const result = await this.service.updateProfile(user.id, input);
 
     // Cambiar la contraseña invalida los tokens anteriores: se renueva el de esta sesión.
-    if (result.passwordHash !== undefined) {
+    if (result.renewedSession !== undefined) {
       setSessionCookie(
         res,
-        this.authService.issueToken({ id: user.id, passwordHash: result.passwordHash }),
+        this.authService.issueToken({ id: user.id, ...result.renewedSession }),
         this.secureCookie,
       );
     }

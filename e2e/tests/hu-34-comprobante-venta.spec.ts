@@ -4,11 +4,11 @@ import { withDb } from '../support/db';
 import { BACKEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
 import {
-  ensureOwner,
   readSales,
   resetCatalog,
   seedCustomer,
   seedProducts,
+  signInAsOwner,
 } from '../support/fixtures';
 
 /**
@@ -20,8 +20,8 @@ import {
 
 const BUSINESS = 'Abastecedor Nuevo Amanecer';
 
-test.beforeEach(async ({ page, request }) => {
-  await ensureOwner(request);
+test.beforeEach(async ({ page }) => {
+  await signInAsOwner(page);
   await resetCatalog();
   await seedProducts([
     {
@@ -196,7 +196,6 @@ test('se abre después desde el historial y un cambio de precio no altera el tic
 
 test('no hay comprobante para una venta inexistente ni para un identificador inválido', async ({
   page,
-  request,
 }) => {
   const missingId = randomUUID();
 
@@ -211,7 +210,7 @@ test('no hay comprobante para una venta inexistente ni para un identificador inv
   await expect(receiptDialog(page).getByRole('alert')).toBeVisible();
   await expect(ticket(page)).toHaveCount(0);
 
-  expect((await request.get(`${BACKEND_URL}/api/sales/${missingId}`)).status()).toBe(404);
+  expect((await page.request.get(`${BACKEND_URL}/api/sales/${missingId}`)).status()).toBe(404);
   expect(await readSales()).toHaveLength(0);
 });
 

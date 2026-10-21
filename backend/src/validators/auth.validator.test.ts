@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loginSchema, setupSchema, updateProfileSchema } from './auth.validator.js';
 
-/** Validaciones de la cuenta del dueño (HU-12) y del perfil (HU-14). */
+/** Validaciones de la cuenta del dueño (HU-12), del login (HU-11) y del perfil (HU-14). */
 
 const valid = { name: '  Ana Pérez ', email: ' ANA@Correo.CR ', password: 'ClaveSegura123' };
 
@@ -49,10 +49,41 @@ describe('setupSchema', () => {
   });
 });
 
-describe('loginSchema', () => {
-  it('no aplica la política de contraseñas, solo exige que venga', () => {
-    expect(loginSchema.safeParse({ email: 'ana@correo.cr', password: 'x' }).success).toBe(true);
-    expect(loginSchema.safeParse({ email: 'ana@correo.cr', password: '' }).success).toBe(false);
+describe('loginSchema (HU-11)', () => {
+  it('acepta credenciales con formato válido y normaliza el correo', () => {
+    expect(loginSchema.parse({ email: ' ANA@Correo.CR ', password: 'ClaveSegura123' })).toEqual({
+      email: 'ana@correo.cr',
+      password: 'ClaveSegura123',
+    });
+  });
+
+  it('exige ambos campos, cada uno con su mensaje', () => {
+    const empty = loginSchema.safeParse({ email: '  ', password: '' });
+    const missing = loginSchema.safeParse({});
+
+    expect(messages(empty)).toEqual(['El correo es obligatorio.', 'La contraseña es obligatoria.']);
+    expect(messages(missing)).toEqual([
+      'El correo es obligatorio.',
+      'La contraseña es obligatoria.',
+    ]);
+  });
+
+  it('rechaza un correo con formato inválido', () => {
+    const result = loginSchema.safeParse({ email: 'no-es-un-correo', password: 'ClaveSegura123' });
+
+    expect(messages(result)).toEqual(['El correo no es válido.']);
+  });
+
+  it('valida la longitud de la contraseña, pero no la política completa', () => {
+    const short = loginSchema.safeParse({ email: 'ana@correo.cr', password: 'Corta1' });
+    const huge = loginSchema.safeParse({ email: 'ana@correo.cr', password: 'a1'.repeat(65) });
+
+    expect(messages(short)).toEqual(['La contraseña debe tener al menos 10 caracteres.']);
+    expect(messages(huge)).toEqual(['La contraseña no puede superar 128 caracteres.']);
+    // Sin número: la política es de las contraseñas NUEVAS; el login solo compara.
+    expect(
+      loginSchema.safeParse({ email: 'ana@correo.cr', password: 'SoloLetrasLargas' }).success,
+    ).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Modal } from '../../components/Modal';
 import { InventoryReport } from './InventoryReport';
+import { productsService } from '../../services/products.service';
 import type {
   Product,
   ProductImageChange,
@@ -11,6 +12,7 @@ import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
 import { ProductTable } from './ProductTable';
+import { BarcodeLabel } from './BarcodeLabel';
 import { useCatalogExport } from './use-catalog-export';
 import { useProducts } from './use-products';
 
@@ -81,6 +83,12 @@ export function ProductsSection({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingBarcodeReplacement, setConfirmingBarcodeReplacement] = useState<Product | null>(
+    null,
+  );
+  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
+  const [barcodeGeneratingId, setBarcodeGeneratingId] = useState<string | null>(null);
+  const [barcodeMessage, setBarcodeMessage] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
@@ -266,6 +274,25 @@ export function ProductsSection({
     }
   }
 
+  async function generateBarcode(product: Product, replaceExisting = false): Promise<void> {
+    setBarcodeGeneratingId(product.id);
+    setBarcodeMessage(null);
+
+    try {
+      const updated = await productsService.generateBarcode(product.id, replaceExisting);
+      setBarcodeProduct(updated);
+      await reload();
+    } catch (error) {
+      setBarcodeMessage(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo generar el código de barras. Intente de nuevo.',
+      );
+    } finally {
+      setBarcodeGeneratingId(null);
+    }
+  }
+
   /** Mensaje de lista vacía según la vista (la búsqueda solo encuentra activos, HU-05). */
   function emptyListText(): string | undefined {
     if (view === 'inactive') {
@@ -391,6 +418,20 @@ export function ProductsSection({
         </p>
       )}
 
+      {barcodeMessage === null ? null : (
+        <p className="alert alert--error" role="alert">
+          {barcodeMessage}
+          <button
+            type="button"
+            className="alert__close"
+            onClick={() => setBarcodeMessage(null)}
+            aria-label="Cerrar aviso de código de barras"
+          >
+            ×
+          </button>
+        </p>
+      )}
+
       {categoryFormOpen ? (
         <CategoryForm onCreated={afterCategoryCreated} onClose={() => setCategoryFormOpen(false)} />
       ) : null}
@@ -491,6 +532,35 @@ export function ProductsSection({
             ✕ Desactivar
           </button>
         ) : null}
+        {view !== 'inactive' ? (
+          <button
+            type="button"
+            className="action-bar__button"
+            onClick={() => {
+              if (selected === null) {
+                setSelectionHint('Primero seleccione el producto para generar su código de barras.');
+
+                return;
+              }
+
+              if (selected.barcode === null) {
+                void generateBarcode(selected);
+              } else {
+                setBarcodeProduct(selected);
+              }
+            }}
+            disabled={
+              phase !== 'ready' ||
+              (selected !== null && barcodeGeneratingId === selected.id)
+            }
+          >
+            {selected !== null && barcodeGeneratingId === selected.id
+              ? 'Generando…'
+              : selected?.barcode === null || selected === null
+                ? '▥ Generar código'
+                : '▥ Ver código'}
+          </button>
+        ) : null}
         {view === 'inactive' ? (
           <>
             <button
@@ -524,6 +594,54 @@ export function ProductsSection({
           initialCategoryId={categoryFilter}
           onClose={() => setReportOpen(false)}
         />
+      ) : null}
+
+      {barcodeProduct !== null ? (
+        <BarcodeLabel
+          product={barcodeProduct}
+          onClose={() => setBarcodeProduct(null)}
+          onReplace={() => {
+            setBarcodeProduct(null);
+            setConfirmingBarcodeReplacement(barcodeProduct);
+          }}
+        />
+      ) : null}
+
+      {confirmingBarcodeReplacement !== null ? (
+        <Modal
+          title="Reemplazar código de barras"
+          onClose={() => setConfirmingBarcodeReplacement(null)}
+        >
+          <p>
+            <strong>{confirmingBarcodeReplacement.name}</strong> ya tiene el código{' '}
+            <strong>{confirmingBarcodeReplacement.barcode}</strong>.
+          </p>
+          <p className="alert alert--warning">
+            Si lo reemplaza, el código anterior dejará de identificar este producto. Las etiquetas
+            impresas anteriormente ya no serán válidas.
+          </p>
+          <div className="form__actions modal__actions">
+            <button
+              type="button"
+              className="button button--danger-solid"
+              disabled={barcodeGeneratingId === confirmingBarcodeReplacement.id}
+              onClick={() => {
+                const product = confirmingBarcodeReplacement;
+                setConfirmingBarcodeReplacement(null);
+                void generateBarcode(product, true);
+              }}
+            >
+              Sí, reemplazar código
+            </button>
+            <button
+              type="button"
+              className="button"
+              onClick={() => setConfirmingBarcodeReplacement(null)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </Modal>
       ) : null}
 
       {confirmingDelete && selected !== null ? (

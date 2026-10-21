@@ -1,16 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-/**
- * Adaptador de lector de código de barras "keyboard wedge" (HU-16).
- *
- * Un lector USB de ese tipo se comporta como un teclado: «teclea» el código muy
- * rápido y termina con Enter. Este adaptador distingue esa ráfaga de una persona
- * escribiendo por la velocidad entre teclas, y entrega el código completo.
- *
- * Es independiente de la pantalla de ventas a propósito: HU-06 (reconocer el
- * código leído para cargar un producto) puede reutilizarlo tal cual con otro
- * `onScan`, sin tocar el POS. NO se ha probado con un lector físico: solo con
- * escritura simulada del navegador (ver docs en el reporte del sprint).
+/*
+ * Adaptador de lector de código de barras (HU-06).
+ * Un lector USB de ese tipo se comporta como un teclado rápido y termina con Enter por eso funciona
  */
 export interface WedgeOptions {
   /** Largo mínimo para considerar un código (descarta teclas sueltas + Enter). */
@@ -20,6 +12,24 @@ export interface WedgeOptions {
 }
 
 export const DEFAULT_WEDGE_OPTIONS: WedgeOptions = { minLength: 4, maxGapMs: 80 };
+
+/* Verifica el dígito de control del código */
+export function hasValidGtinCheckDigit(code: string): boolean {
+  if (!/^\d+$/.test(code) || ![8, 12, 13, 14].includes(code.length)) {
+    return true;
+  }
+
+  const payload = code.slice(0, -1);
+  let sum = 0;
+
+  for (let index = payload.length - 1, distanceFromRight = 0; index >= 0; index -= 1) {
+    const digit = Number(payload[index]);
+    sum += digit * (distanceFromRight % 2 === 0 ? 3 : 1);
+    distanceFromRight += 1;
+  }
+
+  return (10 - (sum % 10)) % 10 === Number(code.at(-1));
+}
 
 /** Acumula teclas; `push` devuelve el código cuando llega el Enter de una ráfaga válida. */
 export class WedgeBuffer {
@@ -34,7 +44,11 @@ export class WedgeBuffer {
 
       this.buffer = '';
 
-      return code.length >= this.options.minLength ? code : null;
+      if (code.length === 0) {
+        return null;
+      }
+
+      return code.length >= this.options.minLength ? code : '';
     }
 
     if (key.length !== 1) {

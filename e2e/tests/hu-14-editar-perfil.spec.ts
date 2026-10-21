@@ -29,7 +29,7 @@ async function loginAndOpenProfile(page: Page, password = OWNER.password, email 
   await page.goto('/login');
   await page.getByLabel('Correo electrónico', { exact: true }).fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.getByRole('link', { name: 'Mi perfil' }).click();
   await expect(page.getByRole('heading', { name: 'Mi perfil' })).toBeVisible();
@@ -39,9 +39,7 @@ test('un visitante sin sesión no puede ver ni cambiar el perfil', async ({ page
   await page.goto('/profile');
 
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole('status')).toContainText(
-    'Inicie sesión para ver y editar su perfil.',
-  );
+  await expect(page.getByRole('status')).toContainText('Inicie sesión para continuar.');
 
   const read = await request.get(`${BACKEND_URL}/api/profile`);
   const write = await request.patch(`${BACKEND_URL}/api/profile`, {
@@ -164,11 +162,11 @@ test('cambiar la contraseña guarda un hash nuevo y solo sirve la clave nueva', 
   await otherPage.goto('/login');
   await otherPage.getByLabel('Correo electrónico', { exact: true }).fill(OWNER.email);
   await otherPage.getByLabel('Contraseña', { exact: true }).fill(OWNER.password);
-  await otherPage.getByRole('button', { name: 'Ingresar' }).click();
+  await otherPage.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(otherPage.getByRole('alert')).toContainText('Correo o contraseña incorrectos.');
 
   await otherPage.getByLabel('Contraseña', { exact: true }).fill(newPassword);
-  await otherPage.getByRole('button', { name: 'Ingresar' }).click();
+  await otherPage.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(otherPage).toHaveURL(/\/$/);
   await other.close();
 });

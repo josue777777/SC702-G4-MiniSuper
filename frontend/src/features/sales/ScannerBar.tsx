@@ -24,7 +24,7 @@ export function ScannerBar({ busy, onScan }: ScannerBarProps) {
     const value = code;
 
     setCode('');
-    await onScan(value);
+    await onScan(value.trim().length > 0 && value.trim().length < 4 ? '' : value);
     inputRef.current?.focus();
   }
 

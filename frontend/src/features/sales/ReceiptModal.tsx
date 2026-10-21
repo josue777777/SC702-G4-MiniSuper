@@ -13,8 +13,9 @@ interface ReceiptModalProps {
  * Comprobante de una venta (HU-34): se ve en pantalla y se puede imprimir.
  *
  * Para imprimir solo el ticket, una segunda copia se coloca fuera de la
- * aplicación (`.print-only`) y la hoja de estilos de impresión oculta todo lo
- * demás. Si no hay impresora o la impresión falla, el ticket sigue en pantalla.
+ * aplicación (`.print-only`) y, mientras el body tiene `printing-receipt`, la
+ * hoja de estilos de impresión oculta todo lo demás. Si no hay impresora o la
+ * impresión falla, el ticket sigue en pantalla.
  */
 export function ReceiptModal({ saleId, onClose }: ReceiptModalProps) {
   const [attempt, setAttempt] = useState(0);
@@ -29,8 +30,16 @@ export function ReceiptModal({ saleId, onClose }: ReceiptModalProps) {
         throw new Error('print no disponible');
       }
 
+      // Las reglas de impresión del ticket solo aplican con esta clase; así no
+      // ocultan la aplicación cuando se imprime un pedido o un reporte.
+      const { classList } = document.body;
+      classList.add('printing-receipt');
+      window.addEventListener('afterprint', () => classList.remove('printing-receipt'), {
+        once: true,
+      });
       window.print();
     } catch {
+      document.body.classList.remove('printing-receipt');
       setPrintNote(
         'No se pudo abrir la impresión (¿hay una impresora disponible?). El comprobante sigue disponible en pantalla.',
       );

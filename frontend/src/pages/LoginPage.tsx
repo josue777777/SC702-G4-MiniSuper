@@ -1,5 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  fieldErrorsFromDetails,
+  validateEmail,
+  validateLoginPassword,
+} from '../features/auth/account-rules';
 import { ApiError } from '../services/api-client';
 import { authService } from '../services/auth.service';
 
@@ -7,36 +12,64 @@ interface LoginLocationState {
   notice?: string;
 }
 
+interface LoginFieldErrors {
+  email?: string;
+  password?: string;
+}
+
 /**
- * Acceso al sistema.
+ * Acceso al sistema (HU-11).
  *
- * Contiene solo el inicio de sesión mínimo que HU-14 necesita para saber quién
- * edita el perfil. Siguen pendientes de HU-11 la protección del resto de las
- * pantallas, de HU-13 la recuperación de contraseña y de HU-15 cerrar sesión.
+ * Valida que vengan ambos campos y su formato antes de llamar al servidor, que
+ * repite las mismas reglas. Un fallo de credenciales muestra siempre el mismo
+ * mensaje, sin decir si falló el correo o la contraseña. Al cerrar sesión
+ * (HU-15) se vuelve aquí con un aviso. Sigue pendiente HU-13 (recuperar la
+ * contraseña).
  */
 export function LoginPage() {
   const navigate = useNavigate();
   const { state } = useLocation() as { state: LoginLocationState | null };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    if (email.trim() === '' || password === '') {
-      setError('Escriba su correo y su contraseña.');
+    const emailError = validateEmail(email);
+    const passwordError = validateLoginPassword(password);
+    const nextErrors: LoginFieldErrors = {
+      ...(emailError === undefined ? {} : { email: emailError }),
+      ...(passwordError === undefined ? {} : { password: passwordError }),
+    };
+
+    setFieldErrors(nextErrors);
+    setError(null);
+
+    if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
     setBusy(true);
-    setError(null);
 
     try {
       await authService.login({ email: email.trim(), password });
       navigate('/', { replace: true });
     } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 400) {
+        const fromServer = fieldErrorsFromDetails(caught.details);
+
+        if (fromServer['email'] !== undefined || fromServer['password'] !== undefined) {
+          setFieldErrors({
+            ...(fromServer['email'] === undefined ? {} : { email: fromServer['email'] }),
+            ...(fromServer['password'] === undefined ? {} : { password: fromServer['password'] }),
+          });
+          return;
+        }
+      }
+
       setError(
         caught instanceof ApiError
           ? caught.message
@@ -72,8 +105,17 @@ export function LoginPage() {
             type="email"
             value={email}
             autoComplete="username"
+            aria-invalid={fieldErrors.email !== undefined}
+            {...(fieldErrors.email === undefined
+              ? {}
+              : { 'aria-describedby': 'login-email-error' })}
             onChange={(event) => setEmail(event.target.value)}
           />
+          {fieldErrors.email === undefined ? null : (
+            <p id="login-email-error" className="form__error">
+              {fieldErrors.email}
+            </p>
+          )}
         </div>
 
         <div className="field">
@@ -83,18 +125,24 @@ export function LoginPage() {
             type="password"
             value={password}
             autoComplete="current-password"
+            aria-invalid={fieldErrors.password !== undefined}
+            {...(fieldErrors.password === undefined
+              ? {}
+              : { 'aria-describedby': 'login-password-error' })}
             onChange={(event) => setPassword(event.target.value)}
           />
+          {fieldErrors.password === undefined ? null : (
+            <p id="login-password-error" className="form__error">
+              {fieldErrors.password}
+            </p>
+          )}
         </div>
 
         <button type="submit" className="button button--block" disabled={busy}>
-          {busy ? 'Ingresando…' : 'Ingresar'}
+          {busy ? 'Iniciando sesión…' : 'Iniciar sesión'}
         </button>
 
-        <p className="muted hint">
-          Pendiente: HU-11 completa (proteger las pantallas), HU-13 (recuperar contraseña) y HU-15
-          (cerrar sesión).
-        </p>
+        <p className="muted hint">Pendiente: HU-13 (recuperar contraseña).</p>
       </form>
     </div>
   );

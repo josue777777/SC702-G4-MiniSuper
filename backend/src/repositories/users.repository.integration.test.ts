@@ -81,6 +81,21 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
     expect(row.passwordHash).not.toContain('ClaveSegura123');
   });
 
+  it('revokeSessions incrementa la versión de sesión de forma atómica (HU-15)', async () => {
+    const created = await repository.createOwner({
+      name: 'Ana',
+      email: 'ana@correo.cr',
+      passwordHash: '$argon2id$de-prueba',
+    });
+    const id = created?.id ?? '';
+
+    expect((await repository.findById(id))?.sessionVersion).toBe(0);
+
+    await Promise.all([repository.revokeSessions(id), repository.revokeSessions(id)]);
+
+    expect((await repository.findById(id))?.sessionVersion).toBe(2);
+  });
+
   it('actualiza nombre y correo y los vuelve a leer', async () => {
     const created = await repository.createOwner({
       name: 'Ana',

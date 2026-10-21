@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { profileService } from '../services/auth.service';
+import { useSession } from '../features/auth/session-context';
 import { findGroupOfPath, NAVIGATION, type NavItem } from './navigation';
 import { NavIcon } from './NavIcon';
 
@@ -30,36 +30,18 @@ function startsWithMenuOpen(): boolean {
 /**
  * Estructura común de todas las pantallas internas: menú lateral, barra
  * superior y contenido. El contenido de la ruta coincidente se renderiza en
- * <Outlet />.
+ * <Outlet />. Solo se muestra con sesión (lo garantiza <RequireSession />).
  */
 export function MainLayout() {
   const { pathname } = useLocation();
   const activeGroup = findGroupOfPath(pathname);
+  const { user, signOut, signingOut, signOutError } = useSession();
   /**
    * Grupos que el usuario abrió o cerró a mano. Si no lo ha tocado, un grupo
    * se ve abierto cuando contiene la pantalla actual.
    */
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [menuOpen, setMenuOpen] = useState(startsWithMenuOpen);
-  /**
-   * ¿Hay sesión abierta? Se pregunta al cambiar de pantalla (así se entera
-   * justo después de iniciar sesión): con sesión se ofrece «Mi perfil» y, sin
-   * ella, «Iniciar sesión», nunca los dos a la vez.
-   */
-  const [signedIn, setSignedIn] = useState(false);
-
-  useEffect(() => {
-    let current = true;
-
-    profileService.get().then(
-      () => current && setSignedIn(true),
-      () => current && setSignedIn(false),
-    );
-
-    return () => {
-      current = false;
-    };
-  }, [pathname]);
 
   function isOpen(groupId: string): boolean {
     return toggled[groupId] ?? groupId === activeGroup;
@@ -114,17 +96,10 @@ export function MainLayout() {
         </nav>
 
         <div className="layout__footer">
-          {signedIn ? (
-            <NavLink to="/profile" className="nav-link nav-link--muted">
-              <NavIcon name="user" />
-              Mi perfil
-            </NavLink>
-          ) : (
-            <NavLink to="/login" className="nav-link nav-link--muted">
-              <NavIcon name="user" />
-              Iniciar sesión
-            </NavLink>
-          )}
+          <NavLink to="/profile" className="nav-link nav-link--muted">
+            <NavIcon name="user" />
+            Mi perfil
+          </NavLink>
           <small>SC-702 · Grupo 4</small>
         </div>
       </aside>
@@ -142,7 +117,28 @@ export function MainLayout() {
             <NavIcon name="menu" />
           </button>
           <strong className="topbar__title">MiniSuper Nuevo Amanecer</strong>
+          {/* HU-15: siempre a la vista, aunque el menú lateral esté oculto. */}
+          <div className="topbar__session">
+            <span className="topbar__user" title={user.email}>
+              {user.name}
+            </span>
+            <button
+              type="button"
+              className="button topbar__logout"
+              disabled={signingOut}
+              onClick={() => void signOut()}
+            >
+              <NavIcon name="logout" size={18} />
+              {signingOut ? 'Cerrando…' : 'Cerrar sesión'}
+            </button>
+          </div>
         </header>
+
+        {signOutError === null ? null : (
+          <div className="alert alert--error layout__alert" role="alert">
+            {signOutError}
+          </div>
+        )}
 
         <main className="layout__content">
           <Outlet />

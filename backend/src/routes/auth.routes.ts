@@ -25,6 +25,7 @@ export function createAuthRouter(
   router.post('/setup', (req, res) => controller.setup(req, res));
   router.post('/login', (req, res) => controller.login(req, res));
   router.get('/session', (req, res) => controller.session(req, res));
+  router.post('/logout', (req, res) => controller.logout(req, res));
 
   return router;
 }

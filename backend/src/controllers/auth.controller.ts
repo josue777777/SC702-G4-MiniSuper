@@ -1,10 +1,14 @@
 import type { Request, Response } from 'express';
 import type { AuthService } from '../services/auth.service.js';
 import { HttpError } from '../utils/http-error.js';
-import { readSessionCookie, setSessionCookie } from '../utils/session-cookie.js';
+import {
+  clearSessionCookie,
+  readSessionCookie,
+  setSessionCookie,
+} from '../utils/session-cookie.js';
 import { loginSchema, setupSchema } from '../validators/auth.validator.js';
 
-/** Capa de controlador de la cuenta única y la sesión (HU-12; base de HU-11). */
+/** Capa de controlador de la cuenta única y la sesión (HU-12, HU-15; base de HU-11). */
 export class AuthController {
   constructor(
     private readonly service: AuthService,
@@ -41,5 +45,17 @@ export class AuthController {
     }
 
     res.status(200).json({ data: user });
+  }
+
+  /**
+   * `POST /api/auth/logout` — cierra la sesión (HU-15): invalida los tokens en
+   * el servidor y borra la cookie. Responde 204 aunque no hubiera sesión, para
+   * que el navegador siempre pueda volver al login.
+   */
+  async logout(req: Request, res: Response): Promise<void> {
+    await this.service.logout(readSessionCookie(req));
+
+    clearSessionCookie(res, this.secureCookie);
+    res.status(204).end();
   }
 }

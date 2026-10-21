@@ -33,7 +33,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
     const coffee = await prisma.product.create({
       data: {
         code: 'P001',
-        barcode: '7501000000011',
+        barcode: '7501000000012',
         name: 'Café',
         price: '1500.00',
         cost: '1000.00',
@@ -202,7 +202,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
   });
 
   it('busca por código de barras y rechaza un cliente inexistente', async () => {
-    expect((await service.lookupProduct('7501000000011')).id).toBe(coffeeId);
+    expect((await service.lookupProduct('7501000000012')).id).toBe(coffeeId);
     await expect(
       service.createSale({
         idempotencyKey: randomUUID(),
