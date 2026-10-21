@@ -34,6 +34,7 @@ export function buildProduct(overrides: Partial<ProductDto> = {}): ProductDto {
   return {
     id: PRODUCT_ID,
     code: 'P001',
+    barcode: null,
     name: 'Café molido 500 g',
     categoryId: CATEGORY_ID,
     categoryName: 'Bebidas',
@@ -111,6 +112,20 @@ export class FakeProductsRepository implements ProductsRepository {
     return Promise.resolve(
       this.products.some((product) => product.code === code && product.id !== exceptProductId),
     );
+  }
+
+  assignBarcode(id: string, barcode: string, replaceExisting: boolean): Promise<ProductDto | null> {
+    const current = this.products.find((product) => product.id === id);
+
+    if (current === undefined || (!replaceExisting && current.barcode !== null)) {
+      return Promise.resolve(null);
+    }
+
+    if (this.products.some((product) => product.barcode === barcode)) {
+      return Promise.resolve(null);
+    }
+
+    return this.replace(id, { barcode });
   }
 
   findActiveCategory(categoryId: string): Promise<ReferenceOption | null> {

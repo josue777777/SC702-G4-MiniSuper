@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { dateToDateOnly } from '../utils/dates.js';
 import type {
   CreateProductPlan,
@@ -21,6 +22,7 @@ import type {
 interface ProductRow {
   id: string;
   code: string;
+  barcode: string | null;
   name: string;
   price: { toFixed(digits: number): string };
   cost: { toFixed(digits: number): string };
@@ -42,6 +44,7 @@ interface ProductRow {
 const productSelection = {
   id: true,
   code: true,
+  barcode: true,
   name: true,
   price: true,
   cost: true,
@@ -68,6 +71,7 @@ function toProductDto(row: ProductRow): ProductDto {
   return {
     id: row.id,
     code: row.code,
+    barcode: row.barcode,
     name: row.name,
     categoryId: row.category.id,
     categoryName: row.category.name,
@@ -167,6 +171,32 @@ export class ProductsRepository {
     });
 
     return found !== null;
+  }
+
+  /**
+   * Asigna el código de barras en una sola escritura. Si no se permite
+   * reemplazar, la condición `barcode: null` evita que dos solicitudes lo
+   * reemplacen silenciosamente en una carrera.
+   */
+  async assignBarcode(
+    id: string,
+    barcode: string,
+    replaceExisting: boolean,
+  ): Promise<ProductDto | null> {
+    try {
+      const result = await prisma.product.updateMany({
+        where: { id, ...(replaceExisting ? {} : { barcode: null }) },
+        data: { barcode },
+      });
+
+      return result.count === 0 ? null : readProduct(id);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   /** Categoría utilizable en el formulario: existe y está activa. */

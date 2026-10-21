@@ -48,6 +48,7 @@ export interface InventoryMovementPlan {
 export interface ProductDto {
   id: string;
   code: string;
+  barcode: string | null;
   name: string;
   categoryId: string;
   categoryName: string;

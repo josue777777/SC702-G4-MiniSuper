@@ -11,6 +11,7 @@ import {
 import type { CreateProductInput } from '../validators/products.validator.js';
 import {
   buildStockAdjustment,
+  generateInternalEan13,
   ProductsService,
   STOCK_ADJUSTMENT_REASON,
 } from './products.service.js';
@@ -38,6 +39,58 @@ function buildValidInput(overrides: Partial<CreateProductInput> = {}): CreatePro
     ...overrides,
   };
 }
+/*
+ * HU-07: el sistema permite generar un código de barras para un producto.
+* es la regla de negocio para indicar que si el producto ya tiene código, solo se reemplaza
+ * cuando el dueño lo confirma explícitamente.
+ 
+ * Se usa un repositorio falso en memoria,
+ * así los tests no dependen de una base de datos real.
+ */
+describe('generateInternalEan13', () => {
+  it('genera un EAN-13 con dígito de control válido', () => {
+    expect(generateInternalEan13(() => 400638133393)).toBe('4006381333931');
+  });
+});
+
+describe('ProductsService.generateProductBarcode (HU-07)', () => {
+  it('genera un código único y lo asocia al producto', async () => {
+    const repository = new FakeProductsRepository();
+    const service = new ProductsService(repository);
+
+    const updated = await service.generateProductBarcode(PRODUCT_ID, false);
+
+    expect(updated.barcode).toMatch(/^\d{13}$/);
+    expect(await repository.findById(PRODUCT_ID)).toMatchObject({ barcode: updated.barcode });
+  });
+
+  it('no reemplaza un código existente sin autorización', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ barcode: '4006381333931' })],
+    });
+    const service = new ProductsService(repository);
+
+    await expect(service.generateProductBarcode(PRODUCT_ID, false)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'El producto ya tiene un código de barras.',
+    });
+    await expect(repository.findById(PRODUCT_ID)).resolves.toMatchObject({
+      barcode: '4006381333931',
+    });
+  });
+
+  it('reemplaza el código existente cuando el dueño lo confirma', async () => {
+    const repository = new FakeProductsRepository({
+      products: [buildProduct({ barcode: '4006381333931' })],
+    });
+    const service = new ProductsService(repository);
+
+    const updated = await service.generateProductBarcode(PRODUCT_ID, true);
+
+    expect(updated.barcode).toMatch(/^\d{13}$/);
+    expect(updated.barcode).not.toBe('4006381333931');
+  });
+});
 
 describe('ProductsService.createProduct (HU-01)', () => {
   it('registra el producto y deja el movimiento ENTRY del stock inicial', async () => {

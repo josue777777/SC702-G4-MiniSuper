@@ -53,6 +53,9 @@ export function createProductsRouter(repository: ProductsRepository): Router {
   /** Editar producto (HU-02). */
   router.patch('/:id', (req, res) => productsController.update(req, res));
 
+  /** Generar o reemplazar código de barras (HU-07). */
+  router.post('/:id/barcode', (req, res) => productsController.generateBarcode(req, res));
+
   /** Desactivar producto (HU-03). */
   router.patch('/:id/deactivate', (req, res) => productsController.deactivate(req, res));
 
