@@ -62,6 +62,15 @@ export interface SaleSummaryDto {
   itemCount: number;
 }
 
+/** Totales agregados de las ventas del día de negocio (HU-37). */
+export interface DailySalesSummaryDto {
+  saleCount: number;
+  total: MoneyString;
+  cash: MoneyString;
+  card: MoneyString;
+  credit: MoneyString;
+}
+
 export interface SaleListFilter {
   paymentMethod?: PaymentMethodKind;
   limit: number;

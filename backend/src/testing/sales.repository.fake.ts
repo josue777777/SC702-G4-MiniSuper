@@ -5,6 +5,7 @@ import type {
   CreateSaleOutcome,
   CreateSalePlan,
   CreditTotals,
+  DailySalesSummaryDto,
   CustomerRef,
   SaleListFilter,
   SaleProductDto,
@@ -113,6 +114,31 @@ export class FakeSalesRepository implements SalesRepository {
     );
   }
 
+  dailySummary(startAt: Date, endAt: Date): Promise<DailySalesSummaryDto> {
+    const dailySales = this.sales.filter((sale) => {
+      const createdAt = new Date(sale.createdAt);
+
+      return createdAt >= startAt && createdAt < endAt;
+    });
+    const centsByMethod = { CASH: 0n, CARD: 0n, CREDIT: 0n };
+
+    for (const sale of dailySales) {
+      centsByMethod[sale.paymentMethod] += toCents(sale.total);
+    }
+
+    const cash = formatCents(centsByMethod.CASH);
+    const card = formatCents(centsByMethod.CARD);
+    const credit = formatCents(centsByMethod.CREDIT);
+
+    return Promise.resolve({
+      saleCount: dailySales.length,
+      total: formatCents(centsByMethod.CASH + centsByMethod.CARD + centsByMethod.CREDIT),
+      cash,
+      card,
+      credit,
+    });
+  }
+
   createSale(plan: CreateSalePlan): Promise<CreateSaleOutcome> {
     const replay = this.keys.get(plan.idempotencyKey);
 
@@ -130,7 +156,7 @@ export class FakeSalesRepository implements SalesRepository {
     const sale: SaleRecord = {
       id: `66666666-6666-4666-8666-${String(this.sales.length + 1).padStart(12, '0')}`,
       number: this.sales.length + 1,
-      createdAt: '2026-10-18T15:00:00.000Z',
+      createdAt: new Date().toISOString(),
       paymentMethod: plan.paymentMethod,
       total: plan.total,
       cashReceived: plan.cashReceived,

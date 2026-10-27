@@ -2,6 +2,7 @@ import type {
   CreateSalePayload,
   Customer,
   CustomerPayload,
+  DailySalesSummary,
   PaymentMethod,
   Sale,
   SaleProduct,
@@ -36,6 +37,11 @@ export const salesService = {
     const query = paymentMethod === undefined ? '' : `?paymentMethod=${paymentMethod}`;
 
     return (await apiGet<DataResponse<SaleSummary[]>>(`/api/sales${query}`)).data;
+  },
+
+  /** HU-37: resumen completo de ventas del día de negocio, sin límite de filas. */
+  async dailySummary(): Promise<DailySalesSummary> {
+    return (await apiGet<DataResponse<DailySalesSummary>>('/api/sales/daily-summary')).data;
   },
 };
 
