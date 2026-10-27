@@ -21,6 +21,8 @@ export function createSalesRouter(
   router.get('/:id', (req, res) => controller.get(req, res));
   /** Confirmar la venta (HU-16, HU-17, HU-18). */
   router.post('/', (req, res) => controller.create(req, res));
+  /** Devolver productos o anular la venta, con auditoría y stock (HU-35). */
+  router.post('/:id/adjustments', (req, res) => controller.adjust(req, res));
 
   return router;
 }

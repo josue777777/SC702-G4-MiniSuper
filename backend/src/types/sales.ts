@@ -6,6 +6,8 @@
  */
 
 export type PaymentMethodKind = 'CASH' | 'CARD' | 'CREDIT';
+export type SaleStatusKind = 'COMPLETED' | 'PARTIALLY_RETURNED' | 'RETURNED' | 'VOID';
+export type SaleAdjustmentTypeKind = 'RETURN' | 'VOID';
 
 export type MoneyString = string;
 
@@ -22,12 +24,24 @@ export interface SaleProductDto {
 
 /** Línea de una venta, con el precio histórico guardado (no el del catálogo). */
 export interface SaleLineDto {
+  id: string;
   productId: string;
   code: string;
   name: string;
   quantity: number;
+  returnedQuantity: number;
+  availableQuantity: number;
   unitPrice: MoneyString;
   subtotal: MoneyString;
+}
+
+export interface SaleAdjustmentDto {
+  id: string;
+  type: SaleAdjustmentTypeKind;
+  reason: string;
+  total: MoneyString;
+  createdAt: string;
+  items: { saleItemId: string; productName: string; quantity: number }[];
 }
 
 /** Venta tal como se guarda, sin los datos derivados. */
@@ -37,10 +51,13 @@ export interface SaleRecord {
   /** Fecha y hora de la venta (ISO 8601). */
   createdAt: string;
   paymentMethod: PaymentMethodKind;
+  status: SaleStatusKind;
   total: MoneyString;
+  originalTotal: MoneyString;
   cashReceived: MoneyString | null;
   customer: { id: string; name: string } | null;
   items: SaleLineDto[];
+  adjustments: SaleAdjustmentDto[];
 }
 
 /** Venta que expone la API: lo guardado más el cambio y el saldo del fiado, derivados. */
@@ -57,6 +74,7 @@ export interface SaleSummaryDto {
   number: number;
   createdAt: string;
   paymentMethod: PaymentMethodKind;
+  status: SaleStatusKind;
   total: MoneyString;
   customerName: string | null;
   itemCount: number;
@@ -75,6 +93,21 @@ export interface SaleListFilter {
   paymentMethod?: PaymentMethodKind;
   limit: number;
 }
+
+export interface SaleAdjustmentPlan {
+  saleId: string;
+  type: SaleAdjustmentTypeKind;
+  reason: string;
+  items?: { saleItemId: string; quantity: number }[];
+}
+
+export type SaleAdjustmentOutcome =
+  | { ok: true; sale: SaleRecord }
+  | {
+      ok: false;
+      reason:
+        'NOT_FOUND' | 'ALREADY_VOID' | 'ALREADY_RETURNED' | 'INVALID_ITEM' | 'QUANTITY_EXCEEDED';
+    };
 
 /** Línea que el service le pide al repositorio descontar y registrar. */
 export interface SalePlanItem {

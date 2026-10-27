@@ -3,6 +3,7 @@ import type { SalesRepository } from '../repositories/sales.repository.js';
 import type {
   CreateSalePlan,
   DailySalesSummaryDto,
+  SaleAdjustmentPlan,
   SaleDto,
   SaleListFilter,
   SaleProductDto,
@@ -127,6 +128,27 @@ export class SalesService {
     return this.repository.list(filter);
   }
 
+  async adjustSale(saleId: string, input: Omit<SaleAdjustmentPlan, 'saleId'>): Promise<SaleDto> {
+    const outcome = await this.repository.adjustSale({ ...input, saleId });
+
+    if (!outcome.ok) {
+      switch (outcome.reason) {
+        case 'NOT_FOUND':
+          throw HttpError.notFound('La venta no existe.');
+        case 'ALREADY_VOID':
+          throw HttpError.conflict('La venta ya fue anulada y no admite más ajustes.');
+        case 'ALREADY_RETURNED':
+          throw HttpError.conflict('Todos los productos de la venta ya fueron devueltos.');
+        case 'INVALID_ITEM':
+          throw HttpError.badRequest('Uno de los productos no pertenece a esta venta.');
+        case 'QUANTITY_EXCEEDED':
+          throw HttpError.conflict('La cantidad solicitada supera los productos aún disponibles.');
+      }
+    }
+
+    return this.withDerived(outcome.sale);
+  }
+
   /** Totales del día calendario del negocio (Costa Rica), sin truncar el historial. */
   async getDailySummary(now: Date = new Date()): Promise<DailySalesSummaryDto> {
     const day = todayInBusinessZone(now);
@@ -193,7 +215,7 @@ export class SalesService {
   private async withDerived(sale: SaleRecord): Promise<SaleDto> {
     const change =
       sale.paymentMethod === 'CASH' && sale.cashReceived !== null
-        ? formatCents(toCents(sale.cashReceived) - toCents(sale.total))
+        ? formatCents(toCents(sale.cashReceived) - toCents(sale.originalTotal))
         : null;
     const customerBalance =
       sale.paymentMethod === 'CREDIT' && sale.customer !== null

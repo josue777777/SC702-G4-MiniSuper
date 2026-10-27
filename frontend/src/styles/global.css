@@ -472,6 +472,24 @@ code {
   background: #f8fafc;
 }
 
+.field textarea {
+  min-height: 76px;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font: inherit;
+}
+
+.table input[type='number'] {
+  width: 82px;
+  padding: 5px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+  text-align: right;
+}
+
 .field label {
   font-size: 0.85rem;
   font-weight: 600;
@@ -933,6 +951,16 @@ code {
 
 .modal__body {
   padding: 16px 18px 18px;
+}
+
+.sale-adjustment-history {
+  display: grid;
+  gap: 12px;
+  padding-left: 24px;
+}
+
+.sale-adjustment-history p {
+  margin: 4px 0;
 }
 
 /* Dentro de un modal las secciones no necesitan el marco de tarjeta */
@@ -1898,6 +1926,15 @@ code {
 .receipt__footer {
   margin-top: 10px;
   text-align: center;
+}
+
+.receipt__adjustments {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.receipt__adjustments p {
+  margin: 3px 0;
 }
 
 .print-only {
