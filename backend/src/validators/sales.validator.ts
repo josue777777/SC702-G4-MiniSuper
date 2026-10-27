@@ -66,3 +66,39 @@ export const saleListQuerySchema = z.object({
 export const saleIdParamSchema = z.object({
   id: z.uuid({ error: 'La venta indicada no es válida.' }),
 });
+
+const adjustmentItemSchema = z.object({
+  saleItemId: z.uuid({ error: 'El producto indicado no es válido.' }),
+  quantity: z
+    .number({ error: 'La cantidad debe ser un número.' })
+    .int('La cantidad debe ser un número entero.')
+    .min(1, 'La cantidad mínima es 1.')
+    .max(MAX_LINE_QUANTITY, `La cantidad máxima es ${MAX_LINE_QUANTITY}.`),
+});
+
+const adjustmentReasonSchema = z
+  .string({ error: 'Indique el motivo.' })
+  .trim()
+  .min(3, 'El motivo debe tener al menos 3 caracteres.')
+  .max(500, 'El motivo no puede superar 500 caracteres.');
+
+export const saleAdjustmentSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('RETURN'),
+    reason: adjustmentReasonSchema,
+    items: z
+      .array(adjustmentItemSchema, { error: 'Seleccione al menos un producto devuelto.' })
+      .min(1, 'Seleccione al menos un producto devuelto.')
+      .max(MAX_SALE_LINES, `Una devolución admite hasta ${MAX_SALE_LINES} productos.`)
+      .refine(
+        (items) => new Set(items.map((item) => item.saleItemId)).size === items.length,
+        'No repita el mismo producto en la devolución.',
+      ),
+  }),
+  z.object({
+    type: z.literal('VOID'),
+    reason: adjustmentReasonSchema,
+  }),
+]);
+
+export type SaleAdjustmentInput = z.infer<typeof saleAdjustmentSchema>;

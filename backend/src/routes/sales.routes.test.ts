@@ -121,6 +121,88 @@ describe('GET /api/sales/lookup (HU-16)', () => {
   });
 });
 
+describe('POST /api/sales/:id/adjustments (HU-35)', () => {
+  it('registra una devolución parcial, devuelve el stock y reduce el total conservando la auditoría', async () => {
+    const { app, sales } = buildApp();
+    const created = await request(app).post('/api/sales').send(body());
+    const sale = created.body.data;
+
+    const response = await request(app)
+      .post(`/api/sales/${sale.id}/adjustments`)
+      .send({
+        type: 'RETURN',
+        reason: 'Producto dañado',
+        items: [{ saleItemId: sale.items[0].id, quantity: 1 }],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ status: 'PARTIALLY_RETURNED', total: '1500.00' });
+    expect(response.body.data.adjustments[0]).toMatchObject({
+      type: 'RETURN',
+      reason: 'Producto dañado',
+      total: '1500.00',
+    });
+    expect(response.body.data.adjustments[0].items[0]).toMatchObject({
+      productName: 'Café molido 500 g',
+      quantity: 1,
+    });
+    expect(response.body.data.items[0]).toMatchObject({
+      quantity: 2,
+      returnedQuantity: 1,
+      availableQuantity: 1,
+    });
+    expect(Date.parse(response.body.data.adjustments[0].createdAt)).not.toBeNaN();
+    expect(sales.stockOf(COFFEE_ID)).toBe(9);
+  });
+
+  it('anula lo restante y rechaza volver a anular una venta anulada', async () => {
+    const { app, sales } = buildApp();
+    const created = await request(app).post('/api/sales').send(body());
+    const sale = created.body.data;
+
+    const canceled = await request(app)
+      .post(`/api/sales/${sale.id}/adjustments`)
+      .send({ type: 'VOID', reason: 'Cobro equivocado' });
+    const retry = await request(app)
+      .post(`/api/sales/${sale.id}/adjustments`)
+      .send({ type: 'VOID', reason: 'Segundo intento' });
+
+    expect(canceled.status).toBe(200);
+    expect(canceled.body.data).toMatchObject({ status: 'VOID', total: '0.00' });
+    expect(canceled.body.data.adjustments[0]).toMatchObject({
+      type: 'VOID',
+      reason: 'Cobro equivocado',
+      total: '3000.00',
+    });
+    expect(retry.status).toBe(409);
+    expect(retry.body.error.message).toContain('ya fue anulada');
+    expect(sales.stockOf(COFFEE_ID)).toBe(10);
+  });
+
+  it('rechaza motivos vacíos, cantidades mayores a las vendidas y venta inexistente', async () => {
+    const { app } = buildApp();
+    const created = await request(app).post('/api/sales').send(body());
+    const sale = created.body.data;
+    const path = `/api/sales/${sale.id}/adjustments`;
+
+    expect((await request(app).post(path).send({ type: 'VOID', reason: '  ' })).status).toBe(400);
+
+    const excessive = await request(app)
+      .post(path)
+      .send({
+        type: 'RETURN',
+        reason: 'Devolución',
+        items: [{ saleItemId: sale.items[0].id, quantity: 3 }],
+      });
+    expect(excessive.status).toBe(409);
+
+    const missing = await request(app)
+      .post(`/api/sales/${MISSING_ID}/adjustments`)
+      .send({ type: 'VOID', reason: 'Venta incorrecta' });
+    expect(missing.status).toBe(404);
+  });
+});
+
 describe('POST /api/sales — carrito y total (HU-16)', () => {
   it('calcula el total en el servidor e ignora los precios que envíe el navegador', async () => {
     const { app, sales } = buildApp();

@@ -26,7 +26,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
 
   beforeEach(async () => {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "Product", "Category" CASCADE',
+      'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "Product", "Category" CASCADE',
     );
 
     const category = await prisma.category.create({ data: { name: 'Pruebas' } });
@@ -171,6 +171,68 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
     expect(sale).toMatchObject({ cashReceived: '2000.00', change: '500.00' });
     expect(await service.listSales({ paymentMethod: 'CASH', limit: 50 })).toHaveLength(1);
     expect(await service.listSales({ limit: 50 })).toHaveLength(2);
+  });
+
+  it('devuelve unidades, recalcula total y audita la devolución y anulación en una transacción', async () => {
+    const { sale } = await service.createSale(cardSale([{ productId: coffeeId, quantity: 3 }]));
+
+    const returned = await service.adjustSale(sale.id, {
+      type: 'RETURN',
+      reason: 'Producto defectuoso',
+      items: [{ saleItemId: sale.items[0]!.id, quantity: 1 }],
+    });
+
+    expect(returned).toMatchObject({
+      status: 'PARTIALLY_RETURNED',
+      total: '3000.00',
+      adjustments: [
+        expect.objectContaining({
+          type: 'RETURN',
+          reason: 'Producto defectuoso',
+          total: '1500.00',
+        }),
+      ],
+      items: [expect.objectContaining({ quantity: 3, returnedQuantity: 1, availableQuantity: 2 })],
+    });
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: coffeeId } })).stock).toBe(8);
+
+    const voided = await service.adjustSale(sale.id, { type: 'VOID', reason: 'Venta equivocada' });
+
+    expect(voided).toMatchObject({ status: 'VOID', total: '0.00' });
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: coffeeId } })).stock).toBe(10);
+    await expect(
+      service.adjustSale(sale.id, { type: 'VOID', reason: 'Reintento' }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { saleId: sale.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(movements.map((movement) => [movement.type, movement.quantity])).toEqual([
+      ['EXIT', 3],
+      ['ENTRY', 1],
+      ['ENTRY', 2],
+    ]);
+  });
+
+  it('dos devoluciones concurrentes no restituyen stock ni aplican total dos veces', async () => {
+    const { sale } = await service.createSale(cardSale([{ productId: riceId, quantity: 1 }]));
+    const payload = {
+      type: 'RETURN' as const,
+      reason: 'Devolución duplicada',
+      items: [{ saleItemId: sale.items[0]!.id, quantity: 1 }],
+    };
+
+    const outcomes = await Promise.allSettled([
+      service.adjustSale(sale.id, payload),
+      service.adjustSale(sale.id, payload),
+    ]);
+
+    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: riceId } })).stock).toBe(1);
+    expect(await prisma.saleAdjustment.count({ where: { saleId: sale.id } })).toBe(1);
+    expect((await service.getSale(sale.id)).total).toBe('0.00');
   });
 
   it('fiado: saldo = ventas CREDIT − abonos, con precisión decimal y dos fiados seguidos', async () => {
