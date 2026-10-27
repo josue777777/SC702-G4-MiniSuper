@@ -1224,6 +1224,40 @@ code {
   min-width: 0;
 }
 
+.daily-sales-summary {
+  margin-bottom: 18px;
+}
+
+.daily-sales-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.daily-sales-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #f8fafc;
+}
+
+.daily-sales-summary__item span {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.daily-sales-summary__item strong {
+  font-size: 1.35rem;
+}
+
+.daily-sales-summary__empty {
+  margin: 14px 0 0;
+  color: var(--color-muted);
+}
+
 .chart-card__header {
   margin-bottom: 12px;
 }

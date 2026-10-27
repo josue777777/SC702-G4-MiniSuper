@@ -4,6 +4,7 @@ import type {
   CreateSaleOutcome,
   CreateSalePlan,
   CustomerRef,
+  DailySalesSummaryDto,
   PaymentMethodKind,
   SaleListFilter,
   SaleProductDto,
@@ -175,6 +176,36 @@ export class SalesRepository {
       customerName: row.customer?.name ?? null,
       itemCount: row._count.items,
     }));
+  }
+
+  /** Suma todas las ventas dentro del día indicado, sin límite de filas. */
+  async dailySummary(startAt: Date, endAt: Date): Promise<DailySalesSummaryDto> {
+    const groups = await prisma.sale.groupBy({
+      by: ['paymentMethod'],
+      where: { createdAt: { gte: startAt, lt: endAt } },
+      _sum: { total: true },
+      _count: { _all: true },
+    });
+    const summary: DailySalesSummaryDto = {
+      saleCount: 0,
+      total: '0.00',
+      cash: '0.00',
+      card: '0.00',
+      credit: '0.00',
+    };
+    let totalCents = 0n;
+
+    for (const group of groups) {
+      const cents = toCents(group._sum.total?.toFixed(2) ?? '0.00');
+      const key = ({ CASH: 'cash', CARD: 'card', CREDIT: 'credit' } as const)[group.paymentMethod];
+      totalCents += cents;
+      summary.saleCount += group._count._all;
+      summary[key] = formatCents(cents);
+    }
+
+    summary.total = formatCents(totalCents);
+
+    return summary;
   }
 
   /**

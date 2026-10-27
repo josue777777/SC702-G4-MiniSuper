@@ -44,6 +44,15 @@ export interface SaleSummary {
   itemCount: number;
 }
 
+/** Totales agregados de las ventas del día de negocio (HU-37). */
+export interface DailySalesSummary {
+  saleCount: number;
+  total: string;
+  cash: string;
+  card: string;
+  credit: string;
+}
+
 /** El navegador solo envía producto y cantidad: precios y total los calcula el servidor. */
 export interface CreateSalePayload {
   idempotencyKey: string;

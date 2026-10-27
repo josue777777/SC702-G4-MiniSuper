@@ -2,6 +2,7 @@ import type { CustomersRepository } from '../repositories/customers.repository.j
 import type { SalesRepository } from '../repositories/sales.repository.js';
 import type {
   CreateSalePlan,
+  DailySalesSummaryDto,
   SaleDto,
   SaleListFilter,
   SaleProductDto,
@@ -10,6 +11,7 @@ import type {
 } from '../types/sales.js';
 import { HttpError } from '../utils/http-error.js';
 import { formatCents, toCents } from '../utils/money.js';
+import { todayInBusinessZone } from '../utils/dates.js';
 import type { CreateSaleInput } from '../validators/sales.validator.js';
 import { creditBalance } from './customers.service.js';
 
@@ -123,6 +125,16 @@ export class SalesService {
   /** Historial mínimo, con filtro por método de pago (HU-17). El módulo completo es HU-20. */
   async listSales(filter: SaleListFilter): Promise<SaleSummaryDto[]> {
     return this.repository.list(filter);
+  }
+
+  /** Totales del día calendario del negocio (Costa Rica), sin truncar el historial. */
+  async getDailySummary(now: Date = new Date()): Promise<DailySalesSummaryDto> {
+    const day = todayInBusinessZone(now);
+    // Costa Rica is UTC-6 year-round, so business midnight is 06:00 UTC.
+    const startAt = new Date(`${day}T06:00:00.000Z`);
+    const endAt = new Date(startAt.getTime() + 24 * 60 * 60 * 1000);
+
+    return this.repository.dailySummary(startAt, endAt);
   }
 
   /** Reglas del método de pago: efectivo con monto suficiente, tarjeta sin monto, fiado con cliente. */

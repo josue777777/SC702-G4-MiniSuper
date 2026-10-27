@@ -12,6 +12,8 @@ export function createSalesRouter(
   const controller = new SalesController(new SalesService(repository, customers));
   const router = Router();
 
+  /** Resumen completo del día, antes de `/:id` (HU-37). */
+  router.get('/daily-summary', (req, res) => controller.dailySummary(req, res));
   /** Producto por código o código de barras (HU-16). Antes de `/:id`. */
   router.get('/lookup', (req, res) => controller.lookup(req, res));
   /** Historial mínimo con filtro por método de pago (HU-17). */

@@ -40,6 +40,56 @@ function body(overrides: Record<string, unknown> = {}) {
   };
 }
 
+describe('GET /api/sales/daily-summary (HU-37)', () => {
+  it('devuelve ceros explícitos cuando todavía no hay ventas hoy', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get('/api/sales/daily-summary');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      saleCount: 0,
+      total: '0.00',
+      cash: '0.00',
+      card: '0.00',
+      credit: '0.00',
+    });
+  });
+
+  it('suma con exactitud efectivo, tarjeta y fiados, y excluye ventas de otro día', async () => {
+    const { app, sales } = buildApp();
+    const cash = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CASH', cashReceived: '4000.00' }));
+    const card = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CARD' }));
+    const credit = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CREDIT', customerId: CUSTOMER_ID }));
+
+    sales.sales.push({
+      ...cash.body.data,
+      id: randomUUID(),
+      createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const response = await request(app).get('/api/sales/daily-summary');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      saleCount: 3,
+      total: '9000.00',
+      cash: '3000.00',
+      card: '3000.00',
+      credit: '3000.00',
+    });
+    expect(cash.status).toBe(201);
+    expect(card.status).toBe(201);
+    expect(credit.status).toBe(201);
+  });
+});
+
 describe('GET /api/sales/lookup (HU-16)', () => {
   it('encuentra el producto por código interno o por código de barras', async () => {
     const { app } = buildApp();

@@ -33,6 +33,11 @@ export class SalesController {
     res.status(200).json({ data: await this.service.listSales(filter) });
   }
 
+  /** `GET /api/sales/daily-summary` — totales de hoy en la zona del negocio (HU-37). */
+  async dailySummary(_req: Request, res: Response): Promise<void> {
+    res.status(200).json({ data: await this.service.getDailySummary() });
+  }
+
   /** `GET /api/sales/:id` — una venta con sus líneas (base del comprobante, HU-34). */
   async get(req: Request, res: Response): Promise<void> {
     const { id } = saleIdParamSchema.parse(req.params);

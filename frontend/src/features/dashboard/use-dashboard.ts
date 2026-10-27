@@ -3,6 +3,7 @@ import { ApiError } from '../../services/api-client';
 import { inventoryService } from '../../services/inventory.service';
 import { productsService } from '../../services/products.service';
 import { purchaseOrdersService } from '../../services/purchase-orders.service';
+import { salesService } from '../../services/sales.service';
 import {
   summarizeInventory,
   summarizePendingOrders,
@@ -12,11 +13,13 @@ import {
   type InventorySummary,
   type PendingOrdersSummary,
 } from './dashboard-metrics';
+import type { DailySalesSummary } from '../../types/sales';
 
 /** Cada cuánto se actualiza el panel solo, igual que las alertas de HU-08. */
 export const DASHBOARD_REFRESH_MS = 15_000;
 
 export interface DashboardData {
+  dailySales: DailySalesSummary;
   inventory: InventorySummary;
   pendingOrders: PendingOrdersSummary;
   lowStockCount: number;
@@ -42,16 +45,18 @@ export function useDashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [products, orders, lowStock, expirations] = await Promise.all([
+      const [products, orders, lowStock, expirations, dailySales] = await Promise.all([
         productsService.list(),
         purchaseOrdersService.list(),
         inventoryService.listLowStock(),
         inventoryService.listExpirations(),
+        salesService.dailySummary(),
       ]);
 
       setState({
         phase: 'ready',
         data: {
+          dailySales,
           inventory: summarizeInventory(products),
           pendingOrders: summarizePendingOrders(orders),
           lowStockCount: lowStock.length,
