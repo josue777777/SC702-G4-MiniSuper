@@ -2,6 +2,8 @@ import type { CustomersRepository } from '../repositories/customers.repository.j
 import type { SalesRepository } from '../repositories/sales.repository.js';
 import type {
   CreateSalePlan,
+  DailySalesSummaryDto,
+  SaleAdjustmentPlan,
   SaleDto,
   SaleListFilter,
   SaleProductDto,
@@ -10,6 +12,7 @@ import type {
 } from '../types/sales.js';
 import { HttpError } from '../utils/http-error.js';
 import { formatCents, toCents } from '../utils/money.js';
+import { todayInBusinessZone } from '../utils/dates.js';
 import type { CreateSaleInput } from '../validators/sales.validator.js';
 import { creditBalance } from './customers.service.js';
 
@@ -125,6 +128,37 @@ export class SalesService {
     return this.repository.list(filter);
   }
 
+  async adjustSale(saleId: string, input: Omit<SaleAdjustmentPlan, 'saleId'>): Promise<SaleDto> {
+    const outcome = await this.repository.adjustSale({ ...input, saleId });
+
+    if (!outcome.ok) {
+      switch (outcome.reason) {
+        case 'NOT_FOUND':
+          throw HttpError.notFound('La venta no existe.');
+        case 'ALREADY_VOID':
+          throw HttpError.conflict('La venta ya fue anulada y no admite más ajustes.');
+        case 'ALREADY_RETURNED':
+          throw HttpError.conflict('Todos los productos de la venta ya fueron devueltos.');
+        case 'INVALID_ITEM':
+          throw HttpError.badRequest('Uno de los productos no pertenece a esta venta.');
+        case 'QUANTITY_EXCEEDED':
+          throw HttpError.conflict('La cantidad solicitada supera los productos aún disponibles.');
+      }
+    }
+
+    return this.withDerived(outcome.sale);
+  }
+
+  /** Totales del día calendario del negocio (Costa Rica), sin truncar el historial. */
+  async getDailySummary(now: Date = new Date()): Promise<DailySalesSummaryDto> {
+    const day = todayInBusinessZone(now);
+    // Costa Rica is UTC-6 year-round, so business midnight is 06:00 UTC.
+    const startAt = new Date(`${day}T06:00:00.000Z`);
+    const endAt = new Date(startAt.getTime() + 24 * 60 * 60 * 1000);
+
+    return this.repository.dailySummary(startAt, endAt);
+  }
+
   /** Reglas del método de pago: efectivo con monto suficiente, tarjeta sin monto, fiado con cliente. */
   private async validatePayment(
     input: CreateSaleInput,
@@ -181,7 +215,7 @@ export class SalesService {
   private async withDerived(sale: SaleRecord): Promise<SaleDto> {
     const change =
       sale.paymentMethod === 'CASH' && sale.cashReceived !== null
-        ? formatCents(toCents(sale.cashReceived) - toCents(sale.total))
+        ? formatCents(toCents(sale.cashReceived) - toCents(sale.originalTotal))
         : null;
     const customerBalance =
       sale.paymentMethod === 'CREDIT' && sale.customer !== null

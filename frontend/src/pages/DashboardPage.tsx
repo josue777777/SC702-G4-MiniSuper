@@ -1,5 +1,4 @@
 import { BackendStatusCard } from '../components/BackendStatusCard';
-import { PagePlaceholder } from '../components/PagePlaceholder';
 import { useSession } from '../features/auth/session-context';
 import { BarList } from '../features/dashboard/BarList';
 import { QuickLinks } from '../features/dashboard/QuickLinks';
@@ -17,17 +16,16 @@ import { formatMoney } from '../features/products/money';
 export function DashboardPage() {
   const { phase, data, message, reload } = useDashboard();
   const { can } = useSession();
+  const dailySales = data?.dailySales ?? null;
+  const hasSalesToday = dailySales !== null && dailySales.saleCount > 0;
 
   return (
-    <PagePlaceholder
-      title="Panel principal"
-      summary="Resumen del negocio y lo que necesita atención hoy. Se actualiza solo."
-      stories="HU-23, HU-37"
-      tasks={[
-        'Total vendido hoy por efectivo y tarjeta, y fiados del día (HU-37).',
-        'Pedido sugerido a partir de los productos con stock bajo (HU-23).',
-      ]}
-    >
+    <>
+      <header className="page-header">
+        <h1>Panel principal</h1>
+        <p>Resumen del negocio y lo que necesita atención hoy. Se actualiza solo.</p>
+      </header>
+
       {phase === 'failed' ? (
         <p className="alert alert--error" role="status">
           No se pudo actualizar el resumen: {message}{' '}
@@ -35,6 +33,53 @@ export function DashboardPage() {
             Reintentar
           </button>
         </p>
+      ) : null}
+
+      {/* HU-37: solo para los roles que manejan ventas. */}
+      {can('sales') ? (
+        <section className="card daily-sales-summary" aria-labelledby="daily-sales-title">
+          <header className="card__header">
+            <h2 id="daily-sales-title">Resumen de ventas de hoy</h2>
+            {dailySales === null ? null : (
+              <span className="muted">
+                {dailySales.saleCount} venta{dailySales.saleCount === 1 ? '' : 's'}
+              </span>
+            )}
+          </header>
+          {dailySales === null ? (
+            <p className="muted" role="status">
+              {phase === 'failed'
+                ? 'No se pudo cargar el resumen de ventas.'
+                : 'Cargando ventas de hoy…'}
+            </p>
+          ) : (
+            <>
+              <div className="daily-sales-summary__grid">
+                <div className="daily-sales-summary__item">
+                  <span>Total vendido</span>
+                  <strong>{formatMoney(dailySales.total)}</strong>
+                </div>
+                <div className="daily-sales-summary__item">
+                  <span>Efectivo</span>
+                  <strong>{formatMoney(dailySales.cash)}</strong>
+                </div>
+                <div className="daily-sales-summary__item">
+                  <span>Tarjeta</span>
+                  <strong>{formatMoney(dailySales.card)}</strong>
+                </div>
+                <div className="daily-sales-summary__item">
+                  <span>Fiados generados</span>
+                  <strong>{formatMoney(dailySales.credit)}</strong>
+                </div>
+              </div>
+              {!hasSalesToday ? (
+                <p className="daily-sales-summary__empty" role="status">
+                  Aún no se han registrado ventas hoy. Los totales se actualizarán automáticamente.
+                </p>
+              ) : null}
+            </>
+          )}
+        </section>
       ) : null}
 
       <div className="stat-grid">
@@ -110,6 +155,6 @@ export function DashboardPage() {
       </div>
 
       <BackendStatusCard />
-    </PagePlaceholder>
+    </>
   );
 }

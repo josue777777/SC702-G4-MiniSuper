@@ -2,7 +2,9 @@ import type {
   CreateSalePayload,
   Customer,
   CustomerPayload,
+  DailySalesSummary,
   PaymentMethod,
+  SaleAdjustmentPayload,
   Sale,
   SaleProduct,
   SaleSummary,
@@ -36,6 +38,18 @@ export const salesService = {
     const query = paymentMethod === undefined ? '' : `?paymentMethod=${paymentMethod}`;
 
     return (await apiGet<DataResponse<SaleSummary[]>>(`/api/sales${query}`)).data;
+  },
+
+  /** HU-37: resumen completo de ventas del día de negocio, sin límite de filas. */
+  async dailySummary(): Promise<DailySalesSummary> {
+    return (await apiGet<DataResponse<DailySalesSummary>>('/api/sales/daily-summary')).data;
+  },
+
+  /** HU-35: registrar una devolución parcial o anular la venta completa. */
+  async adjust(id: string, payload: SaleAdjustmentPayload): Promise<Sale> {
+    return (
+      await apiPost<DataResponse<Sale>>(`/api/sales/${encodeURIComponent(id)}/adjustments`, payload)
+    ).data;
   },
 };
 

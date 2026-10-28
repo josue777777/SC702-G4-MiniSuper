@@ -5,19 +5,23 @@ import type { PaymentMethod, SaleSummary } from '../../types/sales';
 import { formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
 import { PAYMENT_LABELS } from './payment-labels';
+import { SaleAdjustmentModal } from './SaleAdjustmentModal';
 
 interface SalesHistoryProps {
   /** Cambia tras cada venta confirmada para recargar el historial. */
   version: number;
   /** Abre el comprobante de una venta del historial (HU-34). */
   onOpenReceipt: (saleId: string) => void;
+  /** Recarga el historial luego de modificar una venta. */
+  onAdjustmentComplete: () => void;
 }
 
 /** Historial mínimo de ventas con filtro por método de pago (HU-17). El módulo completo es HU-20. */
-export function SalesHistory({ version, onOpenReceipt }: SalesHistoryProps) {
+export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: SalesHistoryProps) {
   const [filter, setFilter] = useState<PaymentMethod | ''>('');
   const [sales, setSales] = useState<SaleSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [adjustmentSaleId, setAdjustmentSaleId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,11 +92,12 @@ export function SalesHistory({ version, onOpenReceipt }: SalesHistoryProps) {
                 <th>Venta</th>
                 <th>Fecha y hora</th>
                 <th>Método de pago</th>
+                <th>Estado</th>
                 <th>Cliente</th>
                 <th className="table__number">Productos</th>
                 <th className="table__number">Total</th>
                 <th>
-                  <span className="visually-hidden">Comprobante</span>
+                  <span className="visually-hidden">Acciones</span>
                 </th>
               </tr>
             </thead>
@@ -102,18 +107,31 @@ export function SalesHistory({ version, onOpenReceipt }: SalesHistoryProps) {
                   <td>#{sale.number}</td>
                   <td>{formatDateTime(sale.createdAt)}</td>
                   <td>{PAYMENT_LABELS[sale.paymentMethod]}</td>
+                  <td>{saleStatusLabel(sale.status)}</td>
                   <td>{sale.customerName ?? '—'}</td>
                   <td className="table__number">{sale.itemCount}</td>
                   <td className="table__number">{formatMoney(sale.total)}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="button"
-                      aria-label={`Ver comprobante de la venta ${sale.number}`}
-                      onClick={() => onOpenReceipt(sale.id)}
-                    >
-                      Comprobante
-                    </button>
+                    <div className="row-actions">
+                      <button
+                        type="button"
+                        className="button"
+                        aria-label={`Ver comprobante de la venta ${sale.number}`}
+                        onClick={() => onOpenReceipt(sale.id)}
+                      >
+                        Comprobante
+                      </button>
+                      <button
+                        type="button"
+                        className="button"
+                        aria-label={`${sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED' ? 'Anular o devolver' : 'Ver ajustes de'} la venta ${sale.number}`}
+                        onClick={() => setAdjustmentSaleId(sale.id)}
+                      >
+                        {sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED'
+                          ? 'Anular/devolver'
+                          : 'Ver ajustes'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -121,6 +139,29 @@ export function SalesHistory({ version, onOpenReceipt }: SalesHistoryProps) {
           </table>
         </div>
       ) : null}
+      {adjustmentSaleId === null ? null : (
+        <SaleAdjustmentModal
+          saleId={adjustmentSaleId}
+          onClose={() => setAdjustmentSaleId(null)}
+          onSaved={() => {
+            setAdjustmentSaleId(null);
+            onAdjustmentComplete();
+          }}
+        />
+      )}
     </section>
   );
+}
+
+function saleStatusLabel(status: SaleSummary['status']): string {
+  switch (status) {
+    case 'COMPLETED':
+      return 'Completada';
+    case 'PARTIALLY_RETURNED':
+      return 'Con devolución';
+    case 'RETURNED':
+      return 'Devuelta';
+    case 'VOID':
+      return 'Anulada';
+  }
 }
