@@ -1,11 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { disconnectPrisma, prisma } from '../config/prisma.js';
-import { AuthService } from '../services/auth.service.js';
-import { LoginRateLimiter } from '../utils/login-rate-limiter.js';
+import { ensureInitialAdmin } from '../services/initial-admin.service.js';
 import { UsersRepository } from './users.repository.js';
 
 /**
- * Integración contra PostgreSQL real (HU-12: cuenta única bajo concurrencia).
+ * Integración contra PostgreSQL real (usuarios y roles).
  *
  * Borra la tabla `User`, por eso solo corre si DATABASE_URL apunta a una base
  * cuyo nombre termina en `_test`; con la base de desarrollo se omite sola.
@@ -13,6 +12,12 @@ import { UsersRepository } from './users.repository.js';
  */
 const databaseName = new URL(process.env['DATABASE_URL'] ?? 'postgresql://x/none').pathname;
 const isTestDatabase = databaseName.endsWith('_test');
+
+const BASE = {
+  passwordHash: '$argon2id$de-prueba',
+  role: 'CAJERO',
+  mustChangePassword: true,
+} as const;
 
 describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () => {
   const repository = new UsersRepository();
@@ -26,87 +31,77 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
     await disconnectPrisma();
   });
 
-  it('solo una de varias altas simultáneas crea la cuenta', async () => {
-    const attempts = Array.from({ length: 8 }, (_, index) =>
-      repository.createOwner({
-        name: `Dueño ${index}`,
-        email: `dueno${index}@correo.cr`,
-        passwordHash: '$argon2id$de-prueba',
-      }),
-    );
-
-    const results = await Promise.all(attempts);
-
-    expect(results.filter((result) => result !== null)).toHaveLength(1);
-    expect(await repository.count()).toBe(1);
-  });
-
-  it('AuthService: solicitudes de configuración simultáneas dejan exactamente un usuario', async () => {
-    const service = new AuthService(repository, {
-      sessionSecret: 's'.repeat(40),
-      requireSetupToken: false,
-      limiter: new LoginRateLimiter(),
-    });
-
-    const settled = await Promise.allSettled(
+  it('de varias altas simultáneas con el mismo correo, solo una se guarda', async () => {
+    const results = await Promise.all(
       Array.from({ length: 6 }, (_, index) =>
-        service.setupOwner({
-          name: 'Ana',
-          email: `ana${index}@correo.cr`,
-          password: 'ClaveSegura123',
-        }),
+        repository.create({ ...BASE, name: `Cajero ${index}`, email: 'caja@correo.cr' }),
       ),
     );
 
-    expect(settled.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    for (const result of settled) {
-      if (result.status === 'rejected') {
-        expect(result.reason).toMatchObject({ statusCode: 409 });
-      }
-    }
+    expect(results.filter((result) => result !== null)).toHaveLength(1);
     expect(await prisma.user.count()).toBe(1);
   });
 
-  it('guarda un hash Argon2id y no la contraseña en texto plano', async () => {
-    const service = new AuthService(repository, {
-      sessionSecret: 's'.repeat(40),
-      requireSetupToken: false,
-      limiter: new LoginRateLimiter(),
+  it('countActiveAdmins solo cuenta administradores activos', async () => {
+    await repository.create({ ...BASE, role: 'ADMIN', name: 'Ana', email: 'ana@correo.cr' });
+    const other = await repository.create({
+      ...BASE,
+      role: 'ADMIN',
+      name: 'Luis',
+      email: 'luis@correo.cr',
     });
+    await repository.create({ ...BASE, name: 'Caja', email: 'caja@correo.cr' });
 
-    await service.setupOwner({ name: 'Ana', email: 'ana@correo.cr', password: 'ClaveSegura123' });
-    const row = await prisma.user.findUniqueOrThrow({ where: { email: 'ana@correo.cr' } });
+    expect(await repository.countActiveAdmins()).toBe(2);
 
-    expect(row.passwordHash).toMatch(/^\$argon2id\$/);
-    expect(row.passwordHash).not.toContain('ClaveSegura123');
+    await repository.update(other?.id ?? '', { isActive: false });
+
+    expect(await repository.countActiveAdmins()).toBe(1);
   });
 
   it('revokeSessions incrementa la versión de sesión de forma atómica (HU-15)', async () => {
-    const created = await repository.createOwner({
-      name: 'Ana',
-      email: 'ana@correo.cr',
-      passwordHash: '$argon2id$de-prueba',
-    });
+    const created = await repository.create({ ...BASE, name: 'Ana', email: 'ana@correo.cr' });
     const id = created?.id ?? '';
-
-    expect((await repository.findById(id))?.sessionVersion).toBe(0);
 
     await Promise.all([repository.revokeSessions(id), repository.revokeSessions(id)]);
 
     expect((await repository.findById(id))?.sessionVersion).toBe(2);
   });
 
-  it('actualiza nombre y correo y los vuelve a leer', async () => {
-    const created = await repository.createOwner({
-      name: 'Ana',
-      email: 'ana@correo.cr',
-      passwordHash: '$argon2id$de-prueba',
+  it('update cambia rol y estado, y devuelve null si el correo ya es de otro', async () => {
+    const ana = await repository.create({ ...BASE, name: 'Ana', email: 'ana@correo.cr' });
+    await repository.create({ ...BASE, name: 'Luis', email: 'luis@correo.cr' });
+
+    const updated = await repository.update(ana?.id ?? '', {
+      role: 'BODEGA',
+      isActive: false,
+      revokeSessions: true,
     });
 
-    await repository.update(created?.id ?? '', { name: 'Ana María', email: 'nuevo@correo.cr' });
-
-    expect(await repository.findByEmail('nuevo@correo.cr')).toEqual(
-      expect.objectContaining({ name: 'Ana María' }),
+    expect(updated).toEqual(
+      expect.objectContaining({ role: 'BODEGA', isActive: false, sessionVersion: 1 }),
     );
+    expect(await repository.update(ana?.id ?? '', { email: 'luis@correo.cr' })).toBeNull();
+  });
+
+  it('el administrador inicial se crea una sola vez y guarda un hash Argon2id', async () => {
+    const input = { name: 'Admin', email: 'admin@correo.cr', password: 'ClaveSegura123' };
+
+    expect(await ensureInitialAdmin(repository, input)).toEqual({
+      status: 'created',
+      email: 'admin@correo.cr',
+    });
+    expect(await ensureInitialAdmin(repository, { ...input, password: 'OtraClave98765' })).toEqual({
+      status: 'exists',
+    });
+
+    const rows = await prisma.user.findMany();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({ role: 'ADMIN', mustChangePassword: true, isActive: true }),
+    );
+    expect(rows[0]?.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(rows[0]?.passwordHash).not.toContain('ClaveSegura123');
   });
 });

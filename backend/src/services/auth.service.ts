@@ -1,26 +1,22 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { permissionsOf } from '../auth/permissions.js';
 import type { UsersRepository } from '../repositories/users.repository.js';
-import type { ProfileDto, SetupStatusDto } from '../types/auth.js';
+import type { SessionUserDto, UserRecord } from '../types/auth.js';
 import { HttpError } from '../utils/http-error.js';
 import type { LoginRateLimiter } from '../utils/login-rate-limiter.js';
-import { hashPassword, verifyAgainstDecoy, verifyPassword } from '../utils/password.js';
+import { verifyAgainstDecoy, verifyPassword } from '../utils/password.js';
 import {
   createSessionToken,
   passwordVersionOf,
   verifySessionToken,
 } from '../utils/session-token.js';
-import type { LoginInput, SetupInput } from '../validators/auth.validator.js';
+import type { LoginInput } from '../validators/auth.validator.js';
 
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
-const ALREADY_CONFIGURED = 'El sistema ya está configurado. Inicie sesión con su cuenta.';
+const INVALID_CREDENTIALS = 'Correo o contraseña incorrectos.';
 
 export interface AuthServiceOptions {
   sessionSecret: string;
-  /** Token que el administrador definió para la instalación (SETUP_TOKEN). */
-  setupToken?: string;
-  /** En producción la configuración inicial sin token queda deshabilitada. */
-  requireSetupToken: boolean;
   limiter: LoginRateLimiter;
   /** Reloj inyectable para probar expiraciones. */
   now?: () => Date;
@@ -28,26 +24,26 @@ export interface AuthServiceOptions {
 
 export interface IssuedSession {
   token: string;
-  user: ProfileDto;
+  user: SessionUserDto;
 }
 
-function sameSecret(received: string | undefined, expected: string): boolean {
-  if (received === undefined) {
-    return false;
-  }
-
-  // Se comparan los resúmenes para que ni la longitud del token se filtre por tiempo.
-  const a = createHash('sha256').update(received).digest();
-  const b = createHash('sha256').update(expected).digest();
-
-  return timingSafeEqual(a, b);
+/** Lo que la sesión expone del usuario: nunca el hash ni datos internos. */
+export function toSessionUser(user: UserRecord): SessionUserDto {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    permissions: permissionsOf(user.role),
+    mustChangePassword: user.mustChangePassword,
+  };
 }
 
-function toProfile(user: ProfileDto): ProfileDto {
-  return { id: user.id, name: user.name, email: user.email };
-}
-
-/** Reglas de negocio de la cuenta única (HU-12) y de la sesión (base de HU-11; cierre en HU-15). */
+/**
+ * Reglas del inicio y cierre de sesión (HU-11, HU-15). Los usuarios los crea el
+ * administrador (`users.service.ts`) o el comando del administrador inicial:
+ * no existe registro público.
+ */
 export class AuthService {
   constructor(
     private readonly repository: UsersRepository,
@@ -58,47 +54,10 @@ export class AuthService {
     return Math.floor((this.options.now?.() ?? new Date()).getTime() / 1000);
   }
 
-  async getSetupStatus(): Promise<SetupStatusDto> {
-    return {
-      configured: (await this.repository.count()) > 0,
-      tokenRequired: this.options.setupToken !== undefined,
-    };
-  }
-
-  /** Crea la cuenta del dueño la primera vez; después siempre responde 409. */
-  async setupOwner(input: SetupInput): Promise<ProfileDto> {
-    if ((await this.repository.count()) > 0) {
-      throw HttpError.conflict(ALREADY_CONFIGURED);
-    }
-
-    const { setupToken } = this.options;
-
-    if (setupToken === undefined) {
-      if (this.options.requireSetupToken) {
-        throw new HttpError(
-          503,
-          'La configuración inicial está deshabilitada: el administrador debe definir SETUP_TOKEN en el servidor.',
-        );
-      }
-    } else if (!sameSecret(input.setupToken, setupToken)) {
-      throw HttpError.forbidden('El token de configuración no es válido.');
-    }
-
-    const created = await this.repository.createOwner({
-      name: input.name,
-      email: input.email,
-      passwordHash: await hashPassword(input.password),
-    });
-
-    // `null`: otra petición simultánea creó la cuenta primero (índice único).
-    if (created === null) {
-      throw HttpError.conflict(ALREADY_CONFIGURED);
-    }
-
-    return created;
-  }
-
-  /** Verifica credenciales y emite el token de sesión. El error es el mismo en todos los fallos. */
+  /**
+   * Verifica credenciales y emite el token de sesión. El error es el mismo en
+   * todos los fallos, incluido un usuario desactivado: no se revela qué falló.
+   */
   async login(input: LoginInput, clientKey: string): Promise<IssuedSession> {
     if (this.options.limiter.isBlocked(clientKey)) {
       throw HttpError.tooManyRequests('Demasiados intentos fallidos. Intente de nuevo más tarde.');
@@ -110,14 +69,14 @@ export class AuthService {
         ? (await verifyAgainstDecoy(input.password), false)
         : await verifyPassword(user.passwordHash, input.password);
 
-    if (user === null || !valid) {
+    if (user === null || !valid || !user.isActive) {
       this.options.limiter.recordFailure(clientKey);
-      throw HttpError.unauthorized('Correo o contraseña incorrectos.');
+      throw HttpError.unauthorized(INVALID_CREDENTIALS);
     }
 
     this.options.limiter.reset(clientKey);
 
-    return { token: this.issueToken(user), user: toProfile(user) };
+    return { token: this.issueToken(user), user: toSessionUser(user) };
   }
 
   /** Emite un token nuevo (también tras cambiar la contraseña, para no cerrar la sesión actual). */
@@ -135,9 +94,10 @@ export class AuthService {
 
   /**
    * Usuario de la sesión, o `null` si el token es falso, venció, la contraseña
-   * cambió o la sesión se cerró (HU-15).
+   * cambió, la sesión se cerró (HU-15), el administrador lo desactivó o le
+   * cambió el rol.
    */
-  async resolveSession(token: string | undefined): Promise<ProfileDto | null> {
+  async resolveSession(token: string | undefined): Promise<SessionUserDto | null> {
     if (token === undefined) {
       return null;
     }
@@ -152,13 +112,14 @@ export class AuthService {
 
     if (
       user === null ||
+      !user.isActive ||
       passwordVersionOf(user.passwordHash) !== payload.passwordVersion ||
       user.sessionVersion !== payload.sessionVersion
     ) {
       return null;
     }
 
-    return toProfile(user);
+    return toSessionUser(user);
   }
 
   /**

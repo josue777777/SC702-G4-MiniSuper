@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeUsersRepository, OWNER_ID } from '../testing/users.repository.fake.js';
+import { FakeUsersRepository, makeUser, OWNER_ID } from '../testing/users.repository.fake.js';
 import { hashPassword, verifyPassword } from '../utils/password.js';
 import { ProfileService } from './profile.service.js';
 
-/** Reglas del perfil del dueño (HU-14), con el doble de repositorio. */
+/** Reglas del perfil propio (HU-14), con el doble de repositorio. */
 
 const PASSWORD = 'ClaveSegura123';
 
@@ -11,25 +11,24 @@ let repository: FakeUsersRepository;
 let service: ProfileService;
 
 beforeEach(async () => {
-  repository = new FakeUsersRepository([
-    {
-      id: OWNER_ID,
-      name: 'Ana Pérez',
-      email: 'ana@correo.cr',
-      passwordHash: await hashPassword(PASSWORD),
-      sessionVersion: 0,
-    },
-  ]);
+  repository = new FakeUsersRepository([makeUser({ passwordHash: await hashPassword(PASSWORD) })]);
   service = new ProfileService(repository);
 });
 
 describe('ProfileService.getProfile', () => {
-  it('devuelve nombre y correo actuales, sin hash', async () => {
-    expect(await service.getProfile(OWNER_ID)).toEqual({
-      id: OWNER_ID,
-      name: 'Ana Pérez',
-      email: 'ana@correo.cr',
-    });
+  it('devuelve nombre, correo, rol y permisos actuales, sin hash', async () => {
+    const profile = await service.getProfile(OWNER_ID);
+
+    expect(profile).toEqual(
+      expect.objectContaining({
+        id: OWNER_ID,
+        name: 'Ana Pérez',
+        email: 'ana@correo.cr',
+        role: 'ADMIN',
+        mustChangePassword: false,
+      }),
+    );
+    expect(profile).not.toHaveProperty('passwordHash');
   });
 });
 
@@ -73,6 +72,36 @@ describe('ProfileService.updateProfile', () => {
       true,
     );
     expect(await verifyPassword(repository.stored[0]?.passwordHash ?? '', PASSWORD)).toBe(false);
+  });
+
+  it('cambiar una contraseña temporal deja de pedir el cambio', async () => {
+    await repository.update(OWNER_ID, { mustChangePassword: true });
+
+    const result = await service.updateProfile(OWNER_ID, {
+      newPassword: 'OtraClave456789',
+      currentPassword: PASSWORD,
+    });
+
+    expect(result.profile.mustChangePassword).toBe(false);
+    expect(repository.stored[0]?.mustChangePassword).toBe(false);
+  });
+
+  it('cambiar solo el nombre no quita la contraseña temporal', async () => {
+    await repository.update(OWNER_ID, { mustChangePassword: true });
+
+    const result = await service.updateProfile(OWNER_ID, { name: 'Ana María' });
+
+    expect(result.profile.mustChangePassword).toBe(true);
+  });
+
+  it('el perfil no permite cambiar el propio rol ni el estado', async () => {
+    const result = await service.updateProfile(OWNER_ID, {
+      name: 'Ana María',
+      ...({ role: 'CAJERO', isActive: false } as object),
+    });
+
+    expect(result.profile.role).toBe('ADMIN');
+    expect(repository.stored[0]?.isActive).toBe(true);
   });
 
   it('rechaza una contraseña nueva igual a la actual', async () => {

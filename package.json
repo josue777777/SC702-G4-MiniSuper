@@ -23,6 +23,7 @@
     "prisma:generate": "npm run prisma:generate -w backend",
     "prisma:validate": "npm run prisma:validate -w backend",
     "db:migrate": "npm run db:migrate -w backend",
+    "db:seed": "npm run db:seed -w backend",
     "db:studio": "npm run db:studio -w backend"
   },
   "devDependencies": {

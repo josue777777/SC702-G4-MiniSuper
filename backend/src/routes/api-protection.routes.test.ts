@@ -47,6 +47,12 @@ const PROTECTED: [method: 'get' | 'post' | 'put' | 'patch' | 'delete', path: str
   ['post', '/api/purchase-orders'],
   ['get', '/api/profile'],
   ['patch', '/api/profile'],
+  ['get', '/api/users'],
+  ['post', '/api/users'],
+  ['patch', '/api/users/x'],
+  ['post', '/api/users/x/deactivate'],
+  ['post', '/api/users/x/activate'],
+  ['post', '/api/users/x/reset-password'],
 ];
 
 let app: express.Express;

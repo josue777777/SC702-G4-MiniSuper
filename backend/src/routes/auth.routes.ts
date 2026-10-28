@@ -21,8 +21,6 @@ export function createAuthRouter(
   });
   router.use(createSameOriginGuard(allowedOrigin));
 
-  router.get('/setup-status', (req, res) => controller.setupStatus(req, res));
-  router.post('/setup', (req, res) => controller.setup(req, res));
   router.post('/login', (req, res) => controller.login(req, res));
   router.get('/session', (req, res) => controller.session(req, res));
   router.post('/logout', (req, res) => controller.logout(req, res));
@@ -30,11 +28,9 @@ export function createAuthRouter(
   return router;
 }
 
-/** Service compartido con `/api/profile`: ambos usan la misma sesión. */
+/** Service compartido con `/api/profile`, `/api/users` y las rutas protegidas: todos usan la misma sesión. */
 export const authService = new AuthService(new UsersRepository(), {
   sessionSecret,
-  ...(env.SETUP_TOKEN === undefined ? {} : { setupToken: env.SETUP_TOKEN }),
-  requireSetupToken: isProduction,
   limiter: new LoginRateLimiter(),
 });
 

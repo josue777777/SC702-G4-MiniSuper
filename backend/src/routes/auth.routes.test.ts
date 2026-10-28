@@ -1,23 +1,30 @@
 import express from 'express';
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { errorHandler } from '../middleware/error-handler.middleware.js';
 import { AuthService } from '../services/auth.service.js';
-import { FakeUsersRepository } from '../testing/users.repository.fake.js';
+import { FakeUsersRepository, makeUser } from '../testing/users.repository.fake.js';
 import { LoginRateLimiter } from '../utils/login-rate-limiter.js';
+import { hashPassword } from '../utils/password.js';
 import { createAuthRouter } from './auth.routes.js';
 import { createProfileRouter } from './profile.routes.js';
 
-/** HTTP de la cuenta única (HU-12), del perfil (HU-14) y del cierre de sesión (HU-15), con repositorio falso. */
+/** HTTP del inicio de sesión (HU-11), del perfil (HU-14) y del cierre (HU-15), con repositorio falso. */
 
 const ORIGIN = 'http://localhost:5173';
 const OWNER = { name: 'Ana Pérez', email: 'ana@correo.cr', password: 'ClaveSegura123' };
 
+let passwordHash: string;
+
+beforeAll(async () => {
+  passwordHash = await hashPassword(OWNER.password);
+});
+
+/** App con un administrador ya creado (lo que hace `npm run db:seed`). */
 function buildApp() {
-  const repository = new FakeUsersRepository();
+  const repository = new FakeUsersRepository([makeUser({ passwordHash })]);
   const auth = new AuthService(repository, {
     sessionSecret: 's'.repeat(40),
-    requireSetupToken: false,
     limiter: new LoginRateLimiter(),
   });
   const app = express();
@@ -34,7 +41,6 @@ async function loggedInAgent() {
   const { app, repository } = buildApp();
   const agent = request.agent(app);
 
-  await agent.post('/api/auth/setup').send(OWNER).expect(201);
   await agent
     .post('/api/auth/login')
     .send({ email: OWNER.email, password: OWNER.password })
@@ -43,77 +49,19 @@ async function loggedInAgent() {
   return { agent, app, repository };
 }
 
-describe('GET /api/auth/setup-status', () => {
-  it('informa que falta configurar y luego que ya está configurado', async () => {
-    const { app } = buildApp();
-
-    expect((await request(app).get('/api/auth/setup-status')).body).toEqual({
-      data: { configured: false, tokenRequired: false },
-    });
-
-    await request(app).post('/api/auth/setup').send(OWNER).expect(201);
-
-    expect((await request(app).get('/api/auth/setup-status')).body.data.configured).toBe(true);
-  });
-});
-
-describe('POST /api/auth/setup', () => {
-  it('responde 201 con el dueño, sin hash, y guarda la contraseña con Argon2id', async () => {
+describe('Registro público', () => {
+  it('ya no existe: /api/auth/setup y /api/auth/setup-status no responden', async () => {
     const { app, repository } = buildApp();
 
-    const response = await request(app).post('/api/auth/setup').send(OWNER);
-
-    expect(response.status).toBe(201);
-    expect(response.body.data).toEqual(
-      expect.objectContaining({ name: 'Ana Pérez', email: 'ana@correo.cr' }),
-    );
-    expect(JSON.stringify(response.body)).not.toContain('argon2');
-    expect(repository.stored[0]?.passwordHash).toMatch(/^\$argon2id\$/);
-  });
-
-  it('responde 400 ante correo inválido o contraseña débil', async () => {
-    const { app, repository } = buildApp();
-
-    const badEmail = await request(app)
-      .post('/api/auth/setup')
-      .send({ ...OWNER, email: 'x' });
-    const weak = await request(app)
-      .post('/api/auth/setup')
-      .send({ ...OWNER, password: 'corta' });
-
-    expect(badEmail.status).toBe(400);
-    expect(weak.status).toBe(400);
-    expect(repository.stored).toHaveLength(0);
-  });
-
-  it('rechaza con 409 un segundo registro', async () => {
-    const { app, repository } = buildApp();
-    await request(app).post('/api/auth/setup').send(OWNER).expect(201);
-
-    const second = await request(app)
-      .post('/api/auth/setup')
-      .send({ ...OWNER, email: 'otro@correo.cr' });
-
-    expect(second.status).toBe(409);
+    expect((await request(app).get('/api/auth/setup-status')).status).toBe(404);
+    expect((await request(app).post('/api/auth/setup').send(OWNER)).status).toBe(404);
     expect(repository.stored).toHaveLength(1);
-  });
-
-  it('rechaza con 403 una petición de otro origen (CSRF)', async () => {
-    const { app } = buildApp();
-
-    const response = await request(app)
-      .post('/api/auth/setup')
-      .set('Origin', 'https://sitio-malicioso.example')
-      .send(OWNER);
-
-    expect(response.status).toBe(403);
   });
 });
 
 describe('POST /api/auth/login y GET /api/auth/session', () => {
   it('abre sesión con una cookie HttpOnly y SameSite=Strict', async () => {
     const { app } = buildApp();
-    await request(app).post('/api/auth/setup').send(OWNER);
 
     const response = await request(app)
       .post('/api/auth/login')
@@ -130,7 +78,6 @@ describe('POST /api/auth/login y GET /api/auth/session', () => {
 
   it('responde 400 con el error de cada campo si falta un dato o el formato no es válido', async () => {
     const { app } = buildApp();
-    await request(app).post('/api/auth/setup').send(OWNER);
 
     const empty = await request(app).post('/api/auth/login').send({ email: '', password: '' });
     const badFormat = await request(app)
@@ -152,7 +99,6 @@ describe('POST /api/auth/login y GET /api/auth/session', () => {
 
   it('responde 401 con credenciales incorrectas y sin cookie', async () => {
     const { app } = buildApp();
-    await request(app).post('/api/auth/setup').send(OWNER);
 
     const response = await request(app)
       .post('/api/auth/login')
@@ -194,7 +140,6 @@ describe('POST /api/auth/logout (HU-15)', () => {
 
   it('una copia de la cookie guardada antes del cierre ya no sirve', async () => {
     const { app } = buildApp();
-    await request(app).post('/api/auth/setup').send(OWNER);
     const login = await request(app)
       .post('/api/auth/login')
       .send({ email: OWNER.email, password: OWNER.password });
@@ -246,7 +191,6 @@ describe('POST /api/auth/logout (HU-15)', () => {
 describe('/api/profile', () => {
   it('un usuario no autenticado no puede ver ni cambiar el perfil', async () => {
     const { app, repository } = buildApp();
-    await request(app).post('/api/auth/setup').send(OWNER);
 
     const read = await request(app).get('/api/profile');
     const write = await request(app)
@@ -260,7 +204,6 @@ describe('/api/profile', () => {
 
   it('un token falso no sirve', async () => {
     const { app } = buildApp();
-    await request(app).post('/api/auth/setup').send(OWNER);
 
     const response = await request(app)
       .get('/api/profile')
@@ -278,7 +221,8 @@ describe('/api/profile', () => {
     expect(response.body.data).toEqual(
       expect.objectContaining({ name: 'Ana Pérez', email: 'ana@correo.cr' }),
     );
-    expect(JSON.stringify(response.body)).not.toMatch(/password|argon2/i);
+    // `mustChangePassword` es un indicador; nunca viaja el hash ni la contraseña.
+    expect(JSON.stringify(response.body)).not.toMatch(/passwordHash|argon2|ClaveSegura/i);
   });
 
   it('PATCH actualiza el nombre', async () => {
