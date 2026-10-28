@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { TEST_BUSINESS_ID } from '../testing/fake-session.js';
 import { FakeUsersRepository, makeUser } from '../testing/users.repository.fake.js';
 import { LoginRateLimiter } from '../utils/login-rate-limiter.js';
 import { hashPassword } from '../utils/password.js';
@@ -34,7 +35,7 @@ describe('AuthService.login y resolveSession', () => {
     expect(session.user).toEqual(
       expect.objectContaining({ email: 'ana@correo.cr', role: 'ADMIN', mustChangePassword: false }),
     );
-    expect(session.user.permissions).toContain('plan.manage');
+    expect(session.user.permissions).toContain('platform.manage');
     expect(session.user).not.toHaveProperty('passwordHash');
     expect(await service.resolveSession(session.token)).toEqual(session.user);
   });
@@ -45,6 +46,39 @@ describe('AuthService.login y resolveSession', () => {
     const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
 
     expect(session.user.permissions).toEqual(['sales', 'customers', 'inventory.read']);
+    expect(session.user.businessId).toBe(TEST_BUSINESS_ID);
+  });
+
+  it('el Administrador es de la plataforma: su sesión no tiene negocio', async () => {
+    const { service } = setup();
+
+    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+
+    expect(session.user.businessId).toBeNull();
+  });
+
+  it('con el negocio suspendido no se entra, y solo se dice si la contraseña es correcta', async () => {
+    const { service } = setup(
+      {},
+      makeUser({ passwordHash, role: 'CAJERO', businessStatus: 'SUSPENDED' }),
+    );
+
+    await expect(
+      service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1'),
+    ).rejects.toMatchObject({ statusCode: 403, message: expect.stringMatching(/suspendido/) });
+    await expect(
+      service.login({ email: SETUP.email, password: 'incorrecta123' }, 'ip-2'),
+    ).rejects.toMatchObject({ statusCode: 401, message: 'Correo o contraseña incorrectos.' });
+  });
+
+  it('al suspender el negocio, las sesiones abiertas de su gente dejan de valer', async () => {
+    const user = makeUser({ passwordHash, role: 'CAJERO' });
+    const { service } = setup({}, user);
+    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+
+    user.businessStatus = 'SUSPENDED';
+
+    expect(await service.resolveSession(session.token)).toBeNull();
   });
 
   it('un usuario desactivado no inicia sesión y recibe el mismo mensaje que con datos incorrectos', async () => {

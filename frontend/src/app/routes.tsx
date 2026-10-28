@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequirePermission } from '../features/auth/RequirePermission';
 import { RequireSession } from '../features/auth/RequireSession';
+import { useSession } from '../features/auth/session-context';
 import { MainLayout } from '../layouts/MainLayout';
+import { BusinessesPage } from '../pages/BusinessesPage';
 import { CustomersPage } from '../pages/CustomersPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { InventoryPage } from '../pages/InventoryPage';
@@ -10,6 +12,7 @@ import { KardexPage } from '../pages/KardexPage';
 import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { OrdersPage } from '../pages/OrdersPage';
+import { PlanRequestsPage } from '../pages/PlanRequestsPage';
 import { ProfilePage } from '../pages/ProfilePage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { SalesPage } from '../pages/SalesPage';
@@ -22,12 +25,27 @@ function only(permission: Permission, page: ReactNode) {
 }
 
 /**
+ * Inicio según quién entra: el Administrador de la plataforma no tiene panel
+ * de negocio (no ve datos de ninguno), así que va a sus negocios clientes.
+ */
+function HomePage() {
+  const { can } = useSession();
+
+  return can('platform.manage') ? (
+    <Navigate to="/platform/businesses" replace />
+  ) : (
+    <DashboardPage />
+  );
+}
+
+/**
  * Mapa de rutas de la aplicación.
  *
  * Las rutas dentro de <Route element={<MainLayout />}> comparten la barra de
  * navegación (React Router renderiza ahí el `<Outlet />` del layout). `/login`
  * queda fuera: la pantalla de acceso no muestra el menú (HU-11). No hay
- * registro público: los usuarios los crea el administrador.
+ * registro público: los negocios y sus Encargados los crea la plataforma, y
+ * cada Encargado crea a su personal.
  *
  * <RequireSession /> exige una sesión válida y, con contraseña temporal, solo
  * deja entrar a «Mi perfil». Cada pantalla pide el permiso de su sección (el
@@ -46,7 +64,9 @@ export function AppRoutes() {
           </RequireSession>
         }
       >
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/platform/businesses" element={only('platform.manage', <BusinessesPage />)} />
+        <Route path="/platform/requests" element={only('platform.manage', <PlanRequestsPage />)} />
         {/* Productos se muestra ahora dentro de Inventario. */}
         <Route path="/products" element={<Navigate to="/inventory" replace />} />
         <Route path="/inventory" element={only('inventory.read', <InventoryPage />)} />

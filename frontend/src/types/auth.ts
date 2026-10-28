@@ -17,7 +17,8 @@ export type Permission =
   | 'reports.sales'
   | 'business.edit'
   | 'users.manage'
-  | 'plan.manage';
+  | 'plan.request'
+  | 'platform.manage';
 
 /** Usuario de la sesión, con su rol y lo que puede hacer. */
 export interface Profile {
@@ -25,6 +26,8 @@ export interface Profile {
   name: string;
   email: string;
   role: Role;
+  /** Negocio del usuario; `null` para los administradores de la plataforma. */
+  businessId: string | null;
   permissions: Permission[];
   /** `true` con una contraseña temporal: debe cambiarla antes de usar el sistema. */
   mustChangePassword: boolean;
@@ -49,6 +52,8 @@ export interface UserListItem {
   name: string;
   email: string;
   role: Role;
+  /** Negocio del usuario (la plataforma lo ve al listar Encargados). */
+  businessName: string | null;
   isActive: boolean;
   mustChangePassword: boolean;
   createdAt: string;
@@ -58,9 +63,11 @@ export interface CreateUserPayload {
   name: string;
   email: string;
   role: Role;
+  /** Solo la plataforma, al crear un Encargado: de qué negocio es. */
+  businessId?: string;
 }
 
-export type UpdateUserPayload = Partial<CreateUserPayload>;
+export type UpdateUserPayload = Partial<Omit<CreateUserPayload, 'businessId'>>;
 
 /** Respuesta al crear o restablecer: la contraseña temporal se muestra UNA vez. */
 export interface UserWithTemporaryPassword {

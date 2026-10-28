@@ -1,16 +1,38 @@
 import type { UsersRepository } from '../repositories/users.repository.js';
-import type { CreateUserFields, PlanFull, UpdateUserFields, UserRecord } from '../types/auth.js';
+import { maxUsersOf } from '../repositories/users.repository.js';
+import type {
+  CreateUserFields,
+  PlanFull,
+  UpdateUserFields,
+  UserListFilter,
+  UserRecord,
+} from '../types/auth.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 export const OWNER_ID = '11111111-1111-4111-8111-111111111111';
 
-/** Usuario de prueba: un administrador activo, salvo lo que se indique. */
+/**
+ * Usuario de prueba: un administrador activo, salvo lo que se indique. Si el
+ * rol no es Administrador, pertenece al negocio de prueba (como en la base).
+ */
 export function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
+  const role = overrides.role ?? 'ADMIN';
+  const businessId =
+    overrides.businessId !== undefined
+      ? overrides.businessId
+      : role === 'ADMIN'
+        ? null
+        : TEST_BUSINESS_ID;
+
   return {
     id: OWNER_ID,
     name: 'Ana Pérez',
     email: 'ana@correo.cr',
     passwordHash: '$argon2id$de-prueba',
-    role: 'ADMIN',
+    role,
+    businessId,
+    businessName: businessId === null ? null : 'Negocio de prueba',
+    businessStatus: businessId === null ? null : 'ACTIVE',
     isActive: true,
     mustChangePassword: false,
     sessionVersion: 0,
@@ -28,12 +50,20 @@ function usesSeat(user: { role: string; isActive: boolean }): boolean {
 export class FakeUsersRepository implements UsersRepository {
   private users: UserRecord[];
   private nextId = 1;
-  /** Límite del plan (en la base vive en `BusinessSettings.maxUsers`). */
+  /** Límite del plan de cada negocio (en la base: 1 + `Business.extraUsers`). */
   maxUsers: number;
 
   constructor(users: UserRecord[] = [], options: { maxUsers?: number } = {}) {
     this.users = [...users];
-    this.maxUsers = options.maxUsers ?? 5;
+    this.maxUsers = options.maxUsers ?? maxUsersOf(4);
+  }
+
+  /** Negocios que existen en la prueba: los de los usuarios, y el de prueba. */
+  findBusinessName(businessId: string): Promise<string | null> {
+    const known =
+      businessId === TEST_BUSINESS_ID || this.users.some((user) => user.businessId === businessId);
+
+    return Promise.resolve(known ? 'Negocio de prueba' : null);
   }
 
   /** Lo guardado, para comprobar qué se persistió (p. ej. el hash). */
@@ -49,11 +79,12 @@ export class FakeUsersRepository implements UsersRepository {
     return Promise.resolve(this.users.find((user) => user.id === id) ?? null);
   }
 
-  list(): Promise<UserRecord[]> {
+  list(filter: UserListFilter): Promise<UserRecord[]> {
     return Promise.resolve(
-      [...this.users].sort(
-        (a, b) => Number(b.isActive) - Number(a.isActive) || a.name.localeCompare(b.name),
-      ),
+      this.users
+        .filter((user) => filter.businessId === undefined || user.businessId === filter.businessId)
+        .filter((user) => filter.roles === undefined || filter.roles.includes(user.role))
+        .sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.name.localeCompare(b.name)),
     );
   }
 
@@ -63,12 +94,17 @@ export class FakeUsersRepository implements UsersRepository {
     );
   }
 
-  countUsedSeats(): Promise<number> {
-    return Promise.resolve(this.users.filter(usesSeat).length);
+  countUsedSeats(businessId: string): Promise<number> {
+    return Promise.resolve(
+      this.users.filter((user) => user.businessId === businessId && usesSeat(user)).length,
+    );
   }
 
   async createWithinPlan(fields: CreateUserFields): Promise<UserRecord | PlanFull | null> {
-    if (usesSeat({ ...fields, isActive: true }) && (await this.countUsedSeats()) >= this.maxUsers) {
+    if (
+      fields.businessId !== null &&
+      (await this.countUsedSeats(fields.businessId)) >= this.maxUsers
+    ) {
       return { status: 'plan-full', maxUsers: this.maxUsers };
     }
 
@@ -90,7 +126,12 @@ export class FakeUsersRepository implements UsersRepository {
       isActive: fields.isActive ?? current.isActive,
     };
 
-    if (usesSeat(after) && !usesSeat(current) && (await this.countUsedSeats()) >= this.maxUsers) {
+    if (
+      current.businessId !== null &&
+      usesSeat(after) &&
+      !usesSeat(current) &&
+      (await this.countUsedSeats(current.businessId)) >= this.maxUsers
+    ) {
       return { status: 'plan-full', maxUsers: this.maxUsers };
     }
 

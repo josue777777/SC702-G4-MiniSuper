@@ -2,10 +2,13 @@ import { Router } from 'express';
 import { SuppliersController } from '../controllers/suppliers.controller.js';
 import { SuppliersRepository } from '../repositories/suppliers.repository.js';
 import { SuppliersService } from '../services/suppliers.service.js';
+import type { ForBusiness } from '../types/tenant.js';
 
 /** Fábrica de rutas de proveedores: permite montarlas con un repositorio falso. */
-export function createSuppliersRouter(repository: SuppliersRepository): Router {
-  const controller = new SuppliersController(new SuppliersService(repository));
+export function createSuppliersRouter(repositoryFor: ForBusiness<SuppliersRepository>): Router {
+  const controller = new SuppliersController(
+    (businessId) => new SuppliersService(repositoryFor(businessId)),
+  );
   const router = Router();
 
   router.get('/', (req, res) => controller.list(req, res));
@@ -16,4 +19,6 @@ export function createSuppliersRouter(repository: SuppliersRepository): Router {
   return router;
 }
 
-export const suppliersRouter = createSuppliersRouter(new SuppliersRepository());
+export const suppliersRouter = createSuppliersRouter(
+  (businessId) => new SuppliersRepository(businessId),
+);

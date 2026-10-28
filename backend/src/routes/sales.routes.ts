@@ -3,13 +3,16 @@ import { SalesController } from '../controllers/sales.controller.js';
 import { CustomersRepository } from '../repositories/customers.repository.js';
 import { SalesRepository } from '../repositories/sales.repository.js';
 import { SalesService } from '../services/sales.service.js';
+import type { ForBusiness } from '../types/tenant.js';
 
 /** Fábrica de rutas: permite montarlas con repositorios falsos en las pruebas. */
 export function createSalesRouter(
-  repository: SalesRepository,
-  customers: CustomersRepository,
+  repositoryFor: ForBusiness<SalesRepository>,
+  customersFor: ForBusiness<CustomersRepository>,
 ): Router {
-  const controller = new SalesController(new SalesService(repository, customers));
+  const controller = new SalesController(
+    (businessId) => new SalesService(repositoryFor(businessId), customersFor(businessId)),
+  );
   const router = Router();
 
   /** Resumen completo del día, antes de `/:id` (HU-37). */
@@ -27,4 +30,7 @@ export function createSalesRouter(
   return router;
 }
 
-export const salesRouter = createSalesRouter(new SalesRepository(), new CustomersRepository());
+export const salesRouter = createSalesRouter(
+  (businessId) => new SalesRepository(businessId),
+  (businessId) => new CustomersRepository(businessId),
+);

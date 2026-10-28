@@ -7,6 +7,8 @@ interface UserTableProps {
   currentUserId: string;
   /** Rol de quien usa el sistema: solo ve acciones sobre rangos menores al suyo. */
   currentRole: Role;
+  /** Columna «Negocio» (la plataforma ve usuarios de varios negocios). */
+  showBusiness?: boolean;
   busy: boolean;
   onEdit: (user: UserListItem) => void;
   onResetPassword: (user: UserListItem) => void;
@@ -32,6 +34,7 @@ export function UserTable({
   users,
   currentUserId,
   currentRole,
+  showBusiness = false,
   busy,
   onEdit,
   onResetPassword,
@@ -50,6 +53,7 @@ export function UserTable({
             <tr>
               <th>Nombre</th>
               <th>Rol</th>
+              {showBusiness ? <th>Negocio</th> : null}
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
@@ -67,6 +71,9 @@ export function UserTable({
                     <div className="muted">{user.email}</div>
                   </td>
                   <td>{ROLE_LABELS[user.role]}</td>
+                  {showBusiness ? (
+                    <td>{user.businessName ?? <span className="muted">Plataforma</span>}</td>
+                  ) : null}
                   <td>
                     <StatusBadge user={user} />
                   </td>

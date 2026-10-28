@@ -2,12 +2,13 @@ import { expect, test, type Page } from '@playwright/test';
 import { insertUser, readUsers } from '../support/db';
 import { BACKEND_URL, FRONTEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
-import { E2E_OWNER, ensureOwner } from '../support/fixtures';
+import { E2E_ADMIN, E2E_OWNER, ensureOwner } from '../support/fixtures';
 
 /**
- * Usuarios y roles: criterios adicionales de HU-11 a HU-15 (issues #12 a #16).
- * Navegador real + backend real + PostgreSQL de pruebas. El administrador se
- * prepara en la base, como lo hace `npm run db:seed`.
+ * Usuarios y roles: criterios adicionales de HU-11 a HU-15 (issues #12 a #16),
+ * con la plataforma multi-negocio (ADR 0002). Navegador real + backend real +
+ * PostgreSQL de pruebas. La Encargada del negocio de pruebas y el
+ * Administrador de la plataforma se preparan en la base, como `npm run db:seed`.
  */
 
 const NEW_PASSWORD = 'MiClavePropia123';
@@ -19,15 +20,21 @@ async function login(page: Page, email: string, password: string): Promise<void>
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
 }
 
-/** Entra como administrador y espera el panel antes de navegar a otra pantalla. */
-async function loginAsAdmin(page: Page): Promise<void> {
+/** Entra como la Encargada del negocio y espera el panel antes de navegar. */
+async function loginAsOwner(page: Page): Promise<void> {
   await login(page, E2E_OWNER.email, E2E_OWNER.password);
   await expect(page).toHaveURL(/\/$/);
 }
 
+/** Entra como Administrador de la plataforma: su inicio son los negocios clientes. */
+async function loginAsAdmin(page: Page): Promise<void> {
+  await login(page, E2E_ADMIN.email, E2E_ADMIN.password);
+  await expect(page).toHaveURL(/\/platform\/businesses$/);
+}
+
 async function logout(page: Page): Promise<void> {
   // Con la ventana de Configuración abierta, lo de atrás no se puede usar.
-  await page.goto('/');
+  await page.goto('/profile');
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await expect(page).toHaveURL(/\/login$/);
 }
@@ -67,13 +74,13 @@ test('no hay registro público: /setup no existe y la API de registro responde 4
   });
 
   expect(response.status()).toBe(404);
-  expect(await readUsers()).toHaveLength(1);
+  expect(await readUsers()).toHaveLength(2);
 });
 
-test('el administrador crea un Cajero; este cambia la contraseña temporal y solo ve lo suyo', async ({
+test('la Encargada crea un Cajero; este cambia la contraseña temporal y solo ve lo suyo', async ({
   page,
 }) => {
-  await loginAsAdmin(page);
+  await loginAsOwner(page);
   await page.getByRole('button', { name: 'Configuración' }).click();
   await page.getByRole('tab', { name: 'Usuarios' }).click();
   await expect(page.getByRole('tab', { name: 'Usuarios' })).toHaveAttribute(
@@ -142,23 +149,16 @@ test('el administrador crea un Cajero; este cambia la contraseña temporal y sol
   expect((await page.request.get(`${BACKEND_URL}/api/sales`)).status()).toBe(200);
 });
 
-test('el Encargado (dueño del negocio) administra a Cajero y Bodega, nunca a su rango o mayor', async ({
+test('la Encargada (dueña del negocio) administra a Cajero y Bodega, nunca a su rango o mayor', async ({
   page,
 }) => {
-  await insertUser({
-    name: 'Elena Encargada',
-    email: 'elena@example.com',
-    password: 'ClaveSegura123',
-    role: 'ENCARGADO',
-  });
-
-  await login(page, 'elena@example.com', 'ClaveSegura123');
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsOwner(page);
 
   const menu = page.getByRole('navigation', { name: 'Navegación principal' });
 
   await expect(menu.getByRole('button', { name: 'Entradas' })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Salidas' })).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Negocios' })).toHaveCount(0);
   await menu.getByRole('button', { name: 'Configuración' }).click();
 
   const settings = page.getByRole('dialog', { name: 'Configuración' });
@@ -166,8 +166,8 @@ test('el Encargado (dueño del negocio) administra a Cajero y Bodega, nunca a su
   await expect(settings.getByRole('tab')).toHaveText(['General', 'Usuarios', 'Apariencia']);
   await settings.getByRole('tab', { name: 'Usuarios' }).click();
 
-  // No ve al Administrador; solo puede asignar Cajero o Bodega.
-  await expect(settings.getByRole('row', { name: /Dueña de Prueba/ })).toHaveCount(0);
+  // No ve al Administrador de la plataforma; solo puede asignar Cajero o Bodega.
+  await expect(settings.getByRole('row', { name: /Plataforma de Prueba/ })).toHaveCount(0);
   await settings.getByRole('button', { name: '+ Nuevo usuario' }).click();
   await expect(page.getByLabel('Rol').locator('option')).toHaveText(['Cajero', 'Bodega']);
   await saveEvidence(page, 'HU-12', 'HU-12-encargado-roles-permitidos.png');
@@ -189,29 +189,29 @@ test('el Encargado (dueño del negocio) administra a Cajero y Bodega, nunca a su
   });
 
   expect(peer.status()).toBe(403);
+  // Ni entrar a la plataforma.
+  expect((await page.request.get(`${BACKEND_URL}/api/platform/businesses`)).status()).toBe(403);
   expect((await page.request.get(`${BACKEND_URL}/api/business`)).status()).toBe(200);
 });
 
-test('límite del plan: con el plan lleno el Encargado no puede crear más usuarios', async ({
+test('plan: con el plan lleno la Encargada pide más usuarios, la plataforma aprueba y ella los crea', async ({
   page,
 }) => {
-  await insertUser({
-    name: 'Elena Encargada',
-    email: 'elena@example.com',
-    password: 'ClaveSegura123',
-    role: 'ENCARGADO',
-  });
-
-  // El Administrador deja el plan en 1 usuario: el de Elena.
+  // La plataforma deja el plan en «solo Encargado».
   await loginAsAdmin(page);
-  await page.goto('/?config=general');
-  await page.getByLabel('Límite de usuarios').fill('1');
-  await page.getByRole('button', { name: 'Cambiar límite' }).click();
-  await expect(page.getByText('Plan actualizado.')).toBeVisible();
+  await page
+    .getByRole('row', { name: /Abastecedor Nuevo Amanecer/ })
+    .getByRole('button', { name: 'Cambiar plan' })
+    .click();
+  await page.getByLabel('Usuarios adicionales al Encargado').fill('0');
+  await page.getByRole('button', { name: 'Guardar plan' }).click();
+  await expect(page.getByRole('row', { name: /Abastecedor Nuevo Amanecer/ })).toContainText(
+    'Solo Encargado',
+  );
   await logout(page);
 
-  await login(page, 'elena@example.com', 'ClaveSegura123');
-  await expect(page).toHaveURL(/\/$/);
+  // La Encargada no puede crear más usuarios…
+  await loginAsOwner(page);
   await page.goto('/?config=usuarios');
   await expect(page.getByText(/Usuarios activos del plan: 1 de 1/)).toBeVisible();
 
@@ -224,9 +224,50 @@ test('límite del plan: con el plan lleno el Encargado no puede crear más usuar
   expect(temporary).toBeNull();
   await expect(page.getByRole('alert')).toContainText('El plan permite 1 usuario activo');
   await saveEvidence(page, 'HU-12', 'HU-12-plan-lleno.png');
-  // El Encargado ve el plan, pero no puede cambiar el límite.
+
+  // …así que pide 2 más, con la cotización mensual.
   await page.goto('/?config=general');
-  await expect(page.getByLabel('Límite de usuarios')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Solicitar más usuarios' }).click();
+  await page.getByLabel('Usuarios adicionales').fill('2');
+  await expect(page.getByRole('dialog', { name: 'Solicitar más usuarios' })).toContainText(
+    /₡10\s000,00/,
+  );
+  await page.getByLabel('Nota (opcional)').fill('Un cajero para la tarde y uno de bodega.');
+  await page.getByRole('button', { name: 'Enviar solicitud' }).click();
+  await expect(page.getByText(/Solicitud enviada/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Solicitar más usuarios' })).toBeDisabled();
+  await saveEvidence(page, 'Plataforma', 'Plataforma-solicitud-enviada.png');
+  await logout(page);
+
+  // La solicitud llega a la bandeja de la plataforma, que la aprueba.
+  await loginAsAdmin(page);
+
+  const menu = page.getByRole('navigation', { name: 'Navegación principal' });
+
+  await expect(menu.getByRole('link', { name: /Solicitudes/ })).toContainText('1');
+  await menu.getByRole('link', { name: /Solicitudes/ }).click();
+
+  const row = page.getByRole('row', { name: /Abastecedor Nuevo Amanecer/ });
+
+  await expect(row).toContainText('+2');
+  await expect(row).toContainText(/₡10\s000,00/);
+  await saveEvidence(page, 'Plataforma', 'Plataforma-bandeja-solicitudes.png');
+  await row.getByRole('button', { name: 'Aprobar' }).click();
+  await page.getByLabel('Respuesta para el Encargado (opcional)').fill('Aprobado desde hoy.');
+  await page
+    .getByRole('dialog', { name: 'Aprobar solicitud' })
+    .getByRole('button', { name: 'Aprobar' })
+    .click();
+  await expect(page.getByRole('status')).toContainText('ya puede crear 2 usuario(s) más');
+  await logout(page);
+
+  // Con el plan ampliado, la Encargada crea los usuarios ella misma.
+  await loginAsOwner(page);
+  await page.goto('/?config=general');
+  await expect(page.getByText(/Usuarios activos: 1 de 3/)).toBeVisible();
+  await expect(page.getByRole('row', { name: /Aprobada/ })).toContainText('Aprobado desde hoy.');
+  await page.getByRole('tab', { name: 'Usuarios' }).click();
+  await createUserFromUi(page, { name: 'Una Más', email: 'una@example.com', role: 'Cajero' });
 });
 
 test('Apariencia: cada usuario elige su color y tamaño, y no afecta a los demás', async ({
@@ -257,8 +298,8 @@ test('Apariencia: cada usuario elige su color y tamaño, y no afecta a los demá
   await expect(page.locator('html')).toHaveAttribute('data-font-scale', 'grande');
   await logout(page);
 
-  // El Administrador sigue con la de fábrica.
-  await loginAsAdmin(page);
+  // La Encargada sigue con la de fábrica.
+  await loginAsOwner(page);
   await expect(page.locator('html')).toHaveAttribute('data-accent', 'azul');
 });
 
@@ -280,7 +321,7 @@ test('al desactivar a un usuario se cierra su sesión y ya no puede entrar', asy
   await login(bea, 'bea@example.com', 'ClaveSegura123');
   await expect(bea).toHaveURL(/\/$/);
 
-  await loginAsAdmin(page);
+  await loginAsOwner(page);
   await page.goto('/settings/users');
 
   const row = page.getByRole('row', { name: /Bea Bodega/ });
@@ -306,7 +347,7 @@ test('al desactivar a un usuario se cierra su sesión y ya no puede entrar', asy
   );
 });
 
-test('HU-13: el administrador restablece una contraseña olvidada con una temporal', async ({
+test('HU-13: la Encargada restablece una contraseña olvidada con una temporal', async ({
   page,
 }) => {
   await insertUser({
@@ -316,7 +357,7 @@ test('HU-13: el administrador restablece una contraseña olvidada con una tempor
     role: 'CAJERO',
   });
 
-  await loginAsAdmin(page);
+  await loginAsOwner(page);
   await page.goto('/settings/users');
   await page
     .getByRole('row', { name: /Carlos Cajero/ })
@@ -344,8 +385,8 @@ test('HU-13: el administrador restablece una contraseña olvidada con una tempor
   await expect(page).toHaveURL(/\/profile$/);
 });
 
-test('el administrador no puede quitarse su propio rol ni desactivarse', async ({ page }) => {
-  await loginAsAdmin(page);
+test('la Encargada no puede quitarse su propio rol ni desactivarse', async ({ page }) => {
+  await loginAsOwner(page);
   await page.goto('/settings/users');
 
   const own = page.getByRole('row', { name: /Dueña de Prueba/ });
@@ -365,11 +406,11 @@ test('el administrador no puede quitarse su propio rol ni desactivarse', async (
   expect(response.status()).toBe(409);
 });
 
-test('Configuración › General: el administrador cambia los datos del negocio y se ven en todo el sistema', async ({
+test('Configuración › General: la Encargada cambia los datos de su negocio y se ven en el sistema', async ({
   page,
   browser,
 }) => {
-  await loginAsAdmin(page);
+  await loginAsOwner(page);
   await page.getByRole('button', { name: 'Configuración' }).click();
 
   const window = page.getByRole('dialog', { name: 'Configuración' });
@@ -392,17 +433,19 @@ test('Configuración › General: el administrador cambia los datos del negocio 
   await expect(window.getByRole('status')).toContainText('Datos del negocio guardados.');
   await saveEvidence(page, 'Configuracion', 'Configuracion-general-guardada.png');
 
-  // Se ve de inmediato en la barra superior, y sigue después de recargar.
+  // Se ve de inmediato debajo del nombre del sistema, y sigue después de recargar.
   await expect(page.locator('.topbar__title')).toHaveText('Súper La Esquina');
+  await expect(page.locator('.layout__brand')).toContainText('MiniSuper');
+  await expect(page.locator('.layout__brand')).toContainText('Súper La Esquina');
   await page.reload();
   await expect(page.getByLabel('Nombre del negocio')).toHaveValue('Súper La Esquina');
 
-  // El login (sin sesión) muestra el nombre nuevo.
+  // El nombre del sistema es de la plataforma: el login no cambia.
   const visitor = await browser.newContext();
   const login = await visitor.newPage();
 
   await login.goto('/login');
-  await expect(login.getByText('Súper La Esquina · sistema de gestión')).toBeVisible();
+  await expect(login.getByText('MiniSuper · sistema de gestión')).toBeVisible();
   await visitor.close();
 });
 
@@ -431,25 +474,150 @@ test('el Cajero no puede cambiar los datos del negocio', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Acceso no permitido' })).toBeVisible();
 });
 
+test('plataforma: el Administrador crea un negocio con su Encargado y no ve datos de ningún negocio', async ({
+  page,
+  browser,
+}) => {
+  await loginAsAdmin(page);
+
+  // Su menú es solo la plataforma.
+  const menu = page.getByRole('navigation', { name: 'Navegación principal' });
+
+  await expect(menu.getByRole('link')).toHaveText(['Negocios', 'Solicitudes']);
+  await expect(menu.getByRole('button', { name: 'Salidas' })).toHaveCount(0);
+  await expect(page.locator('.layout__brand')).toContainText('Plataforma');
+
+  await page.getByRole('button', { name: '+ Nuevo negocio' }).click();
+  await page.getByLabel('Nombre del negocio').fill('Pulpería La Central');
+  await page.getByLabel('Usuarios adicionales al Encargado').fill('1');
+  await page.getByLabel('Nombre', { exact: true }).fill('Mario Encargado');
+  await page.getByLabel('Correo electrónico').fill('mario@example.com');
+  await page.getByRole('button', { name: 'Crear negocio' }).click();
+
+  const temporary = page.getByLabel('Contraseña temporal');
+
+  await expect(temporary).toBeVisible();
+
+  const temporaryPassword = (await temporary.textContent()) ?? '';
+
+  await saveEvidence(page, 'Plataforma', 'Plataforma-negocio-creado.png');
+  await page.getByRole('button', { name: 'Listo' }).click();
+
+  const row = page.getByRole('row', { name: /Pulpería La Central/ });
+
+  await expect(row).toContainText('Mario Encargado');
+  await expect(row).toContainText('Encargado + 1');
+  await expect(row).toContainText('1 de 2');
+
+  // Configuración de la plataforma: sin datos ni logo de ningún negocio.
+  await menu.getByRole('button', { name: 'Configuración' }).click();
+
+  const settings = page.getByRole('dialog', { name: 'Configuración' });
+
+  await expect(settings.getByRole('tab')).toHaveText(['Plataforma', 'Usuarios', 'Apariencia']);
+  await expect(settings.getByLabel('Nombre del negocio')).toHaveCount(0);
+  await saveEvidence(page, 'Plataforma', 'Plataforma-configuracion.png');
+
+  // Ni por la API: los módulos del negocio le responden 403.
+  for (const path of ['/api/products', '/api/sales', '/api/customers', '/api/business']) {
+    expect((await page.request.get(`${BACKEND_URL}${path}`)).status()).toBe(403);
+  }
+
+  // El Encargado nuevo entra a SU negocio, vacío: no ve nada del otro.
+  const other = await browser.newContext();
+  const mario = await other.newPage();
+
+  await login(mario, 'mario@example.com', temporaryPassword);
+  await expect(mario).toHaveURL(/\/profile$/);
+  await mario.getByLabel('Nueva contraseña', { exact: true }).fill(NEW_PASSWORD);
+  await mario.getByLabel('Confirmar nueva contraseña').fill(NEW_PASSWORD);
+  await mario.getByLabel('Contraseña actual').fill(temporaryPassword);
+  await mario.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(mario.getByRole('status')).toContainText('Perfil actualizado correctamente.');
+  await expect(mario.locator('.layout__brand')).toContainText('Pulpería La Central');
+
+  const users = await mario.request.get(`${BACKEND_URL}/api/users`);
+  const { data } = (await users.json()) as { data: { email: string }[] };
+
+  expect(data.map((user) => user.email)).toEqual(['mario@example.com']);
+  await other.close();
+});
+
+test('plataforma: solo el Administrador cambia el nombre del sistema, y lo ven todos', async ({
+  page,
+  browser,
+}) => {
+  await loginAsAdmin(page);
+  await page.goto('/platform/businesses?config=plataforma');
+  await page.getByLabel('Nombre del sistema').fill('TiendaFácil');
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(page.getByText('Configuración de la plataforma guardada.')).toBeVisible();
+  await expect(page.locator('.layout__brand')).toContainText('TiendaFácil');
+
+  const visitor = await browser.newContext();
+  const loginPage = await visitor.newPage();
+
+  await loginPage.goto('/login');
+  await expect(loginPage.getByText('TiendaFácil · sistema de gestión')).toBeVisible();
+  await visitor.close();
+
+  // La Encargada lo ve, pero no puede cambiarlo.
+  await logout(page);
+  await loginAsOwner(page);
+  await expect(page.locator('.layout__brand')).toContainText('TiendaFácil');
+
+  const change = await page.request.put(`${BACKEND_URL}/api/platform/settings`, {
+    headers: { Origin: FRONTEND_URL },
+    data: { systemName: 'Mío', pricePerExtraUser: '1' },
+  });
+
+  expect(change.status()).toBe(403);
+});
+
+test('plataforma: con el negocio suspendido su gente no entra; al reactivarlo, sí', async ({
+  page,
+  browser,
+}) => {
+  await loginAsAdmin(page);
+
+  const row = page.getByRole('row', { name: /Abastecedor Nuevo Amanecer/ });
+
+  await row.getByRole('button', { name: 'Suspender' }).click();
+  await page
+    .getByRole('dialog', { name: 'Suspender negocio' })
+    .getByRole('button', { name: 'Suspender' })
+    .click();
+  await expect(row).toContainText('Suspendido');
+
+  const other = await browser.newContext();
+  const owner = await other.newPage();
+
+  await login(owner, E2E_OWNER.email, E2E_OWNER.password);
+  await expect(owner.getByRole('alert')).toContainText('suspendido');
+  await saveEvidence(owner, 'Plataforma', 'Plataforma-negocio-suspendido.png');
+
+  await row.getByRole('button', { name: 'Reactivar' }).click();
+  await page
+    .getByRole('dialog', { name: 'Reactivar negocio' })
+    .getByRole('button', { name: 'Reactivar' })
+    .click();
+  await expect(row).toContainText('Activo');
+
+  await login(owner, E2E_OWNER.email, E2E_OWNER.password);
+  await expect(owner).toHaveURL(/\/$/);
+  await other.close();
+});
+
 /** PNG de 1×1 válido. */
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 );
 
-test('Configuración › General: el Encargado sube el logo y se ve en el menú y en el login', async ({
+test('Configuración › General: la Encargada sube el logo de su negocio y se ve en el menú', async ({
   page,
-  browser,
 }) => {
-  await insertUser({
-    name: 'Elena Encargada',
-    email: 'elena@example.com',
-    password: 'ClaveSegura123',
-    role: 'ENCARGADO',
-  });
-
-  await login(page, 'elena@example.com', 'ClaveSegura123');
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsOwner(page);
   await page.goto('/?config=general');
   await page
     .getByLabel('Archivo del logo')
@@ -457,11 +625,4 @@ test('Configuración › General: el Encargado sube el logo y se ve en el menú 
   await expect(page.getByText('Logo actualizado.')).toBeVisible();
   await expect(page.getByAltText('Logo actual del negocio')).toBeVisible();
   await expect(page.locator('.layout__brand-logo')).toBeVisible();
-
-  const visitor = await browser.newContext();
-  const loginPage = await visitor.newPage();
-
-  await loginPage.goto('/login');
-  await expect(loginPage.getByAltText(/Logo de/)).toBeVisible();
-  await visitor.close();
 });

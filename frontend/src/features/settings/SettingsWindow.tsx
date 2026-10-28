@@ -7,10 +7,12 @@ import { useBusiness } from '../business/business-context';
 import { UsersPanel } from '../users/UsersPanel';
 import { AppearancePanel } from './AppearancePanel';
 import { BusinessForm } from './BusinessForm';
+import { PlatformSettingsForm } from './PlatformSettingsForm';
 import { allowedTabs, TAB_PERMISSION, type SettingsTab } from './settings-tabs';
 
 const TAB_INFO: Record<SettingsTab, { label: string; icon: NavIconName }> = {
   general: { label: 'General', icon: 'settings' },
+  plataforma: { label: 'Plataforma', icon: 'settings' },
   usuarios: { label: 'Usuarios', icon: 'users' },
   apariencia: { label: 'Apariencia', icon: 'user' },
 };
@@ -23,9 +25,10 @@ interface SettingsWindowProps {
 
 /**
  * Ventana de Configuración, con pestañas según lo que permite el rol:
- *   - General (Administrador y Encargado): datos, logo y plan del negocio.
- *   - Usuarios (Administrador y Encargado): con jerarquía; el Encargado solo
- *     maneja Cajero y Bodega.
+ *   - General (Encargado): datos, logo y plan de su negocio.
+ *   - Plataforma (Administrador): nombre del sistema y precio por usuario.
+ *   - Usuarios (Administrador y Encargado): con jerarquía; el Administrador
+ *     maneja administradores y Encargados, el Encargado a Cajero y Bodega.
  *   - Apariencia (todos): color y tamaño de letra de cada usuario.
  * Se abre sobre la pantalla en la que se esté; su pestaña queda en la
  * dirección (`?config=usuarios`).
@@ -70,6 +73,7 @@ export function SettingsWindow({ tab, onTabChange, onClose }: SettingsWindowProp
         ) : (
           <RequirePermission permission={permission}>
             {tab === 'usuarios' ? <UsersPanel /> : null}
+            {tab === 'plataforma' ? <PlatformSettingsForm /> : null}
             {tab === 'general' && loaded ? <BusinessForm /> : null}
             {tab === 'general' && !loaded ? (
               <p className="muted" role="status">

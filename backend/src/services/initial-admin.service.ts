@@ -23,6 +23,8 @@ export async function ensureInitialAdmin(
   }
 
   const created = await repository.create({
+    // El administrador es de la plataforma: no pertenece a ningún negocio.
+    businessId: null,
     name: input.name,
     email: input.email,
     role: 'ADMIN',

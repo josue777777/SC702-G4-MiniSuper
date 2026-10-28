@@ -1,4 +1,6 @@
 import type { Request, Response } from 'express';
+import { businessIdOf } from '../middleware/require-auth.middleware.js';
+import type { ForBusiness } from '../types/tenant.js';
 import type { ProductsService } from '../services/products.service.js';
 import { XLSX_CONTENT_TYPE } from '../utils/catalog-xlsx.js';
 import {
@@ -25,7 +27,8 @@ import {
  * errores, así que no hay try/catch.
  */
 export class ProductsController {
-  constructor(private readonly service: ProductsService) {}
+  /** El service del negocio de la sesión: cada petición trabaja solo con el suyo. */
+  constructor(private readonly serviceFor: ForBusiness<ProductsService>) {}
 
   /**
    * `GET /api/products[?categoryId=<uuid>][&q=<texto>]` — listado para administrar el catálogo.
@@ -35,7 +38,7 @@ export class ProductsController {
   async list(req: Request, res: Response): Promise<void> {
     const query = productListQuerySchema.parse(req.query);
 
-    res.status(200).json({ data: await this.service.listProducts(query) });
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).listProducts(query) });
   }
 
   /**
@@ -44,7 +47,9 @@ export class ProductsController {
    */
   async exportCatalog(req: Request, res: Response): Promise<void> {
     const { categoryId } = productExportQuerySchema.parse(req.query);
-    const { fileName, content } = await this.service.exportCatalog(categoryId);
+    const { fileName, content } = await this.serviceFor(businessIdOf(res)).exportCatalog(
+      categoryId,
+    );
 
     res
       .status(200)
@@ -58,14 +63,14 @@ export class ProductsController {
 
   /** `GET /api/products/form-options` — categorías y proveedores activos. */
   async getFormOptions(_req: Request, res: Response): Promise<void> {
-    res.status(200).json({ data: await this.service.getFormOptions() });
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).getFormOptions() });
   }
 
   /** `POST /api/products` — registrar producto (HU-01). */
   async create(req: Request, res: Response): Promise<void> {
     const input = createProductSchema.parse(req.body);
 
-    res.status(201).json({ data: await this.service.createProduct(input) });
+    res.status(201).json({ data: await this.serviceFor(businessIdOf(res)).createProduct(input) });
   }
 
   /** `PATCH /api/products/:id` — editar producto (HU-02). */
@@ -73,7 +78,9 @@ export class ProductsController {
     const { id } = productIdParamSchema.parse(req.params);
     const input = updateProductSchema.parse(req.body);
 
-    res.status(200).json({ data: await this.service.updateProduct(id, input) });
+    res
+      .status(200)
+      .json({ data: await this.serviceFor(businessIdOf(res)).updateProduct(id, input) });
   }
 
   /** `POST /api/products/:id/barcode` — genera o reemplaza con confirmación (HU-07). */
@@ -82,7 +89,7 @@ export class ProductsController {
     const replaceExisting = req.body?.replaceExisting === true;
 
     res.status(200).json({
-      data: await this.service.generateProductBarcode(id, replaceExisting),
+      data: await this.serviceFor(businessIdOf(res)).generateProductBarcode(id, replaceExisting),
     });
   }
 
@@ -90,20 +97,20 @@ export class ProductsController {
   async deactivate(req: Request, res: Response): Promise<void> {
     const { id } = productIdParamSchema.parse(req.params);
 
-    res.status(200).json({ data: await this.service.deactivateProduct(id) });
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).deactivateProduct(id) });
   }
 
   /** `PATCH /api/products/:id/activate` — volver a ofrecerlo en ventas (HU-03). */
   async activate(req: Request, res: Response): Promise<void> {
     const { id } = productIdParamSchema.parse(req.params);
 
-    res.status(200).json({ data: await this.service.activateProduct(id) });
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).activateProduct(id) });
   }
 
   /** `DELETE /api/products/:id` — borrar para siempre un producto desactivado (HU-03). */
   async remove(req: Request, res: Response): Promise<void> {
     const { id } = productIdParamSchema.parse(req.params);
-    await this.service.deleteProduct(id);
+    await this.serviceFor(businessIdOf(res)).deleteProduct(id);
 
     res.status(200).json({ data: { id } });
   }
@@ -115,7 +122,7 @@ export class ProductsController {
    */
   async getImage(req: Request, res: Response): Promise<void> {
     const { id } = productIdParamSchema.parse(req.params);
-    const image = await this.service.getProductImage(id);
+    const image = await this.serviceFor(businessIdOf(res)).getProductImage(id);
 
     // helmet() bloquea por defecto que otro origen use los recursos de la API;
     // la imagen de un producto no es un dato sensible y el frontend vive en
@@ -133,13 +140,15 @@ export class ProductsController {
       data: req.body,
     });
 
-    res.status(200).json({ data: await this.service.setProductImage(id, image) });
+    res
+      .status(200)
+      .json({ data: await this.serviceFor(businessIdOf(res)).setProductImage(id, image) });
   }
 
   /** `DELETE /api/products/:id/image` — quitar la imagen (HU-01). */
   async removeImage(req: Request, res: Response): Promise<void> {
     const { id } = productIdParamSchema.parse(req.params);
 
-    res.status(200).json({ data: await this.service.removeProductImage(id) });
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).removeProductImage(id) });
   }
 }

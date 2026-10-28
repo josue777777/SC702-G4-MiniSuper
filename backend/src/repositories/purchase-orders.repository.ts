@@ -111,19 +111,22 @@ function toDetailDto(row: DetailRow): PurchaseOrderDto {
 /**
  * Acceso a datos de pedidos a proveedor (HU-22, HU-24). Única capa que usa
  * Prisma; sin miembros privados para sustituirla por un doble en las pruebas.
+ * Atada a UN negocio: sus proveedores, productos y pedidos (ADR 0002).
  */
 export class PurchaseOrdersRepository {
+  constructor(readonly businessId: string) {}
+
   /**
    * Proveedor activo con los productos ACTIVOS que suministra y su costo, o
    * `null` si el proveedor no existe o está inactivo.
    */
   async findSupplierCatalog(supplierId: string): Promise<SupplierCatalog | null> {
     const supplier = await prisma.supplier.findFirst({
-      where: { id: supplierId, isActive: true },
+      where: { id: supplierId, businessId: this.businessId, isActive: true },
       select: {
         id: true,
         products: {
-          where: { product: { isActive: true } },
+          where: { product: { isActive: true, businessId: this.businessId } },
           select: { productId: true, unitCost: true, product: { select: { name: true } } },
         },
       },
@@ -147,6 +150,7 @@ export class PurchaseOrdersRepository {
   async create(plan: CreatePurchaseOrderPlan): Promise<PurchaseOrderDto> {
     const row = await prisma.purchaseOrder.create({
       data: {
+        businessId: this.businessId,
         supplierId: plan.supplierId,
         notes: plan.notes,
         total: plan.total,
@@ -161,7 +165,10 @@ export class PurchaseOrdersRepository {
   /** Historial, del más reciente al más antiguo; opcionalmente de un solo proveedor (HU-22). */
   async list(supplierId?: string): Promise<PurchaseOrderSummaryDto[]> {
     const rows = await prisma.purchaseOrder.findMany({
-      where: supplierId === undefined ? {} : { supplierId },
+      where: {
+        businessId: this.businessId,
+        ...(supplierId === undefined ? {} : { supplierId }),
+      },
       select: summarySelection,
       orderBy: { createdAt: 'desc' },
     });
@@ -171,7 +178,10 @@ export class PurchaseOrdersRepository {
 
   /** Detalle de un pedido, o `null` si no existe. */
   async findById(id: string): Promise<PurchaseOrderDto | null> {
-    const row = await prisma.purchaseOrder.findUnique({ where: { id }, select: detailSelection });
+    const row = await prisma.purchaseOrder.findFirst({
+      where: { id, businessId: this.businessId },
+      select: detailSelection,
+    });
 
     return row === null ? null : toDetailDto(row);
   }
