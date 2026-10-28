@@ -1,4 +1,5 @@
 import type { Sale } from '../../types/sales';
+import { businessService } from '../../services/business.service';
 import { useBusiness } from '../business/business-context';
 import { formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
@@ -21,6 +22,13 @@ export function SaleReceipt({ sale }: SaleReceiptProps) {
   return (
     <article className="receipt" aria-label={`Comprobante de la venta ${sale.number}`}>
       <header className="receipt__header">
+        {business.logoUrl === null ? null : (
+          <img
+            className="business-logo receipt__logo"
+            src={businessService.logoSrc(business.logoUrl)}
+            alt=""
+          />
+        )}
         <strong className="receipt__business">{business.name}</strong>
         {business.legalId === null ? null : <span>Céd. {business.legalId}</span>}
         {business.address === null ? null : <span>{business.address}</span>}

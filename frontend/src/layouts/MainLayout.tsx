@@ -3,7 +3,9 @@ import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 import { useSession } from '../features/auth/session-context';
 import { useBusiness } from '../features/business/business-context';
 import { BusinessProvider } from '../features/business/BusinessProvider';
-import { SETTINGS_TABS, type SettingsTab } from '../features/settings/settings-tabs';
+import { allowedTabs, SETTINGS_TABS, type SettingsTab } from '../features/settings/settings-tabs';
+import { AppearanceProvider } from '../features/appearance/AppearanceProvider';
+import { businessService } from '../services/business.service';
 import { SettingsWindow } from '../features/settings/SettingsWindow';
 import { ROLE_LABELS } from '../features/users/roles';
 import { findGroupOfPath, visibleNavigation, type NavItem } from './navigation';
@@ -42,7 +44,9 @@ function startsWithMenuOpen(): boolean {
 export function MainLayout() {
   return (
     <BusinessProvider>
-      <Layout />
+      <AppearanceProvider>
+        <Layout />
+      </AppearanceProvider>
     </BusinessProvider>
   );
 }
@@ -97,7 +101,15 @@ function Layout() {
     <div className={menuOpen ? 'layout' : 'layout layout--collapsed'}>
       <aside id="main-menu" className="layout__sidebar">
         <div className="layout__brand">
-          <span className="layout__brand-mark">MS</span>
+          {business.logoUrl === null ? (
+            <span className="layout__brand-mark">MS</span>
+          ) : (
+            <img
+              className="business-logo layout__brand-logo"
+              src={businessService.logoSrc(business.logoUrl)}
+              alt=""
+            />
+          )}
           <div>
             <strong>MiniSuper</strong>
             <small title={business.name}>{business.name}</small>
@@ -140,8 +152,8 @@ function Layout() {
             ),
           )}
 
-          {/* Abre una ventana sobre la pantalla actual, no cambia de pantalla. */}
-          {can('settings') ? (
+          {/* Abre una ventana sobre la pantalla actual. Todos la ven: cada rol, sus pestañas. */}
+          {
             <button
               type="button"
               className={
@@ -150,12 +162,12 @@ function Layout() {
                   : 'nav-group__toggle nav-group__toggle--active'
               }
               aria-haspopup="dialog"
-              onClick={() => openSettings('general')}
+              onClick={() => openSettings(allowedTabs(can)[0] ?? 'apariencia')}
             >
               <NavIcon name="settings" />
               Configuración
             </button>
-          ) : null}
+          }
         </nav>
 
         <div className="layout__footer">

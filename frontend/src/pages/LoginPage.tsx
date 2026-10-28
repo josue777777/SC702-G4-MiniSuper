@@ -8,6 +8,7 @@ import {
 import { ApiError } from '../services/api-client';
 import { authService } from '../services/auth.service';
 import { businessService } from '../services/business.service';
+import type { PublicBusiness } from '../types/business';
 
 interface LoginLocationState {
   notice?: string;
@@ -35,14 +36,14 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** Nombre del negocio (Configuración › General); sin él, solo «Sistema de gestión». */
-  const [businessName, setBusinessName] = useState<string | null>(null);
+  /** Nombre y logo del negocio (Configuración › General); sin ellos, solo «Sistema de gestión». */
+  const [business, setBusiness] = useState<PublicBusiness | null>(null);
 
   useEffect(() => {
     businessService
-      .getPublicName()
-      .then(setBusinessName)
-      .catch(() => setBusinessName(null));
+      .getPublic()
+      .then(setBusiness)
+      .catch(() => setBusiness(null));
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -94,9 +95,16 @@ export function LoginPage() {
   return (
     <div className="login">
       <form className="login__card" onSubmit={(event) => void handleSubmit(event)} noValidate>
+        {business?.logoUrl == null ? null : (
+          <img
+            className="business-logo login__logo"
+            src={businessService.logoSrc(business.logoUrl)}
+            alt={`Logo de ${business.name}`}
+          />
+        )}
         <h1>Iniciar sesión</h1>
         <p className="muted">
-          {businessName === null ? 'Sistema de gestión' : `${businessName} · sistema de gestión`}
+          {business === null ? 'Sistema de gestión' : `${business.name} · sistema de gestión`}
         </p>
 
         {state?.notice === undefined ? null : (

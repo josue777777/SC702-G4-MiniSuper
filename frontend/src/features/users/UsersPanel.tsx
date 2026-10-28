@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Modal } from '../../components/Modal';
 import { useSession } from '../auth/session-context';
-import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from './roles';
+import { useBusiness } from '../business/business-context';
+import { manageableRoles, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from './roles';
 import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
 import { UserForm } from './UserForm';
 import { UserTable } from './UserTable';
@@ -19,6 +20,10 @@ type PendingAction = { kind: 'reset' | 'deactivate'; user: UserListItem };
  */
 export function UsersPanel() {
   const { user: currentUser } = useSession();
+  const { business } = useBusiness();
+  const { maxUsers, usedSeats } = business.plan;
+  const planFull = usedSeats >= maxUsers;
+  const roleOptions = manageableRoles(currentUser.role);
   const {
     phase,
     users,
@@ -79,6 +84,14 @@ export function UsersPanel() {
       <p className="muted">
         Quién puede entrar al sistema y qué puede hacer cada uno según su rol.
       </p>
+      <p className="plan-usage">
+        Usuarios activos del plan: <strong>{usedSeats}</strong> de <strong>{maxUsers}</strong>{' '}
+        {planFull ? (
+          <span className="badge badge--warning">
+            Plan lleno: desactive un usuario o pida ampliar el plan
+          </span>
+        ) : null}
+      </p>
 
       <div className="toolbar">
         <button
@@ -113,6 +126,7 @@ export function UsersPanel() {
           key={editing?.id ?? 'new'}
           user={editing}
           isSelf={editing?.id === currentUser.id}
+          roleOptions={roleOptions}
           busy={busy}
           serverError={notice?.kind === 'error' ? notice.text : null}
           onCancel={closeForm}
@@ -165,6 +179,7 @@ export function UsersPanel() {
         <UserTable
           users={users}
           currentUserId={currentUser.id}
+          currentRole={currentUser.role}
           busy={busy || formOpen}
           onEdit={(user) => {
             setEditing(user);

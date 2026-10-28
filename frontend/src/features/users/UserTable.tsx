@@ -1,10 +1,12 @@
-import type { UserListItem } from '../../types/auth';
-import { ROLE_LABELS } from './roles';
+import type { Role, UserListItem } from '../../types/auth';
+import { canManageRole, ROLE_LABELS } from './roles';
 
 interface UserTableProps {
   users: UserListItem[];
   /** Id de quien usa el sistema: no puede desactivarse ni restablecerse a sí mismo. */
   currentUserId: string;
+  /** Rol de quien usa el sistema: solo ve acciones sobre rangos menores al suyo. */
+  currentRole: Role;
   busy: boolean;
   onEdit: (user: UserListItem) => void;
   onResetPassword: (user: UserListItem) => void;
@@ -29,6 +31,7 @@ function StatusBadge({ user }: { user: UserListItem }) {
 export function UserTable({
   users,
   currentUserId,
+  currentRole,
   busy,
   onEdit,
   onResetPassword,
@@ -54,6 +57,7 @@ export function UserTable({
           <tbody>
             {users.map((user) => {
               const isSelf = user.id === currentUserId;
+              const manageable = !isSelf && canManageRole(currentRole, user.role);
 
               return (
                 <tr key={user.id}>
@@ -76,7 +80,7 @@ export function UserTable({
                       >
                         Editar
                       </button>
-                      {isSelf ? null : (
+                      {manageable ? (
                         <>
                           <button
                             type="button"
@@ -95,7 +99,7 @@ export function UserTable({
                             {user.isActive ? 'Desactivar' : 'Activar'}
                           </button>
                         </>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>

@@ -66,12 +66,18 @@ revela si el sistema tiene usuarios.
 Después, el administrador crea a los demás en **Configuración › Usuarios**, con uno de
 estos roles (fijos; la matriz está en `backend/src/auth/permissions.ts`):
 
-| Rol           | Qué puede usar                                                   |
-| ------------- | ---------------------------------------------------------------- |
-| Administrador | Todo, incluida la Configuración (usuarios)                       |
-| Encargado     | Todo el negocio, menos la Configuración                          |
-| Cajero        | Ventas y clientes; consulta productos sin modificarlos           |
-| Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario |
+| Rol           | Qué puede usar                                                    |
+| ------------- | ----------------------------------------------------------------- |
+| Administrador | Todo: la plataforma, todos los usuarios y el plan contratado      |
+| Encargado     | Dueño del negocio: todo el negocio, datos y logo, Cajero y Bodega |
+| Cajero        | Ventas y clientes; consulta productos sin modificarlos            |
+| Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario  |
+
+Hay **jerarquía**: cada uno administra solo usuarios de rango menor (el Encargado crea
+Cajeros y Bodegas, nunca otro Encargado). El **plan** limita cuántos usuarios activos
+tiene el negocio y solo el Administrador lo cambia. Cada usuario elige su **apariencia**
+(color y tamaño de letra) en Configuración › Apariencia. Detalle en
+[docs/adr/0002-usuarios-jerarquia-y-plan.md](docs/adr/0002-usuarios-jerarquia-y-plan.md).
 
 Cada usuario nuevo recibe una contraseña temporal (se muestra una sola vez). Si alguien
 olvida su contraseña, el administrador se la restablece. Los usuarios no se borran: se
