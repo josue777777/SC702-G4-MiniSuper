@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
-import { findGroupOfPath, NAVIGATION, type NavItem } from './navigation';
+import { ROLE_LABELS } from '../features/users/roles';
+import { findGroupOfPath, visibleNavigation, type NavItem } from './navigation';
 import { NavIcon } from './NavIcon';
 
 function NavItemLink({ item, nested = false }: { item: NavItem; nested?: boolean }) {
@@ -31,11 +32,13 @@ function startsWithMenuOpen(): boolean {
  * Estructura común de todas las pantallas internas: menú lateral, barra
  * superior y contenido. El contenido de la ruta coincidente se renderiza en
  * <Outlet />. Solo se muestra con sesión (lo garantiza <RequireSession />).
+ * El menú depende del rol: cada usuario ve solo las secciones que puede usar.
  */
 export function MainLayout() {
   const { pathname } = useLocation();
   const activeGroup = findGroupOfPath(pathname);
-  const { user, signOut, signingOut, signOutError } = useSession();
+  const { user, can, signOut, signingOut, signOutError } = useSession();
+  const navigation = visibleNavigation(can);
   /**
    * Grupos que el usuario abrió o cerró a mano. Si no lo ha tocado, un grupo
    * se ve abierto cuando contiene la pantalla actual.
@@ -59,7 +62,7 @@ export function MainLayout() {
         </div>
 
         <nav className="layout__nav" aria-label="Navegación principal">
-          {NAVIGATION.map((entry) =>
+          {navigation.map((entry) =>
             entry.kind === 'link' ? (
               <NavItemLink key={entry.to} item={entry} />
             ) : (
@@ -121,6 +124,7 @@ export function MainLayout() {
           <div className="topbar__session">
             <span className="topbar__user" title={user.email}>
               {user.name}
+              <small className="topbar__role">{ROLE_LABELS[user.role]}</small>
             </span>
             <button
               type="button"

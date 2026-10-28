@@ -1,5 +1,6 @@
 import { BackendStatusCard } from '../components/BackendStatusCard';
 import { PagePlaceholder } from '../components/PagePlaceholder';
+import { useSession } from '../features/auth/session-context';
 import { BarList } from '../features/dashboard/BarList';
 import { QuickLinks } from '../features/dashboard/QuickLinks';
 import { StatTile } from '../features/dashboard/StatTile';
@@ -15,6 +16,7 @@ import { formatMoney } from '../features/products/money';
  */
 export function DashboardPage() {
   const { phase, data, message, reload } = useDashboard();
+  const { can } = useSession();
 
   return (
     <PagePlaceholder
@@ -48,14 +50,18 @@ export function DashboardPage() {
           detail="Disponibles para la venta"
           to="/inventory"
         />
-        <StatTile
-          label="Pedidos pendientes"
-          value={data === null ? '…' : formatMoney(data.pendingOrders.totalValue)}
-          detail={
-            data === null ? 'Calculando…' : `${data.pendingOrders.count} pedido(s) por recibir`
-          }
-          to="/orders"
-        />
+        {can('purchasing') ? (
+          <StatTile
+            label="Pedidos pendientes"
+            value={data?.pendingOrders == null ? '…' : formatMoney(data.pendingOrders.totalValue)}
+            detail={
+              data?.pendingOrders == null
+                ? 'Calculando…'
+                : `${data.pendingOrders.count} pedido(s) por recibir`
+            }
+            to="/orders"
+          />
+        ) : null}
         <StatTile
           label="Stock bajo"
           value={data === null ? '…' : String(data.lowStockCount)}

@@ -1,28 +1,24 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { resetOwner, withDb } from './db';
-import { BACKEND_URL, E2E_SETUP_TOKEN } from './env';
+import { insertUser, resetOwner, withDb, type E2EUser } from './db';
+import { BACKEND_URL } from './env';
 
-/** Cuenta del dueño de pruebas (valores de fixture, no reales). */
-export const E2E_OWNER = {
+/** Administrador de pruebas (valores de fixture, no reales). */
+export const E2E_OWNER: E2EUser = {
   name: 'Dueña de Prueba',
   email: 'duena.prueba@example.com',
   password: 'ClaveSegura123',
+  role: 'ADMIN',
 };
 
 /**
- * Deja la cuenta del dueño con las credenciales de `E2E_OWNER`; sin ella la app
- * redirige a /setup. Se recrea siempre porque otra prueba (HU-14) pudo cambiar
- * el correo o la contraseña.
+ * Deja como único usuario al administrador `E2E_OWNER`, ya con su contraseña
+ * propia (lo que queda tras `npm run db:seed` y el primer ingreso). Se recrea
+ * siempre porque otra prueba (HU-14) pudo cambiar el correo o la contraseña.
  */
-export async function ensureOwner(request: APIRequestContext): Promise<void> {
+export async function ensureOwner(): Promise<void> {
   await resetOwner();
-
-  const created = await request.post(`${BACKEND_URL}/api/auth/setup`, {
-    data: { ...E2E_OWNER, setupToken: E2E_SETUP_TOKEN },
-  });
-
-  expect(created.status()).toBe(201);
+  await insertUser(E2E_OWNER);
 }
 
 /**
@@ -31,10 +27,17 @@ export async function ensureOwner(request: APIRequestContext): Promise<void> {
  * página, así que la cookie HttpOnly queda igual que tras el login real.
  */
 export async function signInAsOwner(page: Page): Promise<void> {
-  await ensureOwner(page.request);
+  await ensureOwner();
+  await signInVia(page.request, E2E_OWNER);
+}
 
-  const login = await page.request.post(`${BACKEND_URL}/api/auth/login`, {
-    data: { email: E2E_OWNER.email, password: E2E_OWNER.password },
+/** Abre sesión por la API; la cookie queda en el contexto de `request`. */
+export async function signInVia(
+  request: APIRequestContext,
+  user: Pick<E2EUser, 'email' | 'password'>,
+): Promise<void> {
+  const login = await request.post(`${BACKEND_URL}/api/auth/login`, {
+    data: { email: user.email, password: user.password },
   });
 
   expect(login.status()).toBe(200);

@@ -1,19 +1,19 @@
 import { z } from 'zod';
 
-/** Esquemas Zod del acceso del dueño: configuración inicial, login y perfil (HU-12, HU-14). */
+/** Esquemas Zod del acceso: administrador inicial, login y perfil (HU-11 a HU-14). */
 
 export const PASSWORD_MIN_LENGTH = 10;
 /** Tope para que una contraseña enorme no sea una forma barata de agotar el CPU al hashear. */
 export const PASSWORD_MAX_LENGTH = 128;
 
-const nameSchema = z
+export const nameSchema = z
   .string({ error: 'El nombre es obligatorio.' })
   .trim()
   .min(1, 'El nombre no puede estar vacío.')
   .max(80, 'El nombre no puede superar 80 caracteres.');
 
-/** El correo se guarda en minúsculas: así el login no depende de cómo lo escribió el dueño. */
-const emailSchema = z
+/** El correo se guarda en minúsculas: así el login no depende de cómo lo escribió el usuario. */
+export const emailSchema = z
   .string({ error: 'El correo es obligatorio.' })
   .trim()
   .toLowerCase()
@@ -28,13 +28,15 @@ export const newPasswordSchema = z
   .refine((value) => /\p{L}/u.test(value), 'La contraseña debe incluir al menos una letra.')
   .refine((value) => /\d/.test(value), 'La contraseña debe incluir al menos un número.');
 
-/** Cuerpo de `POST /api/auth/setup`. */
-export const setupSchema = z
+/**
+ * Datos del administrador inicial (HU-12), leídos del `.env` por el comando
+ * `npm run db:seed`. Misma política de contraseña que cualquier otra.
+ */
+export const initialAdminSchema = z
   .object({
     name: nameSchema,
     email: emailSchema,
     password: newPasswordSchema,
-    setupToken: z.string().max(200).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.password.toLowerCase() === value.email) {
@@ -46,7 +48,7 @@ export const setupSchema = z
     }
   });
 
-export type SetupInput = z.infer<typeof setupSchema>;
+export type InitialAdminInput = z.infer<typeof initialAdminSchema>;
 
 /**
  * Cuerpo de `POST /api/auth/login` (HU-11). Se valida el FORMATO (correo válido y

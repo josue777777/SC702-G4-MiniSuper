@@ -33,6 +33,16 @@ datasource db {
 
 /// Tipo de cambio de inventario. Toda variación de stock deja un registro.
 /// ADJUSTMENT cubre los conteos físicos (HU-10) y las correcciones.
+/// Roles fijos del sistema. Administrador: todo, incluida la Configuración.
+/// Encargado: todo el negocio menos la Configuración. Cajero: ventas,
+/// clientes y fiado. Bodega: inventario, Kardex, pedidos y proveedores.
+enum UserRole {
+  ADMIN
+  ENCARGADO
+  CAJERO
+  BODEGA
+}
+
 enum InventoryMovementType {
   ENTRY
   EXIT
@@ -66,10 +76,15 @@ model User {
   email    String @unique
   /// Nunca en texto plano: se guarda el hash (HU-12).
   passwordHash String
-  /// Siempre `true`. Al ser único, la base de datos solo admite UNA fila de
-  /// usuario aunque dos peticiones de configuración inicial lleguen a la vez
-  /// (HU-12: cuenta única). No hay registro público ni roles.
-  isOwner Boolean @unique @default(true)
+  /// Qué módulos puede usar (HU-12, criterios de usuarios y roles). Los
+  /// permisos de cada rol se definen en `src/auth/permissions.ts`.
+  role UserRole
+  /// Los usuarios no se borran: se desactivan para conservar el historial.
+  /// Uno inactivo no puede iniciar sesión.
+  isActive Boolean @default(true)
+  /// `true` con una contraseña temporal (la inicial o una restablecida por el
+  /// administrador): hasta cambiarla, la API solo permite cambiar la contraseña.
+  mustChangePassword Boolean @default(false)
   /// Se incrementa al cerrar sesión (HU-15): todo token emitido con una versión
   /// anterior deja de ser válido, aunque alguien conserve una copia.
   sessionVersion Int @default(0)

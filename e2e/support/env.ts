@@ -24,9 +24,6 @@ export const FRONTEND_PORT = 5183;
 export const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 export const FRONTEND_URL = `http://localhost:${FRONTEND_PORT}`;
 
-/** Token de instalación SOLO para estas pruebas (valor de fixture, no es un secreto real). */
-export const E2E_SETUP_TOKEN = 'token-e2e-de-prueba-0001';
-
 /**
  * Base de datos de las pruebas. Debe terminar en `_e2e`: las pruebas BORRAN
  * datos y esta guarda evita apuntar por error a la base de desarrollo.

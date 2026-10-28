@@ -3,6 +3,7 @@ import { ApiError } from '../../services/api-client';
 import { inventoryService } from '../../services/inventory.service';
 import { productsService } from '../../services/products.service';
 import { purchaseOrdersService } from '../../services/purchase-orders.service';
+import { useSession } from '../auth/session-context';
 import {
   summarizeInventory,
   summarizePendingOrders,
@@ -18,7 +19,8 @@ export const DASHBOARD_REFRESH_MS = 15_000;
 
 export interface DashboardData {
   inventory: InventorySummary;
-  pendingOrders: PendingOrdersSummary;
+  /** `null` si el rol no maneja pedidos (no se consultan). */
+  pendingOrders: PendingOrdersSummary | null;
   lowStockCount: number;
   expiredCount: number;
   expiringSoonCount: number;
@@ -35,16 +37,19 @@ interface DashboardState {
 /**
  * Datos del panel principal: productos, pedidos y alertas, consultados en
  * paralelo. Se actualiza cada 15 s y al volver a la pestaña, para que lo que se
- * hizo en otra pantalla (un pedido, un conteo) se vea sin recargar.
+ * hizo en otra pantalla (un pedido, un conteo) se vea sin recargar. Los
+ * pedidos solo se piden si el rol los maneja (si no, la API respondería 403).
  */
 export function useDashboard() {
+  const { can } = useSession();
+  const canSeeOrders = can('purchasing');
   const [state, setState] = useState<DashboardState>({ phase: 'loading', data: null });
 
   const load = useCallback(async () => {
     try {
       const [products, orders, lowStock, expirations] = await Promise.all([
         productsService.list(),
-        purchaseOrdersService.list(),
+        canSeeOrders ? purchaseOrdersService.list() : Promise.resolve(null),
         inventoryService.listLowStock(),
         inventoryService.listExpirations(),
       ]);
@@ -53,7 +58,7 @@ export function useDashboard() {
         phase: 'ready',
         data: {
           inventory: summarizeInventory(products),
-          pendingOrders: summarizePendingOrders(orders),
+          pendingOrders: orders === null ? null : summarizePendingOrders(orders),
           lowStockCount: lowStock.length,
           expiredCount: expirations.filter((alert) => alert.status === 'EXPIRED').length,
           expiringSoonCount: expirations.filter((alert) => alert.status === 'EXPIRING_SOON').length,
@@ -72,7 +77,7 @@ export function useDashboard() {
             : 'Ocurrió un error inesperado. Intente de nuevo.',
       }));
     }
-  }, []);
+  }, [canSeeOrders]);
 
   useEffect(() => {
     void load();
