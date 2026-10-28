@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
+import { useBusiness } from '../features/business/business-context';
+import { BusinessProvider } from '../features/business/BusinessProvider';
+import { SETTINGS_TABS, type SettingsTab } from '../features/settings/settings-tabs';
+import { SettingsWindow } from '../features/settings/SettingsWindow';
 import { ROLE_LABELS } from '../features/users/roles';
 import { findGroupOfPath, visibleNavigation, type NavItem } from './navigation';
 import { NavIcon } from './NavIcon';
@@ -33,11 +37,50 @@ function startsWithMenuOpen(): boolean {
  * superior y contenido. El contenido de la ruta coincidente se renderiza en
  * <Outlet />. Solo se muestra con sesión (lo garantiza <RequireSession />).
  * El menú depende del rol: cada usuario ve solo las secciones que puede usar.
+ * Los datos del negocio se cargan aquí una vez para todas las pantallas.
  */
 export function MainLayout() {
+  return (
+    <BusinessProvider>
+      <Layout />
+    </BusinessProvider>
+  );
+}
+
+/** Pestaña de Configuración abierta según la dirección (`?config=usuarios`), o `null`. */
+function settingsTabFrom(params: URLSearchParams): SettingsTab | null {
+  const value = params.get('config');
+
+  return SETTINGS_TABS.find((tab) => tab === value) ?? null;
+}
+
+function Layout() {
   const { pathname } = useLocation();
   const activeGroup = findGroupOfPath(pathname);
   const { user, can, signOut, signingOut, signOutError } = useSession();
+  const { business } = useBusiness();
+  const [params, setParams] = useSearchParams();
+  const settingsTab = settingsTabFrom(params);
+
+  function openSettings(tab: SettingsTab): void {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+
+      next.set('config', tab);
+
+      return next;
+    });
+  }
+
+  function closeSettings(): void {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+
+      next.delete('config');
+
+      return next;
+    });
+  }
   const navigation = visibleNavigation(can);
   /**
    * Grupos que el usuario abrió o cerró a mano. Si no lo ha tocado, un grupo
@@ -57,7 +100,7 @@ export function MainLayout() {
           <span className="layout__brand-mark">MS</span>
           <div>
             <strong>MiniSuper</strong>
-            <small>Nuevo Amanecer</small>
+            <small title={business.name}>{business.name}</small>
           </div>
         </div>
 
@@ -96,6 +139,23 @@ export function MainLayout() {
               </div>
             ),
           )}
+
+          {/* Abre una ventana sobre la pantalla actual, no cambia de pantalla. */}
+          {can('settings') ? (
+            <button
+              type="button"
+              className={
+                settingsTab === null
+                  ? 'nav-group__toggle'
+                  : 'nav-group__toggle nav-group__toggle--active'
+              }
+              aria-haspopup="dialog"
+              onClick={() => openSettings('general')}
+            >
+              <NavIcon name="settings" />
+              Configuración
+            </button>
+          ) : null}
         </nav>
 
         <div className="layout__footer">
@@ -119,7 +179,7 @@ export function MainLayout() {
           >
             <NavIcon name="menu" />
           </button>
-          <strong className="topbar__title">MiniSuper Nuevo Amanecer</strong>
+          <strong className="topbar__title">{business.name}</strong>
           {/* HU-15: siempre a la vista, aunque el menú lateral esté oculto. */}
           <div className="topbar__session">
             <span className="topbar__user" title={user.email}>
@@ -147,6 +207,10 @@ export function MainLayout() {
         <main className="layout__content">
           <Outlet />
         </main>
+
+        {settingsTab === null ? null : (
+          <SettingsWindow tab={settingsTab} onTabChange={openSettings} onClose={closeSettings} />
+        )}
       </div>
     </div>
   );

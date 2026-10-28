@@ -107,6 +107,22 @@ model User {
   updatedAt            DateTime  @updatedAt
 }
 
+/// Datos del negocio (Configuración › General). Hay UNA sola fila (`id = 1`):
+/// encabezan el comprobante de venta, el menú y el login. Los edita solo el
+/// Administrador.
+model BusinessSettings {
+  id             Int      @id @default(1)
+  name           String
+  /// Cédula jurídica o física del negocio.
+  legalId        String?
+  phone          String?
+  email          String?
+  address        String?
+  /// Mensaje al pie del comprobante de venta.
+  receiptMessage String?
+  updatedAt      DateTime @updatedAt
+}
+
 // -----------------------------------------------------------------------------
 // Módulo 1 — Productos e inventario (HU-01 … HU-10)
 // -----------------------------------------------------------------------------

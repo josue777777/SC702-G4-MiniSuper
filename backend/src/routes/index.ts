@@ -7,6 +7,7 @@ import {
 } from '../middleware/require-auth.middleware.js';
 import { createSameOriginGuard } from '../middleware/same-origin.middleware.js';
 import { authRouter, authService } from './auth.routes.js';
+import { businessRouter, publicBusinessRouter } from './business.routes.js';
 import { categoriesRouter } from './categories.routes.js';
 import { customersRouter } from './customers.routes.js';
 import { healthRouter } from './health.routes.js';
@@ -22,7 +23,8 @@ import { usersRouter } from './users.routes.js';
  * Árbol de rutas de la API. Todo lo publicado cuelga de `/api`
  * (ver `src/app.ts`).
  *
- * Solo son públicos `/health` y `/auth` (login, sesión y cierre). Todo lo demás
+ * Solo son públicos `/health`, `/auth` (login, sesión y cierre) y
+ * `/business/public` (el nombre del negocio para el login). Todo lo demás
  * exige, en este orden:
  *   1. una sesión válida (HU-11): sin cookie válida responde 401;
  *   2. que el usuario ya cambió su contraseña temporal: si no, 403;
@@ -43,6 +45,8 @@ export const sessionRequired = [
 
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/auth', authRouter); // HU-11 (login), HU-15 (cierre)
+apiRouter.use('/business/public', publicBusinessRouter); // solo el nombre, para el login
+apiRouter.use('/business', ...sessionRequired, businessRouter); // Configuración › General: leer cualquier rol; PUT solo Administrador
 apiRouter.use('/profile', profileRouter); // HU-14: protege su propia sesión; permite cambiar la contraseña temporal
 apiRouter.use(
   '/products',

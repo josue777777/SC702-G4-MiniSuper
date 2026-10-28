@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   fieldErrorsFromDetails,
@@ -7,6 +7,7 @@ import {
 } from '../features/auth/account-rules';
 import { ApiError } from '../services/api-client';
 import { authService } from '../services/auth.service';
+import { businessService } from '../services/business.service';
 
 interface LoginLocationState {
   notice?: string;
@@ -34,6 +35,15 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Nombre del negocio (Configuración › General); sin él, solo «Sistema de gestión». */
+  const [businessName, setBusinessName] = useState<string | null>(null);
+
+  useEffect(() => {
+    businessService
+      .getPublicName()
+      .then(setBusinessName)
+      .catch(() => setBusinessName(null));
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -85,7 +95,9 @@ export function LoginPage() {
     <div className="login">
       <form className="login__card" onSubmit={(event) => void handleSubmit(event)} noValidate>
         <h1>Iniciar sesión</h1>
-        <p className="muted">Abastecedor Nuevo Amanecer · sistema de gestión</p>
+        <p className="muted">
+          {businessName === null ? 'Sistema de gestión' : `${businessName} · sistema de gestión`}
+        </p>
 
         {state?.notice === undefined ? null : (
           <div className="alert alert--success" role="status">
