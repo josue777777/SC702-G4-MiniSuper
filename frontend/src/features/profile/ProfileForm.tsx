@@ -7,11 +7,14 @@ import {
   validateNewPassword,
 } from '../auth/account-rules';
 import type { Profile, ProfileUpdatePayload } from '../../types/auth';
+import { ROLE_LABELS } from '../users/roles';
 import type { SaveFailure } from './use-profile';
 
 interface ProfileFormProps {
   profile: Profile;
   save: (payload: ProfileUpdatePayload) => Promise<SaveFailure | null>;
+  /** Con contraseña temporal, cambiarla es obligatorio. */
+  mustChangePassword: boolean;
 }
 
 type FieldName = 'name' | 'email' | 'currentPassword' | 'newPassword' | 'confirm';
@@ -22,9 +25,10 @@ type FieldErrors = Partial<Record<FieldName, string>>;
  *
  * Arranca con los valores guardados. La contraseña actual NUNCA se precarga: se
  * pide solo para cambiar el correo o la contraseña. "Cancelar" restaura lo
- * guardado sin enviar nada al servidor.
+ * guardado sin enviar nada al servidor. El rol no se edita aquí: lo asigna el
+ * administrador.
  */
-export function ProfileForm({ profile, save }: ProfileFormProps) {
+export function ProfileForm({ profile, save, mustChangePassword }: ProfileFormProps) {
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -58,6 +62,10 @@ export function ProfileForm({ profile, save }: ProfileFormProps) {
 
     if (nameError !== undefined) found.name = nameError;
     if (emailError !== undefined) found.email = emailError;
+
+    if (mustChangePassword && !passwordChanged) {
+      found.newPassword = 'Cree su propia contraseña para continuar.';
+    }
 
     if (passwordChanged) {
       const passwordError = validateNewPassword(newPassword);
@@ -153,7 +161,13 @@ export function ProfileForm({ profile, save }: ProfileFormProps) {
           </div>
         </div>
 
-        <h3 className="form__section-title">Cambiar contraseña (opcional)</h3>
+        <p className="muted">
+          Rol: <strong>{ROLE_LABELS[profile.role]}</strong> (lo asigna el administrador).
+        </p>
+
+        <h3 className="form__section-title">
+          {mustChangePassword ? 'Cree su contraseña' : 'Cambiar contraseña (opcional)'}
+        </h3>
         <div className="form__grid">
           <div className="form__field">
             <label htmlFor="profile-new-password">Nueva contraseña</label>
@@ -193,7 +207,11 @@ export function ProfileForm({ profile, save }: ProfileFormProps) {
               autoComplete="current-password"
               onChange={(event) => setCurrentPassword(event.target.value)}
             />
-            <small className="muted">Solo se pide para cambiar el correo o la contraseña.</small>
+            <small className="muted">
+              {mustChangePassword
+                ? 'La contraseña temporal que le dio el administrador.'
+                : 'Solo se pide para cambiar el correo o la contraseña.'}
+            </small>
             {errors.currentPassword === undefined ? null : (
               <p className="form__error">{errors.currentPassword}</p>
             )}
@@ -201,7 +219,11 @@ export function ProfileForm({ profile, save }: ProfileFormProps) {
         </div>
 
         <div className="form__actions">
-          <button type="submit" className="button button--primary" disabled={busy || !dirty}>
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={busy || (!dirty && !mustChangePassword)}
+          >
             {busy ? 'Guardando…' : 'Guardar cambios'}
           </button>
           <button

@@ -45,10 +45,37 @@ cp backend/.env.example backend/.env
 
 npm run db:up          # levanta PostgreSQL
 npm run db:migrate     # crea las tablas y genera el cliente de Prisma
+npm run db:seed        # crea el administrador inicial (ver abajo)
 npm run dev            # inicia backend y frontend
 ```
 
 La aplicación queda en http://localhost:5173 y la API en http://localhost:4000/api.
+
+### Usuarios y roles
+
+No hay registro público. El **administrador inicial** se crea con `npm run db:seed`,
+usando `ADMIN_NAME`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` de `backend/.env` (vienen de ejemplo
+en `backend/.env.example`). Esa contraseña es temporal: el sistema obliga a cambiarla en
+el primer ingreso. El comando se puede correr varias veces: si ya hay un administrador
+activo, no hace nada.
+
+Después, el administrador crea a los demás en **Configuración › Usuarios**, con uno de
+estos roles (fijos; la matriz está en `backend/src/auth/permissions.ts`):
+
+| Rol           | Qué puede usar                                                      |
+| ------------- | ------------------------------------------------------------------- |
+| Administrador | Todo, incluida la Configuración (usuarios)                          |
+| Encargado     | Todo el negocio, menos la Configuración                             |
+| Cajero        | Ventas y clientes; consulta productos sin modificarlos              |
+| Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario    |
+
+Cada usuario nuevo recibe una contraseña temporal (se muestra una sola vez). Si alguien
+olvida su contraseña, el administrador se la restablece. Los usuarios no se borran: se
+desactivan. Desactivar, cambiar el rol o restablecer la contraseña cierra las sesiones
+abiertas de ese usuario.
+
+> **Si ya tenía la base de antes:** `npm run db:migrate` convierte la cuenta existente en
+> Administrador, con la misma contraseña. No hace falta `db:seed`.
 
 **Después de cada `git pull`** que traiga cambios en `backend/prisma/`, vuelva a ejecutar
 `npm run db:migrate`: aplica las migraciones nuevas y regenera el cliente de Prisma. Si se

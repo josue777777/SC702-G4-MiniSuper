@@ -13,7 +13,7 @@ Las historias de usuario (HU) se implementan **encima** de esta base.
 
 | Punto | Definición |
 | --- | --- |
-| Usuario del sistema | **Un único dueño** del negocio (no hay múltiples roles ni multi-tenant) |
+| Usuarios del sistema | Personal del negocio con **cuatro roles fijos** (Administrador, Encargado, Cajero, Bodega); sin multi-tenant |
 | Uso de IA | El sistema **NO** incluye asistentes de inteligencia artificial |
 | Tipo de aplicación | Aplicación web cliente-servidor (SPA + API REST) |
 | Historias de usuario | 30 HU (`HU-01` … `HU-30`) agrupadas en 3 módulos funcionales |
@@ -196,16 +196,30 @@ backend/src/
 `/api/health/database` demuestra el flujo completo `route → controller → service →
 repository → Prisma`. Responde `200` si la base responde y `503` si no.
 
-### Acceso a la API (HU-11, HU-15)
+### Acceso a la API y roles (HU-11 … HU-15)
 
-Solo son públicos `/api/health` y `/api/auth` (configuración inicial, login, sesión y
-cierre de sesión). **Todos los demás endpoints exigen la sesión del dueño**: en
-`routes/index.ts` cada router se monta detrás de `sessionRequired`, que rechaza con
-`403` los cambios pedidos desde otro origen (CSRF) y con `401` cualquier petición sin
-una cookie de sesión válida, antes de llegar al controller. La sesión es una cookie
+Solo son públicos `/api/health` y `/api/auth` (login, sesión y cierre de sesión). No hay
+registro público: el administrador inicial se crea con `npm run db:seed` y los demás
+usuarios los crea el administrador en `/api/users`. **Todos los demás endpoints exigen,
+en este orden** (`routes/index.ts`):
+
+1. `sessionRequired`: rechaza con `403` los cambios pedidos desde otro origen (CSRF) y
+   con `401` cualquier petición sin una cookie de sesión válida o de un usuario
+   desactivado;
+2. `requirePasswordChanged`: con una contraseña temporal responde `403` en todo menos
+   `/api/profile`, donde se cambia;
+3. `requirePermission(...)`: el permiso del rol para esa sección (consultar con `GET`,
+   modificar con los demás métodos); si no lo tiene, `403`.
+
+La matriz de roles y permisos vive en **un solo archivo**, `backend/src/auth/permissions.ts`.
+La sesión envía al frontend el rol y sus permisos, que los usa solo para mostrar u ocultar
+el menú y las pantallas (`<RequirePermission />` muestra «Acceso no permitido»): la
+seguridad real es la del servidor. Agregar un módulo es agregar su permiso ahí, asignarlo a
+los roles y montar su router con `requirePermission`. La sesión es una cookie
 `HttpOnly` y `SameSite=Strict` con un token firmado. Cerrar sesión la invalida en el
-servidor (`User.sessionVersion`), y todas las respuestas de `/api` llevan
-`Cache-Control: no-store`.
+servidor (`User.sessionVersion`); desactivar a un usuario, cambiarle el rol o restablecerle
+la contraseña también incrementa esa versión y cierra sus sesiones abiertas. Todas las
+respuestas de `/api` llevan `Cache-Control: no-store`.
 
 En el frontend, `<RequireSession />` no muestra ninguna pantalla interna sin sesión y
 cualquier `401` de la API lleva al login.
@@ -247,7 +261,7 @@ Convenciones de este módulo, decididas al implementarlo:
   se borra un producto ya desactivado, y nunca si aparece en ventas o pedidos (`409`; se
   queda desactivado). Si no, se borra junto con sus movimientos de stock en una
   transacción; sus relaciones con proveedores se borran solas (`Cascade`). Como toda la
-  API, exige la sesión del dueño (HU-11).
+  API, exige sesión y el permiso de inventario del rol (HU-11).
 * **Imagen del producto (HU-01)**: se guarda en la base (`imageData`, `bytea`) para no
   depender de una carpeta del servidor; el listado solo trae `imageUrl`, nunca los bytes. Solo
   PNG, JPG o WEBP de hasta 2 MB (`413` si se pasa). Sin SVG, porque puede llevar código
@@ -371,10 +385,12 @@ Convenciones de este módulo, decididas al implementarlo:
    con `paymentMethod = CREDIT` menos los `CreditPayment` de ese cliente. Así HU-18 ("se
    acumula la deuda") y HU-19 ("la deuda se actualiza o se marca como saldada") se cumplen
    manteniendo un historial de movimientos en lugar de un número que puede descuadrar.
-9. **Sin roles ni RBAC**: existe un único dueño (`User`); no se modelan permisos.
-10. **Sin columna `createdBy`/autor en ventas, movimientos ni pedidos**: el sistema es
-    monousuario (HU-12), así que el autor no aporta información. Si algún día hay más de
-    un usuario, se agrega con una migración y no rompe lo existente.
+9. **Roles fijos, no configurables** (`User.role`: `ADMIN`, `ENCARGADO`, `CAJERO`,
+   `BODEGA`): cubren el negocio sin una pantalla de permisos que mantener. Los permisos
+   de cada rol están en código (`auth/permissions.ts`), no en tablas.
+10. **Sin columna `createdBy`/autor en ventas, movimientos ni pedidos** todavía: ninguna
+    historia pide saber quién registró cada operación. Ahora que hay varios usuarios es
+    la extensión natural (una migración que no rompe lo existente) si el negocio lo pide.
 11. **Sin folios correlativos** (`invoiceNumber`, `orderNumber`): ninguna historia los
     pide. El ticket de caja y el PDF del pedido (HU-24) pueden usar el `id` y la fecha;
     si el dueño los pide, se añade un correlativo anual con su propia migración.
@@ -403,15 +419,14 @@ erDiagram
     PurchaseOrder ||--o{ InventoryMovement : origina
 ```
 
-`User` aparece sin relaciones en el diagrama a propósito: es la cuenta única de acceso
-(HU-11 … HU-15) y, al no haber múltiples usuarios, ninguna transacción necesita
-referenciarla (decisión 10).
+`User` aparece sin relaciones en el diagrama a propósito: son las cuentas de acceso con su
+rol (HU-11 … HU-15) y, por ahora, ninguna transacción guarda su autor (decisión 10).
 
 ### Modelo de dominio y su origen en las HU
 
 | Entidad | Para qué existe (HU relacionadas) |
 | --- | --- |
-| `User` | Cuenta única del dueño: login, perfil, recuperación (HU-11 … HU-15) |
+| `User` | Usuarios con rol, estado (activo/inactivo) y contraseña temporal: login, perfil, restablecimiento (HU-11 … HU-15) |
 | `Category` | Categorizar y filtrar inventario (HU-04) |
 | `Product` | Código, código de barras, precios, costo, stock, stock mínimo y vencimiento (HU-01 … HU-09) |
 | `InventoryMovement` | Historial auditable de entradas, salidas y ajustes (HU-10, HU-16) |
@@ -568,8 +583,8 @@ escribe. Ante una duda de modelado, la respuesta está en el checklist de la HU.
 
 | No se hace | Por qué |
 | --- | --- |
-| Roles, permisos, multiusuario | El sistema es para un único dueño (HU-12) |
-| Registro público de cuentas | HU-12 prohíbe crear cuentas adicionales |
+| Roles configurables (crear roles o editar permisos desde la pantalla) | Los cuatro roles fijos cubren el negocio; cambiarlos es editar `auth/permissions.ts` |
+| Registro público de cuentas | Los usuarios los crea el administrador |
 | Módulo contable o facturación fiscal | No aparece en las 30 historias |
 | Integración con pasarelas de pago | HU-17 solo registra el método de pago usado en caja |
 | Multi-sucursal / multi-tenant | Un solo negocio |

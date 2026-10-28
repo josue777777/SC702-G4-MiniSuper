@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, UNAUTHORIZED_EVENT } from '../../services/api-client';
 import { authService } from '../../services/auth.service';
-import type { Profile } from '../../types/auth';
+import type { Permission, Profile } from '../../types/auth';
 import { SessionContext, SIGN_IN_REQUIRED_NOTICE, SIGNED_OUT_NOTICE } from './session-context';
 
 type SessionState =
@@ -11,8 +11,14 @@ type SessionState =
   | { phase: 'signed-out' }
   | { phase: 'error'; message: string };
 
+/** Única pantalla disponible mientras la contraseña es temporal. */
+export const CHANGE_PASSWORD_PATH = '/profile';
+
 /**
  * Compuerta de las pantallas internas (HU-15; base de HU-11).
+ *
+ * Con una contraseña temporal (usuario nuevo o restablecida por el
+ * administrador) solo deja entrar a «Mi perfil» hasta que la cambie.
  *
  * Nada privado se pinta hasta que el servidor confirma la sesión. Se vuelve a
  * preguntar al cambiar de pantalla, al volver a la pestaña y cuando el navegador
@@ -101,13 +107,17 @@ export function RequireSession({ children }: { children: ReactNode }) {
     navigate('/login', { replace: true, state: { notice: SIGNED_OUT_NOTICE } });
   }, [navigate]);
 
-  const value = useMemo(
-    () =>
-      state.phase === 'ready'
-        ? { user: state.user, setUser, signOut, signingOut, signOutError }
-        : null,
-    [state, setUser, signOut, signingOut, signOutError],
-  );
+  const value = useMemo(() => {
+    if (state.phase !== 'ready') {
+      return null;
+    }
+
+    const { user } = state;
+    const can = (permission: Permission): boolean =>
+      !user.mustChangePassword && user.permissions.includes(permission);
+
+    return { user, can, setUser, signOut, signingOut, signOutError };
+  }, [state, setUser, signOut, signingOut, signOutError]);
 
   if (state.phase === 'signed-out') {
     return <Navigate to="/login" replace state={{ notice: SIGN_IN_REQUIRED_NOTICE }} />;
@@ -144,6 +154,10 @@ export function RequireSession({ children }: { children: ReactNode }) {
         </p>
       </div>
     );
+  }
+
+  if (value.user.mustChangePassword && pathname !== CHANGE_PASSWORD_PATH) {
+    return <Navigate to={CHANGE_PASSWORD_PATH} replace />;
   }
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

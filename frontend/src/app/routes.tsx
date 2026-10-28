@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { RequirePermission } from '../features/auth/RequirePermission';
 import { RequireSession } from '../features/auth/RequireSession';
-import { SetupGate } from '../features/auth/SetupGate';
 import { MainLayout } from '../layouts/MainLayout';
 import { CustomersPage } from '../pages/CustomersPage';
 import { DashboardPage } from '../pages/DashboardPage';
@@ -12,47 +13,53 @@ import { OrdersPage } from '../pages/OrdersPage';
 import { ProfilePage } from '../pages/ProfilePage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { SalesPage } from '../pages/SalesPage';
-import { SetupPage } from '../pages/SetupPage';
 import { SuppliersPage } from '../pages/SuppliersPage';
+import { UsersPage } from '../pages/UsersPage';
+import type { Permission } from '../types/auth';
+
+/** Atajo para envolver una pantalla con el permiso que pide. */
+function only(permission: Permission, page: ReactNode) {
+  return <RequirePermission permission={permission}>{page}</RequirePermission>;
+}
 
 /**
  * Mapa de rutas de la aplicación.
  *
  * Las rutas dentro de <Route element={<MainLayout />}> comparten la barra de
- * navegación (React Router renderiza ahí el `<Outlet />` del layout).
- * `/login` y `/setup` quedan fuera: las pantallas de acceso no muestran el menú
- * (HU-11 … HU-15). <SetupGate /> manda a `/setup` mientras no exista la cuenta del
- * dueño y, una vez creada, impide volver a esa pantalla (HU-12). <RequireSession />
- * exige una sesión válida para las pantallas internas y ofrece el cierre (HU-15).
+ * navegación (React Router renderiza ahí el `<Outlet />` del layout). `/login`
+ * queda fuera: la pantalla de acceso no muestra el menú (HU-11). No hay
+ * registro público: los usuarios los crea el administrador.
+ *
+ * <RequireSession /> exige una sesión válida y, con contraseña temporal, solo
+ * deja entrar a «Mi perfil». Cada pantalla pide el permiso de su sección (el
+ * mismo que exige la API); sin él se muestra «Acceso no permitido».
  */
 export function AppRoutes() {
   return (
-    <SetupGate>
-      <Routes>
-        <Route path="/setup" element={<SetupPage />} />
-        <Route path="/login" element={<LoginPage />} />
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
 
-        <Route
-          element={
-            <RequireSession>
-              <MainLayout />
-            </RequireSession>
-          }
-        >
-          <Route path="/" element={<DashboardPage />} />
-          {/* Productos se muestra ahora dentro de Inventario. */}
-          <Route path="/products" element={<Navigate to="/inventory" replace />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/kardex" element={<KardexPage />} />
-          <Route path="/sales" element={<SalesPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/suppliers" element={<SuppliersPage />} />
-          <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </SetupGate>
+      <Route
+        element={
+          <RequireSession>
+            <MainLayout />
+          </RequireSession>
+        }
+      >
+        <Route path="/" element={<DashboardPage />} />
+        {/* Productos se muestra ahora dentro de Inventario. */}
+        <Route path="/products" element={<Navigate to="/inventory" replace />} />
+        <Route path="/inventory" element={only('inventory.read', <InventoryPage />)} />
+        <Route path="/kardex" element={only('kardex', <KardexPage />)} />
+        <Route path="/sales" element={only('sales', <SalesPage />)} />
+        <Route path="/customers" element={only('customers', <CustomersPage />)} />
+        <Route path="/suppliers" element={only('purchasing', <SuppliersPage />)} />
+        <Route path="/orders" element={only('purchasing', <OrdersPage />)} />
+        <Route path="/reports" element={only('reports.inventory', <ReportsPage />)} />
+        <Route path="/settings/users" element={only('settings', <UsersPage />)} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 }

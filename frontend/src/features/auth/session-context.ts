@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Profile } from '../../types/auth';
+import type { Permission, Profile } from '../../types/auth';
 
 /** Aviso del login tras cerrar sesión (HU-15). */
 export const SIGNED_OUT_NOTICE = 'Sesión cerrada correctamente.';
@@ -7,8 +7,13 @@ export const SIGNED_OUT_NOTICE = 'Sesión cerrada correctamente.';
 export const SIGN_IN_REQUIRED_NOTICE = 'Inicie sesión para continuar.';
 
 interface SessionValue {
-  /** Dueño de la sesión verificada por el servidor. */
+  /** Usuario de la sesión verificada por el servidor. */
   user: Profile;
+  /**
+   * ¿Su rol tiene este permiso? Solo decide qué se muestra: la API vuelve a
+   * comprobarlo en cada petición. Con contraseña temporal no tiene ninguno.
+   */
+  can: (permission: Permission) => boolean;
   /** Refleja en la barra superior los cambios guardados en «Mi perfil». */
   setUser: (user: Profile) => void;
   /** HU-15: cierra la sesión en el servidor y vuelve al login. */
@@ -20,7 +25,7 @@ interface SessionValue {
 
 export const SessionContext = createContext<SessionValue | null>(null);
 
-/** Sesión del dueño; solo disponible debajo de <RequireSession />. */
+/** Sesión del usuario; solo disponible debajo de <RequireSession />. */
 export function useSession(): SessionValue {
   const value = useContext(SessionContext);
 
