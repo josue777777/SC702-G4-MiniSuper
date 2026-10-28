@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IMAGE_TYPES } from '../utils/image.js';
 
 /** Esquemas Zod de Configuración › General (datos del negocio). */
 
@@ -36,3 +37,28 @@ export const businessSettingsSchema = z.object({
 });
 
 export type BusinessSettingsInput = z.infer<typeof businessSettingsSchema>;
+
+/** Tope del logo: se muestra pequeño (menú, login, comprobante). */
+export const MAX_LOGO_BYTES = 1024 * 1024;
+
+/** Logo: el tipo viene de `Content-Type` y los bytes del cuerpo; la firma la revisa el service. */
+export const businessLogoSchema = z.object({
+  mimeType: z.enum(IMAGE_TYPES, { error: 'Solo se aceptan imágenes PNG, JPG o WEBP.' }),
+  data: z
+    .instanceof(Uint8Array, { error: 'Adjunte la imagen del logo.' })
+    .refine((data) => data.length > 0, 'Adjunte la imagen del logo.')
+    .refine((data) => data.length <= MAX_LOGO_BYTES, 'El logo supera el máximo de 1 MB.'),
+});
+
+export type BusinessLogoInput = z.infer<typeof businessLogoSchema>;
+
+/** Cuerpo de `PUT /api/business/plan` (solo Administrador). */
+export const businessPlanSchema = z.object({
+  maxUsers: z
+    .number({ error: 'Indique cuántos usuarios permite el plan.' })
+    .int('El límite debe ser un número entero.')
+    .min(1, 'El plan debe permitir al menos 1 usuario.')
+    .max(500, 'El límite no puede superar 500 usuarios.'),
+});
+
+export type BusinessPlanInput = z.infer<typeof businessPlanSchema>;

@@ -41,6 +41,22 @@ enum UserRole {
   BODEGA
 }
 
+/// Color principal de la interfaz que elige cada usuario. Son opciones ya
+/// probadas para que el texto siempre se lea bien sobre ellas.
+enum AccentColor {
+  AZUL
+  VERDE
+  MORADO
+  NARANJA
+  GRIS
+}
+
+/// Tamaño del texto que elige cada usuario.
+enum FontScale {
+  NORMAL
+  GRANDE
+}
+
 /// Tipo de cambio de inventario. Toda variación de stock deja un registro.
 /// ADJUSTMENT cubre los conteos físicos (HU-10) y las correcciones.
 enum InventoryMovementType {
@@ -105,13 +121,27 @@ model User {
   passwordResetExpires DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
+
+  preferences UserPreferences?
+}
+
+/// Apariencia que elige cada usuario para sí mismo (Configuración ›
+/// Apariencia). Va aparte de `User` a propósito: `User` guarda solo lo de
+/// acceso y seguridad. Sin fila, se usan los valores por defecto.
+model UserPreferences {
+  userId      String      @id @db.Uuid
+  accentColor AccentColor @default(AZUL)
+  fontScale   FontScale   @default(NORMAL)
+  updatedAt   DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// Datos del negocio (Configuración › General). Hay UNA sola fila (`id = 1`):
 /// encabezan el comprobante de venta, el menú y el login. Los edita solo el
 /// Administrador.
 model BusinessSettings {
-  id             Int      @id @default(1)
+  id             Int       @id @default(1)
   name           String
   /// Cédula jurídica o física del negocio.
   legalId        String?
@@ -120,7 +150,15 @@ model BusinessSettings {
   address        String?
   /// Mensaje al pie del comprobante de venta.
   receiptMessage String?
-  updatedAt      DateTime @updatedAt
+  /// Logo (PNG, JPG o WEBP de hasta 1 MB). Se sirve en `/api/business/logo`.
+  logoData       Bytes?
+  logoMimeType   String?
+  logoUpdatedAt  DateTime?
+  /// Plan contratado: cuántos usuarios activos puede tener el negocio, sin
+  /// contar a los administradores de la plataforma. Solo lo cambia el
+  /// Administrador.
+  maxUsers       Int       @default(5)
+  updatedAt      DateTime  @updatedAt
 }
 
 // -----------------------------------------------------------------------------

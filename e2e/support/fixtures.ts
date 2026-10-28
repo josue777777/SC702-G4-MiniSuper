@@ -30,7 +30,9 @@ export async function resetBusiness(): Promise<void> {
       `INSERT INTO "BusinessSettings"(id, name, "receiptMessage", "updatedAt")
        VALUES (1, 'Abastecedor Nuevo Amanecer', '¡Gracias por su compra!', now())
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, "legalId" = NULL, phone = NULL,
-         email = NULL, address = NULL, "receiptMessage" = EXCLUDED."receiptMessage", "updatedAt" = now()`,
+         email = NULL, address = NULL, "receiptMessage" = EXCLUDED."receiptMessage",
+         "logoData" = NULL, "logoMimeType" = NULL, "logoUpdatedAt" = NULL, "maxUsers" = 5,
+         "updatedAt" = now()`,
     ),
   );
 }

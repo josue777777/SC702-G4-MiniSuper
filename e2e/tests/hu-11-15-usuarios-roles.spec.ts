@@ -116,13 +116,20 @@ test('el administrador crea un Cajero; este cambia la contraseña temporal y sol
   await page.getByRole('button', { name: 'Guardar cambios' }).click();
   await expect(page.getByRole('status')).toContainText('Perfil actualizado correctamente.');
 
-  // Menú del Cajero: Ventas y Clientes sí; Pedidos y Configuración no.
+  // Menú del Cajero: Ventas y Clientes sí; Pedidos no.
   const menu = page.getByRole('navigation', { name: 'Navegación principal' });
 
   await expect(menu.getByRole('button', { name: 'Salidas' })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Entradas' })).toHaveCount(0);
-  await expect(menu.getByRole('button', { name: 'Configuración' })).toHaveCount(0);
   await saveEvidence(page, 'HU-11', 'HU-11-menu-cajero.png');
+
+  // Configuración: el Cajero solo tiene su Apariencia.
+  await menu.getByRole('button', { name: 'Configuración' }).click();
+
+  const settings = page.getByRole('dialog', { name: 'Configuración' });
+
+  await expect(settings.getByRole('tab')).toHaveText(['Apariencia']);
+  await page.goto('/');
 
   // Escribir la dirección a mano no sirve: la pantalla y la API lo bloquean.
   await page.goto('/orders');
@@ -135,7 +142,9 @@ test('el administrador crea un Cajero; este cambia la contraseña temporal y sol
   expect((await page.request.get(`${BACKEND_URL}/api/sales`)).status()).toBe(200);
 });
 
-test('el Encargado usa todo el negocio, pero no la Configuración', async ({ page }) => {
+test('el Encargado (dueño del negocio) administra a Cajero y Bodega, nunca a su rango o mayor', async ({
+  page,
+}) => {
   await insertUser({
     name: 'Elena Encargada',
     email: 'elena@example.com',
@@ -150,12 +159,107 @@ test('el Encargado usa todo el negocio, pero no la Configuración', async ({ pag
 
   await expect(menu.getByRole('button', { name: 'Entradas' })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Salidas' })).toBeVisible();
-  await expect(menu.getByRole('button', { name: 'Configuración' })).toHaveCount(0);
+  await menu.getByRole('button', { name: 'Configuración' }).click();
 
-  await page.goto('/settings/users');
-  await expect(page.getByRole('heading', { name: 'Acceso no permitido' })).toBeVisible();
-  expect((await page.request.get(`${BACKEND_URL}/api/users`)).status()).toBe(403);
-  expect((await page.request.get(`${BACKEND_URL}/api/purchase-orders`)).status()).toBe(200);
+  const settings = page.getByRole('dialog', { name: 'Configuración' });
+
+  await expect(settings.getByRole('tab')).toHaveText(['General', 'Usuarios', 'Apariencia']);
+  await settings.getByRole('tab', { name: 'Usuarios' }).click();
+
+  // No ve al Administrador; solo puede asignar Cajero o Bodega.
+  await expect(settings.getByRole('row', { name: /Dueña de Prueba/ })).toHaveCount(0);
+  await settings.getByRole('button', { name: '+ Nuevo usuario' }).click();
+  await expect(page.getByLabel('Rol').locator('option')).toHaveText(['Cajero', 'Bodega']);
+  await saveEvidence(page, 'HU-12', 'HU-12-encargado-roles-permitidos.png');
+
+  await page.getByRole('button', { name: 'Cancelar' }).click();
+
+  const temporaryPassword = await createUserFromUi(page, {
+    name: 'Bea Bodega',
+    email: 'bea@example.com',
+    role: 'Bodega',
+  });
+
+  expect(temporaryPassword).toHaveLength(12);
+
+  // Aunque se salte la pantalla, el servidor no deja crear otro Encargado.
+  const peer = await page.request.post(`${BACKEND_URL}/api/users`, {
+    headers: { Origin: FRONTEND_URL },
+    data: { name: 'Otro Encargado', email: 'otro@example.com', role: 'ENCARGADO' },
+  });
+
+  expect(peer.status()).toBe(403);
+  expect((await page.request.get(`${BACKEND_URL}/api/business`)).status()).toBe(200);
+});
+
+test('límite del plan: con el plan lleno el Encargado no puede crear más usuarios', async ({
+  page,
+}) => {
+  await insertUser({
+    name: 'Elena Encargada',
+    email: 'elena@example.com',
+    password: 'ClaveSegura123',
+    role: 'ENCARGADO',
+  });
+
+  // El Administrador deja el plan en 1 usuario: el de Elena.
+  await loginAsAdmin(page);
+  await page.goto('/?config=general');
+  await page.getByLabel('Límite de usuarios').fill('1');
+  await page.getByRole('button', { name: 'Cambiar límite' }).click();
+  await expect(page.getByText('Plan actualizado.')).toBeVisible();
+  await logout(page);
+
+  await login(page, 'elena@example.com', 'ClaveSegura123');
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/?config=usuarios');
+  await expect(page.getByText(/Usuarios activos del plan: 1 de 1/)).toBeVisible();
+
+  const temporary = await createUserFromUi(page, {
+    name: 'Una Más',
+    email: 'una@example.com',
+    role: 'Cajero',
+  }).catch(() => null);
+
+  expect(temporary).toBeNull();
+  await expect(page.getByRole('alert')).toContainText('El plan permite 1 usuario activo');
+  await saveEvidence(page, 'HU-12', 'HU-12-plan-lleno.png');
+  // El Encargado ve el plan, pero no puede cambiar el límite.
+  await page.goto('/?config=general');
+  await expect(page.getByLabel('Límite de usuarios')).toHaveCount(0);
+});
+
+test('Apariencia: cada usuario elige su color y tamaño, y no afecta a los demás', async ({
+  page,
+}) => {
+  await insertUser({
+    name: 'Carlos Cajero',
+    email: 'carlos@example.com',
+    password: 'ClaveSegura123',
+    role: 'CAJERO',
+  });
+
+  await login(page, 'carlos@example.com', 'ClaveSegura123');
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/?config=apariencia');
+  await page.getByRole('radio', { name: 'Verde' }).check();
+  await page.getByRole('radio', { name: /Grande/ }).check();
+
+  // Vista previa al instante, antes de guardar.
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'verde');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByText('Apariencia guardada.')).toBeVisible();
+  await saveEvidence(page, 'Configuracion', 'Configuracion-apariencia-cajero.png');
+
+  // Se conserva al recargar (vive en su cuenta).
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'verde');
+  await expect(page.locator('html')).toHaveAttribute('data-font-scale', 'grande');
+  await logout(page);
+
+  // El Administrador sigue con la de fábrica.
+  await loginAsAdmin(page);
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'azul');
 });
 
 test('al desactivar a un usuario se cierra su sesión y ya no puede entrar', async ({
@@ -302,7 +406,7 @@ test('Configuración › General: el administrador cambia los datos del negocio 
   await visitor.close();
 });
 
-test('solo el administrador puede cambiar los datos del negocio', async ({ page }) => {
+test('el Cajero no puede cambiar los datos del negocio', async ({ page }) => {
   await insertUser({
     name: 'Carlos Cajero',
     email: 'carlos@example.com',
@@ -325,4 +429,39 @@ test('solo el administrador puede cambiar los datos del negocio', async ({ page 
 
   await page.goto('/?config=general');
   await expect(page.getByRole('heading', { name: 'Acceso no permitido' })).toBeVisible();
+});
+
+/** PNG de 1×1 válido. */
+const PNG_1X1 = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+test('Configuración › General: el Encargado sube el logo y se ve en el menú y en el login', async ({
+  page,
+  browser,
+}) => {
+  await insertUser({
+    name: 'Elena Encargada',
+    email: 'elena@example.com',
+    password: 'ClaveSegura123',
+    role: 'ENCARGADO',
+  });
+
+  await login(page, 'elena@example.com', 'ClaveSegura123');
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/?config=general');
+  await page
+    .getByLabel('Archivo del logo')
+    .setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: PNG_1X1 });
+  await expect(page.getByText('Logo actualizado.')).toBeVisible();
+  await expect(page.getByAltText('Logo actual del negocio')).toBeVisible();
+  await expect(page.locator('.layout__brand-logo')).toBeVisible();
+
+  const visitor = await browser.newContext();
+  const loginPage = await visitor.newPage();
+
+  await loginPage.goto('/login');
+  await expect(loginPage.getByAltText(/Logo de/)).toBeVisible();
+  await visitor.close();
 });

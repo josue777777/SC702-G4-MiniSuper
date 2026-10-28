@@ -15,7 +15,9 @@ export type Permission =
   | 'purchasing'
   | 'reports.inventory'
   | 'reports.sales'
-  | 'settings';
+  | 'business.edit'
+  | 'users.manage'
+  | 'plan.manage';
 
 /** Usuario de la sesión, con su rol y lo que puede hacer. */
 export interface Profile {

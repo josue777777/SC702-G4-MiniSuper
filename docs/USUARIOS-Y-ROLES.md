@@ -14,13 +14,34 @@ la seguridad de verdad está en el servidor.
 
 | Rol           | Qué puede usar                                                   |
 | ------------- | ---------------------------------------------------------------- |
-| Administrador | Todo, incluida la Configuración (usuarios)                       |
-| Encargado     | Todo el negocio, menos la Configuración                          |
+| Administrador | Todo: la plataforma, todos los usuarios y el plan contratado     |
+| Encargado     | Dueño del negocio: todo el negocio, datos y logo, Cajero y Bodega |
 | Cajero        | Ventas y clientes; consulta productos sin modificarlos           |
 | Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario |
 
 Los roles son fijos. La lista exacta de permisos de cada uno está en **un solo archivo**:
 `backend/src/auth/permissions.ts`.
+
+**Jerarquía:** cada uno administra solo usuarios de rango **menor** al suyo.
+
+```
+Administrador (la plataforma)  →  maneja a todos y el plan
+   Encargado (dueño del negocio)  →  maneja solo a Cajero y Bodega
+      Cajero / Bodega  →  no manejan usuarios
+```
+
+El **plan** limita cuántos usuarios activos tiene el negocio (el Administrador no cuenta).
+Si está lleno, el sistema no deja crear ni reactivar a nadie hasta que haya cupo.
+La razón de este diseño, y cómo crece a varios negocios, está en
+[adr/0002-usuarios-jerarquia-y-plan.md](adr/0002-usuarios-jerarquia-y-plan.md).
+
+**La ventana de Configuración** muestra a cada rol sus pestañas:
+
+| Pestaña | Administrador | Encargado | Cajero / Bodega |
+| --- | --- | --- | --- |
+| General (datos, logo, plan) | ✅ y cambia el plan | ✅ (ve el plan) | — |
+| Usuarios | ✅ todos | ✅ solo Cajero y Bodega | — |
+| Apariencia (color, letra) | ✅ la suya | ✅ la suya | ✅ la suya |
 
 ## 3. De dónde sale el primer usuario
 
@@ -32,7 +53,8 @@ No hay pantalla de registro. El primer administrador se crea desde la terminal:
 3. Al entrar por primera vez, el sistema obliga a cambiar esa contraseña.
 
 Si el backend arranca sin ningún administrador activo, lo avisa en su terminal con estos
-mismos pasos. Los demás usuarios los crea el administrador en **Configuración › Usuarios**.
+mismos pasos. Los demás usuarios los crean el Administrador o el Encargado en
+**Configuración › Usuarios**, según la jerarquía.
 
 ## 4. Qué pasa en cada petición
 
@@ -119,6 +141,14 @@ npm run db:seed
 **Le cambié el rol a alguien y lo sacó del sistema.**
 Es a propósito: al cambiar el rol, desactivar a alguien o restablecerle la contraseña, se
 cierran sus sesiones abiertas. Al volver a entrar ya tiene los permisos nuevos.
+
+**«El plan permite N usuarios activos y ya están en uso».**
+El negocio llegó al límite de su plan. Desactive a alguien que ya no trabaje ahí, o pida
+al Administrador que amplíe el plan (Configuración › General).
+
+**Si mi módulo usa un permiso nuevo para administrar algo de otros usuarios**, aplique
+también la jerarquía en el service con `canManageRole` (ver `users.service.ts`): no basta
+con el permiso de la ruta.
 
 **¿Puedo borrar un usuario?**
 No: se desactiva. Así no puede entrar, pero se conservan sus datos y se puede reactivar.

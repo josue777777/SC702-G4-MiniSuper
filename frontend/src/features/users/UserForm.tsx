@@ -2,13 +2,15 @@ import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import type { CreateUserPayload, Role, UserListItem } from '../../types/auth';
 import { validateEmail, validateName } from '../auth/account-rules';
-import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from './roles';
+import { ROLE_DESCRIPTIONS, ROLE_LABELS } from './roles';
 
 interface UserFormProps {
   /** Usuario en edición; `null` para crear uno nuevo. */
   user: UserListItem | null;
   /** `true` si es la cuenta de quien está usando el sistema: no puede cambiarse el rol. */
   isSelf: boolean;
+  /** Roles que quien usa el sistema puede asignar (jerarquía: solo rangos menores). */
+  roleOptions: Role[];
   busy: boolean;
   serverError: string | null;
   onCancel: () => void;
@@ -22,10 +24,21 @@ type FieldErrors = Partial<Record<'name' | 'email', string>>;
  * Formulario de usuario: nombre, correo y rol. La contraseña no se escribe
  * aquí: al crear, el sistema genera una temporal y la muestra una vez.
  */
-export function UserForm({ user, isSelf, busy, serverError, onCancel, onSubmit }: UserFormProps) {
+export function UserForm({
+  user,
+  isSelf,
+  roleOptions,
+  busy,
+  serverError,
+  onCancel,
+  onSubmit,
+}: UserFormProps) {
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
-  const [role, setRole] = useState<Role>(user?.role ?? 'CAJERO');
+  const [role, setRole] = useState<Role>(user?.role ?? roleOptions.at(-1) ?? 'CAJERO');
+  // Al editarse a sí mismo, su rol se muestra aunque no lo pueda asignar.
+  const options =
+    user !== null && !roleOptions.includes(user.role) ? [user.role, ...roleOptions] : roleOptions;
   const [errors, setErrors] = useState<FieldErrors>({});
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -101,7 +114,7 @@ export function UserForm({ user, isSelf, busy, serverError, onCancel, onSubmit }
               disabled={isSelf}
               onChange={(event) => setRole(event.target.value as Role)}
             >
-              {ROLES.map((option) => (
+              {options.map((option) => (
                 <option key={option} value={option}>
                   {ROLE_LABELS[option]}
                 </option>

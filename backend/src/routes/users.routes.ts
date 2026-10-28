@@ -5,7 +5,8 @@ import { UsersService } from '../services/users.service.js';
 
 /**
  * Configuración › Usuarios. La sesión, la contraseña cambiada y el permiso
- * `settings` (solo Administrador) los exige `routes/index.ts` al montarlo.
+ * `users.manage` (Administrador y Encargado) los exige `routes/index.ts` al
+ * montarlo; la jerarquía de rangos la aplica el service.
  */
 export function createUsersRouter(repository: UsersRepository): Router {
   const controller = new UsersController(new UsersService(repository));
