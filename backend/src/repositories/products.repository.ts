@@ -90,13 +90,21 @@ function toProductDto(row: ProductRow): ProductDto {
   };
 }
 
+/** `where` de un producto de ese negocio: un id de otro negocio no coincide. */
+function own(businessId: string, id: string) {
+  return { id, businessId };
+}
+
 /**
  * Lee un producto ya escrito. Se usa al final de cada operación de escritura
  * para que la respuesta tenga siempre la misma forma (con categoría y proveedor
  * principal resueltos) sin repetir el armado del DTO en cada método.
  */
-async function readProduct(id: string): Promise<ProductDto> {
-  const row = await prisma.product.findUnique({ where: { id }, select: productSelection });
+async function readProduct(businessId: string, id: string): Promise<ProductDto> {
+  const row = await prisma.product.findFirst({
+    where: { id, businessId },
+    select: productSelection,
+  });
 
   if (row === null) {
     // No debería ocurrir: se escribe y se lee dentro del mismo flujo.
@@ -107,7 +115,9 @@ async function readProduct(id: string): Promise<ProductDto> {
 }
 
 /**
- * Capa de acceso a datos del módulo de productos.
+ * Capa de acceso a datos del módulo de productos, atada a UN negocio: toda
+ * consulta y escritura filtra por `businessId` (multi-negocio, ADR 0002). Un id
+ * de otro negocio se comporta como si no existiera.
  *
  * Es la ÚNICA capa del flujo que importa Prisma. Recibe y devuelve datos del
  * dominio (nunca `req`/`res`), y las reglas de negocio no están aquí: el service
@@ -117,6 +127,8 @@ async function readProduct(id: string): Promise<ProductDto> {
  * repositorio falso que simplemente `implements ProductsRepository`.
  */
 export class ProductsRepository {
+  constructor(readonly businessId: string) {}
+
   /**
    * Los productos, activos e inactivos salvo que el filtro diga lo contrario.
    *
@@ -130,6 +142,7 @@ export class ProductsRepository {
   async list(filter: ProductListFilter = {}): Promise<ProductDto[]> {
     const rows = await prisma.product.findMany({
       where: {
+        businessId: this.businessId,
         ...(filter.categoryId === undefined ? {} : { categoryId: filter.categoryId }),
         ...(filter.activeOnly === true ? { isActive: true } : {}),
         ...(filter.search === undefined
@@ -150,7 +163,10 @@ export class ProductsRepository {
 
   /** Un producto por id, o `null` si no existe. */
   async findById(id: string): Promise<ProductDto | null> {
-    const row = await prisma.product.findUnique({ where: { id }, select: productSelection });
+    const row = await prisma.product.findFirst({
+      where: own(this.businessId, id),
+      select: productSelection,
+    });
 
     return row === null ? null : toProductDto(row);
   }
@@ -164,6 +180,7 @@ export class ProductsRepository {
   async existsByCode(code: string, exceptProductId?: string): Promise<boolean> {
     const found = await prisma.product.findFirst({
       where: {
+        businessId: this.businessId,
         code,
         ...(exceptProductId === undefined ? {} : { id: { not: exceptProductId } }),
       },
@@ -185,11 +202,11 @@ export class ProductsRepository {
   ): Promise<ProductDto | null> {
     try {
       const result = await prisma.product.updateMany({
-        where: { id, ...(replaceExisting ? {} : { barcode: null }) },
+        where: { ...own(this.businessId, id), ...(replaceExisting ? {} : { barcode: null }) },
         data: { barcode },
       });
 
-      return result.count === 0 ? null : readProduct(id);
+      return result.count === 0 ? null : readProduct(this.businessId, id);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         return null;
@@ -202,7 +219,7 @@ export class ProductsRepository {
   /** Categoría utilizable en el formulario: existe y está activa. */
   async findActiveCategory(categoryId: string): Promise<ReferenceOption | null> {
     return prisma.category.findFirst({
-      where: { id: categoryId, isActive: true },
+      where: { id: categoryId, businessId: this.businessId, isActive: true },
       select: referenceSelection,
     });
   }
@@ -210,7 +227,7 @@ export class ProductsRepository {
   /** Proveedor utilizable: existe y está activo. */
   async findActiveSupplier(supplierId: string): Promise<ReferenceOption | null> {
     return prisma.supplier.findFirst({
-      where: { id: supplierId, isActive: true },
+      where: { id: supplierId, businessId: this.businessId, isActive: true },
       select: referenceSelection,
     });
   }
@@ -218,7 +235,7 @@ export class ProductsRepository {
   /** Categorías activas para el `<select>` del formulario. */
   async listActiveCategories(): Promise<ReferenceOption[]> {
     return prisma.category.findMany({
-      where: { isActive: true },
+      where: { businessId: this.businessId, isActive: true },
       select: referenceSelection,
       orderBy: { name: 'asc' },
     });
@@ -227,7 +244,7 @@ export class ProductsRepository {
   /** Proveedores activos para el `<select>` del formulario. */
   async listActiveSuppliers(): Promise<ReferenceOption[]> {
     return prisma.supplier.findMany({
-      where: { isActive: true },
+      where: { businessId: this.businessId, isActive: true },
       select: referenceSelection,
       orderBy: { name: 'asc' },
     });
@@ -244,6 +261,7 @@ export class ProductsRepository {
     const productId = await prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
+          businessId: this.businessId,
           code: fields.code,
           name: fields.name,
           categoryId: fields.categoryId,
@@ -273,7 +291,7 @@ export class ProductsRepository {
       return product.id;
     });
 
-    return readProduct(productId);
+    return readProduct(this.businessId, productId);
   }
 
   /**
@@ -292,8 +310,8 @@ export class ProductsRepository {
     const { fields, stockMovement } = plan;
 
     await prisma.$transaction(async (tx) => {
-      await tx.product.update({
-        where: { id },
+      await tx.product.updateMany({
+        where: own(this.businessId, id),
         data: {
           code: fields.code,
           name: fields.name,
@@ -327,13 +345,13 @@ export class ProductsRepository {
       }
     });
 
-    return readProduct(id);
+    return readProduct(this.businessId, id);
   }
 
   /** Imagen del producto (HU-01), o `null` si no tiene o el producto no existe. */
   async findImage(id: string): Promise<ProductImage | null> {
-    const row = await prisma.product.findUnique({
-      where: { id },
+    const row = await prisma.product.findFirst({
+      where: own(this.businessId, id),
       select: { imageData: true, imageMimeType: true },
     });
 
@@ -346,8 +364,8 @@ export class ProductsRepository {
 
   /** Guarda o reemplaza la imagen (HU-01). No es un cambio de stock: no hay movimiento. */
   async saveImage(id: string, image: ProductImage): Promise<ProductDto> {
-    await prisma.product.update({
-      where: { id },
+    await prisma.product.updateMany({
+      where: own(this.businessId, id),
       data: {
         imageData: Buffer.from(image.data),
         imageMimeType: image.mimeType,
@@ -355,17 +373,17 @@ export class ProductsRepository {
       },
     });
 
-    return readProduct(id);
+    return readProduct(this.businessId, id);
   }
 
   /** Quita la imagen del producto (HU-01). */
   async removeImage(id: string): Promise<ProductDto> {
-    await prisma.product.update({
-      where: { id },
+    await prisma.product.updateMany({
+      where: own(this.businessId, id),
       data: { imageData: null, imageMimeType: null, imageUpdatedAt: null },
     });
 
-    return readProduct(id);
+    return readProduct(this.businessId, id);
   }
 
   /**
@@ -376,22 +394,24 @@ export class ProductsRepository {
    * históricas deben seguir existiendo para los reportes.
    */
   async deactivate(id: string): Promise<ProductDto> {
-    await prisma.product.update({ where: { id }, data: { isActive: false } });
+    await prisma.product.updateMany({ where: own(this.businessId, id), data: { isActive: false } });
 
-    return readProduct(id);
+    return readProduct(this.businessId, id);
   }
 
   async activate(id: string): Promise<ProductDto> {
-    await prisma.product.update({ where: { id }, data: { isActive: true } });
+    await prisma.product.updateMany({ where: own(this.businessId, id), data: { isActive: true } });
 
-    return readProduct(id);
+    return readProduct(this.businessId, id);
   }
 
   /** Cuántas ventas y pedidos a proveedor incluyen este producto. */
   async countReferences(id: string): Promise<ProductReferences> {
     const [sales, purchaseOrders] = await Promise.all([
-      prisma.saleItem.count({ where: { productId: id } }),
-      prisma.purchaseOrderItem.count({ where: { productId: id } }),
+      prisma.saleItem.count({ where: { productId: id, product: { businessId: this.businessId } } }),
+      prisma.purchaseOrderItem.count({
+        where: { productId: id, product: { businessId: this.businessId } },
+      }),
     ]);
 
     return { sales, purchaseOrders };
@@ -404,8 +424,10 @@ export class ProductsRepository {
    */
   async deletePermanently(id: string): Promise<void> {
     await prisma.$transaction([
-      prisma.inventoryMovement.deleteMany({ where: { productId: id } }),
-      prisma.product.delete({ where: { id } }),
+      prisma.inventoryMovement.deleteMany({
+        where: { productId: id, product: { businessId: this.businessId } },
+      }),
+      prisma.product.deleteMany({ where: own(this.businessId, id) }),
     ]);
   }
 }

@@ -14,9 +14,12 @@ import { SalesRepository } from './sales.repository.js';
  */
 const databaseName = new URL(process.env['DATABASE_URL'] ?? 'postgresql://x/none').pathname;
 
+/** Negocio de estas pruebas (multi-negocio, ADR 0002). */
+const BUSINESS_ID = '0b000000-0000-4000-8000-000000000011';
+
 describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)', () => {
-  const repository = new SalesRepository();
-  const customersRepository = new CustomersRepository();
+  const repository = new SalesRepository(BUSINESS_ID);
+  const customersRepository = new CustomersRepository(BUSINESS_ID);
   const service = new SalesService(repository, customersRepository);
   const customersService = new CustomersService(customersRepository);
 
@@ -29,9 +32,18 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
       'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "Product", "Category" CASCADE',
     );
 
-    const category = await prisma.category.create({ data: { name: 'Pruebas' } });
+    await prisma.business.upsert({
+      where: { id: BUSINESS_ID },
+      create: { id: BUSINESS_ID, name: 'Negocio de ventas' },
+      update: {},
+    });
+
+    const category = await prisma.category.create({
+      data: { businessId: BUSINESS_ID, name: 'Pruebas' },
+    });
     const coffee = await prisma.product.create({
       data: {
+        businessId: BUSINESS_ID,
         code: 'P001',
         barcode: '7501000000012',
         name: 'Café',
@@ -43,6 +55,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
     });
     const rice = await prisma.product.create({
       data: {
+        businessId: BUSINESS_ID,
         code: 'P002',
         name: 'Arroz',
         price: '900.00',
@@ -51,7 +64,9 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
         categoryId: category.id,
       },
     });
-    const customer = await prisma.customer.create({ data: { name: 'Doña Marta' } });
+    const customer = await prisma.customer.create({
+      data: { businessId: BUSINESS_ID, name: 'Doña Marta' },
+    });
 
     coffeeId = coffee.id;
     riceId = rice.id;
@@ -237,7 +252,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
 
   it('fiado: saldo = ventas CREDIT − abonos, con precisión decimal y dos fiados seguidos', async () => {
     await prisma.sale.create({
-      data: { paymentMethod: 'CREDIT', total: '5000.00', customerId },
+      data: { businessId: BUSINESS_ID, paymentMethod: 'CREDIT', total: '5000.00', customerId },
     });
     await prisma.creditPayment.create({ data: { customerId, amount: '1000.50' } });
     // Una venta en efectivo no suma a la deuda.

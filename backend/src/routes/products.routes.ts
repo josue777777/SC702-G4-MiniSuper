@@ -4,6 +4,7 @@ import { ProductsRepository } from '../repositories/products.repository.js';
 import { ProductsService } from '../services/products.service.js';
 import { imageBodyParser } from '../utils/image.js';
 import { MAX_PRODUCT_IMAGE_BYTES } from '../validators/products.validator.js';
+import type { ForBusiness } from '../types/tenant.js';
 
 /** Cuerpo de la imagen como bytes, con tope de 2 MB (413 si se pasa). */
 const imageBody = imageBodyParser(MAX_PRODUCT_IMAGE_BYTES, 'La imagen supera el máximo de 2 MB.');
@@ -15,9 +16,10 @@ const imageBody = imageBodyParser(MAX_PRODUCT_IMAGE_BYTES, 'La imagen supera el 
  * repositorio falso en las pruebas) y el router ya compuesto que se publica en
  * `routes/index.ts`.
  */
-export function createProductsRouter(repository: ProductsRepository): Router {
-  const productsService = new ProductsService(repository);
-  const productsController = new ProductsController(productsService);
+export function createProductsRouter(repositoryFor: ForBusiness<ProductsRepository>): Router {
+  const productsController = new ProductsController(
+    (businessId) => new ProductsService(repositoryFor(businessId)),
+  );
   const router = Router();
 
   /** Listado del catálogo (HU-01, HU-02 y HU-03 lo usan para refrescarse). */
@@ -65,4 +67,6 @@ export function createProductsRouter(repository: ProductsRepository): Router {
  * Composición de dependencias de producción: es el único lugar donde se
  * construyen las capas del flujo.
  */
-export const productsRouter = createProductsRouter(new ProductsRepository());
+export const productsRouter = createProductsRouter(
+  (businessId) => new ProductsRepository(businessId),
+);

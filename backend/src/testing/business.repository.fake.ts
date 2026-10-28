@@ -1,15 +1,20 @@
-import {
-  DEFAULT_BUSINESS,
-  DEFAULT_MAX_USERS,
-  type BusinessRepository,
-} from '../repositories/business.repository.js';
+import type { BusinessRepository } from '../repositories/business.repository.js';
 import type { BusinessLogo, BusinessRecord, BusinessSettingsDto } from '../types/business.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /** Doble del repositorio de datos del negocio (sin base de datos). */
 export class FakeBusinessRepository implements BusinessRepository {
+  readonly businessId = TEST_BUSINESS_ID;
   current: BusinessRecord = {
-    ...DEFAULT_BUSINESS,
-    maxUsers: DEFAULT_MAX_USERS,
+    id: TEST_BUSINESS_ID,
+    name: 'Abastecedor Nuevo Amanecer',
+    legalId: null,
+    phone: null,
+    email: null,
+    address: null,
+    receiptMessage: '¡Gracias por su compra!',
+    extraUsers: 4,
+    status: 'ACTIVE',
     logoUpdatedAt: null,
   };
   logo: BusinessLogo | null = null;
@@ -20,12 +25,6 @@ export class FakeBusinessRepository implements BusinessRepository {
 
   save(fields: BusinessSettingsDto): Promise<BusinessRecord> {
     this.current = { ...this.current, ...fields };
-
-    return this.get();
-  }
-
-  setMaxUsers(maxUsers: number): Promise<BusinessRecord> {
-    this.current = { ...this.current, maxUsers };
 
     return this.get();
   }

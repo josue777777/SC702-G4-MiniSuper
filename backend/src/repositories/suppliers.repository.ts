@@ -73,12 +73,16 @@ function supplierData(fields: SupplierWritableFields) {
 
 /**
  * Acceso a datos de proveedores (HU-21). Única capa que usa Prisma; sin
- * miembros privados para poder sustituirla por un doble en las pruebas.
+ * miembros privados para poder sustituirla por un doble en las pruebas. Atada a
+ * UN negocio: proveedores y productos de ese negocio (multi-negocio, ADR 0002).
  */
 export class SuppliersRepository {
+  constructor(readonly businessId: string) {}
+
   /** Todos los proveedores con sus productos, ordenados por nombre. */
   async list(): Promise<SupplierDto[]> {
     const rows = await prisma.supplier.findMany({
+      where: { businessId: this.businessId },
       select: supplierSelection,
       orderBy: { name: 'asc' },
     });
@@ -87,7 +91,10 @@ export class SuppliersRepository {
   }
 
   async findById(id: string): Promise<SupplierDto | null> {
-    const row = await prisma.supplier.findUnique({ where: { id }, select: supplierSelection });
+    const row = await prisma.supplier.findFirst({
+      where: { id, businessId: this.businessId },
+      select: supplierSelection,
+    });
 
     return row === null ? null : toSupplierDto(row);
   }
@@ -96,6 +103,7 @@ export class SuppliersRepository {
   async existsByName(name: string, exceptSupplierId?: string): Promise<boolean> {
     const found = await prisma.supplier.findFirst({
       where: {
+        businessId: this.businessId,
         name: { equals: name, mode: 'insensitive' },
         ...(exceptSupplierId === undefined ? {} : { id: { not: exceptSupplierId } }),
       },
@@ -108,7 +116,8 @@ export class SuppliersRepository {
   /** De los ids recibidos, los que corresponden a productos activos. */
   async findActiveProductIds(productIds: string[]): Promise<string[]> {
     const rows = await prisma.product.findMany({
-      where: { id: { in: productIds }, isActive: true },
+      // Solo productos de este negocio: un id ajeno no cuenta como válido.
+      where: { id: { in: productIds }, businessId: this.businessId, isActive: true },
       select: { id: true },
     });
 
@@ -123,7 +132,7 @@ export class SuppliersRepository {
   async create(fields: SupplierWritableFields): Promise<SupplierDto> {
     const id = await prisma.$transaction(async (tx) => {
       const supplier = await tx.supplier.create({
-        data: supplierData(fields),
+        data: { ...supplierData(fields), businessId: this.businessId },
         select: { id: true },
       });
 
@@ -151,7 +160,14 @@ export class SuppliersRepository {
     const productIds = fields.products.map((product) => product.productId);
 
     await prisma.$transaction(async (tx) => {
-      await tx.supplier.update({ where: { id }, data: supplierData(fields) });
+      const changed = await tx.supplier.updateMany({
+        where: { id, businessId: this.businessId },
+        data: supplierData(fields),
+      });
+
+      if (changed.count === 0) {
+        throw new Error(`El proveedor ${id} no es de este negocio.`);
+      }
 
       await tx.supplierProduct.deleteMany({
         where: { supplierId: id, productId: { notIn: productIds } },

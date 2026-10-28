@@ -14,6 +14,8 @@ import type { LoginInput } from '../validators/auth.validator.js';
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
 const INVALID_CREDENTIALS = 'Correo o contraseña incorrectos.';
+const BUSINESS_SUSPENDED =
+  'El acceso de su negocio está suspendido. Comuníquese con el proveedor del sistema.';
 
 export interface AuthServiceOptions {
   sessionSecret: string;
@@ -34,6 +36,7 @@ export function toSessionUser(user: UserRecord): SessionUserDto {
     name: user.name,
     email: user.email,
     role: user.role,
+    businessId: user.businessId,
     permissions: permissionsOf(user.role),
     mustChangePassword: user.mustChangePassword,
   };
@@ -76,6 +79,11 @@ export class AuthService {
 
     this.options.limiter.reset(clientKey);
 
+    // Solo se dice después de comprobar la contraseña: a un extraño no se le revela nada.
+    if (user.businessStatus === 'SUSPENDED') {
+      throw HttpError.forbidden(BUSINESS_SUSPENDED);
+    }
+
     return { token: this.issueToken(user), user: toSessionUser(user) };
   }
 
@@ -114,7 +122,9 @@ export class AuthService {
       user === null ||
       !user.isActive ||
       passwordVersionOf(user.passwordHash) !== payload.passwordVersion ||
-      user.sessionVersion !== payload.sessionVersion
+      user.sessionVersion !== payload.sessionVersion ||
+      // Suspender un negocio corta al instante las sesiones de toda su gente.
+      user.businessStatus === 'SUSPENDED'
     ) {
       return null;
     }

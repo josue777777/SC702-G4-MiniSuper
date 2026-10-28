@@ -31,9 +31,9 @@ datasource db {
 // Enums
 // -----------------------------------------------------------------------------
 
-/// Roles fijos del sistema. Administrador: todo, incluida la Configuración.
-/// Encargado: todo el negocio menos la Configuración. Cajero: ventas,
-/// clientes y fiado. Bodega: inventario, Kardex, pedidos y proveedores.
+/// Roles fijos. Administrador: la plataforma (negocios, planes y solicitudes;
+/// no ve los datos internos de los negocios). Encargado: dueño de un negocio.
+/// Cajero: ventas, clientes y fiado. Bodega: inventario, Kardex y pedidos.
 enum UserRole {
   ADMIN
   ENCARGADO
@@ -55,6 +55,20 @@ enum AccentColor {
 enum FontScale {
   NORMAL
   GRANDE
+}
+
+/// Estado de un negocio cliente. Suspendido: nadie de ese negocio entra, pero
+/// sus datos se conservan (por ejemplo, si deja de pagar y luego vuelve).
+enum BusinessStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// Estado de una solicitud de ampliación del plan.
+enum PlanRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 /// Tipo de cambio de inventario. Toda variación de stock deja un registro.
@@ -98,8 +112,11 @@ enum PurchaseOrderStatus {
 
 /// Usuario del sistema con su rol (HU-11 … HU-15). No hay registro público: el
 /// administrador inicial se crea con `npm run db:seed` y él crea a los demás.
+/// Los administradores son de la plataforma (`businessId` nulo); todos los
+/// demás pertenecen a un negocio (lo garantiza un CHECK en la base).
 model User {
   id                   String    @id @default(uuid()) @db.Uuid
+  businessId           String?   @db.Uuid
   name                 String
   email                String    @unique
   /// Nunca en texto plano: se guarda el hash (HU-12).
@@ -122,7 +139,12 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  preferences UserPreferences?
+  business        Business?        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  preferences     UserPreferences?
+  planRequests    PlanRequest[]    @relation("PlanRequestAuthor")
+  decidedRequests PlanRequest[]    @relation("PlanRequestDecider")
+
+  @@index([businessId])
 }
 
 /// Apariencia que elige cada usuario para sí mismo (Configuración ›
@@ -137,11 +159,12 @@ model UserPreferences {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-/// Datos del negocio (Configuración › General). Hay UNA sola fila (`id = 1`):
-/// encabezan el comprobante de venta, el menú y el login. Los edita solo el
-/// Administrador.
-model BusinessSettings {
-  id             Int       @id @default(1)
+/// Negocio cliente de la plataforma (un «inquilino»). Todo lo del negocio
+/// (productos, ventas, clientes, proveedores…) le pertenece y el servidor
+/// siempre filtra por el negocio de la sesión. El Encargado edita sus datos y
+/// logo; el Administrador lo crea, define su plan y lo puede suspender.
+model Business {
+  id             String         @id @default(uuid()) @db.Uuid
   name           String
   /// Cédula jurídica o física del negocio.
   legalId        String?
@@ -150,15 +173,64 @@ model BusinessSettings {
   address        String?
   /// Mensaje al pie del comprobante de venta.
   receiptMessage String?
-  /// Logo (PNG, JPG o WEBP de hasta 1 MB). Se sirve en `/api/business/logo`.
+  /// Logo (PNG, JPG o WEBP de hasta 1 MB).
   logoData       Bytes?
   logoMimeType   String?
   logoUpdatedAt  DateTime?
-  /// Plan contratado: cuántos usuarios activos puede tener el negocio, sin
-  /// contar a los administradores de la plataforma. Solo lo cambia el
-  /// Administrador.
-  maxUsers       Int       @default(5)
-  updatedAt      DateTime  @updatedAt
+  /// Plan: el Encargado más estos usuarios adicionales (plan 0 = solo el
+  /// Encargado). Solo lo cambia el Administrador, al crear el negocio o al
+  /// aprobar una solicitud.
+  extraUsers     Int            @default(0)
+  status         BusinessStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  users          User[]
+  planRequests   PlanRequest[]
+  categories     Category[]
+  products       Product[]
+  customers      Customer[]
+  sales          Sale[]
+  suppliers      Supplier[]
+  purchaseOrders PurchaseOrder[]
+}
+
+/// Datos de la plataforma (una sola fila, `id = 1`): el nombre del sistema que
+/// ven todos los negocios y el precio de cada usuario adicional. Solo los
+/// cambia el Administrador.
+model PlatformSettings {
+  id                Int      @id @default(1)
+  systemName        String   @default("MiniSuper")
+  /// Precio mensual de cada usuario adicional, para cotizar las solicitudes.
+  pricePerExtraUser Decimal  @default(5000) @db.Decimal(12, 2)
+  updatedAt         DateTime @updatedAt
+}
+
+/// Solicitud de un Encargado para ampliar su plan (más usuarios). Llega a la
+/// bandeja del Administrador, que la aprueba o la rechaza. El monto se cotiza
+/// al pedirla y queda guardado: si el precio cambia después, la solicitud no.
+model PlanRequest {
+  id            String            @id @default(uuid()) @db.Uuid
+  businessId    String            @db.Uuid
+  requestedById String            @db.Uuid
+  /// Cuántos usuarios adicionales pide (además de los que ya tiene).
+  extraUsers    Int
+  /// Monto mensual cotizado: extraUsers × precio por usuario de ese momento.
+  monthlyAmount Decimal           @db.Decimal(12, 2)
+  note          String?
+  status        PlanRequestStatus @default(PENDING)
+  /// Respuesta del Administrador (motivo del rechazo, por ejemplo).
+  response      String?
+  decidedById   String?           @db.Uuid
+  decidedAt     DateTime?
+  createdAt     DateTime          @default(now())
+
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  requestedBy User     @relation("PlanRequestAuthor", fields: [requestedById], references: [id], onDelete: Restrict)
+  decidedBy   User?    @relation("PlanRequestDecider", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([businessId, createdAt])
 }
 
 // -----------------------------------------------------------------------------
@@ -168,23 +240,31 @@ model BusinessSettings {
 /// Categoría de productos (HU-04).
 model Category {
   id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
+  businessId  String   @db.Uuid
+  /// Único dentro de cada negocio (dos negocios pueden tener «Lácteos»).
+  name        String
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Restrict)
   products Product[]
+
+  @@unique([businessId, name])
+  /// Para que un producto solo pueda usar categorías de su mismo negocio.
+  @@unique([id, businessId])
 }
 
 /// Producto del catálogo (HU-01 … HU-09).
 model Product {
   id             String    @id @default(uuid()) @db.Uuid
-  /// Código interno del producto, solicitado en HU-01.
-  code           String    @unique
+  businessId     String    @db.Uuid
+  /// Código interno del producto, solicitado en HU-01. Único en el negocio.
+  code           String
   /// Código de barras leído por el lector (HU-06). Puede no existir hasta
-  /// generarlo con HU-07, por eso es opcional y único.
-  barcode        String?   @unique
+  /// generarlo con HU-07, por eso es opcional; único en el negocio.
+  barcode        String?
   name           String
   description    String?
   /// Precio de venta al público (HU-01).
@@ -211,12 +291,16 @@ model Product {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  business           Business            @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  /// Compuesta: la base impide usar una categoría de otro negocio.
+  category           Category            @relation(fields: [categoryId, businessId], references: [id, businessId], onDelete: Restrict)
   supplierProducts   SupplierProduct[]
   inventoryMovements InventoryMovement[]
   saleItems          SaleItem[]
   purchaseOrderItems PurchaseOrderItem[]
 
+  @@unique([businessId, code])
+  @@unique([businessId, barcode])
   @@index([categoryId])
 }
 
@@ -254,25 +338,32 @@ model InventoryMovement {
 /// (HU-30). Su saldo NO se almacena: se calcula como suma(ventas CREDIT) -
 /// suma(abonos), por lo que nunca puede descuadrar con el historial.
 model Customer {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  phone     String?
-  email     String?
-  address   String?
-  notes     String?
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @db.Uuid
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
   /// Un cliente con historial se desactiva, no se borra (integridad de ventas).
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
+  business       Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
   sales          Sale[]
   creditPayments CreditPayment[]
+
+  /// Para que una venta solo pueda fiarle a clientes de su mismo negocio.
+  @@unique([id, businessId])
+  @@index([businessId, name])
 }
 
 /// Venta registrada en caja (HU-16), con su método de pago (HU-17) o a crédito
 /// / fiado (HU-18). El detalle de los productos vendidos vive en `SaleItem`.
 model Sale {
   id             String        @id @default(uuid()) @db.Uuid
+  businessId     String        @db.Uuid
   /// Consecutivo para las personas (Venta #12): va en el comprobante (HU-34) y
   /// en el historial (HU-20).
   number         Int           @unique @default(autoincrement())
@@ -296,13 +387,16 @@ model Sale {
   idempotencyKey String?       @unique
   createdAt      DateTime      @default(now())
 
-  customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  business           Business            @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  /// Compuesta: la base impide fiarle a un cliente de otro negocio.
+  customer           Customer?           @relation(fields: [customerId, businessId], references: [id, businessId], onDelete: Restrict)
   items              SaleItem[]
   adjustments        SaleAdjustment[]
   creditPayments     CreditPayment[]
   inventoryMovements InventoryMovement[]
 
-  /// HU-20: listar y totalizar las ventas del día.
+  /// HU-20: listar y totalizar las ventas del día (de cada negocio).
+  @@index([businessId, createdAt])
   @@index([createdAt])
   @@index([customerId])
   @@index([paymentMethod, createdAt])
@@ -387,7 +481,9 @@ model CreditPayment {
 /// Proveedor del negocio y los productos que suministra (HU-21).
 model Supplier {
   id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
+  businessId  String   @db.Uuid
+  /// Único dentro de cada negocio.
+  name        String
   contactName String?
   phone       String?
   email       String?
@@ -397,8 +493,13 @@ model Supplier {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  business       Business          @relation(fields: [businessId], references: [id], onDelete: Restrict)
   products       SupplierProduct[]
   purchaseOrders PurchaseOrder[]
+
+  @@unique([businessId, name])
+  /// Para que un pedido solo pueda ser a proveedores de su mismo negocio.
+  @@unique([id, businessId])
 }
 
 /// Catálogo producto-proveedor (HU-21: "se puede asociar un proveedor a uno o
@@ -428,6 +529,7 @@ model SupplierProduct {
 /// transacción (HU-22: "historial de pedidos, costos y entregas").
 model PurchaseOrder {
   id           String              @id @default(uuid()) @db.Uuid
+  businessId   String              @db.Uuid
   /// Consecutivo para las personas (PED-0007): va en el papel que se entrega al
   /// proveedor y con él se buscará el pedido al registrar la entrada (HU-38).
   number       Int                 @unique @default(autoincrement())
@@ -442,10 +544,13 @@ model PurchaseOrder {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
-  supplier           Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  business           Business            @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  /// Compuesta: la base impide pedirle a un proveedor de otro negocio.
+  supplier           Supplier            @relation(fields: [supplierId, businessId], references: [id, businessId], onDelete: Restrict)
   items              PurchaseOrderItem[]
   inventoryMovements InventoryMovement[]
 
+  @@index([businessId, createdAt])
   @@index([supplierId, createdAt])
   @@index([status])
 }

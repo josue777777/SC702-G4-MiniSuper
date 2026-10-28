@@ -1,32 +1,22 @@
 import type { BusinessRepository } from '../repositories/business.repository.js';
-import type { UsersRepository } from '../repositories/users.repository.js';
-import type {
-  BusinessDto,
-  BusinessLogo,
-  BusinessRecord,
-  PublicBusinessDto,
-} from '../types/business.js';
+import { maxUsersOf, type UsersRepository } from '../repositories/users.repository.js';
+import type { BusinessDto, BusinessLogo, BusinessRecord } from '../types/business.js';
 import { HttpError } from '../utils/http-error.js';
 import { hasImageSignature } from '../utils/image.js';
-import type {
-  BusinessLogoInput,
-  BusinessPlanInput,
-  BusinessSettingsInput,
-} from '../validators/business.validator.js';
+import type { BusinessLogoInput, BusinessSettingsInput } from '../validators/business.validator.js';
 
-/** Ruta pública del logo (también se ve en el login). */
-export const LOGO_PATH = '/api/business/public/logo';
+/** Ruta del logo (con sesión: lo ven solo los usuarios de ese negocio). */
+export const LOGO_PATH = '/api/business/logo';
 
 function logoUrl(record: BusinessRecord): string | null {
   return record.logoUpdatedAt === null ? null : `${LOGO_PATH}?v=${record.logoUpdatedAt.getTime()}`;
 }
 
 /**
- * Configuración › General: datos, logo y plan del negocio.
- *   - Leer: cualquier usuario con sesión (el comprobante y el menú los usan).
- *   - Datos y logo: Administrador y Encargado (`business.edit`).
- *   - Plan (límite de usuarios): solo el Administrador (`plan.manage`).
- * Antes de iniciar sesión solo se exponen el nombre y el logo.
+ * Configuración › General del negocio de la sesión: sus datos, su logo y su
+ * plan (solo lectura: el plan lo cambia la plataforma).
+ *   - Leer: cualquier usuario del negocio (el comprobante y el menú lo usan).
+ *   - Datos y logo: el Encargado (`business.edit`).
  */
 export class BusinessService {
   constructor(
@@ -38,22 +28,8 @@ export class BusinessService {
     return this.toDto(await this.repository.get());
   }
 
-  async getPublic(): Promise<PublicBusinessDto> {
-    const record = await this.repository.get();
-
-    return { name: record.name, logoUrl: logoUrl(record) };
-  }
-
   async update(input: BusinessSettingsInput): Promise<BusinessDto> {
     return this.toDto(await this.repository.save(input));
-  }
-
-  /**
-   * Bajar el límite por debajo de lo que ya se usa no desactiva a nadie: solo
-   * impide crear o reactivar usuarios hasta que haya cupo.
-   */
-  async updatePlan(input: BusinessPlanInput): Promise<BusinessDto> {
-    return this.toDto(await this.repository.setMaxUsers(input.maxUsers));
   }
 
   async getLogo(): Promise<BusinessLogo> {
@@ -87,7 +63,11 @@ export class BusinessService {
       address: record.address,
       receiptMessage: record.receiptMessage,
       logoUrl: logoUrl(record),
-      plan: { maxUsers: record.maxUsers, usedSeats: await this.users.countUsedSeats() },
+      plan: {
+        extraUsers: record.extraUsers,
+        maxUsers: maxUsersOf(record.extraUsers),
+        usedSeats: await this.users.countUsedSeats(record.id),
+      },
     };
   }
 }

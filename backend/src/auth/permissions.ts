@@ -1,5 +1,6 @@
 /**
- * Roles y permisos del sistema (HU-11 a HU-15, criterios de usuarios y roles).
+ * Roles y permisos del sistema (HU-11 a HU-15, criterios de usuarios y roles;
+ * ADR 0002).
  *
  * ÚNICO lugar donde se decide qué puede hacer cada rol. La API exige estos
  * permisos en cada ruta (`routes/index.ts`) y la sesión se los envía al
@@ -7,9 +8,13 @@
  * está en el servidor. Agregar un módulo nuevo es agregar su permiso aquí y
  * asignarlo a los roles que correspondan.
  *
- * Además hay JERARQUÍA (`ROLE_RANK`): Administrador (la plataforma) > Encargado
- * (dueño del negocio) > Cajero y Bodega. Quien administra usuarios solo puede
- * hacerlo con rangos menores al suyo (`canManageRole`).
+ * Hay dos mundos separados:
+ *   - la PLATAFORMA (Administrador): negocios, planes, solicitudes y el nombre
+ *     del sistema. No ve los datos internos de ningún negocio;
+ *   - cada NEGOCIO (Encargado, Cajero, Bodega): sus productos, ventas, etc.
+ *
+ * Y hay JERARQUÍA (`canManageRole`): quien administra usuarios solo lo hace con
+ * rangos menores al suyo.
  */
 
 export const ROLES = ['ADMIN', 'ENCARGADO', 'CAJERO', 'BODEGA'] as const;
@@ -33,24 +38,37 @@ export const PERMISSIONS = [
   'reports.inventory',
   /** Reportes de ventas, ganancias y deudas (HU-28 a HU-30). */
   'reports.sales',
-  /** Datos del negocio: nombre, logo, contacto y comprobante (Configuración › General). */
+  /** Datos y logo del propio negocio (Configuración › General). */
   'business.edit',
-  /** Crear y administrar usuarios, siempre de un rango menor al propio (ver `canManageRole`). */
+  /** Crear y administrar usuarios, siempre de un rango menor al propio. */
   'users.manage',
-  /** Límite de usuarios del plan contratado. Solo el administrador de la plataforma. */
-  'plan.manage',
+  /** Pedir al proveedor de la plataforma más usuarios para el negocio. */
+  'plan.request',
+  /** Plataforma: negocios, planes, solicitudes y nombre del sistema. */
+  'platform.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-/** El Encargado es el dueño del negocio: todo, menos el plan contratado. */
-const BUSINESS_OWNER: readonly Permission[] = PERMISSIONS.filter(
-  (permission) => permission !== 'plan.manage',
-);
+/** Lo que se hace DENTRO de un negocio (exige que el usuario pertenezca a uno). */
+export const BUSINESS_PERMISSIONS: readonly Permission[] = [
+  'sales',
+  'customers',
+  'inventory.read',
+  'inventory.write',
+  'kardex',
+  'purchasing',
+  'reports.inventory',
+  'reports.sales',
+  'business.edit',
+  'plan.request',
+];
 
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  ADMIN: PERMISSIONS,
-  ENCARGADO: BUSINESS_OWNER,
+  // La plataforma: sin acceso a los datos de los negocios, a propósito.
+  ADMIN: ['platform.manage', 'users.manage'],
+  // El dueño del negocio: todo su negocio y su personal.
+  ENCARGADO: [...BUSINESS_PERMISSIONS, 'users.manage'],
   CAJERO: ['sales', 'customers', 'inventory.read'],
   BODEGA: ['inventory.read', 'inventory.write', 'kardex', 'purchasing', 'reports.inventory'],
 };
@@ -68,12 +86,18 @@ export const ROLE_RANK: Record<Role, number> = {
 
 /**
  * Regla «nadie da más poder del que tiene»: solo se administra (crear, editar,
- * desactivar, restablecer, asignar) a roles de rango MENOR al propio. El
- * Administrador es la excepción: administra a todos, incluso a otros
- * administradores (la regla del último administrador activo lo protege).
+ * desactivar, restablecer, asignar) a roles de rango MENOR al propio.
+ *
+ * El Administrador es la plataforma: administra a otros administradores y a los
+ * Encargados, pero NO al personal de los negocios (Cajero, Bodega): eso es de
+ * cada Encargado. La regla del último administrador activo lo protege a él.
  */
 export function canManageRole(actor: Role, target: Role): boolean {
-  return actor === 'ADMIN' || ROLE_RANK[actor] > ROLE_RANK[target];
+  if (actor === 'ADMIN') {
+    return target === 'ADMIN' || target === 'ENCARGADO';
+  }
+
+  return ROLE_RANK[actor] > ROLE_RANK[target];
 }
 
 /** Roles que `actor` puede asignar y administrar, en el orden de `ROLES`. */

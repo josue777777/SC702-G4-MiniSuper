@@ -10,9 +10,9 @@ import {
 
 /** Quien hace la operación: SIEMPRE el de la sesión, nunca un dato del navegador. */
 function actor(res: Response): UserActor {
-  const { id, role } = authenticatedUser(res);
+  const { id, role, businessId } = authenticatedUser(res);
 
-  return { id, role };
+  return { id, role, businessId };
 }
 
 /**

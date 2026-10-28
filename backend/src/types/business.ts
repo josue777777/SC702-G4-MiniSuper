@@ -1,6 +1,6 @@
 import type { ImageMimeType } from '../utils/image.js';
 
-/** Datos del negocio que se editan en Configuración › General. */
+/** Datos del negocio que su Encargado edita en Configuración › General. */
 export interface BusinessSettingsDto {
   name: string;
   legalId: string | null;
@@ -10,28 +10,26 @@ export interface BusinessSettingsDto {
   receiptMessage: string | null;
 }
 
-/** Plan contratado: cuántos usuarios activos permite y cuántos están en uso. */
+/** Plan contratado: el Encargado más `extraUsers` adicionales. */
 export interface BusinessPlanDto {
+  extraUsers: number;
+  /** 1 (el Encargado) + adicionales. */
   maxUsers: number;
   usedSeats: number;
 }
 
-/** Lo que devuelve `GET /api/business`. */
+/** Lo que devuelve `GET /api/business`: el negocio de la sesión. */
 export interface BusinessDto extends BusinessSettingsDto {
   /** URL del logo con `?v=` (cambia con cada logo nuevo), o `null` si no hay. */
   logoUrl: string | null;
   plan: BusinessPlanDto;
 }
 
-/** Lo único que se muestra antes de iniciar sesión (pantalla de login). */
-export interface PublicBusinessDto {
-  name: string;
-  logoUrl: string | null;
-}
-
 /** Fila guardada, tal como la lee el repositorio. */
 export interface BusinessRecord extends BusinessSettingsDto {
-  maxUsers: number;
+  id: string;
+  extraUsers: number;
+  status: 'ACTIVE' | 'SUSPENDED';
   logoUpdatedAt: Date | null;
 }
 

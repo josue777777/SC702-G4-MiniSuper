@@ -22,13 +22,17 @@ function money(value: Money): string {
  * fiar: listar activos, crear y consultar los totales del saldo. El saldo NO se
  * guarda; el service lo deriva de estos totales.
  *
+ * Atado a UN negocio: sus clientes, ventas y abonos (multi-negocio, ADR 0002).
+ *
  * Sin miembros privados a propósito: el service se prueba con un doble.
  */
 export class CustomersRepository {
+  constructor(readonly businessId: string) {}
+
   /** Clientes activos con sus totales de crédito y abonos. */
   async listActive(): Promise<(CustomerRow & CreditTotals)[]> {
     const customers = await prisma.customer.findMany({
-      where: { isActive: true },
+      where: { businessId: this.businessId, isActive: true },
       select: customerSelection,
       orderBy: { name: 'asc' },
     });
@@ -36,7 +40,7 @@ export class CustomersRepository {
     const [credited, paid] = await Promise.all([
       prisma.sale.groupBy({
         by: ['customerId'],
-        where: { customerId: { in: ids }, paymentMethod: 'CREDIT' },
+        where: { businessId: this.businessId, customerId: { in: ids }, paymentMethod: 'CREDIT' },
         _sum: { total: true },
       }),
       prisma.creditPayment.groupBy({
@@ -56,12 +60,15 @@ export class CustomersRepository {
   }
 
   async create(fields: CreateCustomerFields): Promise<CustomerRow> {
-    return prisma.customer.create({ data: fields, select: customerSelection });
+    return prisma.customer.create({
+      data: { ...fields, businessId: this.businessId },
+      select: customerSelection,
+    });
   }
 
   async findRef(id: string): Promise<CustomerRef | null> {
-    return prisma.customer.findUnique({
-      where: { id },
+    return prisma.customer.findFirst({
+      where: { id, businessId: this.businessId },
       select: { id: true, name: true, isActive: true },
     });
   }
@@ -70,10 +77,13 @@ export class CustomersRepository {
   async getCreditTotals(customerId: string): Promise<CreditTotals> {
     const [credited, paid] = await Promise.all([
       prisma.sale.aggregate({
-        where: { customerId, paymentMethod: 'CREDIT' },
+        where: { businessId: this.businessId, customerId, paymentMethod: 'CREDIT' },
         _sum: { total: true },
       }),
-      prisma.creditPayment.aggregate({ where: { customerId }, _sum: { amount: true } }),
+      prisma.creditPayment.aggregate({
+        where: { customerId, customer: { businessId: this.businessId } },
+        _sum: { amount: true },
+      }),
     ]);
 
     return { credited: money(credited._sum.total), paid: money(paid._sum.amount) };

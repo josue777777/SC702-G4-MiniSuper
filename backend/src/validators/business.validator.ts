@@ -51,14 +51,3 @@ export const businessLogoSchema = z.object({
 });
 
 export type BusinessLogoInput = z.infer<typeof businessLogoSchema>;
-
-/** Cuerpo de `PUT /api/business/plan` (solo Administrador). */
-export const businessPlanSchema = z.object({
-  maxUsers: z
-    .number({ error: 'Indique cuántos usuarios permite el plan.' })
-    .int('El límite debe ser un número entero.')
-    .min(1, 'El plan debe permitir al menos 1 usuario.')
-    .max(500, 'El límite no puede superar 500 usuarios.'),
-});
-
-export type BusinessPlanInput = z.infer<typeof businessPlanSchema>;

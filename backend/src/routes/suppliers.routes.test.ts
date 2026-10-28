@@ -10,12 +10,18 @@ import {
   SUPPLIER_A_ID,
 } from '../testing/suppliers.repository.fake.js';
 import { createSuppliersRouter } from './suppliers.routes.js';
+import { fakeSession } from '../testing/fake-session.js';
 
 /** Rutas reales de proveedores (HU-21) sobre HTTP, con el repositorio falso. */
 function buildApp() {
+  const repository = new FakeSuppliersRepository();
   const app = express();
   app.use(express.json());
-  app.use('/api/suppliers', createSuppliersRouter(new FakeSuppliersRepository()));
+  app.use(
+    '/api/suppliers',
+    fakeSession(),
+    createSuppliersRouter(() => repository),
+  );
   app.use(errorHandler);
 
   return app;

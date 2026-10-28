@@ -2,75 +2,42 @@ import { prisma } from '../config/prisma.js';
 import type { BusinessLogo, BusinessRecord, BusinessSettingsDto } from '../types/business.js';
 import type { ImageMimeType } from '../utils/image.js';
 
-/** La tabla tiene una sola fila, siempre con este id (lo exige un CHECK en la base). */
-const SINGLE_ROW_ID = 1;
-
-/** Usuarios del plan inicial (igual que el valor por defecto de la base). */
-export const DEFAULT_MAX_USERS = 5;
-
-/** Valores de una instalación nueva; la migración crea la fila con estos mismos datos. */
-export const DEFAULT_BUSINESS: BusinessSettingsDto = {
-  name: 'Abastecedor Nuevo Amanecer',
-  legalId: null,
-  phone: null,
-  email: null,
-  address: null,
-  receiptMessage: '¡Gracias por su compra!',
-};
-
 /** Todo menos los bytes del logo: esos solo se leen al pedir la imagen. */
 const selection = {
+  id: true,
   name: true,
   legalId: true,
   phone: true,
   email: true,
   address: true,
   receiptMessage: true,
-  maxUsers: true,
+  extraUsers: true,
+  status: true,
   logoUpdatedAt: true,
 } as const;
 
-const DEFAULT_RECORD: BusinessRecord = {
-  ...DEFAULT_BUSINESS,
-  maxUsers: DEFAULT_MAX_USERS,
-  logoUpdatedAt: null,
-};
-
-/** Capa de acceso a datos de la configuración del negocio (una sola fila). */
+/**
+ * Datos del negocio de la sesión (Configuración › General). Atado a UN
+ * negocio: el Encargado solo lee y cambia el suyo.
+ */
 export class BusinessRepository {
-  /** Los datos guardados, o los de fábrica si la fila aún no existe. */
+  constructor(readonly businessId: string) {}
+
   async get(): Promise<BusinessRecord> {
-    return (
-      (await prisma.businessSettings.findUnique({
-        where: { id: SINGLE_ROW_ID },
-        select: selection,
-      })) ?? DEFAULT_RECORD
-    );
+    return prisma.business.findUniqueOrThrow({ where: { id: this.businessId }, select: selection });
   }
 
-  /** Guarda los datos editables; crea la fila si no existiera. */
   async save(fields: BusinessSettingsDto): Promise<BusinessRecord> {
-    return prisma.businessSettings.upsert({
-      where: { id: SINGLE_ROW_ID },
-      create: { id: SINGLE_ROW_ID, ...fields },
-      update: fields,
-      select: selection,
-    });
-  }
-
-  /** Cambia el límite de usuarios del plan. */
-  async setMaxUsers(maxUsers: number): Promise<BusinessRecord> {
-    return prisma.businessSettings.upsert({
-      where: { id: SINGLE_ROW_ID },
-      create: { id: SINGLE_ROW_ID, ...DEFAULT_BUSINESS, maxUsers },
-      update: { maxUsers },
+    return prisma.business.update({
+      where: { id: this.businessId },
+      data: fields,
       select: selection,
     });
   }
 
   async findLogo(): Promise<BusinessLogo | null> {
-    const row = await prisma.businessSettings.findUnique({
-      where: { id: SINGLE_ROW_ID },
+    const row = await prisma.business.findUnique({
+      where: { id: this.businessId },
       select: { logoData: true, logoMimeType: true },
     });
 
@@ -81,26 +48,22 @@ export class BusinessRepository {
 
   /** Guarda o reemplaza el logo (imagen y tipo siempre juntos: lo exige un CHECK). */
   async saveLogo(logo: BusinessLogo): Promise<BusinessRecord> {
-    const fields = {
-      logoData: Buffer.from(logo.data),
-      logoMimeType: logo.mimeType,
-      logoUpdatedAt: new Date(),
-    };
-
-    return prisma.businessSettings.upsert({
-      where: { id: SINGLE_ROW_ID },
-      create: { id: SINGLE_ROW_ID, ...DEFAULT_BUSINESS, ...fields },
-      update: fields,
+    return prisma.business.update({
+      where: { id: this.businessId },
+      data: {
+        logoData: Buffer.from(logo.data),
+        logoMimeType: logo.mimeType,
+        logoUpdatedAt: new Date(),
+      },
       select: selection,
     });
   }
 
   async removeLogo(): Promise<BusinessRecord> {
-    await prisma.businessSettings.updateMany({
-      where: { id: SINGLE_ROW_ID },
+    return prisma.business.update({
+      where: { id: this.businessId },
       data: { logoData: null, logoMimeType: null, logoUpdatedAt: null },
+      select: selection,
     });
-
-    return this.get();
   }
 }

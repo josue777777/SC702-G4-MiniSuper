@@ -2,10 +2,15 @@ import { Router } from 'express';
 import { PurchaseOrdersController } from '../controllers/purchase-orders.controller.js';
 import { PurchaseOrdersRepository } from '../repositories/purchase-orders.repository.js';
 import { PurchaseOrdersService } from '../services/purchase-orders.service.js';
+import type { ForBusiness } from '../types/tenant.js';
 
 /** Fábrica de rutas de pedidos: permite montarlas con un repositorio falso. */
-export function createPurchaseOrdersRouter(repository: PurchaseOrdersRepository): Router {
-  const controller = new PurchaseOrdersController(new PurchaseOrdersService(repository));
+export function createPurchaseOrdersRouter(
+  repositoryFor: ForBusiness<PurchaseOrdersRepository>,
+): Router {
+  const controller = new PurchaseOrdersController(
+    (businessId) => new PurchaseOrdersService(repositoryFor(businessId)),
+  );
   const router = Router();
 
   /** Historial de pedidos, filtrable por proveedor (HU-22). */
@@ -18,4 +23,6 @@ export function createPurchaseOrdersRouter(repository: PurchaseOrdersRepository)
   return router;
 }
 
-export const purchaseOrdersRouter = createPurchaseOrdersRouter(new PurchaseOrdersRepository());
+export const purchaseOrdersRouter = createPurchaseOrdersRouter(
+  (businessId) => new PurchaseOrdersRepository(businessId),
+);

@@ -15,6 +15,7 @@ import type { CreateUserInput, UpdateUserInput } from '../validators/users.valid
 const EMAIL_IN_USE = 'Ese correo ya está en uso.';
 const LAST_ADMIN = 'El sistema debe tener al menos un administrador activo.';
 const OUT_OF_RANK = 'Solo puede administrar usuarios de un rango menor al suyo.';
+const NOT_FOUND = 'No se encontró el usuario.';
 
 /** Usuario con la contraseña temporal recién generada: se muestra UNA vez a quien lo creó. */
 export interface UserWithTemporaryPassword {
@@ -28,6 +29,7 @@ export function toListItem(user: UserRecord): UserListItemDto {
     name: user.name,
     email: user.email,
     role: user.role,
+    businessName: user.businessName,
     isActive: user.isActive,
     mustChangePassword: user.mustChangePassword,
     createdAt: user.createdAt.toISOString(),
@@ -60,9 +62,18 @@ function planFullError({ maxUsers }: PlanFull): HttpError {
 export class UsersService {
   constructor(private readonly repository: UsersRepository) {}
 
-  /** Lo que el actor puede administrar, más su propia cuenta. */
+  /**
+   * Lo que el actor puede administrar, más su propia cuenta:
+   *   - la plataforma: administradores y Encargados de todos los negocios;
+   *   - el Encargado: el personal de SU negocio.
+   */
   async list(actor: UserActor): Promise<UserListItemDto[]> {
-    return (await this.repository.list())
+    const users =
+      actor.businessId === null
+        ? await this.repository.list({ roles: ['ADMIN', 'ENCARGADO'] })
+        : await this.repository.list({ businessId: actor.businessId });
+
+    return users
       .filter((user) => user.id === actor.id || canManageRole(actor.role, user.role))
       .map(toListItem);
   }
@@ -70,8 +81,10 @@ export class UsersService {
   async create(input: CreateUserInput, actor: UserActor): Promise<UserWithTemporaryPassword> {
     this.assertCanAssign(actor, input.role);
 
+    const businessId = await this.businessForNewUser(input, actor);
     const temporaryPassword = generateTemporaryPassword();
     const created = await this.repository.createWithinPlan({
+      businessId,
       name: input.name,
       email: input.email,
       role: input.role,
@@ -100,6 +113,15 @@ export class UsersService {
       }
 
       this.assertCanAssign(actor, input.role);
+
+      // La plataforma y los negocios no se mezclan: un administrador no pasa a
+      // ser parte de un negocio, ni un Encargado a ser de la plataforma.
+      if ((user.role === 'ADMIN') !== (input.role === 'ADMIN')) {
+        throw HttpError.conflict(
+          'Un administrador de la plataforma no puede pasar a un negocio, ni al revés.',
+        );
+      }
+
       await this.assertAnotherActiveAdmin(user);
       changes.role = input.role;
       // Con otro rol cambian sus permisos: entra de nuevo para recibirlos.
@@ -169,8 +191,9 @@ export class UsersService {
   ): Promise<UserRecord> {
     const user = await this.repository.findById(id);
 
-    if (user === null) {
-      throw HttpError.notFound('No se encontró el usuario.');
+    // Un Encargado no ve usuarios de otros negocios: para él no existen.
+    if (user === null || (actor.businessId !== null && user.businessId !== actor.businessId)) {
+      throw HttpError.notFound(NOT_FOUND);
     }
 
     const isSelf = options.allowSelf === true && user.id === actor.id;
@@ -180,6 +203,38 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  /**
+   * Negocio del usuario nuevo. El Encargado crea SIEMPRE en el suyo (lo que
+   * mande el navegador no cuenta). La plataforma crea administradores sin
+   * negocio, o Encargados del negocio que indique (que debe existir).
+   */
+  private async businessForNewUser(
+    input: CreateUserInput,
+    actor: UserActor,
+  ): Promise<string | null> {
+    if (actor.businessId !== null) {
+      return actor.businessId;
+    }
+
+    if (input.role === 'ADMIN') {
+      return null;
+    }
+
+    if (input.businessId === undefined) {
+      throw HttpError.badRequest('Indique el negocio del Encargado.', {
+        businessId: ['Indique el negocio del Encargado.'],
+      });
+    }
+
+    if ((await this.repository.findBusinessName(input.businessId)) === null) {
+      throw HttpError.badRequest('El negocio indicado no existe.', {
+        businessId: ['El negocio indicado no existe.'],
+      });
+    }
+
+    return input.businessId;
   }
 
   /** Nadie da más poder del que tiene: solo se asignan roles de rango menor. */
