@@ -136,6 +136,7 @@ docs/       Documentación técnica
 ## Documentación
 
 - [Arquitectura del sistema](docs/ARCHITECTURE.md): capas, modelo de datos y convenciones.
+- [Usuarios y roles](docs/USUARIOS-Y-ROLES.md): cómo funciona el acceso y qué hacer al programar un módulo nuevo.
 - [Decisiones de arquitectura](docs/adr/): registro de las decisiones técnicas.
 
 ## Equipo
