@@ -1,6 +1,8 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { disconnectPrisma } from './config/prisma.js';
+import { UsersRepository } from './repositories/users.repository.js';
+import { warnIfNoActiveAdmin } from './services/initial-admin.service.js';
 
 /**
  * Punto de entrada: levanta el servidor HTTP en el puerto indicado por
@@ -11,6 +13,9 @@ const app = createApp();
 const server = app.listen(env.PORT, () => {
   console.log(`✅ API de MiniSuper escuchando en http://localhost:${env.PORT} (${env.NODE_ENV})`);
   console.log(`   Health:  http://localhost:${env.PORT}/api/health`);
+
+  // Solo en la consola del servidor: la pantalla de login no revela si hay usuarios.
+  void warnIfNoActiveAdmin(new UsersRepository());
 });
 
 /**
