@@ -46,7 +46,7 @@ export const sessionRequired = [
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/auth', authRouter); // HU-11 (login), HU-15 (cierre)
 apiRouter.use('/business/public', publicBusinessRouter); // solo el nombre, para el login
-apiRouter.use('/business', ...sessionRequired, businessRouter); // Configuración › General: leer cualquier rol; PUT solo Administrador
+apiRouter.use('/business', ...sessionRequired, businessRouter); // Configuración › General: leer cualquier rol; cambiar Administrador y Encargado
 apiRouter.use('/profile', profileRouter); // HU-14: protege su propia sesión; permite cambiar la contraseña temporal
 apiRouter.use(
   '/products',
@@ -75,4 +75,4 @@ apiRouter.use(
   requirePermission('purchasing'),
   purchaseOrdersRouter,
 ); // HU-22, HU-24
-apiRouter.use('/users', ...sessionRequired, requirePermission('settings'), usersRouter); // Configuración › Usuarios
+apiRouter.use('/users', ...sessionRequired, requirePermission('users.manage'), usersRouter); // Configuración › Usuarios (con jerarquía)

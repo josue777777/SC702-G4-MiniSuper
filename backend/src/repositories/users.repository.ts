@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.js';
 import { Prisma } from '../generated/prisma/client.js';
-import type { CreateUserFields, UpdateUserFields, UserRecord } from '../types/auth.js';
+import type { CreateUserFields, PlanFull, UpdateUserFields, UserRecord } from '../types/auth.js';
+import { DEFAULT_MAX_USERS } from './business.repository.js';
 
 const userSelection = {
   id: true,
@@ -13,6 +14,29 @@ const userSelection = {
   sessionVersion: true,
   createdAt: true,
 } as const;
+
+type Transaction = Prisma.TransactionClient;
+
+/** ¿Ocupa un cupo del plan? Los administradores de la plataforma no cuentan. */
+function usesSeat(user: { role: string; isActive: boolean }): boolean {
+  return user.isActive && user.role !== 'ADMIN';
+}
+
+/**
+ * Bloquea la fila del plan hasta que termine la transacción y devuelve el
+ * límite. Así, dos altas al mismo tiempo se atienden de una en una y nunca se
+ * pasa del límite (sin el bloqueo, ambas podrían contar «queda 1» a la vez).
+ */
+async function lockPlan(tx: Transaction): Promise<number> {
+  const rows = await tx.$queryRaw<{ maxUsers: number }[]>`
+    SELECT "maxUsers" FROM "BusinessSettings" WHERE "id" = 1 FOR UPDATE`;
+
+  return rows[0]?.maxUsers ?? DEFAULT_MAX_USERS;
+}
+
+function countUsedSeats(tx: Transaction | typeof prisma): Promise<number> {
+  return tx.user.count({ where: { isActive: true, role: { not: 'ADMIN' } } });
+}
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -44,6 +68,74 @@ export class UsersRepository {
   /** Administradores activos: el sistema nunca debe quedarse sin ninguno. */
   async countActiveAdmins(): Promise<number> {
     return prisma.user.count({ where: { role: 'ADMIN', isActive: true } });
+  }
+
+  /** Cupos del plan en uso: usuarios activos que no son administradores. */
+  async countUsedSeats(): Promise<number> {
+    return countUsedSeats(prisma);
+  }
+
+  /**
+   * Crea el usuario si el plan tiene cupo, todo en una transacción con el plan
+   * bloqueado. `null` si el correo ya lo usa otra cuenta.
+   */
+  async createWithinPlan(fields: CreateUserFields): Promise<UserRecord | PlanFull | null> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const maxUsers = await lockPlan(tx);
+
+        if (usesSeat({ ...fields, isActive: true }) && (await countUsedSeats(tx)) >= maxUsers) {
+          return { status: 'plan-full', maxUsers } as const;
+        }
+
+        return tx.user.create({ data: fields, select: userSelection });
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Como `update`, pero si el cambio hace que el usuario pase a ocupar un cupo
+   * (reactivarlo, o quitarle el rol de administrador) exige que quede cupo,
+   * con el plan bloqueado. `null` si el correo ya lo usa otra cuenta.
+   */
+  async updateWithinPlan(
+    id: string,
+    fields: UpdateUserFields,
+  ): Promise<UserRecord | PlanFull | null> {
+    const { revokeSessions, ...data } = fields;
+
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const maxUsers = await lockPlan(tx);
+        const current = await tx.user.findUniqueOrThrow({ where: { id }, select: userSelection });
+        const after = {
+          role: data.role ?? current.role,
+          isActive: data.isActive ?? current.isActive,
+        };
+
+        if (usesSeat(after) && !usesSeat(current) && (await countUsedSeats(tx)) >= maxUsers) {
+          return { status: 'plan-full', maxUsers } as const;
+        }
+
+        return tx.user.update({
+          where: { id },
+          data: revokeSessions === true ? { ...data, sessionVersion: { increment: 1 } } : data,
+          select: userSelection,
+        });
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   /** Crea un usuario; `null` si el correo ya lo usa otra cuenta (P2002). */

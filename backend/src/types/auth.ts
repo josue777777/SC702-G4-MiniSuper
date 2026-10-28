@@ -58,3 +58,12 @@ export interface UpdateUserFields {
   mustChangePassword?: boolean;
   revokeSessions?: boolean;
 }
+
+/** Resultado de una operación que ocupa un cupo del plan. */
+export type PlanFull = { status: 'plan-full'; maxUsers: number };
+
+/** Quién hace la operación en Configuración › Usuarios (sale de la sesión, nunca del navegador). */
+export interface UserActor {
+  id: string;
+  role: Role;
+}

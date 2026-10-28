@@ -1,5 +1,5 @@
 import type { UsersRepository } from '../repositories/users.repository.js';
-import type { CreateUserFields, UpdateUserFields, UserRecord } from '../types/auth.js';
+import type { CreateUserFields, PlanFull, UpdateUserFields, UserRecord } from '../types/auth.js';
 
 export const OWNER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -19,13 +19,21 @@ export function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
   };
 }
 
+/** Igual que el repositorio real: los administradores no ocupan cupo del plan. */
+function usesSeat(user: { role: string; isActive: boolean }): boolean {
+  return user.isActive && user.role !== 'ADMIN';
+}
+
 /** Doble de repositorio de usuarios para los tests (sin base de datos). */
 export class FakeUsersRepository implements UsersRepository {
   private users: UserRecord[];
   private nextId = 1;
+  /** Límite del plan (en la base vive en `BusinessSettings.maxUsers`). */
+  maxUsers: number;
 
-  constructor(users: UserRecord[] = []) {
+  constructor(users: UserRecord[] = [], options: { maxUsers?: number } = {}) {
     this.users = [...users];
+    this.maxUsers = options.maxUsers ?? 5;
   }
 
   /** Lo guardado, para comprobar qué se persistió (p. ej. el hash). */
@@ -53,6 +61,40 @@ export class FakeUsersRepository implements UsersRepository {
     return Promise.resolve(
       this.users.filter((user) => user.role === 'ADMIN' && user.isActive).length,
     );
+  }
+
+  countUsedSeats(): Promise<number> {
+    return Promise.resolve(this.users.filter(usesSeat).length);
+  }
+
+  async createWithinPlan(fields: CreateUserFields): Promise<UserRecord | PlanFull | null> {
+    if (usesSeat({ ...fields, isActive: true }) && (await this.countUsedSeats()) >= this.maxUsers) {
+      return { status: 'plan-full', maxUsers: this.maxUsers };
+    }
+
+    return this.create(fields);
+  }
+
+  async updateWithinPlan(
+    id: string,
+    fields: UpdateUserFields,
+  ): Promise<UserRecord | PlanFull | null> {
+    const current = await this.findById(id);
+
+    if (current === null) {
+      throw new Error(`Usuario ${id} no existe`);
+    }
+
+    const after = {
+      role: fields.role ?? current.role,
+      isActive: fields.isActive ?? current.isActive,
+    };
+
+    if (usesSeat(after) && !usesSeat(current) && (await this.countUsedSeats()) >= this.maxUsers) {
+      return { status: 'plan-full', maxUsers: this.maxUsers };
+    }
+
+    return this.update(id, fields);
   }
 
   create(fields: CreateUserFields): Promise<UserRecord | null> {

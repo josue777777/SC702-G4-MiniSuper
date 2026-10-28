@@ -34,7 +34,7 @@ describe('AuthService.login y resolveSession', () => {
     expect(session.user).toEqual(
       expect.objectContaining({ email: 'ana@correo.cr', role: 'ADMIN', mustChangePassword: false }),
     );
-    expect(session.user.permissions).toContain('settings');
+    expect(session.user.permissions).toContain('plan.manage');
     expect(session.user).not.toHaveProperty('passwordHash');
     expect(await service.resolveSession(session.token)).toEqual(session.user);
   });
