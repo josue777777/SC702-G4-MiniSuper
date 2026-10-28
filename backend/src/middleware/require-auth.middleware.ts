@@ -58,3 +58,30 @@ export function requirePermission(read: Permission, write: Permission = read) {
 export function authenticatedUser(res: Response): SessionUserDto {
   return res.locals['user'] as SessionUserDto;
 }
+
+const PLATFORM_ONLY =
+  'Esta sección es de un negocio. La plataforma no accede a los datos de los negocios.';
+
+/**
+ * Para las rutas de un negocio: exige que el usuario pertenezca a uno. Los
+ * administradores de la plataforma no tienen negocio y no pasan (además de no
+ * tener esos permisos): no ven los datos internos de sus clientes.
+ */
+export function requireBusiness(_req: Request, res: Response, next: NextFunction): void {
+  businessIdOf(res);
+  next();
+}
+
+/**
+ * Negocio del usuario de la sesión. Es la ÚNICA fuente del `businessId` con el
+ * que se filtra todo: nunca se toma de la URL ni del cuerpo de la petición.
+ */
+export function businessIdOf(res: Response): string {
+  const { businessId } = authenticatedUser(res);
+
+  if (businessId === null) {
+    throw HttpError.forbidden(PLATFORM_ONLY);
+  }
+
+  return businessId;
+}

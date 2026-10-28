@@ -4,11 +4,16 @@ import { describe, expect, it } from 'vitest';
 import { errorHandler } from '../middleware/error-handler.middleware.js';
 import { FakeCategoriesRepository } from '../testing/categories.repository.fake.js';
 import { createCategoriesRouter } from './categories.routes.js';
+import { fakeSession } from '../testing/fake-session.js';
 
 function buildApp(repository = new FakeCategoriesRepository()) {
   const app = express();
   app.use(express.json());
-  app.use('/api/categories', createCategoriesRouter(repository));
+  app.use(
+    '/api/categories',
+    fakeSession(),
+    createCategoriesRouter(() => repository),
+  );
   app.use(errorHandler);
 
   return { app, repository };
@@ -18,7 +23,12 @@ describe('GET /api/categories', () => {
   it('responde 200 con las categorías existentes dentro de data', async () => {
     const { app } = buildApp(
       new FakeCategoriesRepository([
-        { id: '44444444-0000-4444-8444-444444444444', name: 'Bebidas', description: null, isActive: true },
+        {
+          id: '44444444-0000-4444-8444-444444444444',
+          name: 'Bebidas',
+          description: null,
+          isActive: true,
+        },
       ]),
     );
 
@@ -39,7 +49,11 @@ describe('POST /api/categories', () => {
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
-      data: expect.objectContaining({ name: 'Lácteos', description: 'Leche y quesos', isActive: true }),
+      data: expect.objectContaining({
+        name: 'Lácteos',
+        description: 'Leche y quesos',
+        isActive: true,
+      }),
     });
     expect(repository.createdFields).toEqual([{ name: 'Lácteos', description: 'Leche y quesos' }]);
   });
@@ -56,7 +70,12 @@ describe('POST /api/categories', () => {
   it('responde 409 si el nombre ya existe, sin distinguir mayúsculas', async () => {
     const { app, repository } = buildApp(
       new FakeCategoriesRepository([
-        { id: '44444444-0000-4444-8444-444444444444', name: 'Bebidas', description: null, isActive: true },
+        {
+          id: '44444444-0000-4444-8444-444444444444',
+          name: 'Bebidas',
+          description: null,
+          isActive: true,
+        },
       ]),
     );
 

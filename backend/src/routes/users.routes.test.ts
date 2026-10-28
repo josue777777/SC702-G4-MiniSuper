@@ -86,7 +86,7 @@ function buildApp() {
   app.use(
     '/api/users',
     ...sessionRequired,
-    requirePermission('settings'),
+    requirePermission('users.manage'),
     createUsersRouter(repository),
   );
   app.use(errorHandler);
@@ -111,7 +111,9 @@ describe('permisos por rol en la API', () => {
     ['bodega', 'post', '/api/products', 201],
     ['bodega', 'get', '/api/sales', 403],
     ['encargado', 'get', '/api/purchase-orders', 200],
-    ['encargado', 'get', '/api/users', 403],
+    ['encargado', 'get', '/api/users', 200],
+    ['cajero', 'get', '/api/users', 403],
+    ['bodega', 'post', '/api/users', 403],
     ['admin', 'get', '/api/users', 200],
   ] as const)('%s: %s %s responde %i', async (who, method, path, status) => {
     const { agent } = await loginAs(`${who}@correo.cr`);
@@ -165,9 +167,9 @@ describe('contraseña temporal', () => {
 });
 
 describe('Configuración › Usuarios', () => {
-  it('el administrador crea un usuario y recibe su contraseña temporal una sola vez', async () => {
+  it('el Encargado crea un usuario y recibe su contraseña temporal una sola vez', async () => {
     const built = buildApp();
-    const { agent } = await loginAs('admin@correo.cr', built);
+    const { agent } = await loginAs('encargado@correo.cr', built);
 
     const response = await agent
       .post('/api/users')
@@ -188,7 +190,8 @@ describe('Configuración › Usuarios', () => {
 
     const list = await agent.get('/api/users');
 
-    expect(list.body.data).toHaveLength(6);
+    // Su negocio: él, el Cajero, Bodega, el usuario nuevo de prueba y Bea. Sin el Administrador.
+    expect(list.body.data).toHaveLength(5);
     expect(JSON.stringify(list.body)).not.toMatch(/passwordHash|argon2/);
   });
 
@@ -207,12 +210,12 @@ describe('Configuración › Usuarios', () => {
 
   it('al desactivar a un usuario se cierra su sesión abierta y ya no puede entrar', async () => {
     const built = buildApp();
-    const admin = await loginAs('admin@correo.cr', built);
+    const encargado = await loginAs('encargado@correo.cr', built);
     const cajero = await loginAs('cajero@correo.cr', built);
 
     expect((await cajero.agent.get('/api/sales')).status).toBe(200);
 
-    await admin.agent.post(`/api/users/${ID.CAJERO}/deactivate`).expect(200);
+    await encargado.agent.post(`/api/users/${ID.CAJERO}/deactivate`).expect(200);
 
     expect((await cajero.agent.get('/api/sales')).status).toBe(401);
     expect(
@@ -226,10 +229,10 @@ describe('Configuración › Usuarios', () => {
 
   it('al cambiarle el rol, la sesión abierta se cierra y entra con los permisos nuevos', async () => {
     const built = buildApp();
-    const admin = await loginAs('admin@correo.cr', built);
+    const encargado = await loginAs('encargado@correo.cr', built);
     const cajero = await loginAs('cajero@correo.cr', built);
 
-    await admin.agent.patch(`/api/users/${ID.CAJERO}`).send({ role: 'BODEGA' }).expect(200);
+    await encargado.agent.patch(`/api/users/${ID.CAJERO}`).send({ role: 'BODEGA' }).expect(200);
 
     expect((await cajero.agent.get('/api/purchase-orders')).status).toBe(401);
 
@@ -252,5 +255,49 @@ describe('Configuración › Usuarios', () => {
     const { agent } = await loginAs('admin@correo.cr');
 
     expect((await agent.post('/api/users/x/activate')).status).toBe(400);
+  });
+});
+
+describe('jerarquía en la API (el Encargado administra solo rangos menores)', () => {
+  it('el Encargado crea un Cajero, pero no otro Encargado', async () => {
+    const { agent } = await loginAs('encargado@correo.cr');
+
+    const cashier = await agent
+      .post('/api/users')
+      .send({ name: 'Nuevo Cajero', email: 'nuevo.cajero@correo.cr', role: 'CAJERO' });
+    const peer = await agent
+      .post('/api/users')
+      .send({ name: 'Otro Encargado', email: 'otro.enc@correo.cr', role: 'ENCARGADO' });
+
+    expect(cashier.status).toBe(201);
+    expect(peer.status).toBe(403);
+    expect(peer.body.error.message).toBe(
+      'Solo puede administrar usuarios de un rango menor al suyo.',
+    );
+  });
+
+  it('el Encargado no ve al Administrador en la lista ni puede tocarlo', async () => {
+    const { agent } = await loginAs('encargado@correo.cr');
+
+    const list = await agent.get('/api/users');
+    const roles = (list.body.data as { role: string }[]).map((user) => user.role);
+
+    expect(roles).not.toContain('ADMIN');
+    // La plataforma no es parte de su negocio: para él ese usuario no existe.
+    expect((await agent.post(`/api/users/${ID.ADMIN}/deactivate`)).status).toBe(404);
+  });
+
+  it('con el plan lleno, el alta responde 409 con el límite', async () => {
+    const built = buildApp();
+
+    built.repository.maxUsers = 4;
+
+    const { agent } = await loginAs('encargado@correo.cr', built);
+    const response = await agent
+      .post('/api/users')
+      .send({ name: 'Una más', email: 'una.mas@correo.cr', role: 'BODEGA' });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.message).toMatch(/El plan permite 4 usuarios activos/);
   });
 });

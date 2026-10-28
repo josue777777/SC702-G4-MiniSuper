@@ -1,11 +1,20 @@
 /**
- * Roles y permisos del sistema (HU-11 a HU-15, criterios de usuarios y roles).
+ * Roles y permisos del sistema (HU-11 a HU-15, criterios de usuarios y roles;
+ * ADR 0002).
  *
  * ÚNICO lugar donde se decide qué puede hacer cada rol. La API exige estos
  * permisos en cada ruta (`routes/index.ts`) y la sesión se los envía al
  * frontend, que solo los usa para mostrar u ocultar el menú: la seguridad real
  * está en el servidor. Agregar un módulo nuevo es agregar su permiso aquí y
  * asignarlo a los roles que correspondan.
+ *
+ * Hay dos mundos separados:
+ *   - la PLATAFORMA (Administrador): negocios, planes, solicitudes y el nombre
+ *     del sistema. No ve los datos internos de ningún negocio;
+ *   - cada NEGOCIO (Encargado, Cajero, Bodega): sus productos, ventas, etc.
+ *
+ * Y hay JERARQUÍA (`canManageRole`): quien administra usuarios solo lo hace con
+ * rangos menores al suyo.
  */
 
 export const ROLES = ['ADMIN', 'ENCARGADO', 'CAJERO', 'BODEGA'] as const;
@@ -29,23 +38,74 @@ export const PERMISSIONS = [
   'reports.inventory',
   /** Reportes de ventas, ganancias y deudas (HU-28 a HU-30). */
   'reports.sales',
-  /** Configuración: usuarios y datos del negocio. Solo el administrador. */
-  'settings',
+  /** Datos y logo del propio negocio (Configuración › General). */
+  'business.edit',
+  /** Crear y administrar usuarios, siempre de un rango menor al propio. */
+  'users.manage',
+  /** Pedir al proveedor de la plataforma más usuarios para el negocio. */
+  'plan.request',
+  /** Plataforma: negocios, planes, solicitudes y nombre del sistema. */
+  'platform.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-/** Todo lo del negocio. El Encargado lo tiene completo; el Administrador, además, la Configuración. */
-const BUSINESS: readonly Permission[] = PERMISSIONS.filter(
-  (permission) => permission !== 'settings',
-);
+/** Lo que se hace DENTRO de un negocio (exige que el usuario pertenezca a uno). */
+export const BUSINESS_PERMISSIONS: readonly Permission[] = [
+  'sales',
+  'customers',
+  'inventory.read',
+  'inventory.write',
+  'kardex',
+  'purchasing',
+  'reports.inventory',
+  'reports.sales',
+  'business.edit',
+  'plan.request',
+];
 
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  ADMIN: PERMISSIONS,
-  ENCARGADO: BUSINESS,
+  // La plataforma: sin acceso a los datos de los negocios, a propósito.
+  ADMIN: ['platform.manage', 'users.manage'],
+  // El dueño del negocio: todo su negocio y su personal.
+  ENCARGADO: [...BUSINESS_PERMISSIONS, 'users.manage'],
   CAJERO: ['sales', 'customers', 'inventory.read'],
   BODEGA: ['inventory.read', 'inventory.write', 'kardex', 'purchasing', 'reports.inventory'],
 };
+
+/**
+ * Jerarquía: un número mayor es un rango mayor. Cajero y Bodega están al mismo
+ * nivel (hacen trabajos distintos, ninguno manda sobre el otro).
+ */
+export const ROLE_RANK: Record<Role, number> = {
+  ADMIN: 3,
+  ENCARGADO: 2,
+  CAJERO: 1,
+  BODEGA: 1,
+};
+
+/**
+ * Regla «nadie da más poder del que tiene»: solo se administra (crear, editar,
+ * desactivar, restablecer, asignar) a roles de rango MENOR al propio.
+ *
+ * El Administrador es la plataforma: administra a otros administradores y a los
+ * Encargados, pero NO al personal de los negocios (Cajero, Bodega): eso es de
+ * cada Encargado. La regla del último administrador activo lo protege a él.
+ */
+export function canManageRole(actor: Role, target: Role): boolean {
+  if (actor === 'ADMIN') {
+    return target === 'ADMIN' || target === 'ENCARGADO';
+  }
+
+  return ROLE_RANK[actor] > ROLE_RANK[target];
+}
+
+/** Roles que `actor` puede asignar y administrar, en el orden de `ROLES`. */
+export function manageableRoles(actor: Role): Role[] {
+  return hasPermission(actor, 'users.manage')
+    ? ROLES.filter((role) => canManageRole(actor, role))
+    : [];
+}
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador',

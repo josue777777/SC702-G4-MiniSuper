@@ -5,6 +5,7 @@ import type {
   ProductStockSettingsDto,
   StockLevel,
 } from '../types/inventory.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /**
  * Doble de repositorio del módulo de inventario (HU-10), compartido por los tests.
@@ -39,6 +40,8 @@ interface StoredMovement {
 }
 
 export class FakeInventoryRepository implements InventoryRepository {
+  readonly businessId = TEST_BUSINESS_ID;
+
   /** Planes de conteo recibidos, en orden. */
   readonly createdPlans: CreateInventoryCountPlan[] = [];
 
@@ -162,6 +165,20 @@ export class FakeInventoryRepository implements InventoryRepository {
   ): Promise<ProductStockSettingsDto> {
     const product = this.findOrFail(productId);
     product.expirationDate = expirationDate;
+
+    return Promise.resolve(this.toSettings(product));
+  }
+
+  updateSettings(
+    productId: string,
+    data: { minStock?: number; expirationDate?: Date | null },
+  ): Promise<ProductStockSettingsDto> {
+    const product = this.findOrFail(productId);
+
+    if (data.minStock !== undefined) product.minStock = data.minStock;
+    if (data.expirationDate !== undefined) {
+      product.expirationDate = data.expirationDate?.toISOString().slice(0, 10) ?? null;
+    }
 
     return Promise.resolve(this.toSettings(product));
   }

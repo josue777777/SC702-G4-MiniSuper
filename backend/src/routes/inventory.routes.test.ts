@@ -9,6 +9,7 @@ import {
   MISSING_PRODUCT_ID,
 } from '../testing/inventory.repository.fake.js';
 import { createInventoryRouter } from './inventory.routes.js';
+import { fakeSession } from '../testing/fake-session.js';
 
 /**
  * Pruebas de las rutas REALES del conteo físico (HU-10) sobre HTTP, con el
@@ -17,7 +18,11 @@ import { createInventoryRouter } from './inventory.routes.js';
 function buildApp(repository = new FakeInventoryRepository()) {
   const app = express();
   app.use(express.json());
-  app.use('/api/inventory', createInventoryRouter(repository));
+  app.use(
+    '/api/inventory',
+    fakeSession(),
+    createInventoryRouter(() => repository),
+  );
   app.use(errorHandler);
 
   return { app, repository };
@@ -145,7 +150,11 @@ describe('Configuración de inventario por producto (HU-08, HU-09)', () => {
     app.use(express.json());
     app.use(
       '/api/inventory',
-      createInventoryRouter(repository, () => TODAY),
+      fakeSession(),
+      createInventoryRouter(
+        () => repository,
+        () => TODAY,
+      ),
     );
     app.use(errorHandler);
 

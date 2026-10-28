@@ -8,6 +8,7 @@ import type {
   ReferenceOption,
   UpdateProductPlan,
 } from '../types/products.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /**
  * Doble de repositorio del módulo de productos, compartido por los tests.
@@ -63,6 +64,8 @@ export interface FakeProductsState {
  * lo delate en lugar de pasar por alto el método nuevo.
  */
 export class FakeProductsRepository implements ProductsRepository {
+  readonly businessId = TEST_BUSINESS_ID;
+
   /** Planes de creación recibidos, en orden. */
   readonly createdPlans: CreateProductPlan[] = [];
   /** Planes de edición recibidos, en orden. */

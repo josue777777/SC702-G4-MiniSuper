@@ -5,6 +5,7 @@ import type {
   PurchaseOrderSummaryDto,
   SupplierCatalog,
 } from '../types/purchase-orders.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /** Doble de repositorio de pedidos a proveedor (HU-22, HU-24), en memoria. */
 
@@ -30,6 +31,8 @@ const SUPPLIERS: Record<string, { name: string; catalog: Record<string, string> 
 };
 
 export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
+  readonly businessId = TEST_BUSINESS_ID;
+
   readonly createdPlans: CreatePurchaseOrderPlan[] = [];
   private readonly orders: PurchaseOrderDto[] = [];
   private sequence = 0;

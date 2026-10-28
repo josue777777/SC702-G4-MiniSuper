@@ -271,6 +271,18 @@ code {
   transition: transform 0.15s;
 }
 
+.nav-badge {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .nav-group__toggle[aria-expanded='false'] .nav-group__chevron {
   transform: rotate(-90deg);
 }
@@ -2015,4 +2027,140 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+   Apariencia por usuario (Configuración › Apariencia). `AppearanceProvider`
+   pone `data-accent` y `data-font-scale` en <html>. Cada color tiene contraste
+   suficiente con texto blanco (WCAG AA, 4.5:1 o más).
+   --------------------------------------------------------------------------- */
+:root[data-accent='verde'] {
+  --color-primary: #15803d;
+  --color-primary-dark: #166534;
+  --color-row-hover: #e3f4e8;
+}
+
+:root[data-accent='morado'] {
+  --color-primary: #6d28d9;
+  --color-primary-dark: #5b21b6;
+  --color-row-hover: #ede7fb;
+}
+
+:root[data-accent='naranja'] {
+  --color-primary: #c2410c;
+  --color-primary-dark: #9a3412;
+  --color-row-hover: #fcebe2;
+}
+
+:root[data-accent='gris'] {
+  --color-primary: #475569;
+  --color-primary-dark: #334155;
+  --color-row-hover: #e8ecf1;
+}
+
+/* Letra grande: agranda toda la interfaz por igual (textos, botones y tablas). */
+:root[data-font-scale='grande'] body {
+  zoom: 1.12;
+}
+
+.choice-group {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.choice-group legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+
+.color-option,
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.choice-option + .choice-option {
+  margin-top: 8px;
+}
+
+.color-option__swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+}
+
+.color-option__swatch--azul {
+  background: #1c64a8;
+}
+
+.color-option__swatch--verde {
+  background: #15803d;
+}
+
+.color-option__swatch--morado {
+  background: #6d28d9;
+}
+
+.color-option__swatch--naranja {
+  background: #c2410c;
+}
+
+.color-option__swatch--gris {
+  background: #475569;
+}
+
+/* Logo del negocio (menú, login, comprobante y Configuración › General) */
+.business-logo {
+  display: block;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.layout__brand-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.login__logo {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 8px;
+}
+
+.receipt__logo {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 4px;
+}
+
+.logo-field {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.logo-field__preview {
+  width: 72px;
+  height: 72px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-row-alt);
+}
+
+.plan-usage {
+  margin: 0 0 12px;
 }

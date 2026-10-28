@@ -6,7 +6,6 @@ import type {
   ProductDto,
   ProductFormOptionsDto,
   ProductImage,
-  ProductImageMimeType,
   UpdateProductPlan,
 } from '../types/products.js';
 import { buildCatalogWorkbook } from '../utils/catalog-xlsx.js';
@@ -18,6 +17,7 @@ import type {
   ProductListQuery,
   UpdateProductInput,
 } from '../validators/products.validator.js';
+import { hasImageSignature } from '../utils/image.js';
 
 /** Motivo del movimiento que deja el stock inicial de un producto (HU-01). */
 export const INITIAL_STOCK_REASON = 'Stock inicial';
@@ -100,24 +100,6 @@ async function assertSupplierIsUsable(
  * esperados se lanzan como `HttpError` y el middleware de errores los convierte
  * en la respuesta correspondiente.
  */
-/**
- * Primeros bytes ("firma" o "número mágico") de cada formato aceptado. Se
- * revisan porque la cabecera `Content-Type` la escribe el cliente: un archivo
- * cualquiera renombrado como `.png` no tiene la firma de un PNG.
- */
-const IMAGE_SIGNATURES: Record<ProductImageMimeType, (data: Uint8Array) => boolean> = {
-  'image/png': (data) => startsWith(data, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  'image/jpeg': (data) => startsWith(data, [0xff, 0xd8, 0xff]),
-  // WEBP: "RIFF" + 4 bytes de tamaño + "WEBP".
-  'image/webp': (data) =>
-    startsWith(data, [0x52, 0x49, 0x46, 0x46]) &&
-    startsWith(data.subarray(8), [0x57, 0x45, 0x42, 0x50]),
-};
-
-function startsWith(data: Uint8Array, signature: number[]): boolean {
-  return signature.every((byte, index) => data[index] === byte);
-}
-
 export class ProductsService {
   constructor(private readonly repository: ProductsRepository) {}
 
@@ -201,9 +183,7 @@ export class ProductsService {
       }
     }
 
-    throw HttpError.conflict(
-      'No se pudo generar un código único. Intente de nuevo.',
-    );
+    throw HttpError.conflict('No se pudo generar un código único. Intente de nuevo.');
   }
 
   /**
@@ -338,7 +318,7 @@ export class ProductsService {
   async setProductImage(id: string, image: ProductImageInput): Promise<ProductDto> {
     await this.requireProduct(id);
 
-    if (!IMAGE_SIGNATURES[image.mimeType](image.data)) {
+    if (!hasImageSignature(image.mimeType, image.data)) {
       throw HttpError.badRequest('El archivo no es una imagen PNG, JPG o WEBP válida.');
     }
 

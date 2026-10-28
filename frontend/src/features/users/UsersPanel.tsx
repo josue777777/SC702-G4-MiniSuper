@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { platformService } from '../../services/platform.service';
 import { Modal } from '../../components/Modal';
 import { useSession } from '../auth/session-context';
-import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from './roles';
+import { useBusiness } from '../business/business-context';
+import { manageableRoles, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from './roles';
 import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
 import { UserForm } from './UserForm';
 import { UserTable } from './UserTable';
@@ -12,13 +14,46 @@ import type { CreateUserPayload, UserListItem } from '../../types/auth';
 type PendingAction = { kind: 'reset' | 'deactivate'; user: UserListItem };
 
 /**
- * Pestaña Usuarios de la ventana de Configuración (solo Administrador;
- * criterios de usuarios y roles de HU-11 a HU-15). Crear usuarios con su rol,
- * editarlos, desactivarlos (no se borran) y restablecer su contraseña con una
- * temporal.
+ * Negocios para asignar a un Encargado nuevo; solo los pide la plataforma
+ * (`undefined` para el Encargado, que crea usuarios en su propio negocio).
+ */
+function useBusinessOptions(enabled: boolean): { id: string; name: string }[] | undefined {
+  const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    platformService
+      .listBusinesses()
+      .then((businesses) =>
+        setOptions(businesses.map((business) => ({ id: business.id, name: business.name }))),
+      )
+      .catch(() => {
+        // Sin lista: el formulario pide elegir y el servidor valida igual.
+      });
+  }, [enabled]);
+
+  return enabled ? options : undefined;
+}
+
+/**
+ * Pestaña Usuarios de la ventana de Configuración (criterios de usuarios y
+ * roles de HU-11 a HU-15). Crear usuarios con su rol, editarlos,
+ * desactivarlos (no se borran) y restablecer su contraseña con una temporal.
+ *   - El Encargado maneja al personal de SU negocio (Cajero y Bodega), dentro
+ *     de los usuarios de su plan.
+ *   - El Administrador de la plataforma maneja administradores y Encargados.
  */
 export function UsersPanel() {
   const { user: currentUser } = useSession();
+  const isPlatform = currentUser.businessId === null;
+  const { business } = useBusiness();
+  const { maxUsers, usedSeats } = business.plan;
+  const planFull = usedSeats >= maxUsers;
+  const roleOptions = manageableRoles(currentUser.role);
+  const businessOptions = useBusinessOptions(isPlatform);
   const {
     phase,
     users,
@@ -77,8 +112,20 @@ export function UsersPanel() {
   return (
     <>
       <p className="muted">
-        Quién puede entrar al sistema y qué puede hacer cada uno según su rol.
+        {isPlatform
+          ? 'Administradores de la plataforma y Encargados de los negocios. El personal de cada negocio lo maneja su Encargado.'
+          : 'Quién puede entrar al sistema y qué puede hacer cada uno según su rol.'}
       </p>
+      {isPlatform ? null : (
+        <p className="plan-usage">
+          Usuarios activos del plan: <strong>{usedSeats}</strong> de <strong>{maxUsers}</strong>{' '}
+          {planFull ? (
+            <span className="badge badge--warning">
+              Plan lleno: desactive un usuario o solicite más en la pestaña General
+            </span>
+          ) : null}
+        </p>
+      )}
 
       <div className="toolbar">
         <button
@@ -113,6 +160,8 @@ export function UsersPanel() {
           key={editing?.id ?? 'new'}
           user={editing}
           isSelf={editing?.id === currentUser.id}
+          roleOptions={roleOptions}
+          businesses={businessOptions}
           busy={busy}
           serverError={notice?.kind === 'error' ? notice.text : null}
           onCancel={closeForm}
@@ -165,6 +214,8 @@ export function UsersPanel() {
         <UserTable
           users={users}
           currentUserId={currentUser.id}
+          currentRole={currentUser.role}
+          showBusiness={isPlatform}
           busy={busy || formOpen}
           onEdit={(user) => {
             setEditing(user);

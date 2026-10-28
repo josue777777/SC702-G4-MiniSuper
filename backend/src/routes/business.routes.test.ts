@@ -5,6 +5,7 @@ import type { Role } from '../auth/permissions.js';
 import { errorHandler } from '../middleware/error-handler.middleware.js';
 import {
   createRequireAuth,
+  requireBusiness,
   requirePasswordChanged,
 } from '../middleware/require-auth.middleware.js';
 import { createSameOriginGuard } from '../middleware/same-origin.middleware.js';
@@ -14,9 +15,12 @@ import { FakeUsersRepository, makeUser } from '../testing/users.repository.fake.
 import { LoginRateLimiter } from '../utils/login-rate-limiter.js';
 import { hashPassword } from '../utils/password.js';
 import { createAuthRouter } from './auth.routes.js';
-import { createBusinessRouters } from './business.routes.js';
+import { createBusinessRouter } from './business.routes.js';
 
-/** HTTP de Configuración › General: leer cualquier rol, cambiar solo el Administrador. */
+/**
+ * HTTP de Configuración › General del negocio de la sesión: leer, cualquier
+ * usuario del negocio; datos y logo, solo el Encargado; la plataforma no entra.
+ */
 
 const ORIGIN = 'http://localhost:5173';
 const PASSWORD = 'ClaveSegura123';
@@ -30,6 +34,9 @@ const UPDATE = {
   address: 'Cartago centro',
   receiptMessage: 'Vuelva pronto',
 };
+
+/** PNG mínimo válido: la firma de 8 bytes y un poco de contenido. */
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 
 let passwordHash: string;
 
@@ -53,18 +60,17 @@ function buildApp() {
     sessionSecret: 's'.repeat(40),
     limiter: new LoginRateLimiter(),
   });
-  const { router, publicRouter } = createBusinessRouters(business);
   const app = express();
 
   app.use(express.json());
   app.use('/api/auth', createAuthRouter(auth, ORIGIN, false));
-  app.use('/api/business/public', publicRouter);
   app.use(
     '/api/business',
     createSameOriginGuard(ORIGIN),
     createRequireAuth(auth),
     requirePasswordChanged,
-    router,
+    requireBusiness,
+    createBusinessRouter(() => business, users),
   );
   app.use(errorHandler);
 
@@ -83,52 +89,52 @@ async function loginAs(role: Role, built = buildApp()) {
 }
 
 describe('datos del negocio', () => {
-  it('sin sesión solo se ve el nombre (para el login)', async () => {
-    const { app } = buildApp();
-
-    const publicData = await request(app).get('/api/business/public');
-
-    expect(publicData.status).toBe(200);
-    expect(publicData.body.data).toEqual({ name: 'Abastecedor Nuevo Amanecer' });
-    expect((await request(app).get('/api/business')).status).toBe(401);
-  });
-
-  it.each(ROLES)('%s puede leer los datos (los usa el comprobante)', async (role) => {
-    const { agent } = await loginAs(role);
-
-    const response = await agent.get('/api/business');
-
-    expect(response.status).toBe(200);
-    expect(response.body.data.receiptMessage).toBe('¡Gracias por su compra!');
+  it('sin sesión responde 401', async () => {
+    expect((await request(buildApp().app).get('/api/business')).status).toBe(401);
   });
 
   it.each(['ENCARGADO', 'CAJERO', 'BODEGA'] as const)(
-    '%s no puede modificarlos (403)',
+    '%s lee los datos de su negocio (el comprobante los usa)',
     async (role) => {
-      const { agent, business } = await loginAs(role);
+      const { agent } = await loginAs(role);
 
-      const response = await agent.put('/api/business').send(UPDATE);
+      const response = await agent.get('/api/business');
 
-      expect(response.status).toBe(403);
-      expect(business.current.name).toBe('Abastecedor Nuevo Amanecer');
+      expect(response.status).toBe(200);
+      expect(response.body.data.receiptMessage).toBe('¡Gracias por su compra!');
     },
   );
 
-  it('el Administrador los guarda y se ven en la lectura pública', async () => {
-    const built = buildApp();
-    const { agent } = await loginAs('ADMIN', built);
+  it('la plataforma (Administrador) no entra a los datos de un negocio (403)', async () => {
+    const { agent } = await loginAs('ADMIN');
+
+    const response = await agent.get('/api/business');
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.message).toMatch(/plataforma no accede/);
+  });
+
+  it.each(['CAJERO', 'BODEGA'] as const)('%s no puede modificarlos (403)', async (role) => {
+    const { agent, business } = await loginAs(role);
+
+    const response = await agent.put('/api/business').send(UPDATE);
+
+    expect(response.status).toBe(403);
+    expect(business.current.name).toBe('Abastecedor Nuevo Amanecer');
+  });
+
+  it('el Encargado los guarda', async () => {
+    const { agent, business } = await loginAs('ENCARGADO');
 
     const saved = await agent.put('/api/business').send(UPDATE);
 
     expect(saved.status).toBe(200);
-    expect(saved.body.data).toEqual(UPDATE);
-    expect((await request(built.app).get('/api/business/public')).body.data).toEqual({
-      name: 'Súper La Esquina',
-    });
+    expect(saved.body.data).toEqual(expect.objectContaining(UPDATE));
+    expect(business.current.name).toBe('Súper La Esquina');
   });
 
   it('valida los datos y responde 400 con el error de cada campo', async () => {
-    const { agent, business } = await loginAs('ADMIN');
+    const { agent, business } = await loginAs('ENCARGADO');
 
     const response = await agent.put('/api/business').send({ ...UPDATE, name: '', email: 'x' });
 
@@ -140,7 +146,7 @@ describe('datos del negocio', () => {
   });
 
   it('rechaza un cambio pedido desde otro origen (CSRF)', async () => {
-    const { agent } = await loginAs('ADMIN');
+    const { agent } = await loginAs('ENCARGADO');
 
     const response = await agent
       .put('/api/business')
@@ -148,5 +154,74 @@ describe('datos del negocio', () => {
       .send(UPDATE);
 
     expect(response.status).toBe(403);
+  });
+
+  it('muestra el plan: el Encargado más sus adicionales, y los cupos en uso', async () => {
+    const { agent } = await loginAs('CAJERO');
+
+    const response = await agent.get('/api/business');
+
+    // 4 adicionales + el Encargado = 5. Encargado, Cajero y Bodega ocupan 3.
+    expect(response.body.data.plan).toEqual({ extraUsers: 4, maxUsers: 5, usedSeats: 3 });
+  });
+});
+
+describe('logo del negocio', () => {
+  it('el Encargado sube el logo y lo ve cualquiera de su negocio', async () => {
+    const built = buildApp();
+    const encargado = await loginAs('ENCARGADO', built);
+    const cajero = await loginAs('CAJERO', built);
+
+    const saved = await encargado.agent
+      .put('/api/business/logo')
+      .set('Content-Type', 'image/png')
+      .send(PNG);
+
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.logoUrl).toMatch(/^\/api\/business\/logo\?v=\d+$/);
+
+    const image = await cajero.agent.get('/api/business/logo');
+
+    expect(image.status).toBe(200);
+    expect(image.headers['content-type']).toBe('image/png');
+    expect(Buffer.compare(image.body as Buffer, PNG)).toBe(0);
+  });
+
+  it('rechaza un archivo que dice ser PNG pero no lo es, SVG y más de 1 MB', async () => {
+    const { agent, business } = await loginAs('ENCARGADO');
+
+    const fake = await agent
+      .put('/api/business/logo')
+      .set('Content-Type', 'image/png')
+      .send(Buffer.from('<svg onload="alert(1)"></svg>'));
+    const svg = await agent
+      .put('/api/business/logo')
+      .set('Content-Type', 'image/svg+xml')
+      .send(Buffer.from('<svg></svg>'));
+    const huge = await agent
+      .put('/api/business/logo')
+      .set('Content-Type', 'image/png')
+      .send(Buffer.concat([PNG, Buffer.alloc(1024 * 1024)]));
+
+    expect([fake.status, svg.status, huge.status]).toEqual([400, 400, 413]);
+    expect(business.logo).toBeNull();
+  });
+
+  it('el Cajero no puede cambiar ni quitar el logo; quitarlo deja la URL en null', async () => {
+    const built = buildApp();
+    const cajero = await loginAs('CAJERO', built);
+    const encargado = await loginAs('ENCARGADO', built);
+
+    expect(
+      (await cajero.agent.put('/api/business/logo').set('Content-Type', 'image/png').send(PNG))
+        .status,
+    ).toBe(403);
+    await encargado.agent.put('/api/business/logo').set('Content-Type', 'image/png').send(PNG);
+    expect((await cajero.agent.delete('/api/business/logo')).status).toBe(403);
+
+    const removed = await encargado.agent.delete('/api/business/logo');
+
+    expect(removed.body.data.logoUrl).toBeNull();
+    expect((await cajero.agent.get('/api/business/logo')).status).toBe(404);
   });
 });

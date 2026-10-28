@@ -12,6 +12,10 @@
  * muestra lo que el rol del usuario puede usar, y un grupo sin opciones
  * visibles no aparece. La API vuelve a exigir el permiso en cada petición.
  *
+ * El Administrador es de la plataforma: no ve este menú sino
+ * `PLATFORM_NAVIGATION` (negocios clientes y sus solicitudes), porque no
+ * entra a los datos de ningún negocio (ADR 0002).
+ *
  * «Configuración» no está aquí: no es una pantalla, abre una ventana sobre la
  * pantalla actual (ver `MainLayout`).
  */
@@ -32,6 +36,8 @@ export type NavIconName =
   | 'cash'
   | 'users'
   | 'settings'
+  | 'store'
+  | 'inbox'
   | 'logout';
 
 export interface NavItem {
@@ -136,10 +142,34 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
   },
 ];
 
+/** Menú del Administrador de la plataforma. */
+export const PLATFORM_NAVIGATION: NavItem[] = [
+  {
+    kind: 'link',
+    to: '/platform/businesses',
+    label: 'Negocios',
+    stories: 'Negocios clientes, su plan y su Encargado',
+    icon: 'store',
+    permission: 'platform.manage',
+  },
+  {
+    kind: 'link',
+    to: '/platform/requests',
+    label: 'Solicitudes',
+    stories: 'Solicitudes de más usuarios de los Encargados',
+    icon: 'inbox',
+    permission: 'platform.manage',
+  },
+];
+
 /** El menú que le corresponde al rol: sin las opciones que no puede usar ni los grupos vacíos. */
 export function visibleNavigation(
   can: (permission: Permission) => boolean,
 ): (NavItem | NavGroup)[] {
+  if (can('platform.manage')) {
+    return PLATFORM_NAVIGATION;
+  }
+
   const allowed = (item: NavItem) => item.permission === undefined || can(item.permission);
 
   return NAVIGATION.flatMap((entry): (NavItem | NavGroup)[] => {

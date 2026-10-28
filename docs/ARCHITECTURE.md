@@ -13,7 +13,7 @@ Las historias de usuario (HU) se implementan **encima** de esta base.
 
 | Punto | Definición |
 | --- | --- |
-| Usuarios del sistema | Personal del negocio con **cuatro roles fijos** (Administrador, Encargado, Cajero, Bodega); sin multi-tenant |
+| Usuarios del sistema | **Cuatro roles fijos con jerarquía** (Administrador de la plataforma > Encargado, dueño del negocio > Cajero y Bodega) y un **límite de usuarios por plan**. Un solo negocio por ahora; el camino a multi-negocio está en [ADR 0002](adr/0002-usuarios-jerarquia-y-plan.md) |
 | Uso de IA | El sistema **NO** incluye asistentes de inteligencia artificial |
 | Tipo de aplicación | Aplicación web cliente-servidor (SPA + API REST) |
 | Historias de usuario | 30 HU (`HU-01` … `HU-30`) agrupadas en 3 módulos funcionales |
@@ -422,12 +422,22 @@ erDiagram
 `User` aparece sin relaciones en el diagrama a propósito: son las cuentas de acceso con su
 rol (HU-11 … HU-15) y, por ahora, ninguna transacción guarda su autor (decisión 10).
 
+**Multi-negocio (ADR 0002).** El diagrama muestra UN negocio. Las tablas raíz (`Category`,
+`Product`, `Customer`, `Sale`, `Supplier`, `PurchaseOrder` y `User`) además pertenecen a
+un `Business` por su columna `businessId`; las hijas heredan el negocio de su padre. Las
+claves foráneas compuestas (por ejemplo `Product(categoryId, businessId)` →
+`Category(id, businessId)`) impiden en la base mezclar filas de dos negocios, y cada
+repositorio se construye con el negocio de la sesión y filtra todo por él.
+
 ### Modelo de dominio y su origen en las HU
 
 | Entidad | Para qué existe (HU relacionadas) |
 | --- | --- |
 | `User` | Usuarios con rol, estado (activo/inactivo) y contraseña temporal: login, perfil, restablecimiento (HU-11 … HU-15) |
-| `BusinessSettings` | Datos del negocio (una sola fila): nombre, cédula, teléfono, correo, dirección y mensaje del comprobante. Se editan en Configuración › General (solo Administrador) |
+| `Business` | Cada negocio cliente: nombre, cédula, teléfono, correo, dirección, mensaje del comprobante, logo (los cambia su Encargado), plan `extraUsers` y estado activo/suspendido (los cambia la plataforma) |
+| `PlatformSettings` | Una sola fila: nombre del sistema y precio mensual por usuario adicional (solo el Administrador) |
+| `PlanRequest` | Solicitudes de más usuarios de un Encargado, con el monto cotizado, y la respuesta del Administrador |
+| `UserPreferences` | Apariencia de cada usuario (color y tamaño de letra), aparte de `User` para no mezclarla con los datos de acceso |
 | `Category` | Categorizar y filtrar inventario (HU-04) |
 | `Product` | Código, código de barras, precios, costo, stock, stock mínimo y vencimiento (HU-01 … HU-09) |
 | `InventoryMovement` | Historial auditable de entradas, salidas y ajustes (HU-10, HU-16) |
