@@ -1,40 +1,70 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { insertUser, resetOwner, withDb, type E2EUser } from './db';
+import {
+  CATALOG_TABLES,
+  E2E_BUSINESS_ID,
+  insertUser,
+  resetOwner,
+  withDb,
+  type E2EUser,
+} from './db';
 import { BACKEND_URL } from './env';
 
-/** Administrador de pruebas (valores de fixture, no reales). */
+/**
+ * Encargado (dueña) del negocio de las pruebas: maneja el negocio y su
+ * personal. Valores de fixture, no reales.
+ */
 export const E2E_OWNER: E2EUser = {
   name: 'Dueña de Prueba',
   email: 'duena.prueba@example.com',
+  password: 'ClaveSegura123',
+  role: 'ENCARGADO',
+};
+
+/** Administrador de la plataforma: negocios y planes, sin datos de ningún negocio. */
+export const E2E_ADMIN: E2EUser = {
+  name: 'Plataforma de Prueba',
+  email: 'plataforma.prueba@example.com',
   password: 'ClaveSegura123',
   role: 'ADMIN',
 };
 
 /**
- * Deja como único usuario al administrador `E2E_OWNER`, ya con su contraseña
- * propia (lo que queda tras `npm run db:seed` y el primer ingreso), y los
- * datos del negocio de fábrica. Se recrea
- * siempre porque otra prueba (HU-14) pudo cambiar el correo o la contraseña.
+ * Deja como únicos usuarios a la Encargada `E2E_OWNER` y al Administrador
+ * `E2E_ADMIN`, ya con su contraseña propia, y el negocio de las pruebas con sus
+ * datos de fábrica. Se recrean siempre porque otra prueba (HU-14) pudo cambiar
+ * el correo o la contraseña.
  */
 export async function ensureOwner(): Promise<void> {
+  await resetBusiness();
   await resetOwner();
   await insertUser(E2E_OWNER);
-  await resetBusiness();
+  await insertUser(E2E_ADMIN);
 }
 
-/** Datos del negocio de fábrica (otra prueba pudo cambiarlos en Configuración › General). */
+/**
+ * Negocio de las pruebas con sus datos de fábrica (otra prueba pudo cambiarlos
+ * en Configuración › General o en la plataforma): Encargado + 4 usuarios,
+ * activo. También el nombre del sistema y el precio por usuario de fábrica.
+ */
 export async function resetBusiness(): Promise<void> {
-  await withDb((client) =>
-    client.query(
-      `INSERT INTO "BusinessSettings"(id, name, "receiptMessage", "updatedAt")
-       VALUES (1, 'Abastecedor Nuevo Amanecer', '¡Gracias por su compra!', now())
+  await withDb(async (client) => {
+    await client.query(
+      `INSERT INTO "Business"(id, name, "receiptMessage", "extraUsers", status, "updatedAt")
+       VALUES ($1, 'Abastecedor Nuevo Amanecer', '¡Gracias por su compra!', 4, 'ACTIVE', now())
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, "legalId" = NULL, phone = NULL,
          email = NULL, address = NULL, "receiptMessage" = EXCLUDED."receiptMessage",
-         "logoData" = NULL, "logoMimeType" = NULL, "logoUpdatedAt" = NULL, "maxUsers" = 5,
+         "logoData" = NULL, "logoMimeType" = NULL, "logoUpdatedAt" = NULL,
+         "extraUsers" = 4, status = 'ACTIVE', "updatedAt" = now()`,
+      [E2E_BUSINESS_ID],
+    );
+    await client.query(
+      `INSERT INTO "PlatformSettings"(id, "systemName", "pricePerExtraUser", "updatedAt")
+       VALUES (1, 'MiniSuper', 5000, now())
+       ON CONFLICT (id) DO UPDATE SET "systemName" = 'MiniSuper', "pricePerExtraUser" = 5000,
          "updatedAt" = now()`,
-    ),
-  );
+    );
+  });
 }
 
 /**
@@ -61,10 +91,9 @@ export async function signInVia(
 
 /** Borra el catálogo y todo lo que lo referencia (solo en la base `_e2e`). */
 export async function resetCatalog(): Promise<void> {
+  await resetBusiness();
   await withDb(async (client) => {
-    await client.query(
-      'TRUNCATE "SupplierProduct", "InventoryMovement", "SaleItem", "CreditPayment", "Sale", "Customer", "PurchaseOrderItem", "Product", "Category", "Supplier" CASCADE',
-    );
+    await client.query(`TRUNCATE ${CATALOG_TABLES} CASCADE`);
   });
 }
 
@@ -85,13 +114,14 @@ export async function seedProducts(products: SeedProduct[]): Promise<void> {
   await withDb(async (client) => {
     for (const product of products) {
       const category = await client.query<{ id: string }>(
-        `INSERT INTO "Category"(id, name, "updatedAt") VALUES (gen_random_uuid(), $1, now())
-         ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
-        [product.category],
+        `INSERT INTO "Category"(id, name, "businessId", "updatedAt")
+         VALUES (gen_random_uuid(), $1, $2, now())
+         ON CONFLICT ("businessId", name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+        [product.category, E2E_BUSINESS_ID],
       );
       const inserted = await client.query<{ id: string }>(
-        `INSERT INTO "Product"(id, code, name, price, cost, stock, "isActive", "categoryId", barcode, "updatedAt")
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, now()) RETURNING id`,
+        `INSERT INTO "Product"(id, code, name, price, cost, stock, "isActive", "categoryId", barcode, "businessId", "updatedAt")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, now()) RETURNING id`,
         [
           product.code,
           product.name,
@@ -101,14 +131,16 @@ export async function seedProducts(products: SeedProduct[]): Promise<void> {
           product.isActive ?? true,
           category.rows[0]?.id,
           product.barcode ?? null,
+          E2E_BUSINESS_ID,
         ],
       );
 
       if (product.supplier !== null) {
         const supplier = await client.query<{ id: string }>(
-          `INSERT INTO "Supplier"(id, name, "updatedAt") VALUES (gen_random_uuid(), $1, now())
-           ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
-          [product.supplier],
+          `INSERT INTO "Supplier"(id, name, "businessId", "updatedAt")
+           VALUES (gen_random_uuid(), $1, $2, now())
+           ON CONFLICT ("businessId", name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+          [product.supplier, E2E_BUSINESS_ID],
         );
 
         await client.query(
@@ -128,15 +160,17 @@ export async function seedProducts(products: SeedProduct[]): Promise<void> {
 export async function seedCustomer(name: string, credited: string, paid = '0.00'): Promise<string> {
   return withDb(async (client) => {
     const customer = await client.query<{ id: string }>(
-      `INSERT INTO "Customer"(id, name, "updatedAt") VALUES (gen_random_uuid(), $1, now()) RETURNING id`,
-      [name],
+      `INSERT INTO "Customer"(id, name, "businessId", "updatedAt")
+       VALUES (gen_random_uuid(), $1, $2, now()) RETURNING id`,
+      [name, E2E_BUSINESS_ID],
     );
     const id = customer.rows[0]?.id ?? '';
 
     if (credited !== '0.00') {
       await client.query(
-        `INSERT INTO "Sale"(id, "paymentMethod", total, "customerId") VALUES (gen_random_uuid(), 'CREDIT', $1, $2)`,
-        [credited, id],
+        `INSERT INTO "Sale"(id, "paymentMethod", total, "customerId", "businessId")
+         VALUES (gen_random_uuid(), 'CREDIT', $1, $2, $3)`,
+        [credited, id, E2E_BUSINESS_ID],
       );
     }
 

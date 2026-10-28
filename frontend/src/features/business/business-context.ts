@@ -1,16 +1,19 @@
 import { createContext, useContext } from 'react';
 import type { Business } from '../../types/business';
 
-/** Lo que se muestra mientras cargan los datos o si no se pudieron leer. */
+/**
+ * Lo que se muestra mientras cargan los datos o si no se pudieron leer. Sin
+ * nombre: con varios negocios, uno «de fábrica» sería el de otro cliente.
+ */
 export const FALLBACK_BUSINESS: Business = {
-  name: 'Abastecedor Nuevo Amanecer',
+  name: '',
   legalId: null,
   phone: null,
   email: null,
   address: null,
   receiptMessage: '¡Gracias por su compra!',
   logoUrl: null,
-  plan: { maxUsers: 0, usedSeats: 0 },
+  plan: { extraUsers: 0, maxUsers: 1, usedSeats: 0 },
 };
 
 interface BusinessValue {

@@ -11,6 +11,11 @@ interface UserFormProps {
   isSelf: boolean;
   /** Roles que quien usa el sistema puede asignar (jerarquía: solo rangos menores). */
   roleOptions: Role[];
+  /**
+   * Negocios para asignar a un Encargado nuevo (solo el Administrador de la
+   * plataforma). Sin esta lista, el usuario queda en el negocio de quien lo crea.
+   */
+  businesses?: { id: string; name: string }[];
   busy: boolean;
   serverError: string | null;
   onCancel: () => void;
@@ -18,7 +23,7 @@ interface UserFormProps {
   onSubmit: (payload: Partial<CreateUserPayload>) => void;
 }
 
-type FieldErrors = Partial<Record<'name' | 'email', string>>;
+type FieldErrors = Partial<Record<'name' | 'email' | 'businessId', string>>;
 
 /**
  * Formulario de usuario: nombre, correo y rol. La contraseña no se escribe
@@ -28,6 +33,7 @@ export function UserForm({
   user,
   isSelf,
   roleOptions,
+  businesses,
   busy,
   serverError,
   onCancel,
@@ -39,6 +45,9 @@ export function UserForm({
   // Al editarse a sí mismo, su rol se muestra aunque no lo pueda asignar.
   const options =
     user !== null && !roleOptions.includes(user.role) ? [user.role, ...roleOptions] : roleOptions;
+  const [businessId, setBusinessId] = useState('');
+  /** Solo al crear un Encargado desde la plataforma se elige su negocio. */
+  const choosesBusiness = user === null && businesses !== undefined && role === 'ENCARGADO';
   const [errors, setErrors] = useState<FieldErrors>({});
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -49,6 +58,7 @@ export function UserForm({
     const found: FieldErrors = {
       ...(nameError === undefined ? {} : { name: nameError }),
       ...(emailError === undefined ? {} : { email: emailError }),
+      ...(choosesBusiness && businessId === '' ? { businessId: 'Elija el negocio.' } : {}),
     };
 
     setErrors(found);
@@ -60,7 +70,7 @@ export function UserForm({
     const values = { name: name.trim(), email: email.trim().toLowerCase(), role };
 
     if (user === null) {
-      onSubmit(values);
+      onSubmit(choosesBusiness ? { ...values, businessId } : values);
       return;
     }
 
@@ -124,6 +134,31 @@ export function UserForm({
               {isSelf ? 'No puede cambiar su propio rol.' : ROLE_DESCRIPTIONS[role]}
             </small>
           </div>
+
+          {choosesBusiness ? (
+            <div className="form__field">
+              <label htmlFor="user-business">Negocio</label>
+              <select
+                id="user-business"
+                value={businessId}
+                onChange={(event) => setBusinessId(event.target.value)}
+              >
+                <option value="">Elija el negocio…</option>
+                {businesses.map((business) => (
+                  <option key={business.id} value={business.id}>
+                    {business.name}
+                  </option>
+                ))}
+              </select>
+              <small className="muted">
+                Ocupa un usuario del plan de ese negocio. Para un negocio nuevo, use Negocios ›
+                Nuevo negocio.
+              </small>
+              {errors.businessId === undefined ? null : (
+                <p className="form__error">{errors.businessId}</p>
+              )}
+            </div>
+          ) : null}
         </div>
 
         {user === null ? (

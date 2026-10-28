@@ -10,7 +10,10 @@ export function TemporaryPasswordDialog({
   reveal,
   onClose,
 }: {
-  reveal: TemporaryPasswordReveal;
+  /** También sirve para el Encargado de un negocio nuevo (solo usa nombre y correo). */
+  reveal: Pick<TemporaryPasswordReveal, 'temporaryPassword' | 'reason'> & {
+    user: { name: string; email: string };
+  };
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);

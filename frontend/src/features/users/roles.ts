@@ -15,7 +15,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  ADMIN: 'Administrador de la plataforma: todo, incluido el plan contratado.',
+  ADMIN:
+    'Administrador de la plataforma: crea los negocios con su Encargado y su plan, y responde las solicitudes. No ve los datos internos de los negocios.',
   ENCARGADO:
     'Dueño del negocio: todo el negocio, sus datos y logo, y los usuarios Cajero y Bodega.',
   CAJERO: 'Ventas y clientes; consulta productos sin modificarlos.',
@@ -25,9 +26,17 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
 /** Igual que `ROLE_RANK` del backend: un número mayor es un rango mayor. */
 const ROLE_RANK: Record<Role, number> = { ADMIN: 3, ENCARGADO: 2, CAJERO: 1, BODEGA: 1 };
 
-/** «Nadie da más poder del que tiene»: solo rangos menores (el Administrador, a todos). */
+/**
+ * «Nadie da más poder del que tiene»: solo rangos menores. El Administrador
+ * maneja administradores y Encargados; el personal de cada negocio (Cajero y
+ * Bodega) lo maneja su Encargado. Igual que `canManageRole` del backend.
+ */
 export function canManageRole(actor: Role, target: Role): boolean {
-  return actor === 'ADMIN' || ROLE_RANK[actor] > ROLE_RANK[target];
+  if (actor === 'ADMIN') {
+    return target === 'ADMIN' || target === 'ENCARGADO';
+  }
+
+  return ROLE_RANK[actor] > ROLE_RANK[target];
 }
 
 /** Roles que `actor` puede asignar al crear o editar un usuario. */

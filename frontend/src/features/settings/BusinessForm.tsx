@@ -1,9 +1,13 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Modal } from '../../components/Modal';
 import { ApiError } from '../../services/api-client';
 import { businessService } from '../../services/business.service';
+import { planRequestsService } from '../../services/platform.service';
 import type { Business, BusinessSettings } from '../../types/business';
+import type { OwnPlanRequests } from '../../types/platform';
+import { RequestStatusBadge } from '../platform/RequestStatusBadge';
+import { formatMoney } from '../products/money';
 import { fieldErrorsFromDetails, validateEmail } from '../auth/account-rules';
-import { useSession } from '../auth/session-context';
 import { useBusiness } from '../business/business-context';
 
 type Field = keyof BusinessSettings;
@@ -50,9 +54,9 @@ function toSettings(values: Values): BusinessSettings {
 }
 
 /**
- * Configuración › General: datos, logo y plan del negocio. Encabezan el
- * comprobante de venta y se ven en el menú y en el login. Llegan aquí el
- * Administrador y el Encargado; el plan solo lo cambia el Administrador.
+ * Configuración › General (solo el Encargado): datos, logo y plan de SU
+ * negocio. El nombre y el logo se ven en el menú y encabezan el comprobante;
+ * el nombre del sistema es de la plataforma y no se cambia aquí.
  */
 export function BusinessForm() {
   return (
@@ -132,8 +136,8 @@ function BusinessDataForm() {
   return (
     <form className="form" onSubmit={(event) => void handleSubmit(event)} noValidate>
       <p className="muted">
-        Estos datos encabezan el comprobante de venta y se muestran en el menú y en el inicio de
-        sesión.
+        Estos datos encabezan el comprobante de venta y el nombre se muestra en el menú, debajo del
+        nombre del sistema.
       </p>
 
       {notice === null ? null : (
@@ -292,44 +296,29 @@ function LogoField() {
 }
 
 /**
- * Plan contratado: cuántos usuarios activos permite. Todos los que llegan aquí
- * ven el uso; solo el Administrador de la plataforma cambia el límite.
+ * Plan del negocio: Encargado + N usuarios adicionales. El Encargado ve el uso
+ * y pide más usuarios a la plataforma; el Administrador aprueba o rechaza la
+ * solicitud y, al aprobarla, el Encargado ya puede crear los usuarios.
  */
 function PlanSection() {
-  const { can } = useSession();
-  const { business, setBusiness } = useBusiness();
-  const { maxUsers, usedSeats } = business.plan;
-  const [limit, setLimit] = useState(String(maxUsers));
-  const [busy, setBusy] = useState(false);
+  const { business, reload } = useBusiness();
+  const { extraUsers, maxUsers, usedSeats } = business.plan;
+  const [own, setOwn] = useState<OwnPlanRequests | null>(null);
+  const [requesting, setRequesting] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const pending = own?.requests.some((request) => request.status === 'PENDING') ?? false;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-
-    const value = Number(limit);
-
-    if (!Number.isInteger(value) || value < 1 || value > 500) {
-      setNotice({ kind: 'error', text: 'Escriba un número entero de 1 a 500.' });
-      return;
-    }
-
-    setBusy(true);
-    setNotice(null);
-
+  const loadOwn = useCallback(async (): Promise<void> => {
     try {
-      const saved = await businessService.updatePlan(value);
-
-      setBusiness(saved);
-      setNotice({ kind: 'success', text: 'Plan actualizado.' });
-    } catch (caught) {
-      setNotice({
-        kind: 'error',
-        text: caught instanceof ApiError ? caught.message : 'No se pudo actualizar el plan.',
-      });
-    } finally {
-      setBusy(false);
+      setOwn(await planRequestsService.listOwn());
+    } catch {
+      // Sin historial: el plan igual se ve.
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    void loadOwn();
+  }, [loadOwn]);
 
   return (
     <section className="form" aria-labelledby="plan-title">
@@ -338,7 +327,9 @@ function PlanSection() {
       </h3>
       <p className="plan-usage">
         Usuarios activos: <strong>{usedSeats}</strong> de <strong>{maxUsers}</strong>{' '}
-        <small className="muted">(los administradores de la plataforma no cuentan)</small>
+        <small className="muted">
+          (plan: Encargado{extraUsers > 0 ? ` + ${extraUsers}` : ' solamente'})
+        </small>
       </p>
 
       {notice === null ? null : (
@@ -350,30 +341,159 @@ function PlanSection() {
         </div>
       )}
 
-      {can('plan.manage') ? (
-        <form className="form__actions" onSubmit={(event) => void handleSubmit(event)} noValidate>
-          <label htmlFor="plan-max-users">Límite de usuarios</label>
-          <input
-            id="plan-max-users"
-            type="number"
-            min={1}
-            max={500}
-            value={limit}
-            onChange={(event) => setLimit(event.target.value)}
-          />
-          <button
-            type="submit"
-            className="button button--primary"
-            disabled={busy || Number(limit) === maxUsers}
-          >
-            {busy ? 'Guardando…' : 'Cambiar límite'}
-          </button>
-        </form>
-      ) : (
-        <p className="muted">
-          Para tener más usuarios, pida al administrador de la plataforma ampliar el plan.
-        </p>
+      <div className="form__actions">
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={pending || own === null}
+          onClick={() => {
+            setNotice(null);
+            setRequesting(true);
+          }}
+        >
+          Solicitar más usuarios
+        </button>
+        {pending ? (
+          <small className="muted">Tiene una solicitud pendiente de respuesta.</small>
+        ) : null}
+      </div>
+
+      {own === null || own.requests.length === 0 ? null : (
+        <div className="table-wrapper">
+          <table className="table">
+            <caption className="muted">Mis solicitudes</caption>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Usuarios</th>
+                <th>Monto mensual</th>
+                <th>Estado</th>
+                <th>Respuesta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {own.requests.map((request) => (
+                <tr key={request.id}>
+                  <td>{new Date(request.createdAt).toLocaleDateString('es-CR')}</td>
+                  <td>+{request.extraUsers}</td>
+                  <td>{formatMoney(request.monthlyAmount)}</td>
+                  <td>
+                    <RequestStatusBadge status={request.status} />
+                  </td>
+                  <td>{request.response ?? <span className="muted">—</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
+
+      {requesting && own !== null ? (
+        <PlanRequestDialog
+          pricePerExtraUser={own.pricePerExtraUser}
+          onClose={() => setRequesting(false)}
+          onSent={() => {
+            setRequesting(false);
+            setNotice({
+              kind: 'success',
+              text: 'Solicitud enviada. Cuando la plataforma la apruebe podrá crear los usuarios.',
+            });
+            void Promise.all([loadOwn(), reload()]);
+          }}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/** Pide N usuarios más con la cotización mensual (N × precio por usuario). */
+function PlanRequestDialog({
+  pricePerExtraUser,
+  onClose,
+  onSent,
+}: {
+  pricePerExtraUser: string;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [count, setCount] = useState('1');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const value = Number(count);
+  const valid = Number.isInteger(value) && value >= 1 && value <= 50;
+  const quote = valid ? (Number(pricePerExtraUser) * value).toFixed(2) : null;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    if (!valid) {
+      setError('Escriba un número entero de 1 a 50.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      await planRequestsService.create(value, note.trim() === '' ? null : note.trim());
+      onSent();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'No se pudo enviar la solicitud.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="Solicitar más usuarios" onClose={onClose}>
+      {error === null ? null : (
+        <div className="alert alert--error" role="alert">
+          {error}
+        </div>
+      )}
+      <form className="form" onSubmit={(event) => void handleSubmit(event)} noValidate>
+        <div className="form__grid">
+          <div className="form__field">
+            <label htmlFor="plan-request-count">Usuarios adicionales</label>
+            <input
+              id="plan-request-count"
+              type="number"
+              min={1}
+              max={50}
+              value={count}
+              onChange={(event) => setCount(event.target.value)}
+            />
+          </div>
+          <div className="form__field">
+            <span>Monto mensual adicional</span>
+            <strong aria-live="polite">{quote === null ? '—' : formatMoney(quote)}</strong>
+            <small className="muted">{formatMoney(pricePerExtraUser)} por usuario al mes.</small>
+          </div>
+          <div className="form__field form__field--wide">
+            <label htmlFor="plan-request-note">Nota (opcional)</label>
+            <textarea
+              id="plan-request-note"
+              rows={2}
+              maxLength={300}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+            />
+          </div>
+        </div>
+        <p className="muted">
+          La solicitud llega a la plataforma. Al aprobarla, el límite de su plan sube y usted crea
+          los usuarios en la pestaña Usuarios.
+        </p>
+        <div className="form__actions">
+          <button type="submit" className="button button--primary" disabled={busy}>
+            {busy ? 'Enviando…' : 'Enviar solicitud'}
+          </button>
+          <button type="button" className="button" disabled={busy} onClick={onClose}>
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

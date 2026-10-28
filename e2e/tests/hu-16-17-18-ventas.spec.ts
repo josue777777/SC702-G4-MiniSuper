@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { withDb } from '../support/db';
+import { E2E_BUSINESS_ID, withDb } from '../support/db';
 import { BACKEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
 import {
@@ -492,7 +492,9 @@ test.describe('HU-18 — venta a crédito (fiado)', () => {
     });
     const inactiveId = await withDb(async (client) => {
       const result = await client.query<{ id: string }>(
-        `INSERT INTO "Customer"(id, name, "isActive", "updatedAt") VALUES (gen_random_uuid(), 'Inactivo', false, now()) RETURNING id`,
+        `INSERT INTO "Customer"(id, name, "isActive", "businessId", "updatedAt")
+         VALUES (gen_random_uuid(), 'Inactivo', false, $1, now()) RETURNING id`,
+        [E2E_BUSINESS_ID],
       );
 
       return result.rows[0]?.id ?? '';
