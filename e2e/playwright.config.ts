@@ -2,7 +2,6 @@ import { defineConfig, devices } from '@playwright/test';
 import {
   BACKEND_PORT,
   BACKEND_URL,
-  E2E_SETUP_TOKEN,
   FRONTEND_PORT,
   FRONTEND_URL,
   OUTPUT_DIR,
@@ -55,7 +54,6 @@ export default defineConfig({
         PORT: String(BACKEND_PORT),
         CORS_ORIGIN: FRONTEND_URL,
         DATABASE_URL: databaseUrl,
-        SETUP_TOKEN: E2E_SETUP_TOKEN,
       },
     },
     {

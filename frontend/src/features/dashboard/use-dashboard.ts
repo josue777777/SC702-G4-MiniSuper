@@ -4,6 +4,7 @@ import { inventoryService } from '../../services/inventory.service';
 import { productsService } from '../../services/products.service';
 import { purchaseOrdersService } from '../../services/purchase-orders.service';
 import { salesService } from '../../services/sales.service';
+import { useSession } from '../auth/session-context';
 import {
   summarizeInventory,
   summarizePendingOrders,
@@ -19,9 +20,11 @@ import type { DailySalesSummary } from '../../types/sales';
 export const DASHBOARD_REFRESH_MS = 15_000;
 
 export interface DashboardData {
-  dailySales: DailySalesSummary;
+  /** `null` si el rol no maneja ventas (no se consultan). */
+  dailySales: DailySalesSummary | null;
   inventory: InventorySummary;
-  pendingOrders: PendingOrdersSummary;
+  /** `null` si el rol no maneja pedidos (no se consultan). */
+  pendingOrders: PendingOrdersSummary | null;
   lowStockCount: number;
   expiredCount: number;
   expiringSoonCount: number;
@@ -38,19 +41,24 @@ interface DashboardState {
 /**
  * Datos del panel principal: productos, pedidos y alertas, consultados en
  * paralelo. Se actualiza cada 15 s y al volver a la pestaña, para que lo que se
- * hizo en otra pantalla (un pedido, un conteo) se vea sin recargar.
+ * hizo en otra pantalla (un pedido, un conteo) se vea sin recargar. Los
+ * pedidos y las ventas del día solo se piden si el rol los maneja (si no, la
+ * API respondería 403 y fallaría todo el panel).
  */
 export function useDashboard() {
+  const { can } = useSession();
+  const canSeeOrders = can('purchasing');
+  const canSeeSales = can('sales');
   const [state, setState] = useState<DashboardState>({ phase: 'loading', data: null });
 
   const load = useCallback(async () => {
     try {
       const [products, orders, lowStock, expirations, dailySales] = await Promise.all([
         productsService.list(),
-        purchaseOrdersService.list(),
+        canSeeOrders ? purchaseOrdersService.list() : Promise.resolve(null),
         inventoryService.listLowStock(),
         inventoryService.listExpirations(),
-        salesService.dailySummary(),
+        canSeeSales ? salesService.dailySummary() : Promise.resolve(null),
       ]);
 
       setState({
@@ -58,7 +66,7 @@ export function useDashboard() {
         data: {
           dailySales,
           inventory: summarizeInventory(products),
-          pendingOrders: summarizePendingOrders(orders),
+          pendingOrders: orders === null ? null : summarizePendingOrders(orders),
           lowStockCount: lowStock.length,
           expiredCount: expirations.filter((alert) => alert.status === 'EXPIRED').length,
           expiringSoonCount: expirations.filter((alert) => alert.status === 'EXPIRING_SOON').length,
@@ -77,7 +85,7 @@ export function useDashboard() {
             : 'Ocurrió un error inesperado. Intente de nuevo.',
       }));
     }
-  }, []);
+  }, [canSeeOrders, canSeeSales]);
 
   useEffect(() => {
     void load();

@@ -23,11 +23,6 @@ const envSchema = z.object({
     .string()
     .min(32, 'SESSION_SECRET debe tener al menos 32 caracteres.')
     .optional(),
-  /**
-   * Token de un solo uso para la configuración inicial (HU-12). Lo define quien
-   * instala el sistema, fuera del repositorio; en producción es obligatorio.
-   */
-  SETUP_TOKEN: z.string().min(16, 'SETUP_TOKEN debe tener al menos 16 caracteres.').optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -23,8 +23,8 @@ interface LoginFieldErrors {
  * Valida que vengan ambos campos y su formato antes de llamar al servidor, que
  * repite las mismas reglas. Un fallo de credenciales muestra siempre el mismo
  * mensaje, sin decir si falló el correo o la contraseña. Al cerrar sesión
- * (HU-15) se vuelve aquí con un aviso. Sigue pendiente HU-13 (recuperar la
- * contraseña).
+ * (HU-15) se vuelve aquí con un aviso. No hay registro público: los usuarios
+ * los crea el administrador, que también restablece contraseñas (HU-13).
  */
 export function LoginPage() {
   const navigate = useNavigate();
@@ -55,8 +55,9 @@ export function LoginPage() {
     setBusy(true);
 
     try {
-      await authService.login({ email: email.trim(), password });
-      navigate('/', { replace: true });
+      const user = await authService.login({ email: email.trim(), password });
+      // Con contraseña temporal, lo primero es cambiarla.
+      navigate(user.mustChangePassword ? '/profile' : '/', { replace: true });
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 400) {
         const fromServer = fieldErrorsFromDetails(caught.details);
@@ -142,7 +143,9 @@ export function LoginPage() {
           {busy ? 'Iniciando sesión…' : 'Iniciar sesión'}
         </button>
 
-        <p className="muted hint">Pendiente: HU-13 (recuperar contraseña).</p>
+        <p className="muted hint">
+          ¿Olvidó su contraseña? Pídale al administrador que se la restablezca.
+        </p>
       </form>
     </div>
   );

@@ -1,28 +1,19 @@
 import { expect, test, type Page } from '@playwright/test';
-import { readUsers, resetOwner } from '../support/db';
-import { BACKEND_URL, E2E_SETUP_TOKEN } from '../support/env';
+import { readUsers } from '../support/db';
+import { BACKEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
+import { E2E_OWNER, ensureOwner } from '../support/fixtures';
 
 /**
  * HU-14 — Editar perfil (issue #15). Navegador real + backend real + PostgreSQL.
- * La cuenta se crea por la API de configuración inicial (HU-12) y se entra por el
- * formulario de login real.
+ * El administrador se prepara en la base (como `npm run db:seed`) y se entra por
+ * el formulario de login real.
  */
 
-const OWNER = {
-  name: 'Dueña de Prueba',
-  email: 'duena.prueba@example.com',
-  password: 'ClaveSegura123',
-};
+const OWNER = E2E_OWNER;
 
-test.beforeEach(async ({ request }) => {
-  await resetOwner();
-
-  const created = await request.post(`${BACKEND_URL}/api/auth/setup`, {
-    data: { ...OWNER, setupToken: E2E_SETUP_TOKEN },
-  });
-
-  expect(created.status()).toBe(201);
+test.beforeEach(async () => {
+  await ensureOwner();
 });
 
 async function loginAndOpenProfile(page: Page, password = OWNER.password, email = OWNER.email) {

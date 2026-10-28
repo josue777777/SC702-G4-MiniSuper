@@ -1,4 +1,5 @@
 import { BackendStatusCard } from '../components/BackendStatusCard';
+import { useSession } from '../features/auth/session-context';
 import { BarList } from '../features/dashboard/BarList';
 import { QuickLinks } from '../features/dashboard/QuickLinks';
 import { StatTile } from '../features/dashboard/StatTile';
@@ -14,7 +15,9 @@ import { formatMoney } from '../features/products/money';
  */
 export function DashboardPage() {
   const { phase, data, message, reload } = useDashboard();
-  const hasSalesToday = data !== null && data.dailySales.saleCount > 0;
+  const { can } = useSession();
+  const dailySales = data?.dailySales ?? null;
+  const hasSalesToday = dailySales !== null && dailySales.saleCount > 0;
 
   return (
     <>
@@ -32,49 +35,52 @@ export function DashboardPage() {
         </p>
       ) : null}
 
-      <section className="card daily-sales-summary" aria-labelledby="daily-sales-title">
-        <header className="card__header">
-          <h2 id="daily-sales-title">Resumen de ventas de hoy</h2>
-          {data === null ? null : (
-            <span className="muted">
-              {data.dailySales.saleCount} venta{data.dailySales.saleCount === 1 ? '' : 's'}
-            </span>
+      {/* HU-37: solo para los roles que manejan ventas. */}
+      {can('sales') ? (
+        <section className="card daily-sales-summary" aria-labelledby="daily-sales-title">
+          <header className="card__header">
+            <h2 id="daily-sales-title">Resumen de ventas de hoy</h2>
+            {dailySales === null ? null : (
+              <span className="muted">
+                {dailySales.saleCount} venta{dailySales.saleCount === 1 ? '' : 's'}
+              </span>
+            )}
+          </header>
+          {dailySales === null ? (
+            <p className="muted" role="status">
+              {phase === 'failed'
+                ? 'No se pudo cargar el resumen de ventas.'
+                : 'Cargando ventas de hoy…'}
+            </p>
+          ) : (
+            <>
+              <div className="daily-sales-summary__grid">
+                <div className="daily-sales-summary__item">
+                  <span>Total vendido</span>
+                  <strong>{formatMoney(dailySales.total)}</strong>
+                </div>
+                <div className="daily-sales-summary__item">
+                  <span>Efectivo</span>
+                  <strong>{formatMoney(dailySales.cash)}</strong>
+                </div>
+                <div className="daily-sales-summary__item">
+                  <span>Tarjeta</span>
+                  <strong>{formatMoney(dailySales.card)}</strong>
+                </div>
+                <div className="daily-sales-summary__item">
+                  <span>Fiados generados</span>
+                  <strong>{formatMoney(dailySales.credit)}</strong>
+                </div>
+              </div>
+              {!hasSalesToday ? (
+                <p className="daily-sales-summary__empty" role="status">
+                  Aún no se han registrado ventas hoy. Los totales se actualizarán automáticamente.
+                </p>
+              ) : null}
+            </>
           )}
-        </header>
-        {data === null ? (
-          <p className="muted" role="status">
-            {phase === 'failed'
-              ? 'No se pudo cargar el resumen de ventas.'
-              : 'Cargando ventas de hoy…'}
-          </p>
-        ) : (
-          <>
-            <div className="daily-sales-summary__grid">
-              <div className="daily-sales-summary__item">
-                <span>Total vendido</span>
-                <strong>{formatMoney(data.dailySales.total)}</strong>
-              </div>
-              <div className="daily-sales-summary__item">
-                <span>Efectivo</span>
-                <strong>{formatMoney(data.dailySales.cash)}</strong>
-              </div>
-              <div className="daily-sales-summary__item">
-                <span>Tarjeta</span>
-                <strong>{formatMoney(data.dailySales.card)}</strong>
-              </div>
-              <div className="daily-sales-summary__item">
-                <span>Fiados generados</span>
-                <strong>{formatMoney(data.dailySales.credit)}</strong>
-              </div>
-            </div>
-            {!hasSalesToday ? (
-              <p className="daily-sales-summary__empty" role="status">
-                Aún no se han registrado ventas hoy. Los totales se actualizarán automáticamente.
-              </p>
-            ) : null}
-          </>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <div className="stat-grid">
         <StatTile
@@ -89,14 +95,18 @@ export function DashboardPage() {
           detail="Disponibles para la venta"
           to="/inventory"
         />
-        <StatTile
-          label="Pedidos pendientes"
-          value={data === null ? '…' : formatMoney(data.pendingOrders.totalValue)}
-          detail={
-            data === null ? 'Calculando…' : `${data.pendingOrders.count} pedido(s) por recibir`
-          }
-          to="/orders"
-        />
+        {can('purchasing') ? (
+          <StatTile
+            label="Pedidos pendientes"
+            value={data?.pendingOrders == null ? '…' : formatMoney(data.pendingOrders.totalValue)}
+            detail={
+              data?.pendingOrders == null
+                ? 'Calculando…'
+                : `${data.pendingOrders.count} pedido(s) por recibir`
+            }
+            to="/orders"
+          />
+        ) : null}
         <StatTile
           label="Stock bajo"
           value={data === null ? '…' : String(data.lowStockCount)}

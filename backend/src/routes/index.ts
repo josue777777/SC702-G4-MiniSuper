@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { env } from '../config/env.js';
-import { createRequireAuth } from '../middleware/require-auth.middleware.js';
+import {
+  createRequireAuth,
+  requirePasswordChanged,
+  requirePermission,
+} from '../middleware/require-auth.middleware.js';
 import { createSameOriginGuard } from '../middleware/same-origin.middleware.js';
 import { authRouter, authService } from './auth.routes.js';
 import { categoriesRouter } from './categories.routes.js';
@@ -12,33 +16,59 @@ import { profileRouter } from './profile.routes.js';
 import { purchaseOrdersRouter } from './purchase-orders.routes.js';
 import { salesRouter } from './sales.routes.js';
 import { suppliersRouter } from './suppliers.routes.js';
+import { usersRouter } from './users.routes.js';
 
 /**
  * Árbol de rutas de la API. Todo lo publicado cuelga de `/api`
  * (ver `src/app.ts`).
  *
- * Solo son públicos `/health` y `/auth` (configuración inicial, login, sesión y
- * cierre). Todo lo demás exige la sesión del dueño (HU-11): sin cookie válida
- * responde 401 antes de llegar al controller. `sessionRequired` además rechaza
- * peticiones con cambios que vengan de otro origen (CSRF).
+ * Solo son públicos `/health` y `/auth` (login, sesión y cierre). Todo lo demás
+ * exige, en este orden:
+ *   1. una sesión válida (HU-11): sin cookie válida responde 401;
+ *   2. que el usuario ya cambió su contraseña temporal: si no, 403;
+ *   3. el permiso de su rol para esa sección (`auth/permissions.ts`): si no, 403.
+ * `sessionRequired` además rechaza peticiones con cambios que vengan de otro
+ * origen (CSRF).
  *
- * Cada historia de usuario nueva añade aquí su router, protegido:
- *   apiRouter.use('/categories', ...sessionRequired, categoriesRouter); // HU-04
+ * Cada módulo nuevo se monta igual, con su permiso:
+ *   apiRouter.use('/modulo', ...sessionRequired, requirePermission('permiso'), router);
  */
 export const apiRouter = Router();
 
 export const sessionRequired = [
   createSameOriginGuard(env.CORS_ORIGIN),
   createRequireAuth(authService),
+  requirePasswordChanged,
 ] as const;
 
 apiRouter.use('/health', healthRouter);
-apiRouter.use('/auth', authRouter); // HU-11 (login), HU-12 (cuenta única) y HU-15 (cierre)
-apiRouter.use('/profile', profileRouter); // HU-14 (protege su propia sesión)
-apiRouter.use('/products', ...sessionRequired, productsRouter); // HU-01, HU-02, HU-03
-apiRouter.use('/categories', ...sessionRequired, categoriesRouter); // HU-04
-apiRouter.use('/inventory', ...sessionRequired, inventoryRouter); // HU-08, HU-09, HU-10
-apiRouter.use('/sales', ...sessionRequired, salesRouter); // HU-16, HU-17, HU-18, HU-34
-apiRouter.use('/customers', ...sessionRequired, customersRouter); // HU-18 (cliente básico)
-apiRouter.use('/suppliers', ...sessionRequired, suppliersRouter); // HU-21
-apiRouter.use('/purchase-orders', ...sessionRequired, purchaseOrdersRouter); // HU-22, HU-24
+apiRouter.use('/auth', authRouter); // HU-11 (login), HU-15 (cierre)
+apiRouter.use('/profile', profileRouter); // HU-14: protege su propia sesión; permite cambiar la contraseña temporal
+apiRouter.use(
+  '/products',
+  ...sessionRequired,
+  requirePermission('inventory.read', 'inventory.write'),
+  productsRouter,
+); // HU-01 … HU-05, HU-33
+apiRouter.use(
+  '/categories',
+  ...sessionRequired,
+  requirePermission('inventory.read', 'inventory.write'),
+  categoriesRouter,
+); // HU-04
+apiRouter.use(
+  '/inventory',
+  ...sessionRequired,
+  requirePermission('inventory.read', 'inventory.write'),
+  inventoryRouter,
+); // HU-08, HU-09, HU-10
+apiRouter.use('/sales', ...sessionRequired, requirePermission('sales'), salesRouter); // HU-16 … HU-18, HU-34, HU-35, HU-37
+apiRouter.use('/customers', ...sessionRequired, requirePermission('customers'), customersRouter); // HU-18, HU-36
+apiRouter.use('/suppliers', ...sessionRequired, requirePermission('purchasing'), suppliersRouter); // HU-21
+apiRouter.use(
+  '/purchase-orders',
+  ...sessionRequired,
+  requirePermission('purchasing'),
+  purchaseOrdersRouter,
+); // HU-22, HU-24
+apiRouter.use('/users', ...sessionRequired, requirePermission('settings'), usersRouter); // Configuración › Usuarios

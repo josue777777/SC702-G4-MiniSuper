@@ -1,10 +1,15 @@
 import { Navigate } from 'react-router-dom';
+import { useSession } from '../features/auth/session-context';
 import { ProfileForm } from '../features/profile/ProfileForm';
 import { useProfile } from '../features/profile/use-profile';
 
-/** Perfil del dueño: nombre, correo y contraseña (HU-14). Requiere sesión. */
+/**
+ * Perfil del usuario: nombre, correo y contraseña (HU-14). Requiere sesión.
+ * Con una contraseña temporal es la única pantalla disponible hasta cambiarla.
+ */
 export function ProfilePage() {
   const { phase, profile, loadError, reload, save } = useProfile();
+  const { user } = useSession();
 
   if (phase === 'unauthenticated') {
     return (
@@ -23,6 +28,13 @@ export function ProfilePage() {
         <p>Mantenga actualizados su nombre, su correo y su contraseña.</p>
       </header>
 
+      {user.mustChangePassword ? (
+        <div className="alert alert--warning" role="alert">
+          Está usando una contraseña temporal. Para continuar, cree su propia contraseña: escriba la
+          nueva, confírmela y ponga la temporal en «Contraseña actual».
+        </div>
+      ) : null}
+
       {phase === 'loading' ? (
         <p className="muted" role="status">
           Cargando perfil…
@@ -38,7 +50,9 @@ export function ProfilePage() {
         </div>
       ) : null}
 
-      {phase === 'ready' && profile !== null ? <ProfileForm profile={profile} save={save} /> : null}
+      {phase === 'ready' && profile !== null ? (
+        <ProfileForm profile={profile} save={save} mustChangePassword={user.mustChangePassword} />
+      ) : null}
     </>
   );
 }

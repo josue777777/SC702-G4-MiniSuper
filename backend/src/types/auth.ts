@@ -1,37 +1,60 @@
-/** Contratos del acceso del dueño (HU-12, HU-14) y de la sesión mínima que ambas usan. */
+import type { Permission, Role } from '../auth/permissions.js';
 
-/** Estado de la configuración inicial: lo consulta el frontend antes de mostrar pantallas. */
-export interface SetupStatusDto {
-  /** `true` cuando ya existe la cuenta del dueño. */
-  configured: boolean;
-  /** `true` cuando el administrador definió un token de configuración inicial. */
-  tokenRequired: boolean;
-}
+/** Contratos de los usuarios, sus roles y la sesión (HU-11 a HU-15). */
 
-/** Datos del dueño que expone la API. Nunca incluye el hash de la contraseña. */
+/** Datos básicos de un usuario que expone la API. Nunca incluye el hash de la contraseña. */
 export interface ProfileDto {
   id: string;
   name: string;
   email: string;
 }
 
-/** Registro completo del dueño: solo lo ven repositorio y services. */
-export interface UserRecord extends ProfileDto {
-  passwordHash: string;
-  /** Sube al cerrar sesión (HU-15): los tokens con otra versión dejan de valer. */
-  sessionVersion: number;
+/**
+ * Usuario de la sesión: lo que el frontend necesita para armar el menú. Los
+ * `permissions` son informativos; la API los vuelve a exigir en cada ruta.
+ */
+export interface SessionUserDto extends ProfileDto {
+  role: Role;
+  permissions: Permission[];
+  /** Con una contraseña temporal, lo único permitido es cambiarla. */
+  mustChangePassword: boolean;
 }
 
-/** Campos del alta de la cuenta del dueño (la contraseña ya viene con hash). */
-export interface CreateOwnerFields {
+/** Fila de la lista de Configuración › Usuarios. */
+export interface UserListItemDto extends ProfileDto {
+  role: Role;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
+}
+
+/** Registro completo: solo lo ven repositorio y services. */
+export interface UserRecord extends ProfileDto {
+  passwordHash: string;
+  role: Role;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  /** Sube al cerrar sesión (HU-15) o al cambiar rol/estado: los tokens con otra versión dejan de valer. */
+  sessionVersion: number;
+  createdAt: Date;
+}
+
+/** Alta de un usuario (la contraseña ya viene con hash). */
+export interface CreateUserFields {
   name: string;
   email: string;
   passwordHash: string;
+  role: Role;
+  mustChangePassword: boolean;
 }
 
-/** Cambios que el dueño puede hacer a su perfil. */
-export interface UpdateProfileFields {
+/** Cambios posibles sobre un usuario. `revokeSessions` cierra sus sesiones abiertas. */
+export interface UpdateUserFields {
   name?: string;
   email?: string;
   passwordHash?: string;
+  role?: Role;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
+  revokeSessions?: boolean;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loginSchema, setupSchema, updateProfileSchema } from './auth.validator.js';
+import { loginSchema, initialAdminSchema, updateProfileSchema } from './auth.validator.js';
 
 /** Validaciones de la cuenta del dueño (HU-12), del login (HU-11) y del perfil (HU-14). */
 
@@ -9,22 +9,24 @@ function messages(result: { success: boolean; error?: { issues: { message: strin
   return result.error?.issues.map((issue) => issue.message) ?? [];
 }
 
-describe('setupSchema', () => {
+describe('initialAdminSchema (administrador inicial del .env)', () => {
   it('normaliza el nombre y pasa el correo a minúsculas', () => {
-    const parsed = setupSchema.parse(valid);
+    const parsed = initialAdminSchema.parse(valid);
 
     expect(parsed.name).toBe('Ana Pérez');
     expect(parsed.email).toBe('ana@correo.cr');
   });
 
   it('rechaza un correo con formato inválido', () => {
-    expect(setupSchema.safeParse({ ...valid, email: 'no-es-un-correo' }).success).toBe(false);
+    expect(initialAdminSchema.safeParse({ ...valid, email: 'no-es-un-correo' }).success).toBe(
+      false,
+    );
   });
 
   it('rechaza contraseñas cortas, sin números o sin letras', () => {
-    const short = setupSchema.safeParse({ ...valid, password: 'Corta1' });
-    const noDigit = setupSchema.safeParse({ ...valid, password: 'SoloLetrasLargas' });
-    const noLetter = setupSchema.safeParse({ ...valid, password: '1234567890123' });
+    const short = initialAdminSchema.safeParse({ ...valid, password: 'Corta1' });
+    const noDigit = initialAdminSchema.safeParse({ ...valid, password: 'SoloLetrasLargas' });
+    const noLetter = initialAdminSchema.safeParse({ ...valid, password: '1234567890123' });
 
     expect(messages(short)).toContain('La contraseña debe tener al menos 10 caracteres.');
     expect(messages(noDigit)).toContain('La contraseña debe incluir al menos un número.');
@@ -32,7 +34,7 @@ describe('setupSchema', () => {
   });
 
   it('rechaza una contraseña igual al correo', () => {
-    const result = setupSchema.safeParse({
+    const result = initialAdminSchema.safeParse({
       ...valid,
       email: 'ana1234567@correo.cr',
       password: 'ana1234567@correo.cr',
@@ -42,10 +44,10 @@ describe('setupSchema', () => {
   });
 
   it('rechaza el nombre vacío y las contraseñas gigantes', () => {
-    expect(setupSchema.safeParse({ ...valid, name: '   ' }).success).toBe(false);
-    expect(setupSchema.safeParse({ ...valid, password: `a1${'x'.repeat(200)}` }).success).toBe(
-      false,
-    );
+    expect(initialAdminSchema.safeParse({ ...valid, name: '   ' }).success).toBe(false);
+    expect(
+      initialAdminSchema.safeParse({ ...valid, password: `a1${'x'.repeat(200)}` }).success,
+    ).toBe(false);
   });
 });
 

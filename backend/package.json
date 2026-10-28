@@ -17,6 +17,7 @@
     "prisma:validate": "prisma validate",
     "db:migrate": "prisma migrate dev && prisma generate",
     "db:push": "prisma db push",
+    "db:seed": "tsx src/scripts/create-initial-admin.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {
