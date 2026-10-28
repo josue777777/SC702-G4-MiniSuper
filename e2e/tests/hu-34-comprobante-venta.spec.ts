@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
   await seedProducts([
     {
       code: 'P001',
-      barcode: '7501000000011',
+      barcode: '7501000000012',
       name: 'Café molido 500 g',
       category: 'Bebidas',
       price: '1500.00',
@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
     },
     {
       code: 'P002',
-      barcode: '7501000000028',
+      barcode: '7501000000029',
       name: 'Arroz 1 kg',
       category: 'Granos',
       price: '900.00',
