@@ -47,6 +47,8 @@ const PROTECTED: [method: 'get' | 'post' | 'put' | 'patch' | 'delete', path: str
   ['post', '/api/purchase-orders'],
   ['get', '/api/profile'],
   ['patch', '/api/profile'],
+  ['get', '/api/business'],
+  ['put', '/api/business'],
   ['get', '/api/users'],
   ['post', '/api/users'],
   ['patch', '/api/users/x'],

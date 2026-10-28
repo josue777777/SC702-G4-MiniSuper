@@ -11,6 +11,9 @@
  * Cada opción lleva el permiso que pide (ver `types/auth.ts`): el menú solo
  * muestra lo que el rol del usuario puede usar, y un grupo sin opciones
  * visibles no aparece. La API vuelve a exigir el permiso en cada petición.
+ *
+ * «Configuración» no está aquí: no es una pantalla, abre una ventana sobre la
+ * pantalla actual (ver `MainLayout`).
  */
 
 import type { Permission } from '../types/auth';
@@ -130,21 +133,6 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
     stories: 'HU-25 … HU-30, HU-40',
     icon: 'reports',
     permission: 'reports.inventory',
-  },
-  {
-    kind: 'group',
-    id: 'settings',
-    icon: 'settings',
-    label: 'Configuración',
-    items: [
-      {
-        kind: 'link',
-        to: '/settings/users',
-        label: 'Usuarios',
-        stories: 'HU-11 … HU-15 (usuarios y roles)',
-        permission: 'settings',
-      },
-    ],
   },
 ];
 

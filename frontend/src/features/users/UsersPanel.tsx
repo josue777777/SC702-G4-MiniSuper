@@ -1,22 +1,23 @@
 import { useState } from 'react';
-import { Modal } from '../components/Modal';
-import { useSession } from '../features/auth/session-context';
-import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from '../features/users/roles';
-import { TemporaryPasswordDialog } from '../features/users/TemporaryPasswordDialog';
-import { UserForm } from '../features/users/UserForm';
-import { UserTable } from '../features/users/UserTable';
-import { useUsers } from '../features/users/use-users';
-import type { CreateUserPayload, UserListItem } from '../types/auth';
+import { Modal } from '../../components/Modal';
+import { useSession } from '../auth/session-context';
+import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from './roles';
+import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
+import { UserForm } from './UserForm';
+import { UserTable } from './UserTable';
+import { useUsers } from './use-users';
+import type { CreateUserPayload, UserListItem } from '../../types/auth';
 
 /** Acción que se confirma antes de enviarla, porque cierra las sesiones del usuario. */
 type PendingAction = { kind: 'reset' | 'deactivate'; user: UserListItem };
 
 /**
- * Configuración › Usuarios (solo Administrador; criterios de usuarios y roles
- * de HU-11 a HU-15). Crear usuarios con su rol, editarlos, desactivarlos (no se
- * borran) y restablecer su contraseña con una temporal.
+ * Pestaña Usuarios de la ventana de Configuración (solo Administrador;
+ * criterios de usuarios y roles de HU-11 a HU-15). Crear usuarios con su rol,
+ * editarlos, desactivarlos (no se borran) y restablecer su contraseña con una
+ * temporal.
  */
-export function UsersPage() {
+export function UsersPanel() {
   const { user: currentUser } = useSession();
   const {
     phase,
@@ -75,10 +76,9 @@ export function UsersPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Usuarios</h1>
-        <p>Quién puede entrar al sistema y qué puede hacer cada uno según su rol.</p>
-      </header>
+      <p className="muted">
+        Quién puede entrar al sistema y qué puede hacer cada uno según su rol.
+      </p>
 
       <div className="toolbar">
         <button
