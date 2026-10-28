@@ -21,11 +21,20 @@ import {
  * (keyboard wedge) con Playwright. Eso valida el adaptador, no el hardware.
  */
 
+/**
+ * Códigos EAN-13 válidos: el último dígito es el verificador que calcula el
+ * lector (HU-06). Un código con el verificador mal se rechaza como lectura
+ * dañada antes de buscarlo, igual que con un lector real.
+ */
 const CODE = {
-  coffee: '7501000000011',
-  rice: '7501000000028',
-  milk: '7501000000035',
-  inactive: '7501000000059',
+  coffee: '7501000000012',
+  rice: '7501000000029',
+  milk: '7501000000036',
+  inactive: '7501000000050',
+  /** Válido, pero de ningún producto. */
+  unknown: '9999999999994',
+  /** Verificador incorrecto (el correcto es 2): lectura dañada. */
+  damaged: '7501000000011',
 };
 
 test.beforeEach(async ({ page }) => {
@@ -170,16 +179,24 @@ test.describe('HU-16 — venta con código de barras', () => {
     ]);
   });
 
-  test('rechaza códigos inexistentes, inválidos y productos desactivados', async ({ page }) => {
+  test('rechaza códigos inexistentes, dañados, inválidos y productos desactivados', async ({
+    page,
+  }) => {
     await openSales(page);
 
-    await scanInField(page, '9999999999999');
+    await scanInField(page, CODE.unknown);
     await expect(
-      page.getByRole('status').filter({ hasText: 'No existe un producto' }),
+      page.getByRole('status').filter({ hasText: 'No se encontró un producto' }),
     ).toBeVisible();
 
+    // HU-06: un dígito verificador incorrecto es una lectura dañada; ni se busca.
+    await scanInField(page, CODE.damaged);
+    await expect(page.getByRole('status').filter({ hasText: 'incompleto o dañado' })).toBeVisible();
+
     await scanInField(page, 'AB$%');
-    await expect(page.getByRole('status').filter({ hasText: 'Código inválido' })).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Lectura incompleta o dañada' }),
+    ).toBeVisible();
 
     await scanInField(page, CODE.inactive);
     await expect(page.getByRole('status').filter({ hasText: 'desactivado' })).toBeVisible();
