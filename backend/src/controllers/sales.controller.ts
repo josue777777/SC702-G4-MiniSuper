@@ -3,6 +3,7 @@ import type { SalesService } from '../services/sales.service.js';
 import {
   createSaleSchema,
   lookupQuerySchema,
+  saleAdjustmentSchema,
   saleIdParamSchema,
   saleListQuerySchema,
 } from '../validators/sales.validator.js';
@@ -31,6 +32,19 @@ export class SalesController {
     const filter = saleListQuerySchema.parse(req.query);
 
     res.status(200).json({ data: await this.service.listSales(filter) });
+  }
+
+  /** `GET /api/sales/daily-summary` — totales de hoy en la zona del negocio (HU-37). */
+  async dailySummary(_req: Request, res: Response): Promise<void> {
+    res.status(200).json({ data: await this.service.getDailySummary() });
+  }
+
+  /** `POST /api/sales/:id/adjustments` — devolución parcial o anulación (HU-35). */
+  async adjust(req: Request, res: Response): Promise<void> {
+    const { id } = saleIdParamSchema.parse(req.params);
+    const input = saleAdjustmentSchema.parse(req.body);
+
+    res.status(200).json({ data: await this.service.adjustSale(id, input) });
   }
 
   /** `GET /api/sales/:id` — una venta con sus líneas (base del comprobante, HU-34). */

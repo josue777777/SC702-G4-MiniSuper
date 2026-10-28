@@ -40,6 +40,56 @@ function body(overrides: Record<string, unknown> = {}) {
   };
 }
 
+describe('GET /api/sales/daily-summary (HU-37)', () => {
+  it('devuelve ceros explícitos cuando todavía no hay ventas hoy', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get('/api/sales/daily-summary');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      saleCount: 0,
+      total: '0.00',
+      cash: '0.00',
+      card: '0.00',
+      credit: '0.00',
+    });
+  });
+
+  it('suma con exactitud efectivo, tarjeta y fiados, y excluye ventas de otro día', async () => {
+    const { app, sales } = buildApp();
+    const cash = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CASH', cashReceived: '4000.00' }));
+    const card = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CARD' }));
+    const credit = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CREDIT', customerId: CUSTOMER_ID }));
+
+    sales.sales.push({
+      ...cash.body.data,
+      id: randomUUID(),
+      createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const response = await request(app).get('/api/sales/daily-summary');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      saleCount: 3,
+      total: '9000.00',
+      cash: '3000.00',
+      card: '3000.00',
+      credit: '3000.00',
+    });
+    expect(cash.status).toBe(201);
+    expect(card.status).toBe(201);
+    expect(credit.status).toBe(201);
+  });
+});
+
 describe('GET /api/sales/lookup (HU-16)', () => {
   it('encuentra el producto por código interno o por código de barras', async () => {
     const { app } = buildApp();
@@ -68,6 +118,88 @@ describe('GET /api/sales/lookup (HU-16)', () => {
     expect((await request(app).get('/api/sales/lookup?code=%3Cscript%3E')).status).toBe(400);
     expect((await request(app).get('/api/sales/lookup?code=')).status).toBe(400);
     expect((await request(app).get('/api/sales/lookup')).status).toBe(400);
+  });
+});
+
+describe('POST /api/sales/:id/adjustments (HU-35)', () => {
+  it('registra una devolución parcial, devuelve el stock y reduce el total conservando la auditoría', async () => {
+    const { app, sales } = buildApp();
+    const created = await request(app).post('/api/sales').send(body());
+    const sale = created.body.data;
+
+    const response = await request(app)
+      .post(`/api/sales/${sale.id}/adjustments`)
+      .send({
+        type: 'RETURN',
+        reason: 'Producto dañado',
+        items: [{ saleItemId: sale.items[0].id, quantity: 1 }],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ status: 'PARTIALLY_RETURNED', total: '1500.00' });
+    expect(response.body.data.adjustments[0]).toMatchObject({
+      type: 'RETURN',
+      reason: 'Producto dañado',
+      total: '1500.00',
+    });
+    expect(response.body.data.adjustments[0].items[0]).toMatchObject({
+      productName: 'Café molido 500 g',
+      quantity: 1,
+    });
+    expect(response.body.data.items[0]).toMatchObject({
+      quantity: 2,
+      returnedQuantity: 1,
+      availableQuantity: 1,
+    });
+    expect(Date.parse(response.body.data.adjustments[0].createdAt)).not.toBeNaN();
+    expect(sales.stockOf(COFFEE_ID)).toBe(9);
+  });
+
+  it('anula lo restante y rechaza volver a anular una venta anulada', async () => {
+    const { app, sales } = buildApp();
+    const created = await request(app).post('/api/sales').send(body());
+    const sale = created.body.data;
+
+    const canceled = await request(app)
+      .post(`/api/sales/${sale.id}/adjustments`)
+      .send({ type: 'VOID', reason: 'Cobro equivocado' });
+    const retry = await request(app)
+      .post(`/api/sales/${sale.id}/adjustments`)
+      .send({ type: 'VOID', reason: 'Segundo intento' });
+
+    expect(canceled.status).toBe(200);
+    expect(canceled.body.data).toMatchObject({ status: 'VOID', total: '0.00' });
+    expect(canceled.body.data.adjustments[0]).toMatchObject({
+      type: 'VOID',
+      reason: 'Cobro equivocado',
+      total: '3000.00',
+    });
+    expect(retry.status).toBe(409);
+    expect(retry.body.error.message).toContain('ya fue anulada');
+    expect(sales.stockOf(COFFEE_ID)).toBe(10);
+  });
+
+  it('rechaza motivos vacíos, cantidades mayores a las vendidas y venta inexistente', async () => {
+    const { app } = buildApp();
+    const created = await request(app).post('/api/sales').send(body());
+    const sale = created.body.data;
+    const path = `/api/sales/${sale.id}/adjustments`;
+
+    expect((await request(app).post(path).send({ type: 'VOID', reason: '  ' })).status).toBe(400);
+
+    const excessive = await request(app)
+      .post(path)
+      .send({
+        type: 'RETURN',
+        reason: 'Devolución',
+        items: [{ saleItemId: sale.items[0].id, quantity: 3 }],
+      });
+    expect(excessive.status).toBe(409);
+
+    const missing = await request(app)
+      .post(`/api/sales/${MISSING_ID}/adjustments`)
+      .send({ type: 'VOID', reason: 'Venta incorrecta' });
+    expect(missing.status).toBe(404);
   });
 });
 

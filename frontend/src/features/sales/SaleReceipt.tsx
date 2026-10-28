@@ -14,9 +14,7 @@ interface SaleReceiptProps {
  * Ticket de caja de una venta (HU-34), pensado para papel angosto (80 mm).
  *
  * Solo dibuja lo que recibe: la venta ya guardada, con los precios históricos de
- * cada línea. Nunca consulta ni recalcula precios del catálogo. Muestra el
- * nombre del cliente solo en fiados y no incluye datos sensibles (ni teléfono ni
- * saldo).
+ * cada línea y sus ajustes auditados. Nunca consulta el catálogo.
  */
 export function SaleReceipt({ sale }: SaleReceiptProps) {
   return (
@@ -45,9 +43,12 @@ export function SaleReceipt({ sale }: SaleReceiptProps) {
         </thead>
         <tbody>
           {sale.items.map((line) => (
-            <tr key={line.productId}>
+            <tr key={line.id}>
               <td>{line.name}</td>
-              <td className="receipt__num">{line.quantity}</td>
+              <td className="receipt__num">
+                {line.quantity}
+                {line.returnedQuantity > 0 ? ` (${line.returnedQuantity} dev.)` : ''}
+              </td>
               <td className="receipt__num">{formatMoney(line.unitPrice)}</td>
               <td className="receipt__num">{formatMoney(line.subtotal)}</td>
             </tr>
@@ -56,10 +57,28 @@ export function SaleReceipt({ sale }: SaleReceiptProps) {
       </table>
 
       <dl className="receipt__totals">
+        {sale.adjustments.length === 0 ? null : (
+          <div className="receipt__total">
+            <dt>Total original</dt>
+            <dd>{formatMoney(sale.originalTotal)}</dd>
+          </div>
+        )}
+        {sale.adjustments.map((adjustment) => (
+          <div key={adjustment.id}>
+            <dt>{adjustment.type === 'VOID' ? 'Anulación' : 'Devolución'}</dt>
+            <dd>−{formatMoney(adjustment.total)}</dd>
+          </div>
+        ))}
         <div className="receipt__total">
-          <dt>Total</dt>
+          <dt>{sale.status === 'COMPLETED' ? 'Total' : 'Total actualizado'}</dt>
           <dd>{formatMoney(sale.total)}</dd>
         </div>
+        {sale.status === 'COMPLETED' ? null : (
+          <div>
+            <dt>Estado</dt>
+            <dd>{saleStatusLabel(sale.status)}</dd>
+          </div>
+        )}
         <div>
           <dt>Método de pago</dt>
           <dd>{PAYMENT_LABELS[sale.paymentMethod]}</dd>
@@ -84,7 +103,34 @@ export function SaleReceipt({ sale }: SaleReceiptProps) {
         ) : null}
       </dl>
 
+      {sale.adjustments.length === 0 ? null : (
+        <section
+          className="receipt__adjustments"
+          aria-label="Auditoría de devoluciones y anulaciones"
+        >
+          {sale.adjustments.map((adjustment) => (
+            <p key={adjustment.id}>
+              {adjustment.type === 'VOID' ? 'Anulación' : 'Devolución'} ·{' '}
+              {formatDateTime(adjustment.createdAt)} · {adjustment.reason}
+            </p>
+          ))}
+        </section>
+      )}
+
       <footer className="receipt__footer">¡Gracias por su compra!</footer>
     </article>
   );
+}
+
+function saleStatusLabel(status: Sale['status']): string {
+  switch (status) {
+    case 'COMPLETED':
+      return 'Completada';
+    case 'PARTIALLY_RETURNED':
+      return 'Con devolución parcial';
+    case 'RETURNED':
+      return 'Devuelta por completo';
+    case 'VOID':
+      return 'Anulada';
+  }
 }

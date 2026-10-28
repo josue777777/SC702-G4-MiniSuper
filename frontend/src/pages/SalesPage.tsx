@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ReceiptModal } from '../features/sales/ReceiptModal';
 import { useWedgeScanner } from '../features/sales/barcode-scanner';
@@ -16,6 +17,7 @@ import { usePos } from '../features/sales/use-pos';
  * y el stock los decide el backend.
  */
 export function SalesPage() {
+  const [adjustmentVersion, setAdjustmentVersion] = useState(0);
   /**
    * El comprobante abierto vive en la URL (`/sales?receipt=<id>`): se muestra al
    * confirmar una venta, se abre desde el historial y se puede volver a abrir
@@ -92,7 +94,11 @@ export function SalesPage() {
         />
       </div>
 
-      <SalesHistory version={pos.historyVersion} onOpenReceipt={openReceipt} />
+      <SalesHistory
+        version={pos.historyVersion + adjustmentVersion}
+        onOpenReceipt={openReceipt}
+        onAdjustmentComplete={() => setAdjustmentVersion((version) => version + 1)}
+      />
 
       {receiptId === null ? null : <ReceiptModal saleId={receiptId} onClose={closeReceipt} />}
 

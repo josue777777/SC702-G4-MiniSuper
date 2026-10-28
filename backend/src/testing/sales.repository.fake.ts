@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { CustomersRepository } from '../repositories/customers.repository.js';
 import type { SalesRepository } from '../repositories/sales.repository.js';
 import type {
@@ -5,7 +6,10 @@ import type {
   CreateSaleOutcome,
   CreateSalePlan,
   CreditTotals,
+  DailySalesSummaryDto,
   CustomerRef,
+  SaleAdjustmentOutcome,
+  SaleAdjustmentPlan,
   SaleListFilter,
   SaleProductDto,
   SaleRecord,
@@ -106,11 +110,149 @@ export class FakeSalesRepository implements SalesRepository {
           number: sale.number,
           createdAt: sale.createdAt,
           paymentMethod: sale.paymentMethod,
+          status: sale.status,
           total: sale.total,
           customerName: sale.customer?.name ?? null,
           itemCount: sale.items.length,
         })),
     );
+  }
+
+  adjustSale(plan: SaleAdjustmentPlan): Promise<SaleAdjustmentOutcome> {
+    const sale = this.sales.find((candidate) => candidate.id === plan.saleId);
+
+    if (sale === undefined) {
+      return Promise.resolve({ ok: false, reason: 'NOT_FOUND' });
+    }
+
+    if (sale.status === 'VOID') {
+      return Promise.resolve({ ok: false, reason: 'ALREADY_VOID' });
+    }
+
+    if (sale.status === 'RETURNED') {
+      return Promise.resolve({ ok: false, reason: 'ALREADY_RETURNED' });
+    }
+
+    const availableByItem = new Map(
+      sale.items.map((item) => [
+        item.id,
+        item.quantity -
+          sale.adjustments.reduce(
+            (sum, adjustment) =>
+              sum +
+              adjustment.items
+                .filter((adjustedItem) => adjustedItem.saleItemId === item.id)
+                .reduce((itemSum, adjustedItem) => itemSum + adjustedItem.quantity, 0),
+            0,
+          ),
+      ]),
+    );
+    const selected =
+      plan.type === 'VOID'
+        ? sale.items
+            .map((item) => ({ saleItemId: item.id, quantity: availableByItem.get(item.id) ?? 0 }))
+            .filter((item) => item.quantity > 0)
+        : (plan.items ?? []);
+
+    if (selected.length === 0) {
+      return Promise.resolve({ ok: false, reason: 'ALREADY_RETURNED' });
+    }
+
+    let adjustmentCents = 0n;
+    const adjustmentItems: { saleItemId: string; productId: string; quantity: number }[] = [];
+
+    for (const requested of selected) {
+      const item = sale.items.find((candidate) => candidate.id === requested.saleItemId);
+
+      if (item === undefined) {
+        return Promise.resolve({ ok: false, reason: 'INVALID_ITEM' });
+      }
+
+      if (requested.quantity > (availableByItem.get(item.id) ?? 0)) {
+        return Promise.resolve({ ok: false, reason: 'QUANTITY_EXCEEDED' });
+      }
+
+      adjustmentCents += toCents(item.unitPrice) * BigInt(requested.quantity);
+      adjustmentItems.push({
+        saleItemId: item.id,
+        productId: item.productId,
+        quantity: requested.quantity,
+      });
+    }
+
+    for (const item of adjustmentItems) {
+      const product = this.products.find((candidate) => candidate.id === item.productId);
+
+      if (product === undefined) {
+        throw new Error('Producto de devolución inexistente');
+      }
+
+      product.stock += item.quantity;
+    }
+
+    sale.adjustments.push({
+      id: randomUUID(),
+      type: plan.type,
+      reason: plan.reason,
+      total: formatCents(adjustmentCents),
+      createdAt: new Date().toISOString(),
+      items: adjustmentItems.map((item) => ({
+        saleItemId: item.saleItemId,
+        productName: sale.items.find((saleItem) => saleItem.id === item.saleItemId)?.name ?? '',
+        quantity: item.quantity,
+      })),
+    });
+    sale.total = formatCents(toCents(sale.total) - adjustmentCents);
+
+    const allReturned = sale.items.every((item) => {
+      const returnedBefore = item.quantity - (availableByItem.get(item.id) ?? 0);
+      const returnedNow =
+        adjustmentItems.find((adjustmentItem) => adjustmentItem.saleItemId === item.id)?.quantity ??
+        0;
+
+      return returnedBefore + returnedNow >= item.quantity;
+    });
+    sale.status = plan.type === 'VOID' ? 'VOID' : allReturned ? 'RETURNED' : 'PARTIALLY_RETURNED';
+    sale.items = sale.items.map((item) => {
+      const returnedQuantity =
+        item.quantity -
+        (availableByItem.get(item.id) ?? 0) +
+        (adjustmentItems.find((adjustmentItem) => adjustmentItem.saleItemId === item.id)
+          ?.quantity ?? 0);
+
+      return {
+        ...item,
+        returnedQuantity,
+        availableQuantity: item.quantity - returnedQuantity,
+      };
+    });
+
+    return Promise.resolve({ ok: true, sale });
+  }
+
+  dailySummary(startAt: Date, endAt: Date): Promise<DailySalesSummaryDto> {
+    const dailySales = this.sales.filter((sale) => {
+      const createdAt = new Date(sale.createdAt);
+
+      return createdAt >= startAt && createdAt < endAt;
+    });
+    const centsByMethod = { CASH: 0n, CARD: 0n, CREDIT: 0n };
+
+    for (const sale of dailySales) {
+      centsByMethod[sale.paymentMethod] += toCents(sale.total);
+    }
+
+    const cash = formatCents(centsByMethod.CASH);
+    const card = formatCents(centsByMethod.CARD);
+    const credit = formatCents(centsByMethod.CREDIT);
+
+    return Promise.resolve({
+      saleCount: dailySales.length,
+      total: formatCents(centsByMethod.CASH + centsByMethod.CARD + centsByMethod.CREDIT),
+      cash,
+      card,
+      credit,
+    });
   }
 
   createSale(plan: CreateSalePlan): Promise<CreateSaleOutcome> {
@@ -130,9 +272,11 @@ export class FakeSalesRepository implements SalesRepository {
     const sale: SaleRecord = {
       id: `66666666-6666-4666-8666-${String(this.sales.length + 1).padStart(12, '0')}`,
       number: this.sales.length + 1,
-      createdAt: '2026-10-18T15:00:00.000Z',
+      createdAt: new Date().toISOString(),
       paymentMethod: plan.paymentMethod,
+      status: 'COMPLETED',
       total: plan.total,
+      originalTotal: plan.total,
       cashReceived: plan.cashReceived,
       customer: customer === undefined ? null : { id: customer.id, name: customer.name },
       items: plan.items.map((item) => {
@@ -145,14 +289,18 @@ export class FakeSalesRepository implements SalesRepository {
         product.stock -= item.quantity;
 
         return {
+          id: randomUUID(),
           productId: item.productId,
           code: product.code,
           name: product.name,
           quantity: item.quantity,
+          returnedQuantity: 0,
+          availableQuantity: item.quantity,
           unitPrice: item.expectedUnitPrice,
           subtotal: formatCents(toCents(item.expectedUnitPrice) * BigInt(item.quantity)),
         };
       }),
+      adjustments: [],
     };
 
     this.sales.push(sale);

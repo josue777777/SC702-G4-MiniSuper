@@ -476,6 +476,24 @@ code {
   background: #f8fafc;
 }
 
+.field textarea {
+  min-height: 76px;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font: inherit;
+}
+
+.table input[type='number'] {
+  width: 82px;
+  padding: 5px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+  text-align: right;
+}
+
 .field label {
   font-size: 0.85rem;
   font-weight: 600;
@@ -939,6 +957,16 @@ code {
   padding: 16px 18px 18px;
 }
 
+.sale-adjustment-history {
+  display: grid;
+  gap: 12px;
+  padding-left: 24px;
+}
+
+.sale-adjustment-history p {
+  margin: 4px 0;
+}
+
 /* Dentro de un modal las secciones no necesitan el marco de tarjeta */
 .modal__body > .card {
   border: none;
@@ -1226,6 +1254,40 @@ code {
 
 .dashboard-grid > .card {
   min-width: 0;
+}
+
+.daily-sales-summary {
+  margin-bottom: 18px;
+}
+
+.daily-sales-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.daily-sales-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #f8fafc;
+}
+
+.daily-sales-summary__item span {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.daily-sales-summary__item strong {
+  font-size: 1.35rem;
+}
+
+.daily-sales-summary__empty {
+  margin: 14px 0 0;
+  color: var(--color-muted);
 }
 
 .chart-card__header {
@@ -1868,6 +1930,15 @@ code {
 .receipt__footer {
   margin-top: 10px;
   text-align: center;
+}
+
+.receipt__adjustments {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.receipt__adjustments p {
+  margin: 3px 0;
 }
 
 .print-only {
