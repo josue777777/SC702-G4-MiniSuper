@@ -427,6 +427,7 @@ rol (HU-11 … HU-15) y, por ahora, ninguna transacción guarda su autor (decisi
 | Entidad | Para qué existe (HU relacionadas) |
 | --- | --- |
 | `User` | Usuarios con rol, estado (activo/inactivo) y contraseña temporal: login, perfil, restablecimiento (HU-11 … HU-15) |
+| `BusinessSettings` | Datos del negocio (una sola fila): nombre, cédula, teléfono, correo, dirección y mensaje del comprobante. Se editan en Configuración › General (solo Administrador) |
 | `Category` | Categorizar y filtrar inventario (HU-04) |
 | `Product` | Código, código de barras, precios, costo, stock, stock mínimo y vencimiento (HU-01 … HU-09) |
 | `InventoryMovement` | Historial auditable de entradas, salidas y ajustes (HU-10, HU-16) |

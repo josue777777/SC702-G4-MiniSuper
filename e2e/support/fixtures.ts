@@ -13,12 +13,26 @@ export const E2E_OWNER: E2EUser = {
 
 /**
  * Deja como único usuario al administrador `E2E_OWNER`, ya con su contraseña
- * propia (lo que queda tras `npm run db:seed` y el primer ingreso). Se recrea
+ * propia (lo que queda tras `npm run db:seed` y el primer ingreso), y los
+ * datos del negocio de fábrica. Se recrea
  * siempre porque otra prueba (HU-14) pudo cambiar el correo o la contraseña.
  */
 export async function ensureOwner(): Promise<void> {
   await resetOwner();
   await insertUser(E2E_OWNER);
+  await resetBusiness();
+}
+
+/** Datos del negocio de fábrica (otra prueba pudo cambiarlos en Configuración › General). */
+export async function resetBusiness(): Promise<void> {
+  await withDb((client) =>
+    client.query(
+      `INSERT INTO "BusinessSettings"(id, name, "receiptMessage", "updatedAt")
+       VALUES (1, 'Abastecedor Nuevo Amanecer', '¡Gracias por su compra!', now())
+       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, "legalId" = NULL, phone = NULL,
+         email = NULL, address = NULL, "receiptMessage" = EXCLUDED."receiptMessage", "updatedAt" = now()`,
+    ),
+  );
 }
 
 /**

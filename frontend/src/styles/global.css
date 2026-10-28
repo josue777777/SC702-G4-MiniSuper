@@ -2005,3 +2005,14 @@ code {
   padding-left: 20px;
   line-height: 1.7;
 }
+
+/* Campo que ocupa toda la fila del formulario */
+.form__field--wide {
+  grid-column: 1 / -1;
+}
+
+.tabs__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

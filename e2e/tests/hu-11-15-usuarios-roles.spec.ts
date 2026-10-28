@@ -26,6 +26,8 @@ async function loginAsAdmin(page: Page): Promise<void> {
 }
 
 async function logout(page: Page): Promise<void> {
+  // Con la ventana de Configuración abierta, lo de atrás no se puede usar.
+  await page.goto('/');
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await expect(page).toHaveURL(/\/login$/);
 }
@@ -73,8 +75,11 @@ test('el administrador crea un Cajero; este cambia la contraseña temporal y sol
 }) => {
   await loginAsAdmin(page);
   await page.getByRole('button', { name: 'Configuración' }).click();
-  await page.getByRole('link', { name: 'Usuarios' }).click();
-  await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
+  await page.getByRole('tab', { name: 'Usuarios' }).click();
+  await expect(page.getByRole('tab', { name: 'Usuarios' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 
   const temporaryPassword = await createUserFromUi(page, {
     name: 'Carlos Cajero',
@@ -177,7 +182,10 @@ test('al desactivar a un usuario se cierra su sesión y ya no puede entrar', asy
   const row = page.getByRole('row', { name: /Bea Bodega/ });
 
   await row.getByRole('button', { name: 'Desactivar' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Desactivar' }).click();
+  await page
+    .getByRole('dialog', { name: 'Desactivar usuario' })
+    .getByRole('button', { name: 'Desactivar' })
+    .click();
   await expect(row).toContainText('Inactivo');
   await saveEvidence(page, 'HU-15', 'HU-15-usuario-desactivado.png');
 
@@ -210,7 +218,10 @@ test('HU-13: el administrador restablece una contraseña olvidada con una tempor
     .getByRole('row', { name: /Carlos Cajero/ })
     .getByRole('button', { name: 'Restablecer contraseña' })
     .click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Restablecer' }).click();
+  await page
+    .getByRole('dialog', { name: 'Restablecer contraseña' })
+    .getByRole('button', { name: 'Restablecer' })
+    .click();
 
   const temporary = page.getByLabel('Contraseña temporal');
 
@@ -248,4 +259,70 @@ test('el administrador no puede quitarse su propio rol ni desactivarse', async (
   });
 
   expect(response.status()).toBe(409);
+});
+
+test('Configuración › General: el administrador cambia los datos del negocio y se ven en todo el sistema', async ({
+  page,
+  browser,
+}) => {
+  await loginAsAdmin(page);
+  await page.getByRole('button', { name: 'Configuración' }).click();
+
+  const window = page.getByRole('dialog', { name: 'Configuración' });
+
+  await expect(window.getByRole('tab', { name: 'General' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(window.getByLabel('Nombre del negocio')).toHaveValue('Abastecedor Nuevo Amanecer');
+
+  // Validación: correo inválido no se guarda.
+  await window.getByLabel('Correo del negocio').fill('no-es-correo');
+  await window.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(window.getByText('El correo no es válido.')).toBeVisible();
+
+  await window.getByLabel('Nombre del negocio').fill('Súper La Esquina');
+  await window.getByLabel('Correo del negocio').fill('info@laesquina.cr');
+  await window.getByLabel('Teléfono').fill('2222-3333');
+  await window.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(window.getByRole('status')).toContainText('Datos del negocio guardados.');
+  await saveEvidence(page, 'Configuracion', 'Configuracion-general-guardada.png');
+
+  // Se ve de inmediato en la barra superior, y sigue después de recargar.
+  await expect(page.locator('.topbar__title')).toHaveText('Súper La Esquina');
+  await page.reload();
+  await expect(page.getByLabel('Nombre del negocio')).toHaveValue('Súper La Esquina');
+
+  // El login (sin sesión) muestra el nombre nuevo.
+  const visitor = await browser.newContext();
+  const login = await visitor.newPage();
+
+  await login.goto('/login');
+  await expect(login.getByText('Súper La Esquina · sistema de gestión')).toBeVisible();
+  await visitor.close();
+});
+
+test('solo el administrador puede cambiar los datos del negocio', async ({ page }) => {
+  await insertUser({
+    name: 'Carlos Cajero',
+    email: 'carlos@example.com',
+    password: 'ClaveSegura123',
+    role: 'CAJERO',
+  });
+
+  await login(page, 'carlos@example.com', 'ClaveSegura123');
+  await expect(page).toHaveURL(/\/$/);
+
+  // Puede leerlos (el comprobante los usa), pero no cambiarlos.
+  expect((await page.request.get(`${BACKEND_URL}/api/business`)).status()).toBe(200);
+
+  const change = await page.request.put(`${BACKEND_URL}/api/business`, {
+    headers: { Origin: FRONTEND_URL },
+    data: { name: 'Hackeado' },
+  });
+
+  expect(change.status()).toBe(403);
+
+  await page.goto('/?config=general');
+  await expect(page.getByRole('heading', { name: 'Acceso no permitido' })).toBeVisible();
 });

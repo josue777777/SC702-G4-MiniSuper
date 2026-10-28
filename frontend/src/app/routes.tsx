@@ -14,7 +14,6 @@ import { ProfilePage } from '../pages/ProfilePage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { SalesPage } from '../pages/SalesPage';
 import { SuppliersPage } from '../pages/SuppliersPage';
-import { UsersPage } from '../pages/UsersPage';
 import type { Permission } from '../types/auth';
 
 /** Atajo para envolver una pantalla con el permiso que pide. */
@@ -32,7 +31,8 @@ function only(permission: Permission, page: ReactNode) {
  *
  * <RequireSession /> exige una sesión válida y, con contraseña temporal, solo
  * deja entrar a «Mi perfil». Cada pantalla pide el permiso de su sección (el
- * mismo que exige la API); sin él se muestra «Acceso no permitido».
+ * mismo que exige la API); sin él se muestra «Acceso no permitido». La
+ * Configuración no es una ruta sino una ventana: la abre `?config=…`.
  */
 export function AppRoutes() {
   return (
@@ -56,7 +56,9 @@ export function AppRoutes() {
         <Route path="/suppliers" element={only('purchasing', <SuppliersPage />)} />
         <Route path="/orders" element={only('purchasing', <OrdersPage />)} />
         <Route path="/reports" element={only('reports.inventory', <ReportsPage />)} />
-        <Route path="/settings/users" element={only('settings', <UsersPage />)} />
+        {/* Configuración es una ventana (MainLayout); estas direcciones la abren. */}
+        <Route path="/settings" element={<Navigate to="/?config=general" replace />} />
+        <Route path="/settings/users" element={<Navigate to="/?config=usuarios" replace />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

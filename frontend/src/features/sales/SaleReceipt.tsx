@@ -1,10 +1,8 @@
 import type { Sale } from '../../types/sales';
+import { useBusiness } from '../business/business-context';
 import { formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
 import { PAYMENT_LABELS } from './payment-labels';
-
-/** Nombre del negocio que encabeza el comprobante. */
-export const BUSINESS_NAME = 'Abastecedor Nuevo Amanecer';
 
 interface SaleReceiptProps {
   sale: Sale;
@@ -14,13 +12,19 @@ interface SaleReceiptProps {
  * Ticket de caja de una venta (HU-34), pensado para papel angosto (80 mm).
  *
  * Solo dibuja lo que recibe: la venta ya guardada, con los precios históricos de
- * cada línea y sus ajustes auditados. Nunca consulta el catálogo.
+ * cada línea y sus ajustes auditados. Nunca consulta el catálogo. El encabezado
+ * y el mensaje del pie salen de Configuración › General.
  */
 export function SaleReceipt({ sale }: SaleReceiptProps) {
+  const { business } = useBusiness();
+
   return (
     <article className="receipt" aria-label={`Comprobante de la venta ${sale.number}`}>
       <header className="receipt__header">
-        <strong className="receipt__business">{BUSINESS_NAME}</strong>
+        <strong className="receipt__business">{business.name}</strong>
+        {business.legalId === null ? null : <span>Céd. {business.legalId}</span>}
+        {business.address === null ? null : <span>{business.address}</span>}
+        {business.phone === null ? null : <span>Tel. {business.phone}</span>}
         <span>Comprobante de venta</span>
         <span>Venta #{sale.number}</span>
         <span>{formatDateTime(sale.createdAt)}</span>
@@ -117,7 +121,9 @@ export function SaleReceipt({ sale }: SaleReceiptProps) {
         </section>
       )}
 
-      <footer className="receipt__footer">¡Gracias por su compra!</footer>
+      {business.receiptMessage === null ? null : (
+        <footer className="receipt__footer">{business.receiptMessage}</footer>
+      )}
     </article>
   );
 }
