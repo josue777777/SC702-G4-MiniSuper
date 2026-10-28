@@ -59,15 +59,19 @@ en `backend/.env.example`). Esa contraseña es temporal: el sistema obliga a cam
 el primer ingreso. El comando se puede correr varias veces: si ya hay un administrador
 activo, no hace nada.
 
+Si se levanta el sistema sin ningún administrador activo, la terminal del backend lo avisa
+al arrancar con estos mismos pasos. El aviso sale solo ahí: la pantalla de login no
+revela si el sistema tiene usuarios.
+
 Después, el administrador crea a los demás en **Configuración › Usuarios**, con uno de
 estos roles (fijos; la matriz está en `backend/src/auth/permissions.ts`):
 
-| Rol           | Qué puede usar                                                      |
-| ------------- | ------------------------------------------------------------------- |
-| Administrador | Todo, incluida la Configuración (usuarios)                          |
-| Encargado     | Todo el negocio, menos la Configuración                             |
-| Cajero        | Ventas y clientes; consulta productos sin modificarlos              |
-| Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario    |
+| Rol           | Qué puede usar                                                   |
+| ------------- | ---------------------------------------------------------------- |
+| Administrador | Todo, incluida la Configuración (usuarios)                       |
+| Encargado     | Todo el negocio, menos la Configuración                          |
+| Cajero        | Ventas y clientes; consulta productos sin modificarlos           |
+| Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario |
 
 Cada usuario nuevo recibe una contraseña temporal (se muestra una sola vez). Si alguien
 olvida su contraseña, el administrador se la restablece. Los usuarios no se borran: se
@@ -132,6 +136,7 @@ docs/       Documentación técnica
 ## Documentación
 
 - [Arquitectura del sistema](docs/ARCHITECTURE.md): capas, modelo de datos y convenciones.
+- [Usuarios y roles](docs/USUARIOS-Y-ROLES.md): cómo funciona el acceso y qué hacer al programar un módulo nuevo.
 - [Decisiones de arquitectura](docs/adr/): registro de las decisiones técnicas.
 
 ## Equipo
