@@ -4,10 +4,18 @@ Este documento revisa, práctica por práctica, cómo está hoy el sistema frent
 arquitectura SaaS multi-negocio y qué falta para crecer hacia un ERP (compras,
 contratos, SICOP, sucursales…).
 
-**La regla del proyecto:** primero se terminan y entregan las historias de usuario. Aquí
-solo se hace **ahora** lo que es barato, protege los datos o evita rehacer trabajo; lo
-demás queda **anotado con su camino**, para que después sea un paso natural y no una
-reescritura.
+**Qué es y qué no es:** es una **guía de referencia**, no una lista de tareas. No se
+desarrolla nada de esto mientras haya historias pendientes: primero se terminan y
+entregan las historias de usuario. Sirve para dos cosas:
+
+1. Que el código que escribimos **hoy** (para las historias) no cierre puertas: las
+   [reglas del punto 0](#0-reglas-para-el-código-de-hoy) se cumplen sin trabajo extra.
+2. Que cuando el proyecto crezca, cada mejora sea **un paso natural y no una
+   reescritura**, porque ya está pensada y probada en sistemas reconocidos.
+
+Cada práctica dice cómo está **hoy** el sistema, **quién lo hace así** (proyectos
+exitosos actuales) y **cuándo** conviene. La única excepción a «después» son dos puntos
+marcados 🔴: no son mejoras sino defectos, y el equipo decide cuándo corregirlos.
 
 Documentos relacionados: [ADR 0002](adr/0002-usuarios-jerarquia-y-plan.md) (multi-negocio
 y planes) y [USUARIOS-Y-ROLES.md](USUARIOS-Y-ROLES.md) (cómo programar un módulo).
@@ -16,22 +24,49 @@ y planes) y [USUARIOS-Y-ROLES.md](USUARIOS-Y-ROLES.md) (cómo programar un módu
 
 ## Resumen
 
-| Práctica | Hoy | Cuándo |
-| --- | --- | --- |
-| Identificador de negocio en las tablas | ✅ `businessId` en las tablas raíz, con FK compuestas | Ampliar a tablas hijas junto con RLS (después) |
-| Filtro automático por negocio | 🟡 Repositorios atados al negocio + pruebas de aislamiento | RLS de PostgreSQL (después) |
-| Consecutivos por negocio | 🔴 **Global**: un negocio deduce el volumen de otro | **Ahora** |
-| Idempotencia | 🟡 Solo en ventas, y la llave es única global | **Ahora** (por negocio) · resto después |
-| Jerarquía de tres niveles | 🟡 Plataforma → Negocio → Usuario; faltan sucursales | Después |
-| Límites del plan en el servidor | ✅ Cupos de usuarios con bloqueo de fila | Generalizar a «funciones del plan» (después) |
-| Pasarela de pagos desacoplada | ✅ Estado interno del negocio (activo/suspendido) | Webhooks (después) |
-| Cabecera-detalle | ✅ Ventas, pedidos, ajustes; kardex como libro | Contratos y SICOP con el mismo patrón |
-| Artículos genéricos (bienes y servicios) | 🟡 Solo bienes | Atributo `kind` (después) |
-| Contactos únicos | 🟡 Cliente y proveedor separados | Tabla de contactos con roles (cuando haya un caso real) |
-| Tareas en segundo plano y eventos | ⚪ Todo es síncrono (suficiente hoy) | Outbox + trabajador (después) |
-| Integración continua (CI) | 🔴 GitHub no corre pruebas | **Ahora** |
+| Práctica | Hoy | Así lo hacen | Cuándo |
+| --- | --- | --- | --- |
+| Identificador de negocio en las tablas | ✅ `businessId` en las tablas raíz, con FK compuestas | Salesforce (`OrgId` en cada fila), Odoo (`company_id`) | Ampliar a tablas hijas junto con RLS |
+| Filtro automático por negocio | 🟡 Repositorios atados al negocio + pruebas de aislamiento | Supabase y la guía SaaS de AWS (RLS de PostgreSQL), Odoo (*record rules*) | Después de las historias |
+| Consecutivos por negocio | 🔴 **Global**: un negocio deduce el volumen de otro | Odoo (secuencias por compañía), factura electrónica de Hacienda | Corregir (decide el equipo) |
+| Idempotencia | 🟡 Solo en ventas; la llave es única global | Stripe (encabezado `Idempotency-Key`) | Por negocio junto con el 🔴 · resto después |
+| Jerarquía de tres niveles | 🟡 Plataforma → Negocio → Usuario; faltan sucursales | Odoo (compañías y almacenes), Shopify (tiendas y ubicaciones) | Después |
+| Límites del plan en el servidor | ✅ Cupos de usuarios con bloqueo de fila | Stripe *Entitlements*, GitHub (funciones por plan) | Generalizar a «funciones del plan» |
+| Pasarela de pagos desacoplada | ✅ Estado interno del negocio (activo/suspendido) | Stripe Billing (webhooks firmados) | Después |
+| Cabecera-detalle | ✅ Ventas, pedidos, ajustes; kardex como libro | Odoo (`account.move` + líneas), ERPNext (documentos con tabla hija) | Contratos y SICOP con el mismo patrón |
+| Artículos genéricos (bienes y servicios) | 🟡 Solo bienes | Odoo (tipo de producto), ERPNext (`is_stock_item`) | Después |
+| Contactos únicos | 🟡 Cliente y proveedor separados | Odoo (`res.partner` para clientes y proveedores) | Cuando haya un caso real |
+| Tareas en segundo plano y eventos | ⚪ Todo es síncrono (suficiente hoy) | Patrón *outbox* (Shopify, Debezium), colas en PostgreSQL | Cuando haya correos o integraciones |
+| Integración continua (CI) | 🔴 GitHub no corre pruebas | Práctica estándar en todo proyecto con equipo | Corregir (no toca la app) |
 
-✅ listo · 🟡 base puesta, falta crecer · 🔴 corregir pronto · ⚪ no hace falta todavía
+✅ listo · 🟡 base puesta, falta crecer · 🔴 defecto a corregir · ⚪ no hace falta todavía
+
+---
+
+## 0. Reglas para el código de hoy
+
+Esto **sí** aplica ya, mientras se programan las historias. No es trabajo extra: es
+cómo escribir lo que igual hay que escribir. Cumplirlas es lo que hace que lo de
+«después» sea fácil.
+
+1. **Toda tabla raíz nueva lleva `businessId`**, y sus relaciones con otras tablas raíz
+   usan FK compuesta `(id, businessId)` (ver `Product` → `Category` en el esquema).
+2. **Todo repositorio de negocio se construye con el `businessId`** de la sesión y filtra
+   cada consulta por él, incluido el SQL directo. Nunca se toma de la URL ni del cuerpo.
+3. **El stock solo cambia dentro de los repositorios** (ventas, recepción, conteo) y
+   siempre deja un `InventoryMovement`. Nunca un `UPDATE` suelto desde otro lado.
+4. **Lo que mueve dinero o stock va en una transacción**, con una condición que impida
+   el negativo (`WHERE stock >= cantidad`), y nunca llama a un servicio externo
+   (correo, pasarela) dentro de la transacción.
+5. **Documentos = cabecera + líneas.** Lo confirmado no se edita: se corrige con un
+   ajuste (como `SaleAdjustment`), así el historial cuadra.
+6. **Dinero en `Decimal`** (o centavos enteros), nunca en `float`.
+7. **Permisos y límites en el servidor.** La pantalla solo oculta botones; la API
+   vuelve a validar todo.
+8. **Desactivar en vez de borrar** lo que tenga historia (productos, clientes, usuarios).
+9. **Un cambio de base = una migración** revisada en el PR. Nunca se arreglan bases a
+   mano.
+10. **Cada regla nueva, con su prueba**; y si cruza negocios, una prueba de aislamiento.
 
 ---
 
@@ -152,7 +187,7 @@ registrada y no se edita.
 **A futuro:** contratos, órdenes SICOP o traslados entre bodegas siguen el mismo patrón
 (cabecera + líneas + movimientos de inventario cuando corresponda).
 
-### 2.4 Consecutivos por negocio — 🔴 corregir ahora
+### 2.4 Consecutivos por negocio — 🔴 defecto
 
 **Problema:** `Sale.number` y `PurchaseOrder.number` usan **un solo contador para todo
 el sistema** (`autoincrement`). Con varios negocios:
@@ -161,7 +196,7 @@ el sistema** (`autoincrement`). Con varios negocios:
 - con los saltos de numeración, un negocio puede **calcular cuánto venden los demás**
   (fuga de información entre clientes).
 
-**Solución (próxima rama, pequeña):** una tabla de contadores por negocio y tipo de
+**Solución (pequeña; el equipo decide cuándo):** una tabla de contadores por negocio y tipo de
 documento:
 
 ```prisma
@@ -255,7 +290,7 @@ veces, se devuelve la venta original sin descontar stock de nuevo (hay pruebas).
 
 **Ajustes:**
 
-- **Ahora (junto con 2.4):** la llave es única en **todo** el sistema; debe ser única
+- **Junto con 2.4:** la llave es única en **todo** el sistema; debe ser única
   **por negocio** (`@@unique([businessId, idempotencyKey])`). Así ningún negocio choca
   con la llave de otro.
 - **Después:** extender la llave a todo lo que mueve dinero o stock: abonos a fiados,
@@ -269,7 +304,7 @@ veces, se devuelve la venta original sin descontar stock de nuevo (hay pruebas).
 
 | Práctica | Por qué | Cuándo |
 | --- | --- | --- |
-| **CI en GitHub** (Actions: lint, typecheck, pruebas unitarias y de integración con PostgreSQL) | Hoy las pruebas solo corren en las máquinas del equipo; un PR puede entrar roto sin que nadie lo note. | **Ahora** (no toca el código de la app) |
+| **CI en GitHub** (Actions: lint, typecheck, pruebas unitarias y de integración con PostgreSQL) | Hoy las pruebas solo corren en las máquinas del equipo; un PR puede entrar roto sin que nadie lo note. | Pronto (no toca el código de la app) |
 | **Autor de cada operación** (`createdById` en ventas, movimientos y pedidos) | Auditoría: saber qué cajero hizo qué. Ya está anotado como pendiente en el ADR 0002. | Cuando una historia lo pida, o antes de entregar |
 | **Hora de Costa Rica** explícita (`America/Costa_Rica`) en «ventas del día» y reportes | Un servidor en UTC corta el día a las 6 p. m. hora local. | Revisar al cerrar reportes |
 | **Logs con `requestId` y `businessId`** | Encontrar en segundos qué le pasó a qué cliente. | Antes de producción |
@@ -281,7 +316,7 @@ veces, se devuelve la venta original sin descontar stock de nuevo (hay pruebas).
 
 ## 6. Hoja de ruta
 
-**Ahora (sin salirse de las historias):**
+**Defectos (cuando el equipo decida, sin frenar las historias):**
 
 1. Consecutivos por negocio y llave de idempotencia por negocio (2.4 y 4.3).
 2. CI en GitHub.
