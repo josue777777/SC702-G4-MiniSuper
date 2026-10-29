@@ -146,7 +146,7 @@ export function LoginPage() {
         </button>
 
         <p className="muted hint">
-          ¿Olvidó su contraseña? Pídale al administrador que se la restablezca.
+          ¿Olvidó su contraseña? Pídale a quien administra su cuenta que se la restablezca.
         </p>
       </form>
     </div>
