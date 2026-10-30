@@ -81,7 +81,8 @@ Hay **jerarquía**: cada uno administra solo usuarios de rango menor. El **plan*
 aprueba. Cada usuario elige su **apariencia** (color y tamaño de letra) en
 Configuración › Apariencia. Guía para programar módulos en
 [docs/USUARIOS-Y-ROLES.md](docs/USUARIOS-Y-ROLES.md); decisiones en
-[docs/adr/0002-usuarios-jerarquia-y-plan.md](docs/adr/0002-usuarios-jerarquia-y-plan.md).
+[docs/adr/0002-usuarios-jerarquia-y-plan.md](docs/adr/0002-usuarios-jerarquia-y-plan.md);
+camino de crecimiento a ERP en [docs/ESCALABILIDAD.md](docs/ESCALABILIDAD.md).
 
 Cada usuario nuevo recibe una contraseña temporal (se muestra una sola vez). Si alguien
 olvida su contraseña, quien lo administra se la restablece. Los usuarios no se borran: se
