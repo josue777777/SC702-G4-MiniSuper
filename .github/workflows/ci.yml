@@ -1,0 +1,136 @@
+# Integración continua: en cada PR y en cada push a develop/main, GitHub corre
+# las mismas revisiones que el equipo corre en su computadora. Si algo falla, el
+# PR queda en rojo antes de que alguien lo integre.
+#
+# Las credenciales de PostgreSQL de aquí son solo de esta base temporal de CI
+# (se crea y se destruye en cada corrida); no son las de ningún ambiente real.
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+# Un push nuevo al mismo PR cancela la corrida anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Formato, lint, tipos, pruebas y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: minisuper
+          POSTGRES_PASSWORD: minisuper
+          POSTGRES_DB: minisuper_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U minisuper"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Base `*_test`: activa las pruebas de integración con PostgreSQL real.
+      DATABASE_URL: postgresql://minisuper:minisuper@localhost:5432/minisuper_test?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias (exactas del package-lock)
+        run: npm ci
+
+      - name: Generar el cliente de Prisma
+        run: npm run prisma:generate
+
+      - name: Formato (Prettier)
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tipos (backend, frontend y e2e)
+        run: |
+          npm run typecheck
+          npm run typecheck:e2e
+
+      - name: Migraciones (deben aplicar sobre una base vacía)
+        run: npx prisma migrate deploy
+        working-directory: backend
+
+      - name: Pruebas del backend (unitarias e integración)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    name: Pruebas E2E (navegador)
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: minisuper
+          POSTGRES_PASSWORD: minisuper
+          POSTGRES_DB: minisuper_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U minisuper"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      E2E_DATABASE_URL: postgresql://minisuper:minisuper@localhost:5432/minisuper_e2e?schema=public
+      EVIDENCE_DIR: ${{ runner.temp }}/e2e/evidencias
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run prisma:generate
+
+      - name: Migraciones de la base E2E
+        run: npx prisma migrate deploy
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.E2E_DATABASE_URL }}
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Pruebas E2E
+        run: npm run test:e2e
+
+      - name: Guardar evidencias y trazas si algo falló
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-evidencias
+          path: ${{ runner.temp }}/e2e/
+          retention-days: 7
