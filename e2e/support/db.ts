@@ -20,7 +20,7 @@ export const E2E_BUSINESS_ID = '0e2e0000-0000-4000-8000-000000000001';
 
 /** Tablas del catálogo y todo lo que lo referencia (para vaciarlas de una vez). */
 export const CATALOG_TABLES =
-  '"SupplierProduct", "InventoryMovement", "SaleItem", "CreditPayment", "Sale", "Customer", "PurchaseOrderItem", "PurchaseOrder", "Product", "Category", "Supplier"';
+  '"SupplierProduct", "InventoryMovement", "SaleItem", "CreditPayment", "Sale", "Customer", "PurchaseOrderItem", "PurchaseOrder", "Product", "Category", "Supplier", "DocumentSequence"';
 
 /**
  * Deja el sistema sin usuarios ni solicitudes, y sin otros negocios que el de

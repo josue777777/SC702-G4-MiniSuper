@@ -7,6 +7,7 @@ import { PurchaseOrdersService } from '../services/purchase-orders.service.js';
 import { SalesService } from '../services/sales.service.js';
 import { CategoriesRepository } from './categories.repository.js';
 import { CustomersRepository } from './customers.repository.js';
+import { nextDocumentNumber } from './document-sequence.js';
 import { InventoryRepository } from './inventory.repository.js';
 import { PlatformRepository } from './platform.repository.js';
 import { ProductsRepository } from './products.repository.js';
@@ -64,12 +65,24 @@ async function seed(businessId: string, label: string): Promise<Seeded> {
       products: { create: { productId: product.id, unitCost: '800.00', isPreferred: true } },
     },
   });
-  const sale = await prisma.sale.create({
-    data: { businessId, paymentMethod: 'CREDIT', total: '1000.00', customerId: customer.id },
-  });
+  // Los dos negocios tienen su «Venta #1» y su «Pedido #1»: el consecutivo es por negocio.
+  const sale = await prisma.$transaction(async (tx) =>
+    tx.sale.create({
+      data: {
+        businessId,
+        number: await nextDocumentNumber(tx, businessId, 'SALE'),
+        paymentMethod: 'CREDIT',
+        total: '1000.00',
+        customerId: customer.id,
+      },
+    }),
+  );
   const order = await prisma.purchaseOrder.create({
     data: {
       businessId,
+      number: await prisma.$transaction((tx) =>
+        nextDocumentNumber(tx, businessId, 'PURCHASE_ORDER'),
+      ),
       supplierId: supplier.id,
       total: '800.00',
       items: { create: { productId: product.id, quantity: 1, unitCost: '800.00' } },
@@ -91,7 +104,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Aislamiento entre negocios', (
 
   beforeEach(async () => {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "PurchaseOrderItem", "PurchaseOrder", "SupplierProduct", "Supplier", "Product", "Category", "PlanRequest" CASCADE',
+      'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "PurchaseOrderItem", "PurchaseOrder", "SupplierProduct", "Supplier", "Product", "Category", "PlanRequest", "DocumentSequence" CASCADE',
     );
     await prisma.user.deleteMany({ where: { businessId: { in: [A, B] } } });
 
@@ -186,7 +199,14 @@ describe.skipIf(!databaseName.endsWith('_test'))('Aislamiento entre negocios', (
     // La base también lo impide: venta de B fiada a un cliente de A.
     await expect(
       prisma.sale.create({
-        data: { businessId: B, paymentMethod: 'CREDIT', total: '1.00', customerId: a.customerId },
+        // Número libre en B: si falla, es por el cliente ajeno y no por un número repetido.
+        data: {
+          businessId: B,
+          number: 99,
+          paymentMethod: 'CREDIT',
+          total: '1.00',
+          customerId: a.customerId,
+        },
       }),
     ).rejects.toThrow();
   });
