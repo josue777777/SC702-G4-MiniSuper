@@ -101,7 +101,6 @@ jobs:
 
     env:
       E2E_DATABASE_URL: postgresql://minisuper:minisuper@localhost:5432/minisuper_e2e?schema=public
-      EVIDENCE_DIR: ${{ runner.temp }}/e2e/evidencias
 
     steps:
       - uses: actions/checkout@v4
@@ -126,6 +125,9 @@ jobs:
 
       - name: Pruebas E2E
         run: npm run test:e2e
+        env:
+          # `runner` solo existe dentro de los pasos, no en el `env` del job.
+          EVIDENCE_DIR: ${{ runner.temp }}/e2e/evidencias
 
       - name: Guardar evidencias y trazas si algo falló
         if: failure()
