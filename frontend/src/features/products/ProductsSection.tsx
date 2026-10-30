@@ -538,7 +538,9 @@ export function ProductsSection({
             className="action-bar__button"
             onClick={() => {
               if (selected === null) {
-                setSelectionHint('Primero seleccione el producto para generar su código de barras.');
+                setSelectionHint(
+                  'Primero seleccione el producto para generar su código de barras.',
+                );
 
                 return;
               }
@@ -550,8 +552,7 @@ export function ProductsSection({
               }
             }}
             disabled={
-              phase !== 'ready' ||
-              (selected !== null && barcodeGeneratingId === selected.id)
+              phase !== 'ready' || (selected !== null && barcodeGeneratingId === selected.id)
             }
           >
             {selected !== null && barcodeGeneratingId === selected.id
