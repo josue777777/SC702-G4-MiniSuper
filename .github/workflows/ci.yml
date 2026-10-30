@@ -35,7 +35,7 @@ jobs:
           POSTGRES_DB: minisuper_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U minisuper"
+          --health-cmd "pg_isready -U minisuper -d minisuper_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -94,13 +94,15 @@ jobs:
           POSTGRES_DB: minisuper_e2e
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U minisuper"
+          --health-cmd "pg_isready -U minisuper -d minisuper_e2e"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
     env:
       E2E_DATABASE_URL: postgresql://minisuper:minisuper@localhost:5432/minisuper_e2e?schema=public
+      # Prisma (generate y migraciones) lee DATABASE_URL: aquí es la base E2E.
+      DATABASE_URL: postgresql://minisuper:minisuper@localhost:5432/minisuper_e2e?schema=public
 
     steps:
       - uses: actions/checkout@v4
@@ -117,8 +119,6 @@ jobs:
       - name: Migraciones de la base E2E
         run: npx prisma migrate deploy
         working-directory: backend
-        env:
-          DATABASE_URL: ${{ env.E2E_DATABASE_URL }}
 
       - name: Instalar Chromium para Playwright
         run: npx playwright install --with-deps chromium
