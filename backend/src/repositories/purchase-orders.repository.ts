@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { nextDocumentNumber } from './document-sequence.js';
 import type {
   CreatePurchaseOrderPlan,
   PurchaseOrderDto,
@@ -146,18 +147,24 @@ export class PurchaseOrdersRepository {
     };
   }
 
-  /** Guarda el pedido con sus líneas en una sola operación (creación anidada). */
+  /**
+   * Guarda el pedido con sus líneas y su consecutivo del negocio en una sola
+   * transacción: si algo falla, ni el pedido ni el número quedan gastados.
+   */
   async create(plan: CreatePurchaseOrderPlan): Promise<PurchaseOrderDto> {
-    const row = await prisma.purchaseOrder.create({
-      data: {
-        businessId: this.businessId,
-        supplierId: plan.supplierId,
-        notes: plan.notes,
-        total: plan.total,
-        items: { create: plan.items },
-      },
-      select: detailSelection,
-    });
+    const row = await prisma.$transaction(async (tx) =>
+      tx.purchaseOrder.create({
+        data: {
+          businessId: this.businessId,
+          number: await nextDocumentNumber(tx, this.businessId, 'PURCHASE_ORDER'),
+          supplierId: plan.supplierId,
+          notes: plan.notes,
+          total: plan.total,
+          items: { create: plan.items },
+        },
+        select: detailSelection,
+      }),
+    );
 
     return toDetailDto(row);
   }

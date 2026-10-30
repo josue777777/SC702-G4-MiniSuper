@@ -119,7 +119,9 @@ Ejemplo: un módulo de **Reportes de ventas**.
    `(businessId) => new SalesReportsRepository(businessId)`. El `businessId` sale **siempre
    de la sesión**, nunca del cuerpo ni de la URL. Si la tabla es nueva y es «raíz» (no
    cuelga de otra), lleva su columna `businessId`; agregue una prueba en
-   `tenant-isolation.integration.test.ts`.
+   `tenant-isolation.integration.test.ts`. Si el módulo emite documentos con número
+   (como «Venta #12»), el número sale de `nextDocumentNumber(tx, businessId, kind)`
+   dentro de la misma transacción: es un consecutivo **por negocio**.
 3. **API.** Se monta el router en `backend/src/routes/index.ts` con su permiso:
    ```ts
    apiRouter.use('/sales-reports', ...businessRequired, requirePermission('reports.sales'), salesReportsRouter);

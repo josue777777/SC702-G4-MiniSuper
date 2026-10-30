@@ -29,7 +29,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
 
   beforeEach(async () => {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "Product", "Category" CASCADE',
+      'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "Product", "Category", "DocumentSequence" CASCADE',
     );
 
     await prisma.business.upsert({
@@ -251,8 +251,15 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
   });
 
   it('fiado: saldo = ventas CREDIT − abonos, con precisión decimal y dos fiados seguidos', async () => {
+    // Fiado histórico cargado directo en la base (número fuera del contador).
     await prisma.sale.create({
-      data: { businessId: BUSINESS_ID, paymentMethod: 'CREDIT', total: '5000.00', customerId },
+      data: {
+        businessId: BUSINESS_ID,
+        number: 900,
+        paymentMethod: 'CREDIT',
+        total: '5000.00',
+        customerId,
+      },
     });
     await prisma.creditPayment.create({ data: { customerId, amount: '1000.50' } });
     // Una venta en efectivo no suma a la deuda.
