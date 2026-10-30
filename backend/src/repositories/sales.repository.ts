@@ -16,6 +16,7 @@ import type {
   SaleSummaryDto,
 } from '../types/sales.js';
 import { formatCents, toCents } from '../utils/money.js';
+import { nextDocumentNumber } from './document-sequence.js';
 
 type Money = { toFixed(digits: number): string };
 
@@ -449,8 +450,11 @@ export class SalesRepository {
    * - Stock: `UPDATE … WHERE stock >= cantidad` es atómico; dos ventas del
    *   último producto no pueden dejarlo en negativo (la segunda espera el
    *   bloqueo de la fila, relee el stock y no cumple la condición).
-   * - Duplicados: `idempotencyKey` es único. Si la llave ya existe, la venta
-   *   original se devuelve (`created: false`) sin descontar de nuevo.
+   * - Duplicados: `idempotencyKey` es único por negocio. Si la llave ya
+   *   existe, la venta original se devuelve (`created: false`) sin descontar
+   *   de nuevo.
+   * - Número: el consecutivo del negocio se toma en la misma transacción; si
+   *   la venta no se guarda, el número no se gasta.
    * - Las líneas se procesan ordenadas por producto para evitar interbloqueos.
    */
   async createSale(plan: CreateSalePlan): Promise<CreateSaleOutcome> {
@@ -459,6 +463,7 @@ export class SalesRepository {
         const created = await tx.sale.create({
           data: {
             businessId: this.businessId,
+            number: await nextDocumentNumber(tx, this.businessId, 'SALE'),
             paymentMethod: plan.paymentMethod,
             total: plan.total,
             cashReceived: plan.cashReceived,

@@ -168,8 +168,14 @@ export async function seedCustomer(name: string, credited: string, paid = '0.00'
 
     if (credited !== '0.00') {
       await client.query(
-        `INSERT INTO "Sale"(id, "paymentMethod", total, "customerId", "businessId")
-         VALUES (gen_random_uuid(), 'CREDIT', $1, $2, $3)`,
+        // El número sale del consecutivo del negocio, igual que en el backend.
+        `WITH seq AS (
+           INSERT INTO "DocumentSequence"("businessId", kind, "next") VALUES ($3, 'SALE', 2)
+           ON CONFLICT ("businessId", kind) DO UPDATE SET "next" = "DocumentSequence"."next" + 1
+           RETURNING "next" - 1 AS number
+         )
+         INSERT INTO "Sale"(id, number, "paymentMethod", total, "customerId", "businessId")
+         SELECT gen_random_uuid(), seq.number, 'CREDIT', $1, $2, $3 FROM seq`,
         [credited, id, E2E_BUSINESS_ID],
       );
     }
