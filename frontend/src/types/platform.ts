@@ -5,10 +5,9 @@ export type PlanRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface PlatformSettings {
   systemName: string;
-  pricePerExtraUser: string;
 }
 
-/** Un negocio cliente visto desde la plataforma: su plan y su Encargado, no sus datos internos. */
+/** Un negocio visto desde la plataforma: su nivel de cuenta y su Encargado, no sus datos internos. */
 export interface BusinessSummary {
   id: string;
   name: string;
@@ -39,7 +38,6 @@ export interface PlanRequest {
   businessName: string;
   requestedBy: string;
   extraUsers: number;
-  monthlyAmount: string;
   note: string | null;
   status: PlanRequestStatus;
   response: string | null;
@@ -49,5 +47,4 @@ export interface PlanRequest {
 
 export interface OwnPlanRequests {
   requests: PlanRequest[];
-  pricePerExtraUser: string;
 }

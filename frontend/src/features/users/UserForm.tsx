@@ -151,7 +151,7 @@ export function UserForm({
                 ))}
               </select>
               <small className="muted">
-                Ocupa un usuario del plan de ese negocio. Para un negocio nuevo, use Negocios ›
+                Ocupa un usuario del límite de ese negocio. Para un negocio nuevo, use Negocios ›
                 Nuevo negocio.
               </small>
               {errors.businessId === undefined ? null : (

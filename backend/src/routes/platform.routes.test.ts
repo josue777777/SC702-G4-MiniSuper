@@ -165,18 +165,14 @@ describe('plataforma: solo el Administrador', () => {
     expect(missing.status).toBe(404);
   });
 
-  it('cambia el nombre del sistema y el precio por usuario (validados)', async () => {
+  it('cambia el nombre del sistema (validado)', async () => {
     const { agent, app } = await loginAs('ADMIN');
 
-    const bad = await agent
-      .put('/api/platform/settings')
-      .send({ systemName: '', pricePerExtraUser: 'gratis' });
-    const ok = await agent
-      .put('/api/platform/settings')
-      .send({ systemName: 'Abarrotes Pro', pricePerExtraUser: '7500' });
+    const bad = await agent.put('/api/platform/settings').send({ systemName: '' });
+    const ok = await agent.put('/api/platform/settings').send({ systemName: 'Abarrotes Pro' });
 
     expect(bad.status).toBe(400);
-    expect(ok.body.data).toEqual({ systemName: 'Abarrotes Pro', pricePerExtraUser: '7500.00' });
+    expect(ok.body.data).toEqual({ systemName: 'Abarrotes Pro' });
     expect((await request(app).get('/api/platform/public')).body.data.systemName).toBe(
       'Abarrotes Pro',
     );
@@ -184,7 +180,7 @@ describe('plataforma: solo el Administrador', () => {
 });
 
 describe('solicitudes de ampliación del plan', () => {
-  it('el Encargado pide más usuarios: se cotiza con el precio vigente y llega a la bandeja', async () => {
+  it('el Encargado pide más usuarios y la solicitud llega a la bandeja', async () => {
     const built = buildApp();
     const encargado = await loginAs('ENCARGADO', built);
     const admin = await loginAs('ADMIN', built);
@@ -195,7 +191,7 @@ describe('solicitudes de ampliación del plan', () => {
 
     expect(created.status).toBe(201);
     expect(created.body.data).toEqual(
-      expect.objectContaining({ extraUsers: 3, monthlyAmount: '15000.00', status: 'PENDING' }),
+      expect.objectContaining({ extraUsers: 3, status: 'PENDING' }),
     );
 
     const inbox = await admin.agent.get('/api/platform/requests?status=PENDING');
@@ -238,7 +234,6 @@ describe('solicitudes de ampliación del plan', () => {
     const own = await encargado.agent.get('/api/plan-requests');
 
     expect(own.body.data.requests[0].status).toBe('APPROVED');
-    expect(own.body.data.pricePerExtraUser).toBe('5000.00');
   });
 
   it('al rechazarla el plan no cambia, y la respuesta le llega al Encargado', async () => {

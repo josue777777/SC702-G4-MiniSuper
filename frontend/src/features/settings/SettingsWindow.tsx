@@ -26,7 +26,7 @@ interface SettingsWindowProps {
 /**
  * Ventana de Configuración, con pestañas según lo que permite el rol:
  *   - General (Encargado): datos, logo y plan de su negocio.
- *   - Plataforma (Administrador): nombre del sistema y precio por usuario.
+ *   - Plataforma (Administrador): nombre del sistema.
  *   - Usuarios (Administrador y Encargado): con jerarquía; el Administrador
  *     maneja administradores y Encargados, el Encargado a Cajero y Bodega.
  *   - Apariencia (todos): color y tamaño de letra de cada usuario.

@@ -16,7 +16,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   ADMIN:
-    'Administrador de la plataforma: crea los negocios con su Encargado y su plan, y responde las solicitudes. No ve los datos internos de los negocios.',
+    'Administrador de la plataforma: crea los negocios con su Encargado y su límite de usuarios, y responde las solicitudes. No ve los datos internos de los negocios.',
   ENCARGADO:
     'Dueño del negocio: todo el negocio, sus datos y logo, y los usuarios Cajero y Bodega.',
   CAJERO: 'Ventas y clientes; consulta productos sin modificarlos.',

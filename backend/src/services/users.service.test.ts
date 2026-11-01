@@ -132,14 +132,14 @@ describe('UsersService.create', () => {
   });
 });
 
-describe('límite de usuarios del plan (por negocio)', () => {
+describe('límite de usuarios del nivel de cuenta (por negocio)', () => {
   it('con el plan lleno no deja crear más usuarios y explica qué hacer', async () => {
     // Plan de 2: el Encargado y el Cajero ya los ocupan.
     const { service } = setup(undefined, 2);
 
     await expect(service.create(NEW_USER, ENCARGADO)).rejects.toMatchObject({
       statusCode: 409,
-      message: expect.stringMatching(/El plan permite 2 usuarios activos/),
+      message: expect.stringMatching(/El nivel de cuenta permite 2 usuarios activos/),
     });
   });
 
@@ -161,7 +161,7 @@ describe('límite de usuarios del plan (por negocio)', () => {
 
     await expect(service.activate(CAJERO_ID, ENCARGADO)).rejects.toMatchObject({
       statusCode: 409,
-      message: expect.stringMatching(/El plan permite 1 usuario activo /),
+      message: expect.stringMatching(/El nivel de cuenta permite 1 usuario activo /),
     });
   });
 });

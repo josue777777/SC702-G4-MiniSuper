@@ -16,11 +16,6 @@ export const platformSettingsSchema = z.object({
     .trim()
     .min(1, 'Escriba el nombre del sistema.')
     .max(40, 'El nombre no puede superar 40 caracteres.'),
-  pricePerExtraUser: z
-    .string({ error: 'Escriba el precio por usuario.' })
-    .trim()
-    .regex(/^\d{1,10}(\.\d{1,2})?$/, 'Escriba un monto válido, por ejemplo 5000 o 5000.50.')
-    .transform((value) => Number(value).toFixed(2)),
 });
 
 /**

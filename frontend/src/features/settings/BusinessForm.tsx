@@ -6,7 +6,6 @@ import { planRequestsService } from '../../services/platform.service';
 import type { Business, BusinessSettings } from '../../types/business';
 import type { OwnPlanRequests } from '../../types/platform';
 import { RequestStatusBadge } from '../platform/RequestStatusBadge';
-import { formatMoney } from '../products/money';
 import { fieldErrorsFromDetails, validateEmail } from '../auth/account-rules';
 import { useBusiness } from '../business/business-context';
 
@@ -323,12 +322,12 @@ function PlanSection() {
   return (
     <section className="form" aria-labelledby="plan-title">
       <h3 id="plan-title" className="form__section-title">
-        Plan contratado
+        Nivel de cuenta
       </h3>
       <p className="plan-usage">
         Usuarios activos: <strong>{usedSeats}</strong> de <strong>{maxUsers}</strong>{' '}
         <small className="muted">
-          (plan: Encargado{extraUsers > 0 ? ` + ${extraUsers}` : ' solamente'})
+          (Encargado{extraUsers > 0 ? ` + ${extraUsers}` : ' solamente'})
         </small>
       </p>
 
@@ -366,7 +365,6 @@ function PlanSection() {
               <tr>
                 <th>Fecha</th>
                 <th>Usuarios</th>
-                <th>Monto mensual</th>
                 <th>Estado</th>
                 <th>Respuesta</th>
               </tr>
@@ -376,7 +374,6 @@ function PlanSection() {
                 <tr key={request.id}>
                   <td>{new Date(request.createdAt).toLocaleDateString('es-CR')}</td>
                   <td>+{request.extraUsers}</td>
-                  <td>{formatMoney(request.monthlyAmount)}</td>
                   <td>
                     <RequestStatusBadge status={request.status} />
                   </td>
@@ -390,7 +387,6 @@ function PlanSection() {
 
       {requesting && own !== null ? (
         <PlanRequestDialog
-          pricePerExtraUser={own.pricePerExtraUser}
           onClose={() => setRequesting(false)}
           onSent={() => {
             setRequesting(false);
@@ -406,23 +402,14 @@ function PlanSection() {
   );
 }
 
-/** Pide N usuarios más con la cotización mensual (N × precio por usuario). */
-function PlanRequestDialog({
-  pricePerExtraUser,
-  onClose,
-  onSent,
-}: {
-  pricePerExtraUser: string;
-  onClose: () => void;
-  onSent: () => void;
-}) {
+/** Pide N usuarios más para el plan del negocio. */
+function PlanRequestDialog({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
   const [count, setCount] = useState('1');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const value = Number(count);
   const valid = Number.isInteger(value) && value >= 1 && value <= 50;
-  const quote = valid ? (Number(pricePerExtraUser) * value).toFixed(2) : null;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -465,11 +452,6 @@ function PlanRequestDialog({
               onChange={(event) => setCount(event.target.value)}
             />
           </div>
-          <div className="form__field">
-            <span>Monto mensual adicional</span>
-            <strong aria-live="polite">{quote === null ? '—' : formatMoney(quote)}</strong>
-            <small className="muted">{formatMoney(pricePerExtraUser)} por usuario al mes.</small>
-          </div>
           <div className="form__field form__field--wide">
             <label htmlFor="plan-request-note">Nota (opcional)</label>
             <textarea
@@ -482,7 +464,7 @@ function PlanRequestDialog({
           </div>
         </div>
         <p className="muted">
-          La solicitud llega a la plataforma. Al aprobarla, el límite de su plan sube y usted crea
+          La solicitud llega a la plataforma. Al aprobarla, el límite de usuarios sube y usted crea
           los usuarios en la pestaña Usuarios.
         </p>
         <div className="form__actions">

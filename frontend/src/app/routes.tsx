@@ -26,7 +26,7 @@ function only(permission: Permission, page: ReactNode) {
 
 /**
  * Inicio según quién entra: el Administrador de la plataforma no tiene panel
- * de negocio (no ve datos de ninguno), así que va a sus negocios clientes.
+ * de negocio (no ve datos de ninguno), así que va a sus negocios.
  */
 function HomePage() {
   const { can } = useSession();
