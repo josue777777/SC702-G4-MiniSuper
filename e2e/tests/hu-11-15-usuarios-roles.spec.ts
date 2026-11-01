@@ -26,7 +26,7 @@ async function loginAsOwner(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/$/);
 }
 
-/** Entra como Administrador de la plataforma: su inicio son los negocios clientes. */
+/** Entra como Administrador de la plataforma: su inicio son los negocios. */
 async function loginAsAdmin(page: Page): Promise<void> {
   await login(page, E2E_ADMIN.email, E2E_ADMIN.password);
   await expect(page).toHaveURL(/\/platform\/businesses$/);
@@ -194,17 +194,17 @@ test('la Encargada (dueña del negocio) administra a Cajero y Bodega, nunca a su
   expect((await page.request.get(`${BACKEND_URL}/api/business`)).status()).toBe(200);
 });
 
-test('plan: con el plan lleno la Encargada pide más usuarios, la plataforma aprueba y ella los crea', async ({
+test('nivel de cuenta: con el límite alcanzado la Encargada pide más usuarios, la plataforma aprueba y ella los crea', async ({
   page,
 }) => {
   // La plataforma deja el plan en «solo Encargado».
   await loginAsAdmin(page);
   await page
     .getByRole('row', { name: /Abastecedor Nuevo Amanecer/ })
-    .getByRole('button', { name: 'Cambiar plan' })
+    .getByRole('button', { name: 'Cambiar nivel' })
     .click();
   await page.getByLabel('Usuarios adicionales al Encargado').fill('0');
-  await page.getByRole('button', { name: 'Guardar plan' }).click();
+  await page.getByRole('button', { name: 'Guardar nivel' }).click();
   await expect(page.getByRole('row', { name: /Abastecedor Nuevo Amanecer/ })).toContainText(
     'Solo Encargado',
   );
@@ -213,7 +213,7 @@ test('plan: con el plan lleno la Encargada pide más usuarios, la plataforma apr
   // La Encargada no puede crear más usuarios…
   await loginAsOwner(page);
   await page.goto('/?config=usuarios');
-  await expect(page.getByText(/Usuarios activos del plan: 1 de 1/)).toBeVisible();
+  await expect(page.getByText(/Usuarios activos: 1 de 1/)).toBeVisible();
 
   const temporary = await createUserFromUi(page, {
     name: 'Una Más',
@@ -222,8 +222,10 @@ test('plan: con el plan lleno la Encargada pide más usuarios, la plataforma apr
   }).catch(() => null);
 
   expect(temporary).toBeNull();
-  await expect(page.getByRole('alert')).toContainText('El plan permite 1 usuario activo');
-  await saveEvidence(page, 'HU-12', 'HU-12-plan-lleno.png');
+  await expect(page.getByRole('alert')).toContainText(
+    'El nivel de cuenta permite 1 usuario activo',
+  );
+  await saveEvidence(page, 'HU-12', 'HU-12-limite-usuarios.png');
 
   // …así que pide 2 más.
   await page.goto('/?config=general');

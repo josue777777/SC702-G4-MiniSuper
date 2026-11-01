@@ -98,7 +98,7 @@ function isUniqueViolation(error: unknown): boolean {
 
 /**
  * Acceso a datos de la plataforma (solo Administrador): ajustes del sistema,
- * negocios clientes y solicitudes de ampliación. También las consultas del
+ * negocios y solicitudes de ampliación. También las consultas del
  * Encargado sobre SUS solicitudes, siempre filtradas por su negocio.
  */
 export class PlatformRepository {

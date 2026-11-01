@@ -322,12 +322,12 @@ function PlanSection() {
   return (
     <section className="form" aria-labelledby="plan-title">
       <h3 id="plan-title" className="form__section-title">
-        Plan contratado
+        Nivel de cuenta
       </h3>
       <p className="plan-usage">
         Usuarios activos: <strong>{usedSeats}</strong> de <strong>{maxUsers}</strong>{' '}
         <small className="muted">
-          (plan: Encargado{extraUsers > 0 ? ` + ${extraUsers}` : ' solamente'})
+          (Encargado{extraUsers > 0 ? ` + ${extraUsers}` : ' solamente'})
         </small>
       </p>
 
@@ -464,7 +464,7 @@ function PlanRequestDialog({ onClose, onSent }: { onClose: () => void; onSent: (
           </div>
         </div>
         <p className="muted">
-          La solicitud llega a la plataforma. Al aprobarla, el límite de su plan sube y usted crea
+          La solicitud llega a la plataforma. Al aprobarla, el límite de usuarios sube y usted crea
           los usuarios en la pestaña Usuarios.
         </p>
         <div className="form__actions">

@@ -8,7 +8,7 @@ export interface BusinessSettings {
   receiptMessage: string | null;
 }
 
-/** Plan contratado: el Encargado más sus usuarios adicionales. */
+/** Nivel de cuenta: el Encargado más sus usuarios adicionales. */
 export interface BusinessPlan {
   extraUsers: number;
   maxUsers: number;

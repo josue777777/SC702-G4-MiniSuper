@@ -231,8 +231,8 @@ function DecideDialog({
       )}
       <p>
         {approving
-          ? `El plan de «${request.businessName}» sube ${request.extraUsers} usuario(s). Su Encargado podrá crearlos.`
-          : `El plan de «${request.businessName}» no cambia.`}
+          ? `El límite de «${request.businessName}» sube ${request.extraUsers} usuario(s). Su Encargado podrá crearlos.`
+          : `El límite de «${request.businessName}» no cambia.`}
       </p>
       <div className="form__field">
         <label htmlFor="decide-response">Respuesta para el Encargado (opcional)</label>

@@ -7,7 +7,7 @@ export interface PlatformSettings {
   systemName: string;
 }
 
-/** Un negocio cliente visto desde la plataforma: su plan y su Encargado, no sus datos internos. */
+/** Un negocio visto desde la plataforma: su nivel de cuenta y su Encargado, no sus datos internos. */
 export interface BusinessSummary {
   id: string;
   name: string;

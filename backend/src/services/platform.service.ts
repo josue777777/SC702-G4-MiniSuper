@@ -27,7 +27,7 @@ export interface BusinessWithManager {
 /**
  * La plataforma (solo Administrador, permiso `platform.manage`):
  *   - el nombre del sistema;
- *   - alta de negocios clientes con su Encargado y su plan;
+ *   - alta de negocios con su Encargado y su plan;
  *   - plan (usuarios adicionales) y suspensión de cada negocio;
  *   - la bandeja de solicitudes de ampliación.
  * Nunca toca los datos internos de un negocio (ventas, productos, clientes).
@@ -51,7 +51,7 @@ export class PlatformService {
     return this.repository.listBusinesses();
   }
 
-  /** Alta de un cliente: el negocio, su plan y su Encargado, de una vez. */
+  /** Alta de un negocio: el negocio, su límite de usuarios y su Encargado, de una vez. */
   async createBusiness(input: CreateBusinessInput): Promise<BusinessWithManager> {
     const temporaryPassword = generateTemporaryPassword();
     const created = await this.repository.createBusinessWithManager({

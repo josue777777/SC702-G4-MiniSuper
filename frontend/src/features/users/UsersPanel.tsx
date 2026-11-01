@@ -118,10 +118,10 @@ export function UsersPanel() {
       </p>
       {isPlatform ? null : (
         <p className="plan-usage">
-          Usuarios activos del plan: <strong>{usedSeats}</strong> de <strong>{maxUsers}</strong>{' '}
+          Usuarios activos: <strong>{usedSeats}</strong> de <strong>{maxUsers}</strong>{' '}
           {planFull ? (
             <span className="badge badge--warning">
-              Plan lleno: desactive un usuario o solicite más en la pestaña General
+              Límite de usuarios alcanzado: desactive uno o solicite más en la pestaña General
             </span>
           ) : null}
         </p>

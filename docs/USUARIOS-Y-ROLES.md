@@ -14,7 +14,7 @@ la seguridad de verdad está en el servidor.
 
 | Rol           | Qué puede usar                                                                 |
 | ------------- | ------------------------------------------------------------------------------ |
-| Administrador | La **plataforma**: negocios clientes, sus planes y solicitudes, nombre del sistema. **No** ve datos de ningún negocio |
+| Administrador | La **plataforma**: negocios, su nivel de cuenta y solicitudes, nombre del sistema. **No** ve datos de ningún negocio |
 | Encargado     | Dueño de **su** negocio: todo el negocio, sus datos y logo, su Cajero y Bodega |
 | Cajero        | Ventas y clientes; consulta productos sin modificarlos                         |
 | Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario               |

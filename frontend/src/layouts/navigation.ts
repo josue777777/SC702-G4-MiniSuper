@@ -13,7 +13,7 @@
  * visibles no aparece. La API vuelve a exigir el permiso en cada petición.
  *
  * El Administrador es de la plataforma: no ve este menú sino
- * `PLATFORM_NAVIGATION` (negocios clientes y sus solicitudes), porque no
+ * `PLATFORM_NAVIGATION` (negocios y sus solicitudes), porque no
  * entra a los datos de ningún negocio (ADR 0002).
  *
  * «Configuración» no está aquí: no es una pantalla, abre una ventana sobre la
@@ -148,7 +148,7 @@ export const PLATFORM_NAVIGATION: NavItem[] = [
     kind: 'link',
     to: '/platform/businesses',
     label: 'Negocios',
-    stories: 'Negocios clientes, su plan y su Encargado',
+    stories: 'Negocios, su nivel de cuenta y su Encargado',
     icon: 'store',
     permission: 'platform.manage',
   },

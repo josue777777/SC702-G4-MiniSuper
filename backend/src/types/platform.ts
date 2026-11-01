@@ -1,4 +1,4 @@
-/** Contratos de la plataforma: negocios clientes, planes y solicitudes (ADR 0002). */
+/** Contratos de la plataforma: negocios, planes y solicitudes (ADR 0002). */
 
 export type BusinessStatus = 'ACTIVE' | 'SUSPENDED';
 export type PlanRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
