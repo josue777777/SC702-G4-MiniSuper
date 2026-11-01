@@ -73,11 +73,17 @@ Cada quien la recupera según su rol ([ADR 0003](adr/0003-recuperacion-de-acceso
 | --- | --- | --- |
 | Administrador | Login › **¿Olvidó su contraseña?** → le llega un enlace a su correo | Otro Administrador la restablece |
 | Encargado | Login › **¿Olvidó su contraseña?** → le llega un enlace a su correo | El Administrador la restablece |
-| Cajero y Bodega | Se la pide a su **Encargado**, que en Configuración › Usuarios › **Restablecer contraseña** le da una temporal | — |
+| Cajero y Bodega | Login › ¿Olvidó su contraseña? › **¿No tiene acceso a su correo?** → se la pide a su **Encargado**, que en Configuración › Usuarios › **Restablecer contraseña** le da una temporal | — |
 
 - El enlace **vence en 30 minutos** y **sirve una sola vez**. Pedir otro deja sin efecto el anterior.
 - La pantalla siempre responde «Si el correo está registrado, le enviamos un enlace»: no
   revela qué correos existen ni de qué rol son. Al personal no se le envía nada.
+- La pantalla **no nombra roles**: ofrece «¿No tiene acceso a su correo?» como la otra
+  forma, para que siga sirviendo si se agregan roles.
+- **Al agregar un rol nuevo**, decida en `ROLE_RECOVERY` (`backend/src/auth/permissions.ts`)
+  si recupera por correo (`email`) o con quien lo administra (`manager`). TypeScript no
+  compila hasta decidirlo, y una prueba verifica que ningún rol quede sin alguien que pueda
+  restablecerle la contraseña.
 - Máximo 3 enlaces por correo y 10 solicitudes por equipo cada hora.
 - Al cambiar o restablecer una contraseña se cierran las sesiones abiertas de esa cuenta,
   queda el **registro de seguridad** (tabla `AccessEvent`: a quién, quién lo hizo y cuándo)

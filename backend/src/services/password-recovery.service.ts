@@ -1,4 +1,4 @@
-import { recoversByEmail } from '../auth/account-recovery.js';
+import { recoversByEmail } from '../auth/permissions.js';
 import type { PasswordResetRepository } from '../repositories/password-reset.repository.js';
 import type { RecoverableAccount } from '../types/auth.js';
 import { HttpError } from '../utils/http-error.js';
@@ -26,9 +26,9 @@ export interface PasswordRecoveryOptions {
 }
 
 /**
- * Recuperación de contraseña por correo (HU-13). Solo para el Administrador y
- * el Encargado (`auth/account-recovery.ts`); el personal la recupera con su
- * Encargado.
+ * Recuperación de contraseña por correo (HU-13). Solo para los roles que la
+ * tienen en `ROLE_RECOVERY` (`auth/permissions.ts`); los demás la recuperan con
+ * quien los administra.
  *
  * Nunca revela si una cuenta existe ni de qué rol es: pedir un enlace responde
  * siempre igual, y solo se envía el correo si la cuenta puede recuperarse así.

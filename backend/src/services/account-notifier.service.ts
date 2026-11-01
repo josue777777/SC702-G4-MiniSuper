@@ -1,5 +1,4 @@
-import { recoversByEmail } from '../auth/account-recovery.js';
-import type { Role } from '../auth/permissions.js';
+import { recoversByEmail, type Role } from '../auth/permissions.js';
 import type { Mailer, MailMessage } from '../utils/mailer.js';
 import { RESET_TOKEN_TTL_MINUTES } from '../utils/reset-token.js';
 
@@ -24,7 +23,8 @@ const CHANGE_DETAIL: Record<PasswordChange, string> = {
 /**
  * Correos de seguridad de las cuentas (HU-13).
  *
- * Solo escribe a los roles con correo propio (Administrador y Encargado). El
+ * Solo escribe a los roles que recuperan su acceso por correo (`ROLE_RECOVERY`
+ * en `auth/permissions.ts`). El
  * envío va en segundo plano: si el proveedor de correo tarda o falla, la
  * respuesta al usuario no cambia (ni revela nada) y el error queda en el log.
  */

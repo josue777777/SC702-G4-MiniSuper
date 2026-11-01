@@ -27,6 +27,16 @@ compartido, y el dueño mantiene el control de quién entra a su caja.
 
 Nadie sube de rango para cubrir a otro: un Encargado nunca restablece a otro Encargado.
 
+### Preparado para más roles
+
+- La capa de cada rol se declara en `ROLE_RECOVERY` (`backend/src/auth/permissions.ts`),
+  junto a sus permisos. Es un `Record<Role, …>`: un rol nuevo no compila hasta decidirla.
+- Una prueba verifica que todo rol que no use correo tenga a alguien que pueda
+  restablecerle la contraseña: ningún rol queda sin salida.
+- La pantalla no nombra roles. Como en Google o Microsoft, ofrece dos caminos:
+  «Enviar enlace» y «¿No tiene acceso a su correo?» (pedirle a quien administra su
+  cuenta).
+
 ### Reglas de seguridad
 
 1. El enlace lleva un token al azar de 256 bits; en la base solo se guarda su hash.

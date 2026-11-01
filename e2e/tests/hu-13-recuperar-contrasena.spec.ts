@@ -106,14 +106,17 @@ test('HU-13: el enlace sirve una sola vez', async ({ page }) => {
   await saveEvidence(page, 'HU-13', 'HU-13-enlace-usado.png');
 });
 
-test('HU-13: un Cajero ve el mismo mensaje, no recibe correo y se le indica ir con su Encargado', async ({
+test('HU-13: un Cajero ve el mismo mensaje, no recibe correo y tiene la otra opción: quien lo administra', async ({
   page,
 }) => {
   await insertUser(CAJERO);
 
   await requestLink(page, CAJERO.email);
-  await expect(page.getByText('¿Usted es cajero o de bodega?')).toBeVisible();
-  await saveEvidence(page, 'HU-13', 'HU-13-cajero-sin-correo.png');
+
+  // La otra forma de recuperar el acceso, sin nombrar roles: sirve para cualquiera.
+  await page.getByText('¿No tiene acceso a su correo?').click();
+  await expect(page.getByText('Pídale a la persona que administra su cuenta')).toBeVisible();
+  await saveEvidence(page, 'HU-13', 'HU-13-sin-acceso-al-correo.png');
 
   // Mismo mensaje que con una cuenta real; el correo no llega y nada cambia.
   await requestLink(page, 'nadie.registrado@example.com');

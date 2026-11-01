@@ -8,10 +8,15 @@ import { authService } from '../services/auth.service';
 /**
  * «¿Olvidó su contraseña?» (HU-13).
  *
- * El Administrador y el Encargado reciben un enlace en su correo. El personal
- * (Cajero, Bodega) la recupera con su Encargado: el aviso de abajo lo indica.
- * La respuesta es siempre la misma, exista o no la cuenta, para no revelar qué
- * correos están registrados.
+ * Dos caminos, como en los sistemas grandes:
+ *   1. Recibir un enlace en el correo (para los roles que lo tienen; ver
+ *      `ROLE_RECOVERY` en el backend).
+ *   2. «¿No tiene acceso a su correo?»: pedirle a quien administra su cuenta
+ *      una contraseña temporal.
+ *
+ * La pantalla no nombra roles: sirve igual si mañana existen otros. Y la
+ * respuesta es siempre la misma, exista o no la cuenta, para no revelar qué
+ * correos están registrados ni de qué rol son.
  */
 export function ForgotPasswordPage() {
   const { systemName } = usePlatform();
@@ -56,10 +61,16 @@ export function ForgotPasswordPage() {
         <p className="muted">{systemName} · sistema de gestión</p>
 
         {sent ? (
-          <div className="alert alert--success" role="status">
-            Si el correo está registrado, le enviamos un enlace para elegir una contraseña nueva.
-            Revise su bandeja de entrada (y la de correo no deseado). El enlace vence en 30 minutos.
-          </div>
+          <>
+            <div className="alert alert--success" role="status">
+              Si el correo está registrado, le enviamos un enlace para elegir una contraseña nueva.
+              El enlace vence en 30 minutos.
+            </div>
+            <p className="hint">
+              ¿No le llegó en unos minutos? Revise la carpeta de correo no deseado. Si aun así no lo
+              recibe, su cuenta puede no tener recuperación por correo: use la opción de abajo.
+            </p>
+          </>
         ) : (
           <>
             <p className="hint">
@@ -96,9 +107,14 @@ export function ForgotPasswordPage() {
           </>
         )}
 
-        <p className="login__note">
-          ¿Usted es cajero o de bodega? Pídale a su Encargado que restablezca su contraseña.
-        </p>
+        <details className="login__alternative">
+          <summary>¿No tiene acceso a su correo?</summary>
+          <p>
+            Pídale a la persona que administra su cuenta en el sistema que le restablezca la
+            contraseña. Le dará una <strong>contraseña temporal</strong>, que usted cambiará al
+            ingresar.
+          </p>
+        </details>
 
         <p className="hint login__links">
           <Link to="/login">Volver a iniciar sesión</Link>
