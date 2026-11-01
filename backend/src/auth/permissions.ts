@@ -42,7 +42,7 @@ export const PERMISSIONS = [
   'business.edit',
   /** Crear y administrar usuarios, siempre de un rango menor al propio. */
   'users.manage',
-  /** Pedir al proveedor de la plataforma más usuarios para el negocio. */
+  /** Pedir al Administrador de la plataforma más usuarios para el negocio. */
   'plan.request',
   /** Plataforma: negocios, planes, solicitudes y nombre del sistema. */
   'platform.manage',

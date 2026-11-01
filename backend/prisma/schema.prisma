@@ -57,8 +57,8 @@ enum FontScale {
   GRANDE
 }
 
-/// Estado de un negocio cliente. Suspendido: nadie de ese negocio entra, pero
-/// sus datos se conservan (por ejemplo, si deja de pagar y luego vuelve).
+/// Estado de un negocio. Suspendido: nadie de ese negocio entra, pero sus
+/// datos se conservan (y vuelven a estar disponibles al reactivarlo).
 enum BusinessStatus {
   ACTIVE
   SUSPENDED
@@ -162,7 +162,7 @@ model UserPreferences {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-/// Negocio cliente de la plataforma (un «inquilino»). Todo lo del negocio
+/// Un negocio registrado en la plataforma. Todo lo del negocio
 /// (productos, ventas, clientes, proveedores…) le pertenece y el servidor
 /// siempre filtra por el negocio de la sesión. El Encargado edita sus datos y
 /// logo; el Administrador lo crea, define su plan y lo puede suspender.

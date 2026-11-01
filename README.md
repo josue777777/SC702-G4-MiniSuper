@@ -63,8 +63,8 @@ Si se levanta el sistema sin ningún administrador activo, la terminal del backe
 al arrancar con estos mismos pasos. El aviso sale solo ahí: la pantalla de login no
 revela si el sistema tiene usuarios.
 
-El sistema es **multi-negocio** (se alquila por plan). El Administrador es la
-**plataforma**: crea cada negocio con su **Encargado** y su plan en **Negocios**, y
+El sistema es **multi-negocio**. El Administrador es la
+**plataforma**: crea cada negocio con su **Encargado** y su nivel de cuenta en **Negocios**, y
 responde las solicitudes de más usuarios en **Solicitudes**. **No ve los datos de ningún
 negocio.** Cada Encargado crea a su personal en **Configuración › Usuarios**. Roles
 (fijos; la matriz está en `backend/src/auth/permissions.ts`):
