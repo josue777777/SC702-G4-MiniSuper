@@ -7,6 +7,7 @@ import { MainLayout } from '../layouts/MainLayout';
 import { BusinessesPage } from '../pages/BusinessesPage';
 import { CustomersPage } from '../pages/CustomersPage';
 import { DashboardPage } from '../pages/DashboardPage';
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { KardexPage } from '../pages/KardexPage';
 import { LoginPage } from '../pages/LoginPage';
@@ -15,6 +16,7 @@ import { OrdersPage } from '../pages/OrdersPage';
 import { PlanRequestsPage } from '../pages/PlanRequestsPage';
 import { ProfilePage } from '../pages/ProfilePage';
 import { ReportsPage } from '../pages/ReportsPage';
+import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SalesPage } from '../pages/SalesPage';
 import { SuppliersPage } from '../pages/SuppliersPage';
 import type { Permission } from '../types/auth';
@@ -56,6 +58,9 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* HU-13: recuperar la contraseña por correo (públicas, sin menú). */}
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
         element={

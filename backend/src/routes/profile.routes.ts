@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { env, isProduction } from '../config/env.js';
+import { accountSecurity } from '../config/mail.js';
 import { PreferencesController } from '../controllers/preferences.controller.js';
 import { ProfileController } from '../controllers/profile.controller.js';
 import { createRequireAuth } from '../middleware/require-auth.middleware.js';
 import { createSameOriginGuard } from '../middleware/same-origin.middleware.js';
 import { PreferencesRepository } from '../repositories/preferences.repository.js';
 import { UsersRepository } from '../repositories/users.repository.js';
+import type { AccountSecurity } from '../services/account-security.service.js';
 import type { AuthService } from '../services/auth.service.js';
 import { ProfileService } from '../services/profile.service.js';
 import { authService } from './auth.routes.js';
@@ -17,8 +19,13 @@ export function createProfileRouter(
   allowedOrigin: string,
   secureCookie: boolean,
   preferences: PreferencesRepository = new PreferencesRepository(),
+  security?: AccountSecurity,
 ): Router {
-  const controller = new ProfileController(new ProfileService(repository), auth, secureCookie);
+  const controller = new ProfileController(
+    new ProfileService(repository, security),
+    auth,
+    secureCookie,
+  );
   const preferencesController = new PreferencesController(preferences);
   const router = Router();
 
@@ -44,4 +51,6 @@ export const profileRouter = createProfileRouter(
   authService,
   env.CORS_ORIGIN,
   isProduction,
+  new PreferencesRepository(),
+  accountSecurity,
 );

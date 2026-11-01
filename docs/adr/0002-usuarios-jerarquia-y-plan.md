@@ -10,15 +10,16 @@ El sistema empezó con una cuenta única de dueño (HU-12). Eso no alcanzaba: lo
 compañeros no podían entrar, cualquiera podía adueñarse de una instalación nueva desde
 `/setup`, y el negocio necesitaba personal con permisos distintos (caja, bodega).
 
-Además, la visión del equipo es **alquilar la aplicación como servicio** (SaaS):
+Además, el sistema debe poder atender **varios negocios** desde una misma plataforma:
 
-1. El proveedor (nosotros) crea un **negocio** cliente con un **plan** y le entrega una
-   cuenta de **Encargado**.
+1. El Administrador de la plataforma crea un **negocio** con su **nivel de cuenta**
+   (límite de usuarios) y le entrega una cuenta de **Encargado**.
 2. El Encargado personaliza su negocio (nombre, logo) y crea a su personal (Cajero,
-   Bodega) hasta el límite de su plan.
-3. Si necesita más usuarios, los **solicita**; el proveedor aprueba y se le cobra más.
-4. El proveedor controla a sus clientes **por encima** (plan, uso, estado), pero **no ve
-   la información interna** de ningún negocio (ventas, productos, clientes).
+   Bodega) hasta el límite de su nivel de cuenta.
+3. Si necesita más usuarios, los **solicita**; el Administrador aprueba o rechaza.
+4. La plataforma administra los negocios **por encima** (nivel de cuenta, uso,
+   estado), pero **no ve la información interna** de ningún negocio (ventas, productos,
+   clientes).
 
 ## Decisión
 
@@ -26,8 +27,8 @@ Además, la visión del equipo es **alquilar la aplicación como servicio** (Saa
 
 | Rol | Quién es | Pertenece a | Administra a |
 | --- | --- | --- | --- |
-| Administrador | El proveedor de la plataforma | Ningún negocio | Administradores y Encargados |
-| Encargado | El dueño del negocio cliente | Su negocio | Cajero y Bodega de su negocio |
+| Administrador | Quien administra la plataforma | Ningún negocio | Administradores y Encargados |
+| Encargado | El dueño del negocio | Su negocio | Cajero y Bodega de su negocio |
 | Cajero, Bodega | Personal del negocio | Su negocio | Nadie |
 
 - Los permisos de cada rol están en **un solo archivo**:
@@ -93,7 +94,6 @@ Además, la visión del equipo es **alquilar la aplicación como servicio** (Saa
 | --- | --- | --- |
 | **1. Un negocio, pensado para crecer** | Roles con jerarquía, apariencia por usuario, datos y logo del negocio, límite de usuarios | **Hecha** |
 | **2. Multi-negocio** | `Business` con `businessId` en las tablas; repositorios atados al negocio; claves foráneas compuestas; panel de la plataforma (negocios, planes, solicitudes, suspensión); pruebas de aislamiento | **Hecha** |
-| 3. Cobro | Facturación y pagos del plan; suspensión automática por falta de pago | Pendiente |
 
 La migración `20261029120000_multi_business` convierte una base de la etapa 1: crea un
 negocio con los datos de `BusinessSettings`, le asigna todos los datos y usuarios
@@ -101,8 +101,8 @@ existentes (menos los administradores) y borra `BusinessSettings`.
 
 ## Consecuencias
 
-- **A favor:** el modelo coincide con el de una aplicación que se alquila por plan; la
-  plataforma no puede ver datos de sus clientes; el aislamiento no depende de que nadie
+- **A favor:** un mismo sistema atiende a varios negocios con su propio límite de
+  usuarios; la plataforma no puede ver los datos de ningún negocio; el aislamiento no depende de que nadie
   se olvide de un `where`, porque la base también lo exige.
 - **En contra:** cada módulo nuevo del negocio tiene que seguir el patrón de repositorio
   atado al negocio (ver `docs/USUARIOS-Y-ROLES.md`, punto 5). Los roles no se

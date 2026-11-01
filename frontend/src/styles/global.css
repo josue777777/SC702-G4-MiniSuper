@@ -2164,3 +2164,28 @@ code {
 .plan-usage {
   margin: 0 0 12px;
 }
+
+/* --- Recuperar contraseña (HU-13) ------------------------------------------ */
+.login__links {
+  margin-top: 16px;
+  text-align: center;
+}
+
+/* «¿No tiene acceso a su correo?»: la otra forma de recuperar el acceso. */
+.login__alternative {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--color-row-alt);
+  font-size: 0.88rem;
+}
+
+.login__alternative summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.login__alternative p {
+  margin: 8px 0 0;
+}

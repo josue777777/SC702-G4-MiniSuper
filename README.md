@@ -63,8 +63,8 @@ Si se levanta el sistema sin ningún administrador activo, la terminal del backe
 al arrancar con estos mismos pasos. El aviso sale solo ahí: la pantalla de login no
 revela si el sistema tiene usuarios.
 
-El sistema es **multi-negocio** (se alquila por plan). El Administrador es la
-**plataforma**: crea cada negocio con su **Encargado** y su plan en **Negocios**, y
+El sistema es **multi-negocio**. El Administrador es la
+**plataforma**: crea cada negocio con su **Encargado** y su nivel de cuenta en **Negocios**, y
 responde las solicitudes de más usuarios en **Solicitudes**. **No ve los datos de ningún
 negocio.** Cada Encargado crea a su personal en **Configuración › Usuarios**. Roles
 (fijos; la matriz está en `backend/src/auth/permissions.ts`):
@@ -81,11 +81,13 @@ Hay **jerarquía**: cada uno administra solo usuarios de rango menor. El **plan*
 aprueba. Cada usuario elige su **apariencia** (color y tamaño de letra) en
 Configuración › Apariencia. Guía para programar módulos en
 [docs/USUARIOS-Y-ROLES.md](docs/USUARIOS-Y-ROLES.md); decisiones en
-[docs/adr/0002-usuarios-jerarquia-y-plan.md](docs/adr/0002-usuarios-jerarquia-y-plan.md);
+[docs/adr/0002-usuarios-jerarquia-y-plan.md](docs/adr/0002-usuarios-jerarquia-y-plan.md) y
+[docs/adr/0003-recuperacion-de-acceso.md](docs/adr/0003-recuperacion-de-acceso.md);
 camino de crecimiento a ERP en [docs/ESCALABILIDAD.md](docs/ESCALABILIDAD.md).
 
 Cada usuario nuevo recibe una contraseña temporal (se muestra una sola vez). Si alguien
-olvida su contraseña, quien lo administra se la restablece. Los usuarios no se borran: se
+olvida su contraseña: el Administrador y el Encargado la recuperan con un enlace a su
+correo; al personal se la restablece su Encargado. Los usuarios no se borran: se
 desactivan. Desactivar, cambiar el rol o restablecer la contraseña cierra las sesiones
 abiertas de ese usuario.
 

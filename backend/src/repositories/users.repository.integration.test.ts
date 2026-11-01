@@ -33,6 +33,7 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
 
   beforeEach(async () => {
     await prisma.planRequest.deleteMany();
+    await prisma.accessEvent.deleteMany();
     await prisma.user.deleteMany();
 
     for (const [id, name] of [
@@ -49,6 +50,7 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
 
   afterAll(async () => {
     await prisma.planRequest.deleteMany();
+    await prisma.accessEvent.deleteMany();
     await prisma.user.deleteMany();
     await disconnectPrisma();
   });

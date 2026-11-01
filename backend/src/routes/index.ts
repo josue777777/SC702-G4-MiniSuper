@@ -13,6 +13,7 @@ import { categoriesRouter } from './categories.routes.js';
 import { customersRouter } from './customers.routes.js';
 import { healthRouter } from './health.routes.js';
 import { inventoryRouter } from './inventory.routes.js';
+import { passwordRecoveryRouter } from './password-recovery.routes.js';
 import {
   planRequestsRouter,
   platformAdminRouter,
@@ -29,7 +30,8 @@ import { usersRouter } from './users.routes.js';
  * Árbol de rutas de la API. Todo lo publicado cuelga de `/api`
  * (ver `src/app.ts`).
  *
- * Solo son públicos `/health`, `/auth` (login, sesión y cierre) y
+ * Solo son públicos `/health`, `/auth` (login, sesión, cierre y recuperación de
+ * la contraseña por correo) y
  * `/platform/public` (el nombre del sistema para el login). Todo lo demás
  * exige, en este orden:
  *   1. una sesión válida (HU-11): sin cookie válida responde 401;
@@ -57,6 +59,7 @@ export const sessionRequired = [
 export const businessRequired = [...sessionRequired, requireBusiness] as const;
 
 apiRouter.use('/health', healthRouter);
+apiRouter.use('/auth/password', passwordRecoveryRouter); // HU-13: recuperar por correo (Administrador y Encargado)
 apiRouter.use('/auth', authRouter); // HU-11 (login), HU-15 (cierre)
 apiRouter.use('/profile', profileRouter); // HU-14: protege su propia sesión; permite cambiar la contraseña temporal
 

@@ -15,7 +15,7 @@ export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
 const INVALID_CREDENTIALS = 'Correo o contraseña incorrectos.';
 const BUSINESS_SUSPENDED =
-  'El acceso de su negocio está suspendido. Comuníquese con el proveedor del sistema.';
+  'El acceso de su negocio está suspendido. Comuníquese con el administrador del sistema.';
 
 export interface AuthServiceOptions {
   sessionSecret: string;

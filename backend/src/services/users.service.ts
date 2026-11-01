@@ -1,5 +1,6 @@
 import { canManageRole, type Role } from '../auth/permissions.js';
 import type { UsersRepository } from '../repositories/users.repository.js';
+import { type AccountSecurity, NO_ACCOUNT_SECURITY } from './account-security.service.js';
 import type {
   PlanFull,
   UpdateUserFields,
@@ -60,7 +61,11 @@ function planFullError({ maxUsers }: PlanFull): HttpError {
  * Desactivar, cambiar el rol o restablecer la contraseña cierra sus sesiones.
  */
 export class UsersService {
-  constructor(private readonly repository: UsersRepository) {}
+  constructor(
+    private readonly repository: UsersRepository,
+    /** Registro de seguridad y aviso por correo al restablecer una contraseña (HU-13). */
+    private readonly security: AccountSecurity = NO_ACCOUNT_SECURITY,
+  ) {}
 
   /**
    * Lo que el actor puede administrar, más su propia cuenta:
@@ -179,8 +184,12 @@ export class UsersService {
       mustChangePassword: true,
       revokeSessions: true,
     });
+    const saved = this.saved(updated);
 
-    return { user: toListItem(this.saved(updated)), temporaryPassword };
+    // Queda quién lo hizo; si la cuenta tiene correo propio, la persona recibe un aviso.
+    await this.security.passwordChanged(saved, 'reset-by-manager', actor.id);
+
+    return { user: toListItem(saved), temporaryPassword };
   }
 
   /** El usuario existe y el actor tiene rango para administrarlo (o es él mismo, si se permite). */

@@ -42,7 +42,7 @@ export const PERMISSIONS = [
   'business.edit',
   /** Crear y administrar usuarios, siempre de un rango menor al propio. */
   'users.manage',
-  /** Pedir al proveedor de la plataforma más usuarios para el negocio. */
+  /** Pedir al Administrador de la plataforma más usuarios para el negocio. */
   'plan.request',
   /** Plataforma: negocios, planes, solicitudes y nombre del sistema. */
   'platform.manage',
@@ -105,6 +105,29 @@ export function manageableRoles(actor: Role): Role[] {
   return hasPermission(actor, 'users.manage')
     ? ROLES.filter((role) => canManageRole(actor, role))
     : [];
+}
+
+/**
+ * Cómo recupera cada rol el acceso si olvida su contraseña (HU-13, ADR 0003):
+ *   - `email`: la persona misma, con un enlace a su correo. También recibe los
+ *     avisos de seguridad de su cuenta. Para roles con correo propio y
+ *     responsabilidad sobre otros, que no deben depender de nadie.
+ *   - `manager`: se la restablece quien lo administra (`canManageRole`) con una
+ *     contraseña temporal. Para el personal, que puede no tener correo propio.
+ *
+ * Es un `Record<Role, …>` a propósito: al agregar un rol nuevo, TypeScript no
+ * compila hasta decidir también cómo recupera su acceso.
+ */
+export const ROLE_RECOVERY: Record<Role, 'email' | 'manager'> = {
+  ADMIN: 'email',
+  ENCARGADO: 'email',
+  CAJERO: 'manager',
+  BODEGA: 'manager',
+};
+
+/** ¿El rol recupera su contraseña por correo (y recibe avisos de seguridad)? */
+export function recoversByEmail(role: Role): boolean {
+  return ROLE_RECOVERY[role] === 'email';
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
