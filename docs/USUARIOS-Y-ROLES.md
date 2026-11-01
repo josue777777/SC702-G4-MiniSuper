@@ -45,7 +45,7 @@ aprobarla, el Encargado ya puede crearlos. La razón de este diseño está en
 | Pestaña | Administrador | Encargado | Cajero / Bodega |
 | --- | --- | --- | --- |
 | General (datos, logo y plan del negocio) | — | ✅ el suyo | — |
-| Plataforma (nombre del sistema, precio por usuario) | ✅ | — | — |
+| Plataforma (nombre del sistema) | ✅ | — | — |
 | Usuarios | ✅ administradores y Encargados | ✅ Cajero y Bodega de su negocio | — |
 | Apariencia (color, letra) | ✅ la suya | ✅ la suya | ✅ la suya |
 

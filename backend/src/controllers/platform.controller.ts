@@ -85,14 +85,11 @@ export class PlatformController {
       .json({ data: await this.service.reject(id, authenticatedUser(res).id, response) });
   }
 
-  /** `GET /api/plan-requests` — las solicitudes del negocio del Encargado y el precio vigente. */
+  /** `GET /api/plan-requests` — las solicitudes del negocio del Encargado. */
   async listOwnRequests(_req: Request, res: Response): Promise<void> {
-    const [requests, settings] = await Promise.all([
-      this.service.listOwnRequests(businessIdOf(res)),
-      this.service.getSettings(),
-    ]);
+    const requests = await this.service.listOwnRequests(businessIdOf(res));
 
-    res.status(200).json({ data: { requests, pricePerExtraUser: settings.pricePerExtraUser } });
+    res.status(200).json({ data: { requests } });
   }
 
   /** `POST /api/plan-requests` — el Encargado pide más usuarios para su negocio. */

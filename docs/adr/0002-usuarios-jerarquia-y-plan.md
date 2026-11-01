@@ -66,8 +66,8 @@ Además, la visión del equipo es **alquilar la aplicación como servicio** (Saa
   **dentro de una transacción con la fila del negocio bloqueada** (`SELECT … FOR UPDATE`):
   dos altas simultáneas nunca lo superan (probado con 6 altas a la vez y 1 cupo libre).
 - Bajar el plan no desactiva a nadie: solo impide crear o reactivar hasta que haya cupo.
-- **Solicitudes** (`PlanRequest`): el Encargado pide N usuarios más; el monto se cotiza
-  con el precio por usuario de ese momento y queda guardado. Llega a la bandeja del
+- **Solicitudes** (`PlanRequest`): el Encargado pide N usuarios más (con una nota
+  opcional). Llega a la bandeja del
   Administrador, que aprueba (el plan sube y **el Encargado crea los usuarios**) o
   rechaza. Un índice único parcial impide dos solicitudes pendientes del mismo negocio.
 - **Suspensión**: un negocio suspendido no puede entrar (ni con sesiones abiertas). Sus
@@ -77,7 +77,7 @@ Además, la visión del equipo es **alquilar la aplicación como servicio** (Saa
 
 | Qué | Dónde se guarda | Quién lo cambia |
 | --- | --- | --- |
-| Nombre del sistema, precio por usuario | `PlatformSettings` | Solo el Administrador |
+| Nombre del sistema | `PlatformSettings` | Solo el Administrador |
 | Nombre, datos y logo del negocio | `Business` | Solo el Encargado de ese negocio |
 | Apariencia (color, tamaño de letra) | `UserPreferences` (una fila por usuario) | Cada usuario, la suya |
 

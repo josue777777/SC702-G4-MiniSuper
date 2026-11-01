@@ -225,13 +225,10 @@ test('plan: con el plan lleno la Encargada pide más usuarios, la plataforma apr
   await expect(page.getByRole('alert')).toContainText('El plan permite 1 usuario activo');
   await saveEvidence(page, 'HU-12', 'HU-12-plan-lleno.png');
 
-  // …así que pide 2 más, con la cotización mensual.
+  // …así que pide 2 más.
   await page.goto('/?config=general');
   await page.getByRole('button', { name: 'Solicitar más usuarios' }).click();
   await page.getByLabel('Usuarios adicionales').fill('2');
-  await expect(page.getByRole('dialog', { name: 'Solicitar más usuarios' })).toContainText(
-    /₡10\s000,00/,
-  );
   await page.getByLabel('Nota (opcional)').fill('Un cajero para la tarde y uno de bodega.');
   await page.getByRole('button', { name: 'Enviar solicitud' }).click();
   await expect(page.getByText(/Solicitud enviada/)).toBeVisible();
@@ -250,7 +247,6 @@ test('plan: con el plan lleno la Encargada pide más usuarios, la plataforma apr
   const row = page.getByRole('row', { name: /Abastecedor Nuevo Amanecer/ });
 
   await expect(row).toContainText('+2');
-  await expect(row).toContainText(/₡10\s000,00/);
   await saveEvidence(page, 'Plataforma', 'Plataforma-bandeja-solicitudes.png');
   await row.getByRole('button', { name: 'Aprobar' }).click();
   await page.getByLabel('Respuesta para el Encargado (opcional)').fill('Aprobado desde hoy.');
@@ -568,7 +564,7 @@ test('plataforma: solo el Administrador cambia el nombre del sistema, y lo ven t
 
   const change = await page.request.put(`${BACKEND_URL}/api/platform/settings`, {
     headers: { Origin: FRONTEND_URL },
-    data: { systemName: 'Mío', pricePerExtraUser: '1' },
+    data: { systemName: 'Mío' },
   });
 
   expect(change.status()).toBe(403);

@@ -7,7 +7,6 @@ import type {
   PublicPlatformDto,
 } from '../types/platform.js';
 import { HttpError } from '../utils/http-error.js';
-import { formatCents, toCents } from '../utils/money.js';
 import { hashPassword } from '../utils/password.js';
 import { generateTemporaryPassword } from '../utils/temporary-password.js';
 import type {
@@ -27,7 +26,7 @@ export interface BusinessWithManager {
 
 /**
  * La plataforma (solo Administrador, permiso `platform.manage`):
- *   - el nombre del sistema y el precio por usuario adicional;
+ *   - el nombre del sistema;
  *   - alta de negocios clientes con su Encargado y su plan;
  *   - plan (usuarios adicionales) y suspensión de cada negocio;
  *   - la bandeja de solicitudes de ampliación.
@@ -118,18 +117,16 @@ export class PlatformService {
     return this.repository.listRequests({ businessId });
   }
 
-  /** El Encargado pide más usuarios; el monto se cotiza con el precio vigente y queda guardado. */
+  /** El Encargado pide más usuarios para su negocio; el Administrador la aprueba o la rechaza. */
   async requestMoreUsers(
     businessId: string,
     requestedById: string,
     input: PlanRequestInput,
   ): Promise<PlanRequestDto> {
-    const { pricePerExtraUser } = await this.repository.getSettings();
     const created = await this.repository.createRequest({
       businessId,
       requestedById,
       extraUsers: input.extraUsers,
-      monthlyAmount: formatCents(toCents(pricePerExtraUser) * BigInt(input.extraUsers)),
       note: input.note,
     });
 

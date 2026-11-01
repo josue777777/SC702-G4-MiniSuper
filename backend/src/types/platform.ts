@@ -6,8 +6,6 @@ export type PlanRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export interface PlatformSettingsDto {
   /** Nombre del sistema que ven todos (lo cambia solo el Administrador). */
   systemName: string;
-  /** Precio mensual de cada usuario adicional. */
-  pricePerExtraUser: string;
 }
 
 /** Lo que se ve antes de iniciar sesión. */
@@ -38,7 +36,6 @@ export interface PlanRequestDto {
   businessName: string;
   requestedBy: string;
   extraUsers: number;
-  monthlyAmount: string;
   note: string | null;
   status: PlanRequestStatus;
   response: string | null;
@@ -62,6 +59,5 @@ export interface CreatePlanRequestFields {
   businessId: string;
   requestedById: string;
   extraUsers: number;
-  monthlyAmount: string;
   note: string | null;
 }

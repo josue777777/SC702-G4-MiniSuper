@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Modal } from '../components/Modal';
 import { RequestStatusBadge } from '../features/platform/RequestStatusBadge';
-import { formatMoney } from '../features/products/money';
 import { ApiError } from '../services/api-client';
 import { platformService } from '../services/platform.service';
 import type { PlanRequest } from '../types/platform';
@@ -16,8 +15,7 @@ function describeError(error: unknown): string {
 
 /**
  * Bandeja de solicitudes de los Encargados (solo Administrador): cuántos
- * usuarios más piden y el monto mensual cotizado. Al aprobar, el plan del
- * negocio sube y su Encargado crea los usuarios; al rechazar, no cambia nada.
+ * usuarios más piden y por qué. Al aprobar, el plan del negocio sube y su Encargado crea los usuarios; al rechazar, no cambia nada.
  */
 export function PlanRequestsPage() {
   const [filter, setFilter] = useState<Filter>('PENDING');
@@ -118,7 +116,6 @@ export function PlanRequestsPage() {
                     <th>Fecha</th>
                     <th>Negocio</th>
                     <th>Usuarios</th>
-                    <th>Monto mensual</th>
                     <th>Nota</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -133,7 +130,6 @@ export function PlanRequestsPage() {
                         <div className="muted">Pide: {request.requestedBy}</div>
                       </td>
                       <td>+{request.extraUsers}</td>
-                      <td>{formatMoney(request.monthlyAmount)}</td>
                       <td>{request.note ?? <span className="muted">—</span>}</td>
                       <td>
                         <RequestStatusBadge status={request.status} />
@@ -235,7 +231,7 @@ function DecideDialog({
       )}
       <p>
         {approving
-          ? `El plan de «${request.businessName}» sube ${request.extraUsers} usuario(s), por ${formatMoney(request.monthlyAmount)} más al mes. Su Encargado podrá crearlos.`
+          ? `El plan de «${request.businessName}» sube ${request.extraUsers} usuario(s). Su Encargado podrá crearlos.`
           : `El plan de «${request.businessName}» no cambia.`}
       </p>
       <div className="form__field">

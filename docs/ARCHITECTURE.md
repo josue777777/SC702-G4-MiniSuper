@@ -435,8 +435,8 @@ repositorio se construye con el negocio de la sesión y filtra todo por él.
 | --- | --- |
 | `User` | Usuarios con rol, estado (activo/inactivo) y contraseña temporal: login, perfil, restablecimiento (HU-11 … HU-15) |
 | `Business` | Cada negocio cliente: nombre, cédula, teléfono, correo, dirección, mensaje del comprobante, logo (los cambia su Encargado), plan `extraUsers` y estado activo/suspendido (los cambia la plataforma) |
-| `PlatformSettings` | Una sola fila: nombre del sistema y precio mensual por usuario adicional (solo el Administrador) |
-| `PlanRequest` | Solicitudes de más usuarios de un Encargado, con el monto cotizado, y la respuesta del Administrador |
+| `PlatformSettings` | Una sola fila: nombre del sistema (solo el Administrador) |
+| `PlanRequest` | Solicitudes de más usuarios de un Encargado y la respuesta del Administrador |
 | `UserPreferences` | Apariencia de cada usuario (color y tamaño de letra), aparte de `User` para no mezclarla con los datos de acceso |
 | `Category` | Categorizar y filtrar inventario (HU-04) |
 | `Product` | Código, código de barras, precios, costo, stock, stock mínimo y vencimiento (HU-01 … HU-09) |
