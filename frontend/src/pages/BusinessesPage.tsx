@@ -24,7 +24,7 @@ type Dialog =
   | { kind: 'status'; business: BusinessSummary };
 
 /**
- * Negocios clientes de la plataforma (solo Administrador). Se ve lo necesario
+ * Negocios de la plataforma (solo Administrador). Se ve lo necesario
  * para administrarlos: plan, usuarios en uso, estado y su Encargado. NUNCA sus
  * datos internos (ventas, productos, clientes): eso es de cada negocio.
  */
@@ -59,8 +59,8 @@ export function BusinessesPage() {
       <header className="page-header">
         <h1>Negocios</h1>
         <p>
-          Los clientes de la plataforma: su plan, cuántos usuarios usan y su Encargado. Los datos
-          internos de cada negocio solo los ve su gente.
+          Los negocios registrados: su nivel de cuenta, cuántos usuarios usan y su Encargado. Los
+          datos internos de cada negocio solo los ve su gente.
         </p>
       </header>
 
@@ -111,7 +111,7 @@ export function BusinessesPage() {
       {businesses === null ? null : (
         <section className="card">
           <header className="card__header">
-            <h2>Negocios clientes</h2>
+            <h2>Negocios registrados</h2>
             <span className="muted">{businesses.length} negocio(s)</span>
           </header>
           {businesses.length === 0 ? (
@@ -123,7 +123,7 @@ export function BusinessesPage() {
                   <tr>
                     <th>Negocio</th>
                     <th>Encargado</th>
-                    <th>Plan</th>
+                    <th>Nivel de cuenta</th>
                     <th>Usuarios activos</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -170,7 +170,7 @@ export function BusinessesPage() {
                             className="button"
                             onClick={() => setDialog({ kind: 'plan', business })}
                           >
-                            Cambiar plan
+                            Cambiar nivel
                           </button>
                           <button
                             type="button"
@@ -206,7 +206,9 @@ export function BusinessesPage() {
         <PlanDialog
           business={dialog.business}
           onClose={() => setDialog(null)}
-          onSaved={(saved) => done(`Plan de «${saved.name}»: ${planLabel(saved.extraUsers)}.`)}
+          onSaved={(saved) =>
+            done(`Nivel de cuenta de «${saved.name}»: ${planLabel(saved.extraUsers)}.`)
+          }
         />
       ) : null}
 
@@ -386,7 +388,7 @@ function PlanDialog({
   }
 
   return (
-    <Modal title={`Plan de ${business.name}`} onClose={onClose}>
+    <Modal title={`Nivel de cuenta de ${business.name}`} onClose={onClose}>
       {error === null ? null : (
         <div className="alert alert--error" role="alert">
           {error}
@@ -414,7 +416,7 @@ function PlanDialog({
             className="button button--primary"
             disabled={busy || value === business.extraUsers}
           >
-            {busy ? 'Guardando…' : 'Guardar plan'}
+            {busy ? 'Guardando…' : 'Guardar nivel'}
           </button>
           <button type="button" className="button" disabled={busy} onClick={onClose}>
             Cancelar

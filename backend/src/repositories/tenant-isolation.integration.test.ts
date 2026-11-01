@@ -300,7 +300,6 @@ describe.skipIf(!databaseName.endsWith('_test'))('Plataforma (PostgreSQL de prue
       businessId,
       requestedById,
       extraUsers: 2,
-      monthlyAmount: '10000.00',
       note: null,
     };
 

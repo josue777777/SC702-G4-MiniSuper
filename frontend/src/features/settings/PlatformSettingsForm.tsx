@@ -6,8 +6,7 @@ import { usePlatform } from '../platform/platform-context';
 
 /**
  * Configuración › Plataforma (solo Administrador): el nombre general del
- * sistema, que ven todos los negocios y solo cambia la plataforma, y el precio
- * mensual de cada usuario adicional, con el que se cotizan las solicitudes.
+ * sistema, que ven todos los negocios y solo cambia la plataforma.
  * Aquí no hay datos de ningún negocio: esos los maneja cada Encargado.
  */
 export function PlatformSettingsForm() {
@@ -45,7 +44,6 @@ export function PlatformSettingsForm() {
     try {
       const stored = await platformService.updateSettings({
         systemName: values.systemName.trim(),
-        pricePerExtraUser: values.pricePerExtraUser.trim(),
       });
 
       setValues(stored);
@@ -101,18 +99,6 @@ export function PlatformSettingsForm() {
             maxLength={40}
             onChange={(event) => setValues({ ...values, systemName: event.target.value })}
           />
-        </div>
-        <div className="form__field">
-          <label htmlFor="platform-price">Precio mensual por usuario adicional (₡)</label>
-          <input
-            id="platform-price"
-            inputMode="decimal"
-            value={values.pricePerExtraUser}
-            onChange={(event) => setValues({ ...values, pricePerExtraUser: event.target.value })}
-          />
-          <small className="muted">
-            Con este precio se cotizan las solicitudes de los negocios.
-          </small>
         </div>
       </div>
 

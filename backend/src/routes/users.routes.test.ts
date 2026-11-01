@@ -298,6 +298,6 @@ describe('jerarquía en la API (el Encargado administra solo rangos menores)', (
       .send({ name: 'Una más', email: 'una.mas@correo.cr', role: 'BODEGA' });
 
     expect(response.status).toBe(409);
-    expect(response.body.error.message).toMatch(/El plan permite 4 usuarios activos/);
+    expect(response.body.error.message).toMatch(/El nivel de cuenta permite 4 usuarios activos/);
   });
 });

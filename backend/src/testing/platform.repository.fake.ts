@@ -14,7 +14,7 @@ import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /** Doble del repositorio de la plataforma (sin base de datos). */
 export class FakePlatformRepository implements PlatformRepository {
-  settings: PlatformSettingsDto = { systemName: 'MiniSuper', pricePerExtraUser: '5000.00' };
+  settings: PlatformSettingsDto = { systemName: 'MiniSuper' };
   businesses: BusinessSummaryDto[] = [
     {
       id: TEST_BUSINESS_ID,
@@ -122,7 +122,6 @@ export class FakePlatformRepository implements PlatformRepository {
       businessName: this.businesses.find((b) => b.id === fields.businessId)?.name ?? '',
       requestedBy: 'Elena',
       extraUsers: fields.extraUsers,
-      monthlyAmount: fields.monthlyAmount,
       note: fields.note,
       status: 'PENDING',
       response: null,

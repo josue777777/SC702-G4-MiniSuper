@@ -45,7 +45,7 @@ export async function ensureOwner(): Promise<void> {
 /**
  * Negocio de las pruebas con sus datos de fábrica (otra prueba pudo cambiarlos
  * en Configuración › General o en la plataforma): Encargado + 4 usuarios,
- * activo. También el nombre del sistema y el precio por usuario de fábrica.
+ * activo. También el nombre del sistema de fábrica.
  */
 export async function resetBusiness(): Promise<void> {
   await withDb(async (client) => {
@@ -59,10 +59,9 @@ export async function resetBusiness(): Promise<void> {
       [E2E_BUSINESS_ID],
     );
     await client.query(
-      `INSERT INTO "PlatformSettings"(id, "systemName", "pricePerExtraUser", "updatedAt")
-       VALUES (1, 'MiniSuper', 5000, now())
-       ON CONFLICT (id) DO UPDATE SET "systemName" = 'MiniSuper', "pricePerExtraUser" = 5000,
-         "updatedAt" = now()`,
+      `INSERT INTO "PlatformSettings"(id, "systemName", "updatedAt")
+       VALUES (1, 'MiniSuper', now())
+       ON CONFLICT (id) DO UPDATE SET "systemName" = 'MiniSuper', "updatedAt" = now()`,
     );
   });
 }

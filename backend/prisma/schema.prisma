@@ -197,27 +197,21 @@ model Business {
 }
 
 /// Datos de la plataforma (una sola fila, `id = 1`): el nombre del sistema que
-/// ven todos los negocios y el precio de cada usuario adicional. Solo los
-/// cambia el Administrador.
+/// ven todos los negocios. Solo lo cambia el Administrador.
 model PlatformSettings {
   id                Int      @id @default(1)
   systemName        String   @default("MiniSuper")
-  /// Precio mensual de cada usuario adicional, para cotizar las solicitudes.
-  pricePerExtraUser Decimal  @default(5000) @db.Decimal(12, 2)
   updatedAt         DateTime @updatedAt
 }
 
 /// Solicitud de un Encargado para ampliar su plan (más usuarios). Llega a la
-/// bandeja del Administrador, que la aprueba o la rechaza. El monto se cotiza
-/// al pedirla y queda guardado: si el precio cambia después, la solicitud no.
+/// bandeja del Administrador, que la aprueba o la rechaza.
 model PlanRequest {
   id            String            @id @default(uuid()) @db.Uuid
   businessId    String            @db.Uuid
   requestedById String            @db.Uuid
   /// Cuántos usuarios adicionales pide (además de los que ya tiene).
   extraUsers    Int
-  /// Monto mensual cotizado: extraUsers × precio por usuario de ese momento.
-  monthlyAmount Decimal           @db.Decimal(12, 2)
   note          String?
   status        PlanRequestStatus @default(PENDING)
   /// Respuesta del Administrador (motivo del rechazo, por ejemplo).

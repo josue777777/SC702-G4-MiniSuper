@@ -17,7 +17,6 @@ const PLATFORM_ROW = 1;
 
 const DEFAULT_SETTINGS: PlatformSettingsDto = {
   systemName: 'MiniSuper',
-  pricePerExtraUser: '5000.00',
 };
 
 /**
@@ -45,7 +44,6 @@ const requestSelection = {
   id: true,
   businessId: true,
   extraUsers: true,
-  monthlyAmount: true,
   note: true,
   status: true,
   response: true,
@@ -64,7 +62,6 @@ function toRequestDto(row: RequestRow): PlanRequestDto {
     businessName: row.business.name,
     requestedBy: row.requestedBy.name,
     extraUsers: row.extraUsers,
-    monthlyAmount: row.monthlyAmount.toFixed(2),
     note: row.note,
     status: row.status,
     response: row.response,
@@ -101,16 +98,14 @@ function isUniqueViolation(error: unknown): boolean {
 
 /**
  * Acceso a datos de la plataforma (solo Administrador): ajustes del sistema,
- * negocios clientes y solicitudes de ampliación. También las consultas del
+ * negocios y solicitudes de ampliación. También las consultas del
  * Encargado sobre SUS solicitudes, siempre filtradas por su negocio.
  */
 export class PlatformRepository {
   async getSettings(): Promise<PlatformSettingsDto> {
     const row = await prisma.platformSettings.findUnique({ where: { id: PLATFORM_ROW } });
 
-    return row === null
-      ? DEFAULT_SETTINGS
-      : { systemName: row.systemName, pricePerExtraUser: row.pricePerExtraUser.toFixed(2) };
+    return row === null ? DEFAULT_SETTINGS : { systemName: row.systemName };
   }
 
   async saveSettings(settings: PlatformSettingsDto): Promise<PlatformSettingsDto> {
@@ -120,7 +115,7 @@ export class PlatformRepository {
       update: settings,
     });
 
-    return { systemName: row.systemName, pricePerExtraUser: row.pricePerExtraUser.toFixed(2) };
+    return { systemName: row.systemName };
   }
 
   async listBusinesses(): Promise<BusinessSummaryDto[]> {

@@ -14,7 +14,7 @@ la seguridad de verdad está en el servidor.
 
 | Rol           | Qué puede usar                                                                 |
 | ------------- | ------------------------------------------------------------------------------ |
-| Administrador | La **plataforma**: negocios clientes, sus planes y solicitudes, nombre del sistema. **No** ve datos de ningún negocio |
+| Administrador | La **plataforma**: negocios, su nivel de cuenta y solicitudes, nombre del sistema. **No** ve datos de ningún negocio |
 | Encargado     | Dueño de **su** negocio: todo el negocio, sus datos y logo, su Cajero y Bodega |
 | Cajero        | Ventas y clientes; consulta productos sin modificarlos                         |
 | Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario               |
@@ -45,7 +45,7 @@ aprobarla, el Encargado ya puede crearlos. La razón de este diseño está en
 | Pestaña | Administrador | Encargado | Cajero / Bodega |
 | --- | --- | --- | --- |
 | General (datos, logo y plan del negocio) | — | ✅ el suyo | — |
-| Plataforma (nombre del sistema, precio por usuario) | ✅ | — | — |
+| Plataforma (nombre del sistema) | ✅ | — | — |
 | Usuarios | ✅ administradores y Encargados | ✅ Cajero y Bodega de su negocio | — |
 | Apariencia (color, letra) | ✅ la suya | ✅ la suya | ✅ la suya |
 

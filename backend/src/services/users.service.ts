@@ -42,8 +42,8 @@ function isPlanFull(result: UserRecord | PlanFull | null): result is PlanFull {
 
 function planFullError({ maxUsers }: PlanFull): HttpError {
   return HttpError.conflict(
-    `El plan permite ${maxUsers} usuario${maxUsers === 1 ? '' : 's'} activo${maxUsers === 1 ? '' : 's'} ` +
-      'y ya están en uso. Desactive uno o pida al administrador de la plataforma ampliar el plan.',
+    `El nivel de cuenta permite ${maxUsers} usuario${maxUsers === 1 ? '' : 's'} activo${maxUsers === 1 ? '' : 's'} ` +
+      'y ya están en uso. Desactive uno o pida al administrador de la plataforma ampliar el límite.',
   );
 }
 
