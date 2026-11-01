@@ -20,6 +20,19 @@ export const authService = {
   async logout(): Promise<void> {
     await apiRequest<null>('/api/auth/logout', { method: 'POST' });
   },
+
+  /**
+   * HU-13: pide el enlace de recuperación al correo. El servidor responde igual
+   * exista o no la cuenta; solo el Administrador y el Encargado lo reciben.
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    await apiPost<null>('/api/auth/password/forgot', { email });
+  },
+
+  /** HU-13: contraseña nueva con el token del enlace (sirve una vez y vence). */
+  async resetPassword(token: string, password: string): Promise<void> {
+    await apiPost<null>('/api/auth/password/reset', { token, password });
+  },
 };
 
 export const profileService = {

@@ -1,4 +1,5 @@
 import type { UsersRepository } from '../repositories/users.repository.js';
+import { type AccountSecurity, NO_ACCOUNT_SECURITY } from './account-security.service.js';
 import { toSessionUser } from './auth.service.js';
 import type { SessionUserDto, UpdateUserFields } from '../types/auth.js';
 import { HttpError } from '../utils/http-error.js';
@@ -18,7 +19,11 @@ export interface UpdatedProfile {
  * administrador (`users.service.ts`).
  */
 export class ProfileService {
-  constructor(private readonly repository: UsersRepository) {}
+  constructor(
+    private readonly repository: UsersRepository,
+    /** Registro de seguridad y aviso por correo al cambiar la contraseña (HU-13). */
+    private readonly security: AccountSecurity = NO_ACCOUNT_SECURITY,
+  ) {}
 
   async getProfile(userId: string): Promise<SessionUserDto> {
     const user = await this.repository.findById(userId);
@@ -85,6 +90,10 @@ export class ProfileService {
 
     if (updated === null) {
       throw HttpError.conflict('Ese correo ya está en uso.');
+    }
+
+    if (changes.passwordHash !== undefined) {
+      await this.security.passwordChanged(updated, 'changed', null);
     }
 
     return {

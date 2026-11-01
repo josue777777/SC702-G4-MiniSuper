@@ -2164,3 +2164,17 @@ code {
 .plan-usage {
   margin: 0 0 12px;
 }
+
+/* --- Recuperar contraseña (HU-13) ------------------------------------------ */
+.login__links {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.login__note {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--color-row-alt);
+  font-size: 0.88rem;
+}

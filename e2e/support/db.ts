@@ -31,6 +31,7 @@ export const CATALOG_TABLES =
 export async function resetOwner(): Promise<void> {
   await withDb(async (client) => {
     await client.query('DELETE FROM "PlanRequest"');
+    await client.query('DELETE FROM "AccessEvent"');
     await client.query('DELETE FROM "User"');
 
     const foreign = await client.query(

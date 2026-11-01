@@ -21,6 +21,9 @@ coverage/
 test-results/
 playwright-report/
 
+# Buzón local de correos de prueba (MAIL_TRANSPORT=outbox): trae enlaces de recuperación
+backend/tmp/
+
 # ---------------------------------------------------------------------------
 # Variables de entorno (NUNCA subir secretos reales)
 # ---------------------------------------------------------------------------

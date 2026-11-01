@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   fieldErrorsFromDetails,
   validateEmail,
@@ -25,7 +25,8 @@ interface LoginFieldErrors {
  * repite las mismas reglas. Un fallo de credenciales muestra siempre el mismo
  * mensaje, sin decir si falló el correo o la contraseña. Al cerrar sesión
  * (HU-15) se vuelve aquí con un aviso. No hay registro público: los usuarios
- * los crea el administrador, que también restablece contraseñas (HU-13).
+ * los crea el administrador. «¿Olvidó su contraseña?» lleva a la recuperación
+ * por correo (HU-13).
  */
 export function LoginPage() {
   const navigate = useNavigate();
@@ -145,8 +146,8 @@ export function LoginPage() {
           {busy ? 'Iniciando sesión…' : 'Iniciar sesión'}
         </button>
 
-        <p className="muted hint">
-          ¿Olvidó su contraseña? Pídale a quien administra su cuenta que se la restablezca.
+        <p className="hint login__links">
+          <Link to="/forgot-password">¿Olvidó su contraseña?</Link>
         </p>
       </form>
     </div>

@@ -19,6 +19,12 @@ export const EVIDENCE_ROOT =
 /** Resultados, trazas y descargas de Playwright, también fuera del repositorio. */
 export const OUTPUT_DIR = path.resolve(EVIDENCE_ROOT, '..', 'playwright-output');
 
+/**
+ * Buzón de correos de prueba (HU-13): el backend E2E guarda aquí cada correo
+ * (`MAIL_TRANSPORT=outbox`) en vez de enviarlo. También fuera del repositorio.
+ */
+export const MAILBOX_DIR = path.resolve(OUTPUT_DIR, 'mailbox');
+
 export const BACKEND_PORT = 4010;
 export const FRONTEND_PORT = 5183;
 export const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;

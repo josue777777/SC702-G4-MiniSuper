@@ -92,3 +92,19 @@ export const updateProfileSchema = z
   });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/** Cuerpo de `POST /api/auth/password/forgot` (HU-13). */
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+/**
+ * Cuerpo de `POST /api/auth/password/reset` (HU-13): el token del enlace y la
+ * contraseña nueva, con la misma política que cualquier otra.
+ */
+export const resetPasswordSchema = z.object({
+  token: z
+    .string({ error: 'Falta el enlace de recuperación.' })
+    .trim()
+    .min(20, 'El enlace no es válido.')
+    .max(200, 'El enlace no es válido.'),
+  password: newPasswordSchema,
+});

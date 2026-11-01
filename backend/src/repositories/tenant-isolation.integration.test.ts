@@ -106,6 +106,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Aislamiento entre negocios', (
     await prisma.$executeRawUnsafe(
       'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "PurchaseOrderItem", "PurchaseOrder", "SupplierProduct", "Supplier", "Product", "Category", "PlanRequest", "DocumentSequence" CASCADE',
     );
+    await prisma.accessEvent.deleteMany();
     await prisma.user.deleteMany({ where: { businessId: { in: [A, B] } } });
 
     for (const [id, name] of [
@@ -258,6 +259,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Plataforma (PostgreSQL de prue
 
   beforeEach(async () => {
     await prisma.planRequest.deleteMany();
+    await prisma.accessEvent.deleteMany();
     await prisma.user.deleteMany({ where: { email: { endsWith: '@plataforma.cr' } } });
   });
 
