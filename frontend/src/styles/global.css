@@ -2207,6 +2207,18 @@ code {
   margin: 0;
 }
 
+/* El usuario se ve igual que la contraseña: grande y fácil de copiar. */
+.access-data code {
+  display: inline-block;
+  padding: 8px 12px;
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+  border-radius: 8px;
+  background: var(--color-row-alt);
+  border: 1px solid var(--color-border);
+  user-select: all;
+}
+
 .access-data dd.temporary-password {
   margin: 0;
 }
