@@ -65,6 +65,54 @@ mismos pasos. Después:
   negocio** (el sistema muestra la contraseña temporal del Encargado una sola vez);
 - el Encargado crea a su personal en **Configuración › Usuarios**.
 
+### Cómo entra cada quien: usuario y correo (HU-11, HU-12)
+
+El login tiene **un solo campo: «Correo o usuario»**. Con `@` se busca por correo; sin
+`@`, por nombre de usuario. Sirve igual para cualquier rol, también los que se agreguen.
+
+| Dato | Quién lo tiene | Para qué |
+| --- | --- | --- |
+| **Usuario** (`jnavarro`) | **Todos**, único en todo el sistema | Entrar. Se genera del nombre y se puede cambiar |
+| **Correo** | Obligatorio para quien recupera por correo (Administrador, Encargado); **opcional** para el personal | Entrar, recuperar la contraseña y recibir avisos |
+
+- El usuario se sugiere solo: inicial del nombre + primer apellido, sin tildes y en
+  minúscula («Juan Navarro» → `jnavarro`). Si ya existe, en cualquier negocio y aunque
+  esté desactivado, se le agrega un número (`jnavarro2`). La base de datos garantiza que
+  nunca se repita, aunque dos personas lo creen al mismo tiempo.
+- Un usuario nunca se reutiliza: el historial de ventas no se confunde de persona.
+- Al crear o restablecer, se muestran el **usuario y la contraseña temporal** juntos, una
+  sola vez, para entregárselos a la persona.
+- Qué rol necesita correo lo decide `ROLE_RECOVERY` (`backend/src/auth/permissions.ts`).
+
+### Si alguien olvida su contraseña (HU-13)
+
+Cada quien la recupera según su rol ([ADR 0003](adr/0003-recuperacion-de-acceso.md)):
+
+| Rol | Cómo la recupera | Respaldo |
+| --- | --- | --- |
+| Administrador | Login › **¿Olvidó su contraseña?** → le llega un enlace a su correo | Otro Administrador la restablece |
+| Encargado | Login › **¿Olvidó su contraseña?** → le llega un enlace a su correo | El Administrador la restablece |
+| Cajero y Bodega | Login › ¿Olvidó su contraseña? › **¿No tiene acceso a su correo?** → se la pide a su **Encargado**, que en Configuración › Usuarios › **Restablecer contraseña** le da una temporal | — |
+
+- El enlace **vence en 30 minutos** y **sirve una sola vez**. Pedir otro deja sin efecto el anterior.
+- La pantalla siempre responde «Si el correo está registrado, le enviamos un enlace»: no
+  revela qué correos existen ni de qué rol son. Al personal no se le envía nada.
+- La pantalla **no nombra roles**: ofrece «¿No tiene acceso a su correo?» como la otra
+  forma, para que siga sirviendo si se agregan roles.
+- **Al agregar un rol nuevo**, decida en `ROLE_RECOVERY` (`backend/src/auth/permissions.ts`)
+  si recupera por correo (`email`) o con quien lo administra (`manager`). TypeScript no
+  compila hasta decidirlo, y una prueba verifica que ningún rol quede sin alguien que pueda
+  restablecerle la contraseña.
+- Máximo 3 enlaces por correo y 10 solicitudes por equipo cada hora.
+- Al cambiar o restablecer una contraseña se cierran las sesiones abiertas de esa cuenta,
+  queda el **registro de seguridad** (tabla `AccessEvent`: a quién, quién lo hizo y cuándo)
+  y, si es Administrador o Encargado, le llega un **aviso por correo**.
+
+**Correos en desarrollo:** con `MAIL_TRANSPORT=console` (valor por defecto en
+`backend/.env.example`) los correos no se envían: se imprimen en la terminal del backend,
+con el enlace listo para abrir. En producción es obligatorio `MAIL_TRANSPORT=smtp` con
+`SMTP_URL`.
+
 ## 4. Qué pasa en cada petición
 
 Cuando la pantalla pide datos (por ejemplo, la lista de pedidos), el servidor revisa tres
@@ -166,10 +214,12 @@ corra `npm run db:seed` (ver punto 3). La terminal del backend avisa si no hay n
 administrador.
 
 **Olvidé la contraseña del administrador en mi máquina.**
-Borre los usuarios de **su** base local y créelo de nuevo:
+Use **¿Olvidó su contraseña?** en el login: el enlace aparece en la terminal del backend
+(`MAIL_TRANSPORT=console`). Si prefiere empezar de cero, borre los usuarios de **su** base
+local y créelo de nuevo:
 
 ```bash
-docker exec minisuper-postgres psql -U minisuper -d minisuper -c 'DELETE FROM "User";'
+docker exec minisuper-postgres psql -U minisuper -d minisuper -c 'DELETE FROM "AccessEvent"; DELETE FROM "User";'
 npm run db:seed
 ```
 

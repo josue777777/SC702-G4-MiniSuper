@@ -5,6 +5,8 @@ import {
   hasPermission,
   manageableRoles,
   permissionsOf,
+  recoversByEmail,
+  ROLE_RECOVERY,
   ROLES,
 } from './permissions.js';
 
@@ -70,5 +72,20 @@ describe('jerarquía: nadie da más poder del que tiene', () => {
     expect(manageableRoles('CAJERO')).toEqual([]);
     expect(canManageRole('CAJERO', 'BODEGA')).toBe(false);
     expect(canManageRole('BODEGA', 'CAJERO')).toBe(false);
+  });
+});
+
+describe('recuperación de acceso por rol (HU-13, ADR 0003)', () => {
+  it('el Administrador y el Encargado la recuperan por correo; el personal, con quien lo administra', () => {
+    expect(ROLES.filter(recoversByEmail)).toEqual(['ADMIN', 'ENCARGADO']);
+  });
+
+  it('ningún rol queda sin salida: si no usa correo, algún otro rol puede restablecerle la contraseña', () => {
+    for (const role of ROLES.filter((candidate) => ROLE_RECOVERY[candidate] === 'manager')) {
+      expect(
+        ROLES.some((actor) => hasPermission(actor, 'users.manage') && canManageRole(actor, role)),
+        `nadie puede restablecer la contraseña del rol ${role}`,
+      ).toBe(true);
+    }
   });
 });

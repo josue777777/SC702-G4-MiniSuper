@@ -1,7 +1,7 @@
 # Escalabilidad: bases que ya tenemos y camino a un ERP
 
 Este documento revisa, práctica por práctica, cómo está hoy el sistema frente a una
-arquitectura SaaS multi-negocio y qué falta para crecer hacia un ERP (compras,
+arquitectura multi-negocio y qué falta para crecer hacia un ERP (compras,
 contratos, SICOP, sucursales…).
 
 **Qué es y qué no es:** es una **guía de referencia**, no una lista de tareas. No se
@@ -27,16 +27,15 @@ y planes) y [USUARIOS-Y-ROLES.md](USUARIOS-Y-ROLES.md) (cómo programar un módu
 | Práctica | Hoy | Así lo hacen | Cuándo |
 | --- | --- | --- | --- |
 | Identificador de negocio en las tablas | ✅ `businessId` en las tablas raíz, con FK compuestas | Salesforce (`OrgId` en cada fila), Odoo (`company_id`) | Ampliar a tablas hijas junto con RLS |
-| Filtro automático por negocio | 🟡 Repositorios atados al negocio + pruebas de aislamiento | Supabase y la guía SaaS de AWS (RLS de PostgreSQL), Odoo (*record rules*) | Después de las historias |
+| Filtro automático por negocio | 🟡 Repositorios atados al negocio + pruebas de aislamiento | Supabase y la guía multi-negocio de AWS (RLS de PostgreSQL), Odoo (*record rules*) | Después de las historias |
 | Consecutivos por negocio | 🔴 **Global**: un negocio deduce el volumen de otro | Odoo (secuencias por compañía), factura electrónica de Hacienda | Corregir (decide el equipo) |
 | Idempotencia | 🟡 Solo en ventas; la llave es única global | Stripe (encabezado `Idempotency-Key`) | Por negocio junto con el 🔴 · resto después |
 | Jerarquía de tres niveles | 🟡 Plataforma → Negocio → Usuario; faltan sucursales | Odoo (compañías y almacenes), Shopify (tiendas y ubicaciones) | Después |
-| Límites del plan en el servidor | ✅ Cupos de usuarios con bloqueo de fila | Stripe *Entitlements*, GitHub (funciones por plan) | Generalizar a «funciones del plan» |
-| Pasarela de pagos desacoplada | ✅ Estado interno del negocio (activo/suspendido) | Stripe Billing (webhooks firmados) | Después |
+| Límites del nivel de cuenta en el servidor | ✅ Cupos de usuarios con bloqueo de fila | GitHub, Slack (funciones según el tipo de cuenta) | Generalizar a «módulos por nivel de cuenta» |
 | Cabecera-detalle | ✅ Ventas, pedidos, ajustes; kardex como libro | Odoo (`account.move` + líneas), ERPNext (documentos con tabla hija) | Contratos y SICOP con el mismo patrón |
 | Artículos genéricos (bienes y servicios) | 🟡 Solo bienes | Odoo (tipo de producto), ERPNext (`is_stock_item`) | Después |
 | Contactos únicos | 🟡 Cliente y proveedor separados | Odoo (`res.partner` para clientes y proveedores) | Cuando haya un caso real |
-| Tareas en segundo plano y eventos | ⚪ Todo es síncrono (suficiente hoy) | Patrón *outbox* (Shopify, Debezium), colas en PostgreSQL | Cuando haya correos o integraciones |
+| Tareas en segundo plano y eventos | 🟡 Los correos de seguridad salen en segundo plano, sin cola | Patrón *outbox* (Shopify, Debezium), colas en PostgreSQL | Cuando haya más correos o integraciones |
 | Integración continua (CI) | 🔴 GitHub no corre pruebas | Práctica estándar en todo proyecto con equipo | Corregir (no toca la app) |
 
 ✅ listo · 🟡 base puesta, falta crecer · 🔴 defecto a corregir · ⚪ no hace falta todavía
@@ -122,13 +121,13 @@ sensación de seguridad. RLS es la capa más baja posible: no se puede saltar.
 
 ### 1.3 Jerarquía de tres niveles
 
-**Qué es:** Cuenta (suscripción) → Organizaciones (sucursales, bodegas) → Usuarios.
+**Qué es:** Cuenta → Organizaciones (sucursales, bodegas) → Usuarios.
 
 **Hoy:**
 
 ```
 Plataforma (Administrador: nosotros)
-  └─ Negocio = la cuenta con su plan (Business)
+  └─ Negocio = la cuenta con su nivel de cuenta (Business)
        └─ Usuarios con rol (Encargado, Cajero, Bodega)
 ```
 
@@ -216,41 +215,25 @@ electrónica de Hacienda**, que exige un consecutivo por emisor.
 
 ---
 
-## 3. Planes y suscripciones (SaaS)
+## 3. Niveles de cuenta
 
-### 3.1 Límites del plan en el servidor
+### 3.1 Límites del nivel de cuenta en el servidor
 
 **Hoy:** ✅ el límite de usuarios se valida **en el servidor**, dentro de una
 transacción que bloquea la fila del negocio (`SELECT … FOR UPDATE`). Dos altas
 simultáneas no pueden pasarse del cupo; hay una prueba que lo demuestra. La pantalla
 solo informa.
 
-**Recomendación (después):** generalizar a **funciones del plan**. Hoy el **rol** decide
-qué puede hacer una persona (`requirePermission('purchasing')`). Mañana, además, el
-**plan** decide qué módulos tiene el negocio:
+**Recomendación (después):** generalizar a **módulos por nivel de cuenta**. Hoy el
+**rol** decide qué puede hacer una persona (`requirePermission('purchasing')`). Mañana,
+además, el **nivel de cuenta** decide qué módulos tiene el negocio:
 
 ```ts
 apiRouter.use('/contracts', ...businessRequired, requireFeature('contracts'), requirePermission('contracts'), router);
 ```
 
-con una tabla `PlanFeature(planId, feature, limit)` (por ejemplo, `products: 500`,
+con una tabla de módulos por nivel de cuenta (por ejemplo, `products: 500`,
 `contracts: enabled`). Es el mismo patrón que ya usamos con los permisos.
-
-### 3.2 Pasarela de pagos desacoplada
-
-**Hoy:** ✅ el acceso depende de un **estado interno** (`Business.status`:
-`ACTIVE`/`SUSPENDED`), no de un servicio externo. Si mañana cambia la pasarela, el
-resto del sistema no se entera.
-
-**Recomendación (después):**
-
-1. Agregar el estado `PAST_DUE` (pago atrasado, con días de gracia) antes de
-   `SUSPENDED`.
-2. Un endpoint de **webhook** de la pasarela que **verifique la firma** del aviso y
-   guarde el id del evento (`ProcessedWebhookEvent`): si el aviso llega dos veces, se
-   procesa una sola vez (idempotencia, punto 4.3).
-3. El webhook solo cambia el estado interno; nada más del sistema llama a la
-   pasarela.
 
 ---
 
@@ -258,9 +241,10 @@ resto del sistema no se entera.
 
 ### 4.1 Tareas en segundo plano
 
-**Hoy:** todo es síncrono y está bien así. El comprobante y los PDF se generan **en el
-navegador**, la exportación a Excel del catálogo es pequeña y no enviamos correos. No
-hay tareas pesadas que bloqueen al cajero.
+**Hoy:** casi todo es síncrono y está bien así. El comprobante y los PDF se generan **en
+el navegador** y la exportación a Excel del catálogo es pequeña. Los únicos correos
+(recuperación de contraseña y avisos de seguridad, ADR 0003) salen en segundo plano: la
+respuesta no los espera. No hay tareas pesadas que bloqueen al cajero.
 
 **Recomendación (cuando haya correos, reportes grandes o integraciones):** patrón
 **outbox**. En la misma transacción de la venta se guarda una fila «pendiente:
@@ -308,7 +292,7 @@ veces, se devuelve la venta original sin descontar stock de nuevo (hay pruebas).
 | **Autor de cada operación** (`createdById` en ventas, movimientos y pedidos) | Auditoría: saber qué cajero hizo qué. Ya está anotado como pendiente en el ADR 0002. | Cuando una historia lo pida, o antes de entregar |
 | **Hora de Costa Rica** explícita (`America/Costa_Rica`) en «ventas del día» y reportes | Un servidor en UTC corta el día a las 6 p. m. hora local. | Revisar al cerrar reportes |
 | **Logs con `requestId` y `businessId`** | Encontrar en segundos qué le pasó a qué cliente. | Antes de producción |
-| **Respaldos automáticos y prueba de restauración** | Un SaaS responde por los datos de sus clientes. | Antes de producción |
+| **Respaldos automáticos y prueba de restauración** | El sistema responde por los datos de cada negocio. | Antes de producción |
 | **Monolito modular**, no microservicios | Cada módulo (ventas, inventario, compras) en su carpeta, con su repositorio y sus permisos. Ya lo hacemos; separar en servicios solo complica a un equipo de nuestro tamaño. | Siempre |
 | **Una migración por cambio**, revisada en el PR | Las bases de los clientes no se arreglan a mano. | Siempre (ya lo hacemos) |
 
@@ -330,7 +314,7 @@ veces, se devuelve la venta original sin descontar stock de nuevo (hay pruebas).
 **Crecimiento a ERP (después de la entrega):**
 
 6. Sucursales y bodegas con stock por sucursal (1.3).
-7. Funciones por plan (3.1) y cobro con webhooks (3.2).
+7. Módulos por nivel de cuenta (3.1).
 8. Bienes y servicios (2.1); contactos con roles cuando haya un caso real (2.2).
 9. Outbox y trabajador para correos e integraciones (4.1 y 4.2).
 10. Módulos nuevos sobre el mismo patrón cabecera-detalle: compras formales,

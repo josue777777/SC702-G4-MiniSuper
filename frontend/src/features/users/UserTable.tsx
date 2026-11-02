@@ -68,7 +68,10 @@ export function UserTable({
                   <td>
                     <strong>{user.name}</strong>
                     {isSelf ? <span className="badge badge--muted">usted</span> : null}
-                    <div className="muted">{user.email}</div>
+                    <div className="muted">
+                      {user.username}
+                      {user.email === null ? null : ` · ${user.email}`}
+                    </div>
                   </td>
                   <td>{ROLE_LABELS[user.role]}</td>
                   {showBusiness ? (

@@ -7,7 +7,7 @@ import {
   validateNewPassword,
 } from '../auth/account-rules';
 import type { Profile, ProfileUpdatePayload } from '../../types/auth';
-import { ROLE_LABELS } from '../users/roles';
+import { ROLE_LABELS, recoversByEmail } from '../users/roles';
 import type { SaveFailure } from './use-profile';
 
 interface ProfileFormProps {
@@ -30,7 +30,9 @@ type FieldErrors = Partial<Record<FieldName, string>>;
  */
 export function ProfileForm({ profile, save, mustChangePassword }: ProfileFormProps) {
   const [name, setName] = useState(profile.name);
-  const [email, setEmail] = useState(profile.email);
+  const [email, setEmail] = useState(profile.email ?? '');
+  /** El personal puede no tener correo; quien recupera por correo, sí lo necesita. */
+  const emailRequired = recoversByEmail(profile.role);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -40,14 +42,14 @@ export function ProfileForm({ profile, save, mustChangePassword }: ProfileFormPr
   const [busy, setBusy] = useState(false);
 
   const nameChanged = name.trim() !== profile.name;
-  const emailChanged = email.trim().toLowerCase() !== profile.email;
+  const emailChanged = email.trim().toLowerCase() !== (profile.email ?? '');
   const passwordChanged = newPassword !== '';
   const dirty = nameChanged || emailChanged || passwordChanged;
   const needsCurrentPassword = emailChanged || passwordChanged;
 
   function resetToSaved(): void {
     setName(profile.name);
-    setEmail(profile.email);
+    setEmail(profile.email ?? '');
     setCurrentPassword('');
     setNewPassword('');
     setConfirm('');
@@ -58,7 +60,12 @@ export function ProfileForm({ profile, save, mustChangePassword }: ProfileFormPr
   function validate(): FieldErrors {
     const found: FieldErrors = {};
     const nameError = validateName(name);
-    const emailError = validateEmail(email);
+    const emailError =
+      email.trim() === ''
+        ? emailRequired
+          ? 'Su cuenta necesita un correo: con él recupera su contraseña.'
+          : undefined
+        : validateEmail(email);
 
     if (nameError !== undefined) found.name = nameError;
     if (emailError !== undefined) found.email = emailError;
@@ -95,7 +102,7 @@ export function ProfileForm({ profile, save, mustChangePassword }: ProfileFormPr
 
     const payload: ProfileUpdatePayload = {
       ...(nameChanged ? { name: name.trim() } : {}),
-      ...(emailChanged ? { email: email.trim() } : {}),
+      ...(emailChanged ? { email: email.trim() === '' ? null : email.trim() } : {}),
       ...(passwordChanged ? { newPassword } : {}),
       ...(needsCurrentPassword ? { currentPassword } : {}),
     };
@@ -148,7 +155,9 @@ export function ProfileForm({ profile, save, mustChangePassword }: ProfileFormPr
           </div>
 
           <div className="form__field">
-            <label htmlFor="profile-email">Correo electrónico</label>
+            <label htmlFor="profile-email">
+              Correo electrónico {emailRequired ? null : <span className="muted">(opcional)</span>}
+            </label>
             <input
               id="profile-email"
               type="email"
@@ -156,13 +165,18 @@ export function ProfileForm({ profile, save, mustChangePassword }: ProfileFormPr
               autoComplete="email"
               onChange={(event) => setEmail(event.target.value)}
             />
-            <small className="muted">Se usará para recuperar la contraseña.</small>
+            <small className="muted">
+              {emailRequired
+                ? 'Con este correo también inicia sesión y recupera su contraseña.'
+                : 'Si lo agrega, también puede iniciar sesión con él.'}
+            </small>
             {errors.email === undefined ? null : <p className="form__error">{errors.email}</p>}
           </div>
         </div>
 
         <p className="muted">
-          Rol: <strong>{ROLE_LABELS[profile.role]}</strong> (lo asigna el administrador).
+          Usuario: <strong>{profile.username}</strong> · Rol:{' '}
+          <strong>{ROLE_LABELS[profile.role]}</strong> (los asigna quien administra su cuenta).
         </p>
 
         <h3 className="form__section-title">

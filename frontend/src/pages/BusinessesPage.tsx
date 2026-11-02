@@ -148,7 +148,12 @@ export function BusinessesPage() {
                         ) : (
                           <>
                             {business.manager.name}
-                            <div className="muted">{business.manager.email}</div>
+                            <div className="muted">
+                              {business.manager.username}
+                              {business.manager.email === null
+                                ? null
+                                : ` · ${business.manager.email}`}
+                            </div>
                           </>
                         )}
                       </td>

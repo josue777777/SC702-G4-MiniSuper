@@ -434,7 +434,7 @@ repositorio se construye con el negocio de la sesión y filtra todo por él.
 | Entidad | Para qué existe (HU relacionadas) |
 | --- | --- |
 | `User` | Usuarios con rol, estado (activo/inactivo) y contraseña temporal: login, perfil, restablecimiento (HU-11 … HU-15) |
-| `Business` | Cada negocio cliente: nombre, cédula, teléfono, correo, dirección, mensaje del comprobante, logo (los cambia su Encargado), plan `extraUsers` y estado activo/suspendido (los cambia la plataforma) |
+| `Business` | Cada negocio: nombre, cédula, teléfono, correo, dirección, mensaje del comprobante, logo (los cambia su Encargado), plan `extraUsers` y estado activo/suspendido (los cambia la plataforma) |
 | `PlatformSettings` | Una sola fila: nombre del sistema (solo el Administrador) |
 | `PlanRequest` | Solicitudes de más usuarios de un Encargado y la respuesta del Administrador |
 | `UserPreferences` | Apariencia de cada usuario (color y tamaño de letra), aparte de `User` para no mezclarla con los datos de acceso |

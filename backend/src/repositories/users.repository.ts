@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { takenUsernames } from './usernames.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type {
   CreateUserFields,
@@ -11,6 +12,7 @@ import type {
 const userSelection = {
   id: true,
   name: true,
+  username: true,
   email: true,
   passwordHash: true,
   role: true,
@@ -60,6 +62,21 @@ function countUsedSeats(tx: Transaction | typeof prisma, businessId: string): Pr
   return tx.user.count({ where: { businessId, isActive: true, role: { not: 'ADMIN' } } });
 }
 
+/**
+ * Lo que se escribe en la base. Si cambia la contraseña, el enlace de
+ * recuperación pendiente (HU-13) deja de servir: no puede quedar vivo un enlace
+ * pedido antes del cambio.
+ */
+function toWrite({ revokeSessions, ...data }: UpdateUserFields): Prisma.UserUpdateInput {
+  return {
+    ...data,
+    ...(data.passwordHash === undefined
+      ? {}
+      : { passwordResetToken: null, passwordResetExpires: null }),
+    ...(revokeSessions === true ? { sessionVersion: { increment: 1 } } : {}),
+  };
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
@@ -75,6 +92,18 @@ export class UsersRepository {
     const row = await prisma.user.findUnique({ where: { email }, select: userSelection });
 
     return row === null ? null : toRecord(row);
+  }
+
+  /** HU-11: el login acepta el usuario (`jnavarro`) además del correo. */
+  async findByUsername(username: string): Promise<UserRecord | null> {
+    const row = await prisma.user.findUnique({ where: { username }, select: userSelection });
+
+    return row === null ? null : toRecord(row);
+  }
+
+  /** Usuarios tomados que empiezan con `base`, para sugerir el primero libre. */
+  takenUsernames(base: string): Promise<string[]> {
+    return takenUsernames(base);
   }
 
   async findById(id: string): Promise<UserRecord | null> {
@@ -155,14 +184,12 @@ export class UsersRepository {
     id: string,
     fields: UpdateUserFields,
   ): Promise<UserRecord | PlanFull | null> {
-    const { revokeSessions, ...data } = fields;
-
     try {
       return await prisma.$transaction(async (tx) => {
         const current = await tx.user.findUniqueOrThrow({ where: { id }, select: userSelection });
         const after = {
-          role: data.role ?? current.role,
-          isActive: data.isActive ?? current.isActive,
+          role: fields.role ?? current.role,
+          isActive: fields.isActive ?? current.isActive,
         };
 
         if (current.businessId !== null && usesSeat(after) && !usesSeat(current)) {
@@ -176,7 +203,7 @@ export class UsersRepository {
         return toRecord(
           await tx.user.update({
             where: { id },
-            data: revokeSessions === true ? { ...data, sessionVersion: { increment: 1 } } : data,
+            data: toWrite(fields),
             select: userSelection,
           }),
         );
@@ -213,13 +240,11 @@ export class UsersRepository {
 
   /** Actualiza un usuario; `null` si el correo ya lo usa otra cuenta (P2002). */
   async update(id: string, fields: UpdateUserFields): Promise<UserRecord | null> {
-    const { revokeSessions, ...data } = fields;
-
     try {
       return toRecord(
         await prisma.user.update({
           where: { id },
-          data: revokeSessions === true ? { ...data, sessionVersion: { increment: 1 } } : data,
+          data: toWrite(fields),
           select: userSelection,
         }),
       );

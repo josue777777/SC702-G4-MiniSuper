@@ -4,6 +4,7 @@ import {
   BACKEND_URL,
   FRONTEND_PORT,
   FRONTEND_URL,
+  MAILBOX_DIR,
   OUTPUT_DIR,
   REPO_ROOT,
   e2eDatabaseUrl,
@@ -54,6 +55,10 @@ export default defineConfig({
         PORT: String(BACKEND_PORT),
         CORS_ORIGIN: FRONTEND_URL,
         DATABASE_URL: databaseUrl,
+        // Los correos (recuperar contraseña, avisos) se guardan en un buzón de prueba.
+        MAIL_TRANSPORT: 'outbox',
+        MAIL_OUTBOX_DIR: MAILBOX_DIR,
+        APP_URL: FRONTEND_URL,
       },
     },
     {

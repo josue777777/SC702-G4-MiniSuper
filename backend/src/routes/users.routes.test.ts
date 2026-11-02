@@ -97,7 +97,7 @@ function buildApp() {
 async function loginAs(email: string, built = buildApp()) {
   const agent = request.agent(built.app);
 
-  await agent.post('/api/auth/login').send({ email, password: PASSWORD }).expect(200);
+  await agent.post('/api/auth/login').send({ login: email, password: PASSWORD }).expect(200);
 
   return { agent, ...built };
 }
@@ -130,7 +130,7 @@ describe('permisos por rol en la API', () => {
   it('el inicio de sesión devuelve el rol y sus permisos', async () => {
     const response = await request(buildApp().app)
       .post('/api/auth/login')
-      .send({ email: 'cajero@correo.cr', password: PASSWORD });
+      .send({ login: 'cajero@correo.cr', password: PASSWORD });
 
     expect(response.body.data).toEqual(
       expect.objectContaining({
@@ -185,7 +185,7 @@ describe('Configuración › Usuarios', () => {
     // Con esa contraseña temporal el nuevo usuario puede entrar.
     await request(built.app)
       .post('/api/auth/login')
-      .send({ email: 'bea@correo.cr', password: response.body.data.temporaryPassword })
+      .send({ login: 'bea@correo.cr', password: response.body.data.temporaryPassword })
       .expect(200);
 
     const list = await agent.get('/api/users');
@@ -222,7 +222,7 @@ describe('Configuración › Usuarios', () => {
       (
         await request(built.app)
           .post('/api/auth/login')
-          .send({ email: 'cajero@correo.cr', password: PASSWORD })
+          .send({ login: 'cajero@correo.cr', password: PASSWORD })
       ).status,
     ).toBe(401);
   });
@@ -299,5 +299,43 @@ describe('jerarquía en la API (el Encargado administra solo rangos menores)', (
 
     expect(response.status).toBe(409);
     expect(response.body.error.message).toMatch(/El nivel de cuenta permite 4 usuarios activos/);
+  });
+});
+
+describe('usuario sugerido (HU-12)', () => {
+  it('GET /api/users/username-suggestion devuelve el primero libre; el Cajero no tiene acceso', async () => {
+    const { agent } = await loginAs('encargado@correo.cr');
+    const response = await agent
+      .get('/api/users/username-suggestion')
+      .query({ name: 'Juan Navarro' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({ username: 'jnavarro' });
+
+    const cajero = await loginAs('cajero@correo.cr');
+
+    expect(
+      (await cajero.agent.get('/api/users/username-suggestion').query({ name: 'Juan' })).status,
+    ).toBe(403);
+  });
+
+  it('se entra con el usuario igual que con el correo', async () => {
+    const built = buildApp();
+    const created = await (
+      await loginAs('encargado@correo.cr', built)
+    ).agent
+      .post('/api/users')
+      .set('Origin', ORIGIN)
+      .send({ name: 'Juan Navarro', role: 'CAJERO' });
+
+    expect(created.status).toBe(201);
+    expect(created.body.data.user).toMatchObject({ username: 'jnavarro', email: null });
+
+    const login = await request(built.app)
+      .post('/api/auth/login')
+      .send({ login: 'JNavarro', password: created.body.data.temporaryPassword });
+
+    expect(login.status).toBe(200);
+    expect(login.body.data).toMatchObject({ username: 'jnavarro', mustChangePassword: true });
   });
 });

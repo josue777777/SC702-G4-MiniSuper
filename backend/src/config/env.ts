@@ -23,6 +23,21 @@ const envSchema = z.object({
     .string()
     .min(32, 'SESSION_SECRET debe tener al menos 32 caracteres.')
     .optional(),
+
+  // --- Correo (recuperación de contraseña y avisos de seguridad, HU-13) -------
+  /**
+   * Cómo se envían los correos:
+   *   - `console`: se imprimen en la consola del backend (desarrollo).
+   *   - `outbox`: se guardan como archivos JSON en MAIL_OUTBOX_DIR (pruebas E2E).
+   *   - `smtp`: se envían de verdad con SMTP_URL (producción).
+   */
+  MAIL_TRANSPORT: z.enum(['console', 'outbox', 'smtp']).default('console'),
+  MAIL_OUTBOX_DIR: z.string().min(1).default('tmp/outbox'),
+  /** Servidor de correo, por ejemplo `smtps://usuario:clave@smtp.proveedor.com:465`. */
+  SMTP_URL: z.url({ error: 'SMTP_URL no es una dirección válida.' }).optional(),
+  MAIL_FROM: z.string().min(3).default('MiniSuper <no-reply@minisuper.local>'),
+  /** Dirección pública del frontend, para armar los enlaces de los correos. */
+  APP_URL: z.url({ error: 'APP_URL no es una dirección válida.' }).optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -42,6 +57,21 @@ if (isProduction && env.SESSION_SECRET === undefined) {
   console.error('❌ Falta SESSION_SECRET: es obligatoria en producción para firmar las sesiones.');
   process.exit(1);
 }
+
+if (isProduction && (env.MAIL_TRANSPORT !== 'smtp' || env.SMTP_URL === undefined)) {
+  console.error(
+    '❌ En producción el correo debe enviarse de verdad: use MAIL_TRANSPORT=smtp y SMTP_URL.',
+  );
+  process.exit(1);
+}
+
+if (env.MAIL_TRANSPORT === 'smtp' && env.SMTP_URL === undefined) {
+  console.error('❌ Con MAIL_TRANSPORT=smtp falta SMTP_URL.');
+  process.exit(1);
+}
+
+/** Base de los enlaces de los correos: el frontend (por defecto, el mismo de CORS). */
+export const appUrl = (env.APP_URL ?? env.CORS_ORIGIN).replace(/\/+$/, '');
 
 /**
  * Clave de las sesiones. Sin `SESSION_SECRET` (desarrollo y pruebas) se genera

@@ -31,6 +31,7 @@ export const CATALOG_TABLES =
 export async function resetOwner(): Promise<void> {
   await withDb(async (client) => {
     await client.query('DELETE FROM "PlanRequest"');
+    await client.query('DELETE FROM "AccessEvent"');
     await client.query('DELETE FROM "User"');
 
     const foreign = await client.query(
@@ -59,6 +60,8 @@ export interface E2EUser {
   email: string;
   password: string;
   role: E2ERole;
+  /** Con qué entra (HU-11). Por defecto, la parte del correo antes de la `@`. */
+  username?: string;
   mustChangePassword?: boolean;
   /**
    * Negocio del usuario. Por defecto: ninguno para ADMIN (es de la
@@ -72,6 +75,11 @@ export interface E2EUser {
  * backend (usa la misma librería `argon2` del backend). Así se preparan los
  * usuarios sin registro público, como lo hace `npm run db:seed`.
  */
+/** `duena.prueba@example.com` → `duena.prueba` (válido como usuario: minúsculas y punto). */
+function usernameFromEmail(email: string): string {
+  return (email.split('@')[0] ?? 'usuario').toLowerCase().replace(/[^a-z0-9._-]/g, '');
+}
+
 export async function insertUser(user: E2EUser): Promise<void> {
   const passwordHash = await argon2.hash(user.password, { type: argon2.argon2id });
   const businessId =
@@ -83,10 +91,11 @@ export async function insertUser(user: E2EUser): Promise<void> {
 
   await withDb((client) =>
     client.query(
-      `INSERT INTO "User"(id, name, email, "passwordHash", role, "mustChangePassword", "businessId", "updatedAt")
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, now())`,
+      `INSERT INTO "User"(id, name, username, email, "passwordHash", role, "mustChangePassword", "businessId", "updatedAt")
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, now())`,
       [
         user.name,
+        user.username ?? usernameFromEmail(user.email),
         user.email,
         passwordHash,
         user.role,

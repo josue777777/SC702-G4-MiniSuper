@@ -9,6 +9,7 @@ import type {
 import { HttpError } from '../utils/http-error.js';
 import { hashPassword } from '../utils/password.js';
 import { generateTemporaryPassword } from '../utils/temporary-password.js';
+import { firstAvailable, usernameBase } from '../utils/username.js';
 import type {
   CreateBusinessInput,
   PlanRequestInput,
@@ -21,7 +22,13 @@ const EMAIL_IN_USE = 'Ese correo ya está en uso.';
 /** Negocio recién creado con la contraseña temporal de su Encargado (se muestra una vez). */
 export interface BusinessWithManager {
   business: BusinessSummaryDto;
-  manager: { id: string; name: string; email: string; temporaryPassword: string };
+  manager: {
+    id: string;
+    name: string;
+    username: string;
+    email: string | null;
+    temporaryPassword: string;
+  };
 }
 
 /**
@@ -54,11 +61,14 @@ export class PlatformService {
   /** Alta de un negocio: el negocio, su límite de usuarios y su Encargado, de una vez. */
   async createBusiness(input: CreateBusinessInput): Promise<BusinessWithManager> {
     const temporaryPassword = generateTemporaryPassword();
+    // El Encargado también tiene usuario (además de su correo), generado del nombre.
+    const base = usernameBase(input.managerName);
     const created = await this.repository.createBusinessWithManager({
       businessName: input.businessName,
       extraUsers: input.extraUsers,
       manager: {
         name: input.managerName,
+        username: firstAvailable(base, await this.repository.takenUsernames(base)),
         email: input.managerEmail,
         passwordHash: await hashPassword(temporaryPassword),
       },

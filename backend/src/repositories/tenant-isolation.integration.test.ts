@@ -106,6 +106,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Aislamiento entre negocios', (
     await prisma.$executeRawUnsafe(
       'TRUNCATE "SaleAdjustmentItem", "SaleAdjustment", "SaleItem", "InventoryMovement", "CreditPayment", "Sale", "Customer", "PurchaseOrderItem", "PurchaseOrder", "SupplierProduct", "Supplier", "Product", "Category", "PlanRequest", "DocumentSequence" CASCADE',
     );
+    await prisma.accessEvent.deleteMany();
     await prisma.user.deleteMany({ where: { businessId: { in: [A, B] } } });
 
     for (const [id, name] of [
@@ -258,6 +259,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Plataforma (PostgreSQL de prue
 
   beforeEach(async () => {
     await prisma.planRequest.deleteMany();
+    await prisma.accessEvent.deleteMany();
     await prisma.user.deleteMany({ where: { email: { endsWith: '@plataforma.cr' } } });
   });
 
@@ -271,7 +273,12 @@ describe.skipIf(!databaseName.endsWith('_test'))('Plataforma (PostgreSQL de prue
     const fields = {
       businessName: 'Súper Nuevo',
       extraUsers: 0,
-      manager: { name: 'Laura', email: 'laura@plataforma.cr', passwordHash: 'h' },
+      manager: {
+        name: 'Laura',
+        username: 'laura',
+        email: 'laura@plataforma.cr',
+        passwordHash: 'h',
+      },
     };
 
     const created = await platform.createBusinessWithManager(fields);
@@ -292,7 +299,12 @@ describe.skipIf(!databaseName.endsWith('_test'))('Plataforma (PostgreSQL de prue
     const created = await platform.createBusinessWithManager({
       businessName: 'Con solicitud',
       extraUsers: 0,
-      manager: { name: 'Mario', email: 'mario@plataforma.cr', passwordHash: 'h' },
+      manager: {
+        name: 'Mario',
+        username: 'mario',
+        email: 'mario@plataforma.cr',
+        passwordHash: 'h',
+      },
     });
     const businessId = created?.business.id ?? '';
     const requestedById = created?.manager.id ?? '';

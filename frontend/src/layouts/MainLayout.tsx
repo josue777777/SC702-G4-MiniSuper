@@ -266,7 +266,7 @@ function Layout() {
           <strong className="topbar__title">{isPlatform ? systemName : business.name}</strong>
           {/* HU-15: siempre a la vista, aunque el menú lateral esté oculto. */}
           <div className="topbar__session">
-            <span className="topbar__user" title={user.email}>
+            <span className="topbar__user" title={user.email ?? user.username}>
               {user.name}
               <small className="topbar__role">{ROLE_LABELS[user.role]}</small>
             </span>

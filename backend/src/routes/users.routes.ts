@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import { accountSecurity } from '../config/mail.js';
 import { UsersController } from '../controllers/users.controller.js';
 import { UsersRepository } from '../repositories/users.repository.js';
+import type { AccountSecurity } from '../services/account-security.service.js';
 import { UsersService } from '../services/users.service.js';
 
 /**
@@ -8,8 +10,8 @@ import { UsersService } from '../services/users.service.js';
  * `users.manage` (Administrador y Encargado) los exige `routes/index.ts` al
  * montarlo; la jerarquía de rangos la aplica el service.
  */
-export function createUsersRouter(repository: UsersRepository): Router {
-  const controller = new UsersController(new UsersService(repository));
+export function createUsersRouter(repository: UsersRepository, security?: AccountSecurity): Router {
+  const controller = new UsersController(new UsersService(repository, security));
   const router = Router();
 
   // Las respuestas pueden traer una contraseña temporal: el navegador no las guarda.
@@ -19,6 +21,7 @@ export function createUsersRouter(repository: UsersRepository): Router {
   });
 
   router.get('/', (req, res) => controller.list(req, res));
+  router.get('/username-suggestion', (req, res) => controller.suggestUsername(req, res));
   router.post('/', (req, res) => controller.create(req, res));
   router.patch('/:id', (req, res) => controller.update(req, res));
   router.post('/:id/deactivate', (req, res) => controller.deactivate(req, res));
@@ -28,4 +31,4 @@ export function createUsersRouter(repository: UsersRepository): Router {
   return router;
 }
 
-export const usersRouter = createUsersRouter(new UsersRepository());
+export const usersRouter = createUsersRouter(new UsersRepository(), accountSecurity);

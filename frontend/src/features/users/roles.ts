@@ -23,6 +23,23 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   BODEGA: 'Inventario, kardex, pedidos a proveedor y reportes de inventario.',
 };
 
+/**
+ * Cómo recupera cada rol su acceso, igual que `ROLE_RECOVERY` del backend: por
+ * correo (y entonces el correo es obligatorio) o con quien lo administra. Aquí
+ * solo decide si el formulario marca el correo como obligatorio u opcional; el
+ * servidor lo vuelve a exigir.
+ */
+export const ROLE_RECOVERY: Record<Role, 'email' | 'manager'> = {
+  ADMIN: 'email',
+  ENCARGADO: 'email',
+  CAJERO: 'manager',
+  BODEGA: 'manager',
+};
+
+export function recoversByEmail(role: Role): boolean {
+  return ROLE_RECOVERY[role] === 'email';
+}
+
 /** Igual que `ROLE_RANK` del backend: un número mayor es un rango mayor. */
 const ROLE_RANK: Record<Role, number> = { ADMIN: 3, ENCARGADO: 2, CAJERO: 1, BODEGA: 1 };
 

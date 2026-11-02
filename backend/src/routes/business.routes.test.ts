@@ -82,7 +82,7 @@ async function loginAs(role: Role, built = buildApp()) {
 
   await agent
     .post('/api/auth/login')
-    .send({ email: `${role.toLowerCase()}@correo.cr`, password: PASSWORD })
+    .send({ login: `${role.toLowerCase()}@correo.cr`, password: PASSWORD })
     .expect(200);
 
   return { agent, ...built };

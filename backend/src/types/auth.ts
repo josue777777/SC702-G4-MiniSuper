@@ -6,7 +6,10 @@ import type { Permission, Role } from '../auth/permissions.js';
 export interface ProfileDto {
   id: string;
   name: string;
-  email: string;
+  /** Con qué entra al sistema (siempre existe, único). */
+  username: string;
+  /** Opcional para el personal; obligatorio para quien recupera por correo. */
+  email: string | null;
 }
 
 /**
@@ -53,7 +56,8 @@ export interface CreateUserFields {
   /** `null` solo para administradores de la plataforma (lo exige un CHECK en la base). */
   businessId: string | null;
   name: string;
-  email: string;
+  username: string;
+  email: string | null;
   passwordHash: string;
   role: Role;
   mustChangePassword: boolean;
@@ -62,7 +66,8 @@ export interface CreateUserFields {
 /** Cambios posibles sobre un usuario. `revokeSessions` cierra sus sesiones abiertas. */
 export interface UpdateUserFields {
   name?: string;
-  email?: string;
+  username?: string;
+  email?: string | null;
   passwordHash?: string;
   role?: Role;
   isActive?: boolean;
@@ -87,4 +92,30 @@ export type BusinessStatus = 'ACTIVE' | 'SUSPENDED';
 export interface UserListFilter {
   businessId?: string;
   roles?: Role[];
+}
+
+/** Qué pasó con una contraseña (registro de seguridad, HU-13). */
+export type AccessEventType =
+  'PASSWORD_RECOVERED_BY_EMAIL' | 'PASSWORD_RESET_BY_MANAGER' | 'PASSWORD_CHANGED';
+
+/** Una fila del registro de seguridad. Nunca lleva contraseñas ni enlaces. */
+export interface AccessEventFields {
+  type: AccessEventType;
+  /** Cuenta afectada. */
+  userId: string;
+  /** Negocio de la cuenta afectada; `null` para un administrador de la plataforma. */
+  businessId: string | null;
+  /** Quién lo hizo, si fue otra persona. */
+  actorId: string | null;
+}
+
+/** Lo mínimo de una cuenta para recuperar su contraseña por correo. */
+export interface RecoverableAccount {
+  id: string;
+  name: string;
+  email: string | null;
+  role: Role;
+  businessId: string | null;
+  isActive: boolean;
+  businessStatus: BusinessStatus | null;
 }

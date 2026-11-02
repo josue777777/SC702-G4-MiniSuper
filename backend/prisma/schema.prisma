@@ -57,8 +57,8 @@ enum FontScale {
   GRANDE
 }
 
-/// Estado de un negocio cliente. Suspendido: nadie de ese negocio entra, pero
-/// sus datos se conservan (por ejemplo, si deja de pagar y luego vuelve).
+/// Estado de un negocio. Suspendido: nadie de ese negocio entra, pero sus
+/// datos se conservan (y vuelven a estar disponibles al reactivarlo).
 enum BusinessStatus {
   ACTIVE
   SUSPENDED
@@ -118,7 +118,12 @@ model User {
   id                   String    @id @default(uuid()) @db.Uuid
   businessId           String?   @db.Uuid
   name                 String
-  email                String    @unique
+  /// Con qué entra al sistema (HU-11): único en toda la plataforma, sin `@`.
+  /// Se genera del nombre (`jnavarro`) y se puede cambiar; ver `utils/username.ts`.
+  username             String    @unique
+  /// Correo para entrar y recuperar la contraseña. Obligatorio para los roles
+  /// que recuperan por correo (`ROLE_RECOVERY`); opcional para el personal.
+  email                String?   @unique
   /// Nunca en texto plano: se guarda el hash (HU-12).
   passwordHash         String
   /// Qué módulos puede usar (HU-12, criterios de usuarios y roles). Los
@@ -133,7 +138,8 @@ model User {
   /// Se incrementa al cerrar sesión (HU-15): todo token emitido con una versión
   /// anterior deja de ser válido, aunque alguien conserve una copia.
   sessionVersion       Int       @default(0)
-  /// Recuperación de contraseña (HU-13).
+  /// Recuperación de contraseña por correo (HU-13): el HASH SHA-256 del token
+  /// del enlace (nunca el token), y hasta cuándo sirve. Se borra al usarse.
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?
   createdAt            DateTime  @default(now())
@@ -143,6 +149,8 @@ model User {
   preferences     UserPreferences?
   planRequests    PlanRequest[]    @relation("PlanRequestAuthor")
   decidedRequests PlanRequest[]    @relation("PlanRequestDecider")
+  accessEvents    AccessEvent[]    @relation("AccessEventUser")
+  accessActions   AccessEvent[]    @relation("AccessEventActor")
 
   @@index([businessId])
 }
@@ -159,7 +167,7 @@ model UserPreferences {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-/// Negocio cliente de la plataforma (un «inquilino»). Todo lo del negocio
+/// Un negocio registrado en la plataforma. Todo lo del negocio
 /// (productos, ventas, clientes, proveedores…) le pertenece y el servidor
 /// siempre filtra por el negocio de la sesión. El Encargado edita sus datos y
 /// logo; el Administrador lo crea, define su plan y lo puede suspender.
@@ -194,14 +202,15 @@ model Business {
   sales             Sale[]
   suppliers         Supplier[]
   purchaseOrders    PurchaseOrder[]
+  accessEvents      AccessEvent[]
 }
 
 /// Datos de la plataforma (una sola fila, `id = 1`): el nombre del sistema que
 /// ven todos los negocios. Solo lo cambia el Administrador.
 model PlatformSettings {
-  id                Int      @id @default(1)
-  systemName        String   @default("MiniSuper")
-  updatedAt         DateTime @updatedAt
+  id         Int      @id @default(1)
+  systemName String   @default("MiniSuper")
+  updatedAt  DateTime @updatedAt
 }
 
 /// Solicitud de un Encargado para ampliar su plan (más usuarios). Llega a la
@@ -594,4 +603,36 @@ model PurchaseOrderItem {
 
   @@index([purchaseOrderId])
   @@index([productId])
+}
+
+/// Registro de seguridad de las cuentas (HU-13): a quién se le cambió o
+/// restableció la contraseña, quién lo hizo y cuándo. Si algo raro pasa, queda
+/// la evidencia. Nunca guarda contraseñas ni enlaces. Solo se agregan filas.
+model AccessEvent {
+  id         String          @id @default(uuid()) @db.Uuid
+  /// Negocio de la cuenta afectada; `null` si es un administrador de la plataforma.
+  businessId String?         @db.Uuid
+  /// Cuenta a la que se le cambió la contraseña.
+  userId     String          @db.Uuid
+  /// Quién lo hizo, si fue otra persona (un Encargado o un Administrador).
+  actorId    String?         @db.Uuid
+  type       AccessEventType
+  createdAt  DateTime        @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  user     User      @relation("AccessEventUser", fields: [userId], references: [id], onDelete: Restrict)
+  actor    User?     @relation("AccessEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([businessId, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// Qué pasó con la contraseña.
+enum AccessEventType {
+  /// La persona la recuperó con el enlace de su correo.
+  PASSWORD_RECOVERED_BY_EMAIL
+  /// Su Encargado o un Administrador le puso una temporal.
+  PASSWORD_RESET_BY_MANAGER
+  /// La persona la cambió en «Mi perfil».
+  PASSWORD_CHANGED
 }

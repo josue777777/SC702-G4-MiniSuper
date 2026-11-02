@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { USERNAME_PATTERN } from '../utils/username.js';
 
 /** Esquemas Zod del acceso: administrador inicial, login y perfil (HU-11 a HU-14). */
 
@@ -19,6 +20,20 @@ export const emailSchema = z
   .toLowerCase()
   .max(254, 'El correo no puede superar 254 caracteres.')
   .pipe(z.email({ error: 'El correo no es válido.' }));
+
+/**
+ * Nombre de usuario (HU-11, HU-12): en minúscula, de 2 a 30 caracteres,
+ * empieza con letra y solo lleva letras, números, punto, guion o guion bajo.
+ * Nunca `@`, para no confundirse con un correo en el login.
+ */
+export const usernameSchema = z
+  .string({ error: 'El usuario es obligatorio.' })
+  .trim()
+  .toLowerCase()
+  .regex(
+    USERNAME_PATTERN,
+    'El usuario debe tener de 2 a 30 caracteres, empezar con una letra y usar solo letras, números, punto, guion o guion bajo (sin tildes ni espacios).',
+  );
 
 /** Política de contraseña nueva (HU-12): longitud mínima, al menos una letra y un número. */
 export const newPasswordSchema = z
@@ -57,13 +72,13 @@ export type InitialAdminInput = z.infer<typeof initialAdminSchema>;
  * sube ese mínimo, aquí debe quedarse el anterior para no dejar fuera a nadie.
  */
 export const loginSchema = z.object({
-  email: z
-    .string({ error: 'El correo es obligatorio.' })
+  /** Correo o nombre de usuario (HU-11): con `@` es correo; sin `@`, usuario. */
+  login: z
+    .string({ error: 'Escriba su correo o su usuario.' })
     .trim()
     .toLowerCase()
-    .min(1, 'El correo es obligatorio.')
-    .max(254, 'El correo no puede superar 254 caracteres.')
-    .pipe(z.email({ error: 'El correo no es válido.' })),
+    .min(1, 'Escriba su correo o su usuario.')
+    .max(254, 'El correo o usuario no puede superar 254 caracteres.'),
   password: z
     .string({ error: 'La contraseña es obligatoria.' })
     .min(1, { error: 'La contraseña es obligatoria.', abort: true })
@@ -80,7 +95,8 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const updateProfileSchema = z
   .object({
     name: nameSchema.optional(),
-    email: emailSchema.optional(),
+    /** `null` quita el correo (solo el personal; lo comprueba el service). */
+    email: emailSchema.nullable().optional(),
     /** Obligatoria al cambiar el correo o la contraseña (lo comprueba el service). */
     currentPassword: z.string().max(PASSWORD_MAX_LENGTH).optional(),
     newPassword: newPasswordSchema.optional(),
@@ -92,3 +108,19 @@ export const updateProfileSchema = z
   });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/** Cuerpo de `POST /api/auth/password/forgot` (HU-13). */
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+/**
+ * Cuerpo de `POST /api/auth/password/reset` (HU-13): el token del enlace y la
+ * contraseña nueva, con la misma política que cualquier otra.
+ */
+export const resetPasswordSchema = z.object({
+  token: z
+    .string({ error: 'Falta el enlace de recuperación.' })
+    .trim()
+    .min(20, 'El enlace no es válido.')
+    .max(200, 'El enlace no es válido.'),
+  password: newPasswordSchema,
+});
