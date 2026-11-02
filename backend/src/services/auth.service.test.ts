@@ -30,7 +30,7 @@ describe('AuthService.login y resolveSession', () => {
   it('con credenciales correctas emite una sesión que resuelve al usuario con su rol y permisos', async () => {
     const { service } = setup();
 
-    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const session = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     expect(session.user).toEqual(
       expect.objectContaining({ email: 'ana@correo.cr', role: 'ADMIN', mustChangePassword: false }),
@@ -43,7 +43,7 @@ describe('AuthService.login y resolveSession', () => {
   it('un Cajero recibe solo los permisos de su rol', async () => {
     const { service } = setup({}, makeUser({ passwordHash, role: 'CAJERO' }));
 
-    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const session = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     expect(session.user.permissions).toEqual(['sales', 'customers', 'inventory.read']);
     expect(session.user.businessId).toBe(TEST_BUSINESS_ID);
@@ -52,7 +52,7 @@ describe('AuthService.login y resolveSession', () => {
   it('el Administrador es de la plataforma: su sesión no tiene negocio', async () => {
     const { service } = setup();
 
-    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const session = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     expect(session.user.businessId).toBeNull();
   });
@@ -64,17 +64,17 @@ describe('AuthService.login y resolveSession', () => {
     );
 
     await expect(
-      service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1'),
+      service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1'),
     ).rejects.toMatchObject({ statusCode: 403, message: expect.stringMatching(/suspendido/) });
     await expect(
-      service.login({ email: SETUP.email, password: 'incorrecta123' }, 'ip-2'),
-    ).rejects.toMatchObject({ statusCode: 401, message: 'Correo o contraseña incorrectos.' });
+      service.login({ login: SETUP.email, password: 'incorrecta123' }, 'ip-2'),
+    ).rejects.toMatchObject({ statusCode: 401, message: 'Usuario o contraseña incorrectos.' });
   });
 
   it('al suspender el negocio, las sesiones abiertas de su gente dejan de valer', async () => {
     const user = makeUser({ passwordHash, role: 'CAJERO' });
     const { service } = setup({}, user);
-    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const session = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     user.businessStatus = 'SUSPENDED';
 
@@ -85,10 +85,10 @@ describe('AuthService.login y resolveSession', () => {
     const { service } = setup({}, makeUser({ passwordHash, isActive: false }));
 
     const inactive = await service
-      .login({ email: SETUP.email, password: SETUP.password }, 'ip-1')
+      .login({ login: SETUP.email, password: SETUP.password }, 'ip-1')
       .catch((error: unknown) => error);
     const wrong = await service
-      .login({ email: SETUP.email, password: 'incorrecta123' }, 'ip-2')
+      .login({ login: SETUP.email, password: 'incorrecta123' }, 'ip-2')
       .catch((error: unknown) => error);
 
     expect(inactive).toMatchObject({ statusCode: 401, message: (wrong as Error).message });
@@ -96,7 +96,7 @@ describe('AuthService.login y resolveSession', () => {
 
   it('al desactivar al usuario, su sesión abierta deja de valer', async () => {
     const { repository, service } = setup();
-    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const session = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     await repository.update(session.user.id, { isActive: false });
 
@@ -106,7 +106,7 @@ describe('AuthService.login y resolveSession', () => {
   it('con una contraseña temporal la sesión lo indica', async () => {
     const { service } = setup({}, makeUser({ passwordHash, mustChangePassword: true }));
 
-    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const session = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     expect(session.user.mustChangePassword).toBe(true);
   });
@@ -115,10 +115,10 @@ describe('AuthService.login y resolveSession', () => {
     const { service } = setup();
 
     const wrongPassword = await service
-      .login({ email: SETUP.email, password: 'incorrecta123' }, 'ip-1')
+      .login({ login: SETUP.email, password: 'incorrecta123' }, 'ip-1')
       .catch((error: unknown) => error);
     const unknownEmail = await service
-      .login({ email: 'nadie@correo.cr', password: SETUP.password }, 'ip-1')
+      .login({ login: 'nadie@correo.cr', password: SETUP.password }, 'ip-1')
       .catch((error: unknown) => error);
 
     expect(wrongPassword).toMatchObject({ statusCode: 401 });
@@ -130,19 +130,19 @@ describe('AuthService.login y resolveSession', () => {
 
   it('bloquea con 429 tras demasiados intentos fallidos', async () => {
     const { service } = setup({ limiter: new LoginRateLimiter(2) });
-    const bad = { email: SETUP.email, password: 'incorrecta123' };
+    const bad = { login: SETUP.email, password: 'incorrecta123' };
 
     await expect(service.login(bad, 'ip-1')).rejects.toMatchObject({ statusCode: 401 });
     await expect(service.login(bad, 'ip-1')).rejects.toMatchObject({ statusCode: 401 });
     await expect(
-      service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1'),
+      service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1'),
     ).rejects.toMatchObject({ statusCode: 429 });
   });
 
   it('no acepta tokens inexistentes, falsos o vencidos', async () => {
     let now = new Date('2026-10-18T10:00:00Z');
     const { service } = setup({ now: () => now });
-    const session = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const session = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     expect(await service.resolveSession(undefined)).toBeNull();
     expect(await service.resolveSession('token.falso')).toBeNull();
@@ -157,7 +157,7 @@ describe('AuthService.logout (HU-15)', () => {
   async function loggedIn() {
     const context = setup();
     const session = await context.service.login(
-      { email: SETUP.email, password: SETUP.password },
+      { login: SETUP.email, password: SETUP.password },
       'ip-1',
     );
 
@@ -174,7 +174,7 @@ describe('AuthService.logout (HU-15)', () => {
 
   it('invalida también las demás sesiones abiertas del usuario', async () => {
     const { service, session } = await loggedIn();
-    const other = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-2');
+    const other = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-2');
 
     await service.logout(session.token);
 
@@ -185,7 +185,7 @@ describe('AuthService.logout (HU-15)', () => {
     const { service, session } = await loggedIn();
     await service.logout(session.token);
 
-    const next = await service.login({ email: SETUP.email, password: SETUP.password }, 'ip-1');
+    const next = await service.login({ login: SETUP.email, password: SETUP.password }, 'ip-1');
 
     expect(await service.resolveSession(next.token)).toEqual(next.user);
   });

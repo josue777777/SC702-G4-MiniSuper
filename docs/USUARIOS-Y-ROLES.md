@@ -65,6 +65,25 @@ mismos pasos. Después:
   negocio** (el sistema muestra la contraseña temporal del Encargado una sola vez);
 - el Encargado crea a su personal en **Configuración › Usuarios**.
 
+### Cómo entra cada quien: usuario y correo (HU-11, HU-12)
+
+El login tiene **un solo campo: «Correo o usuario»**. Con `@` se busca por correo; sin
+`@`, por nombre de usuario. Sirve igual para cualquier rol, también los que se agreguen.
+
+| Dato | Quién lo tiene | Para qué |
+| --- | --- | --- |
+| **Usuario** (`jnavarro`) | **Todos**, único en todo el sistema | Entrar. Se genera del nombre y se puede cambiar |
+| **Correo** | Obligatorio para quien recupera por correo (Administrador, Encargado); **opcional** para el personal | Entrar, recuperar la contraseña y recibir avisos |
+
+- El usuario se sugiere solo: inicial del nombre + primer apellido, sin tildes y en
+  minúscula («Juan Navarro» → `jnavarro`). Si ya existe, en cualquier negocio y aunque
+  esté desactivado, se le agrega un número (`jnavarro2`). La base de datos garantiza que
+  nunca se repita, aunque dos personas lo creen al mismo tiempo.
+- Un usuario nunca se reutiliza: el historial de ventas no se confunde de persona.
+- Al crear o restablecer, se muestran el **usuario y la contraseña temporal** juntos, una
+  sola vez, para entregárselos a la persona.
+- Qué rol necesita correo lo decide `ROLE_RECOVERY` (`backend/src/auth/permissions.ts`).
+
 ### Si alguien olvida su contraseña (HU-13)
 
 Cada quien la recupera según su rol ([ADR 0003](adr/0003-recuperacion-de-acceso.md)):

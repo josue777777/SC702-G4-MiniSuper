@@ -14,6 +14,7 @@ export function fakeSession(businessId = TEST_BUSINESS_ID, role: Role = 'ENCARGA
   const user: SessionUserDto = {
     id: '0a000000-0000-4000-8000-000000000001',
     name: 'Encargada de prueba',
+    username: 'eprueba',
     email: 'encargada@correo.cr',
     role,
     businessId,

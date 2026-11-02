@@ -12,6 +12,15 @@ interface DataResponse<T> {
 
 /** Configuración › Usuarios. La API responde 403 a cualquier rol que no sea Administrador. */
 export const usersService = {
+  /** HU-12: usuario libre sugerido para un nombre (`jnavarro`, `jnavarro2`…). */
+  async suggestUsername(name: string): Promise<string> {
+    const query = new URLSearchParams({ name });
+
+    return (
+      await apiGet<DataResponse<{ username: string }>>(`/api/users/username-suggestion?${query}`)
+    ).data.username;
+  },
+
   async list(): Promise<UserListItem[]> {
     return (await apiGet<DataResponse<UserListItem[]>>('/api/users')).data;
   },

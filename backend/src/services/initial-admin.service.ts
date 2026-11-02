@@ -1,5 +1,6 @@
 import type { UsersRepository } from '../repositories/users.repository.js';
 import { hashPassword } from '../utils/password.js';
+import { firstAvailable, usernameBase } from '../utils/username.js';
 import type { InitialAdminInput } from '../validators/auth.validator.js';
 
 export type InitialAdminResult =
@@ -22,10 +23,12 @@ export async function ensureInitialAdmin(
     return { status: 'exists' };
   }
 
+  const base = usernameBase(input.name);
   const created = await repository.create({
     // El administrador es de la plataforma: no pertenece a ningún negocio.
     businessId: null,
     name: input.name,
+    username: firstAvailable(base, await repository.takenUsernames(base)),
     email: input.email,
     role: 'ADMIN',
     passwordHash: await hashPassword(input.password),
@@ -34,7 +37,7 @@ export async function ensureInitialAdmin(
 
   return created === null
     ? { status: 'email-in-use', email: input.email }
-    : { status: 'created', email: created.email };
+    : { status: 'created', email: created.email ?? input.email };
 }
 
 /** Prisma explica el error en varias líneas con código; la causa es la última. */

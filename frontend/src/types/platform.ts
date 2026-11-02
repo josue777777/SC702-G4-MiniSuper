@@ -15,7 +15,7 @@ export interface BusinessSummary {
   extraUsers: number;
   maxUsers: number;
   usedSeats: number;
-  manager: { id: string; name: string; email: string } | null;
+  manager: { id: string; name: string; username: string; email: string | null } | null;
   pendingRequest: boolean;
   createdAt: string;
 }
@@ -29,7 +29,13 @@ export interface CreateBusinessPayload {
 
 export interface BusinessWithManager {
   business: BusinessSummary;
-  manager: { id: string; name: string; email: string; temporaryPassword: string };
+  manager: {
+    id: string;
+    name: string;
+    username: string;
+    email: string | null;
+    temporaryPassword: string;
+  };
 }
 
 export interface PlanRequest {

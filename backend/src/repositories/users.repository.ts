@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { takenUsernames } from './usernames.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type {
   CreateUserFields,
@@ -11,6 +12,7 @@ import type {
 const userSelection = {
   id: true,
   name: true,
+  username: true,
   email: true,
   passwordHash: true,
   role: true,
@@ -90,6 +92,18 @@ export class UsersRepository {
     const row = await prisma.user.findUnique({ where: { email }, select: userSelection });
 
     return row === null ? null : toRecord(row);
+  }
+
+  /** HU-11: el login acepta el usuario (`jnavarro`) además del correo. */
+  async findByUsername(username: string): Promise<UserRecord | null> {
+    const row = await prisma.user.findUnique({ where: { username }, select: userSelection });
+
+    return row === null ? null : toRecord(row);
+  }
+
+  /** Usuarios tomados que empiezan con `base`, para sugerir el primero libre. */
+  takenUsernames(base: string): Promise<string[]> {
+    return takenUsernames(base);
   }
 
   async findById(id: string): Promise<UserRecord | null> {

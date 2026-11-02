@@ -18,7 +18,7 @@ test.beforeEach(async () => {
 
 async function loginAndOpenProfile(page: Page, password = OWNER.password, email = OWNER.email) {
   await page.goto('/login');
-  await page.getByLabel('Correo electrónico', { exact: true }).fill(email);
+  await page.getByLabel('Correo o usuario').fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -151,10 +151,10 @@ test('cambiar la contraseña guarda un hash nuevo y solo sirve la clave nueva', 
   const otherPage = await other.newPage();
 
   await otherPage.goto('/login');
-  await otherPage.getByLabel('Correo electrónico', { exact: true }).fill(OWNER.email);
+  await otherPage.getByLabel('Correo o usuario').fill(OWNER.email);
   await otherPage.getByLabel('Contraseña', { exact: true }).fill(OWNER.password);
   await otherPage.getByRole('button', { name: 'Iniciar sesión' }).click();
-  await expect(otherPage.getByRole('alert')).toContainText('Correo o contraseña incorrectos.');
+  await expect(otherPage.getByRole('alert')).toContainText('Usuario o contraseña incorrectos.');
 
   await otherPage.getByLabel('Contraseña', { exact: true }).fill(newPassword);
   await otherPage.getByRole('button', { name: 'Iniciar sesión' }).click();

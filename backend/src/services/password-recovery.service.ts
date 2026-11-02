@@ -107,6 +107,7 @@ export class PasswordRecoveryService {
   private canRecover(account: RecoverableAccount | null): account is RecoverableAccount {
     return (
       account !== null &&
+      account.email !== null &&
       account.isActive &&
       recoversByEmail(account.role) &&
       account.businessStatus !== 'SUSPENDED'

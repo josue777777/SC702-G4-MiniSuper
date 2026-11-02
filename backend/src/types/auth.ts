@@ -6,7 +6,10 @@ import type { Permission, Role } from '../auth/permissions.js';
 export interface ProfileDto {
   id: string;
   name: string;
-  email: string;
+  /** Con qué entra al sistema (siempre existe, único). */
+  username: string;
+  /** Opcional para el personal; obligatorio para quien recupera por correo. */
+  email: string | null;
 }
 
 /**
@@ -53,7 +56,8 @@ export interface CreateUserFields {
   /** `null` solo para administradores de la plataforma (lo exige un CHECK en la base). */
   businessId: string | null;
   name: string;
-  email: string;
+  username: string;
+  email: string | null;
   passwordHash: string;
   role: Role;
   mustChangePassword: boolean;
@@ -62,7 +66,8 @@ export interface CreateUserFields {
 /** Cambios posibles sobre un usuario. `revokeSessions` cierra sus sesiones abiertas. */
 export interface UpdateUserFields {
   name?: string;
-  email?: string;
+  username?: string;
+  email?: string | null;
   passwordHash?: string;
   role?: Role;
   isActive?: boolean;
@@ -108,7 +113,7 @@ export interface AccessEventFields {
 export interface RecoverableAccount {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   role: Role;
   businessId: string | null;
   isActive: boolean;

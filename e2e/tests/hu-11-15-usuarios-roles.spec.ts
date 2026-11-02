@@ -15,7 +15,7 @@ const NEW_PASSWORD = 'MiClavePropia123';
 
 async function login(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('Correo electrónico', { exact: true }).fill(email);
+  await page.getByLabel('Correo o usuario').fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
 }
@@ -46,7 +46,7 @@ async function createUserFromUi(
 ): Promise<string> {
   await page.getByRole('button', { name: '+ Nuevo usuario' }).click();
   await page.getByLabel('Nombre', { exact: true }).fill(user.name);
-  await page.getByLabel('Correo electrónico', { exact: true }).fill(user.email);
+  await page.getByLabel(/^Correo electrónico/).fill(user.email);
   await page.getByLabel('Rol').selectOption({ label: user.role });
   await page.getByRole('button', { name: 'Crear usuario' }).click();
 
@@ -336,7 +336,7 @@ test('al desactivar a un usuario se cierra su sesión y ya no puede entrar', asy
   await bea.reload();
   await expect(bea).toHaveURL(/\/login$/);
   await login(bea, 'bea@example.com', 'ClaveSegura123');
-  await expect(bea.getByRole('alert')).toContainText('Correo o contraseña incorrectos.');
+  await expect(bea.getByRole('alert')).toContainText('Usuario o contraseña incorrectos.');
   await other.close();
 
   // No se borró: sigue en la base, inactivo.
@@ -378,7 +378,7 @@ test('HU-13: la Encargada restablece una contraseña olvidada con una temporal',
 
   // La contraseña vieja ya no sirve; la temporal sí, y obliga a cambiarla.
   await login(page, 'carlos@example.com', 'ClaveOlvidada123');
-  await expect(page.getByRole('alert')).toContainText('Correo o contraseña incorrectos.');
+  await expect(page.getByRole('alert')).toContainText('Usuario o contraseña incorrectos.');
   await login(page, 'carlos@example.com', temporaryPassword);
   await expect(page).toHaveURL(/\/profile$/);
 });

@@ -27,6 +27,7 @@ export function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
   return {
     id: OWNER_ID,
     name: 'Ana Pérez',
+    username: 'aperez',
     email: 'ana@correo.cr',
     passwordHash: '$argon2id$de-prueba',
     role,
@@ -73,6 +74,16 @@ export class FakeUsersRepository implements UsersRepository {
 
   findByEmail(email: string): Promise<UserRecord | null> {
     return Promise.resolve(this.users.find((user) => user.email === email) ?? null);
+  }
+
+  findByUsername(username: string): Promise<UserRecord | null> {
+    return Promise.resolve(this.users.find((user) => user.username === username) ?? null);
+  }
+
+  takenUsernames(base: string): Promise<string[]> {
+    return Promise.resolve(
+      this.users.map((user) => user.username).filter((username) => username.startsWith(base)),
+    );
   }
 
   findById(id: string): Promise<UserRecord | null> {
@@ -139,8 +150,14 @@ export class FakeUsersRepository implements UsersRepository {
   }
 
   create(fields: CreateUserFields): Promise<UserRecord | null> {
-    // Igual que el índice único real del correo.
-    if (this.users.some((user) => user.email === fields.email)) {
+    // Igual que los índices únicos reales del correo y del usuario.
+    if (
+      this.users.some(
+        (user) =>
+          (fields.email !== null && user.email === fields.email) ||
+          user.username === fields.username,
+      )
+    ) {
       return Promise.resolve(null);
     }
 
@@ -169,8 +186,12 @@ export class FakeUsersRepository implements UsersRepository {
     const { revokeSessions, ...data } = fields;
 
     if (
-      data.email !== undefined &&
-      this.users.some((user) => user.id !== id && user.email === data.email)
+      this.users.some(
+        (user) =>
+          user.id !== id &&
+          ((data.email !== undefined && data.email !== null && user.email === data.email) ||
+            (data.username !== undefined && user.username === data.username)),
+      )
     ) {
       return Promise.resolve(null);
     }

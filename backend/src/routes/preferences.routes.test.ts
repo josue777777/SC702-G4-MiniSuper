@@ -45,7 +45,7 @@ function buildApp() {
 async function loginAs(email: string, built = buildApp()) {
   const agent = request.agent(built.app);
 
-  await agent.post('/api/auth/login').send({ email, password: PASSWORD }).expect(200);
+  await agent.post('/api/auth/login').send({ login: email, password: PASSWORD }).expect(200);
 
   return { agent, ...built };
 }

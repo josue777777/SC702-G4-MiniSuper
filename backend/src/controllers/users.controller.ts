@@ -6,6 +6,7 @@ import {
   createUserSchema,
   updateUserSchema,
   userIdParamSchema,
+  usernameSuggestionSchema,
 } from '../validators/users.validator.js';
 
 /** Quien hace la operación: SIEMPRE el de la sesión, nunca un dato del navegador. */
@@ -21,6 +22,16 @@ function actor(res: Response): UserActor {
  */
 export class UsersController {
   constructor(private readonly service: UsersService) {}
+
+  /**
+   * `GET /api/users/username-suggestion?name=Juan%20Navarro` — el usuario libre
+   * que se sugiere al crear (`jnavarro`, o `jnavarro2` si ya existe).
+   */
+  async suggestUsername(req: Request, res: Response): Promise<void> {
+    const { name } = usernameSuggestionSchema.parse(req.query);
+
+    res.status(200).json({ data: { username: await this.service.suggestUsername(name) } });
+  }
 
   /** `GET /api/users` — usuarios con su rol y estado. */
   async list(_req: Request, res: Response): Promise<void> {

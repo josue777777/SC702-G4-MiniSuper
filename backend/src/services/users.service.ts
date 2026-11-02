@@ -1,4 +1,4 @@
-import { canManageRole, type Role } from '../auth/permissions.js';
+import { canManageRole, recoversByEmail, type Role } from '../auth/permissions.js';
 import type { UsersRepository } from '../repositories/users.repository.js';
 import { type AccountSecurity, NO_ACCOUNT_SECURITY } from './account-security.service.js';
 import type {
@@ -11,9 +11,15 @@ import type {
 import { HttpError } from '../utils/http-error.js';
 import { hashPassword } from '../utils/password.js';
 import { generateTemporaryPassword } from '../utils/temporary-password.js';
+import { firstAvailable, usernameBase } from '../utils/username.js';
 import type { CreateUserInput, UpdateUserInput } from '../validators/users.validator.js';
 
 const EMAIL_IN_USE = 'Ese correo ya está en uso.';
+const USERNAME_IN_USE = 'Ese usuario ya existe. Elija otro.';
+const DUPLICATE = 'Ese correo o usuario ya está en uso.';
+const EMAIL_REQUIRED = 'Este rol necesita un correo: con él recupera su contraseña si la olvida.';
+/** Reintentos si dos altas toman el mismo usuario generado al mismo tiempo. */
+const USERNAME_ATTEMPTS = 3;
 const LAST_ADMIN = 'El sistema debe tener al menos un administrador activo.';
 const OUT_OF_RANK = 'Solo puede administrar usuarios de un rango menor al suyo.';
 const NOT_FOUND = 'No se encontró el usuario.';
@@ -28,6 +34,7 @@ export function toListItem(user: UserRecord): UserListItemDto {
   return {
     id: user.id,
     name: user.name,
+    username: user.username,
     email: user.email,
     role: user.role,
     businessName: user.businessName,
@@ -83,21 +90,61 @@ export class UsersService {
       .map(toListItem);
   }
 
+  /**
+   * El usuario que se sugiere para un nombre (`jnavarro`, o `jnavarro2` si ya
+   * existe). La pantalla lo muestra al escribir el nombre y se puede cambiar.
+   */
+  async suggestUsername(name: string): Promise<string> {
+    const base = usernameBase(name);
+
+    return firstAvailable(base, await this.repository.takenUsernames(base));
+  }
+
+  /**
+   * Alta de un usuario con contraseña temporal. Si no se indica el usuario, se
+   * genera uno libre a partir del nombre. El correo solo es obligatorio para los
+   * roles que recuperan su contraseña por correo (`ROLE_RECOVERY`).
+   */
   async create(input: CreateUserInput, actor: UserActor): Promise<UserWithTemporaryPassword> {
     this.assertCanAssign(actor, input.role);
 
+    const email = input.email ?? null;
+
+    this.assertEmailFor(input.role, email);
+
+    // --- Correo y usuario libres: mensajes claros antes de intentar ----------
+    if (email !== null && (await this.repository.findByEmail(email)) !== null) {
+      throw HttpError.conflict(EMAIL_IN_USE, { email: [EMAIL_IN_USE] });
+    }
+
+    if (
+      input.username !== undefined &&
+      (await this.repository.findByUsername(input.username)) !== null
+    ) {
+      throw HttpError.conflict(USERNAME_IN_USE, { username: [USERNAME_IN_USE] });
+    }
+
     const businessId = await this.businessForNewUser(input, actor);
     const temporaryPassword = generateTemporaryPassword();
-    const created = await this.repository.createWithinPlan({
-      businessId,
-      name: input.name,
-      email: input.email,
-      role: input.role,
-      passwordHash: await hashPassword(temporaryPassword),
-      mustChangePassword: true,
-    });
+    const passwordHash = await hashPassword(temporaryPassword);
 
-    return { user: toListItem(this.saved(created)), temporaryPassword };
+    // --- Alta: si otro tomó el usuario generado en el mismo instante, se
+    //     calcula el siguiente libre y se reintenta (el índice único decide).
+    for (let attempt = 1; ; attempt += 1) {
+      const created = await this.repository.createWithinPlan({
+        businessId,
+        name: input.name,
+        username: input.username ?? (await this.suggestUsername(input.name)),
+        email,
+        role: input.role,
+        passwordHash,
+        mustChangePassword: true,
+      });
+
+      if (created !== null || input.username !== undefined || attempt >= USERNAME_ATTEMPTS) {
+        return { user: toListItem(this.saved(created)), temporaryPassword };
+      }
+    }
   }
 
   async update(id: string, input: UpdateUserInput, actor: UserActor): Promise<UserListItemDto> {
@@ -108,9 +155,31 @@ export class UsersService {
       changes.name = input.name;
     }
 
+    if (input.username !== undefined && input.username !== user.username) {
+      const owner = await this.repository.findByUsername(input.username);
+
+      if (owner !== null && owner.id !== id) {
+        throw HttpError.conflict(USERNAME_IN_USE, { username: [USERNAME_IN_USE] });
+      }
+
+      changes.username = input.username;
+    }
+
     if (input.email !== undefined && input.email !== user.email) {
+      const owner = input.email === null ? null : await this.repository.findByEmail(input.email);
+
+      if (owner !== null && owner.id !== id) {
+        throw HttpError.conflict(EMAIL_IN_USE, { email: [EMAIL_IN_USE] });
+      }
+
       changes.email = input.email;
     }
+
+    // Con el rol y el correo que quedarán: quien recupera por correo lo necesita.
+    this.assertEmailFor(
+      input.role ?? user.role,
+      changes.email === undefined ? user.email : changes.email,
+    );
 
     if (input.role !== undefined && input.role !== user.role) {
       if (id === actor.id) {
@@ -246,6 +315,13 @@ export class UsersService {
     return input.businessId;
   }
 
+  /** Los roles que recuperan su contraseña por correo no pueden quedarse sin correo. */
+  private assertEmailFor(role: Role, email: string | null): void {
+    if (email === null && recoversByEmail(role)) {
+      throw HttpError.badRequest(EMAIL_REQUIRED, { email: [EMAIL_REQUIRED] });
+    }
+  }
+
   /** Nadie da más poder del que tiene: solo se asignan roles de rango menor. */
   private assertCanAssign(actor: UserActor, role: Role): void {
     if (!canManageRole(actor.role, role)) {
@@ -253,10 +329,10 @@ export class UsersService {
     }
   }
 
-  /** Traduce el resultado del repositorio: correo repetido o plan lleno son 409. */
+  /** Traduce el resultado del repositorio: correo o usuario repetido, o plan lleno, son 409. */
   private saved(result: UserRecord | PlanFull | null): UserRecord {
     if (result === null) {
-      throw HttpError.conflict(EMAIL_IN_USE, { email: [EMAIL_IN_USE] });
+      throw HttpError.conflict(DUPLICATE);
     }
 
     if (isPlanFull(result)) {
