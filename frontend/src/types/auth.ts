@@ -24,7 +24,10 @@ export type Permission =
 export interface Profile {
   id: string;
   name: string;
-  email: string;
+  /** Con qué entra al sistema (siempre existe). */
+  username: string;
+  /** Opcional para el personal; obligatorio para quien recupera por correo. */
+  email: string | null;
   role: Role;
   /** Negocio del usuario; `null` para los administradores de la plataforma. */
   businessId: string | null;
@@ -34,14 +37,16 @@ export interface Profile {
 }
 
 export interface LoginPayload {
-  email: string;
+  /** Correo o nombre de usuario: el servidor decide por la `@`. */
+  login: string;
   password: string;
 }
 
 /** Solo viajan los campos que cambiaron. */
 export interface ProfileUpdatePayload {
   name?: string;
-  email?: string;
+  /** `null` quita el correo (solo si el rol no recupera por correo). */
+  email?: string | null;
   currentPassword?: string;
   newPassword?: string;
 }
@@ -50,7 +55,8 @@ export interface ProfileUpdatePayload {
 export interface UserListItem {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  email: string | null;
   role: Role;
   /** Negocio del usuario (la plataforma lo ve al listar Encargados). */
   businessName: string | null;
@@ -61,7 +67,9 @@ export interface UserListItem {
 
 export interface CreateUserPayload {
   name: string;
-  email: string;
+  /** Si no viene, el servidor genera uno libre a partir del nombre. */
+  username?: string;
+  email?: string | null;
   role: Role;
   /** Solo la plataforma, al crear un Encargado: de qué negocio es. */
   businessId?: string;

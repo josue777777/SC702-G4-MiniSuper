@@ -21,6 +21,7 @@ export function createUsersRouter(repository: UsersRepository, security?: Accoun
   });
 
   router.get('/', (req, res) => controller.list(req, res));
+  router.get('/username-suggestion', (req, res) => controller.suggestUsername(req, res));
   router.post('/', (req, res) => controller.create(req, res));
   router.patch('/:id', (req, res) => controller.update(req, res));
   router.post('/:id/deactivate', (req, res) => controller.deactivate(req, res));

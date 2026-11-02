@@ -118,7 +118,12 @@ model User {
   id                   String    @id @default(uuid()) @db.Uuid
   businessId           String?   @db.Uuid
   name                 String
-  email                String    @unique
+  /// Con qué entra al sistema (HU-11): único en toda la plataforma, sin `@`.
+  /// Se genera del nombre (`jnavarro`) y se puede cambiar; ver `utils/username.ts`.
+  username             String    @unique
+  /// Correo para entrar y recuperar la contraseña. Obligatorio para los roles
+  /// que recuperan por correo (`ROLE_RECOVERY`); opcional para el personal.
+  email                String?   @unique
   /// Nunca en texto plano: se guarda el hash (HU-12).
   passwordHash         String
   /// Qué módulos puede usar (HU-12, criterios de usuarios y roles). Los

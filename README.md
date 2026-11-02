@@ -85,7 +85,9 @@ Configuración › Apariencia. Guía para programar módulos en
 [docs/adr/0003-recuperacion-de-acceso.md](docs/adr/0003-recuperacion-de-acceso.md);
 camino de crecimiento a ERP en [docs/ESCALABILIDAD.md](docs/ESCALABILIDAD.md).
 
-Cada usuario nuevo recibe una contraseña temporal (se muestra una sola vez). Si alguien
+Cada usuario tiene un **nombre de usuario** generado de su nombre (`jnavarro`) y entra con
+«Correo o usuario»; el correo es opcional para el personal. Al crearlo recibe una
+contraseña temporal (se muestra una sola vez, junto con su usuario). Si alguien
 olvida su contraseña: el Administrador y el Encargado la recuperan con un enlace a su
 correo; al personal se la restablece su Encargado. Los usuarios no se borran: se
 desactivan. Desactivar, cambiar el rol o restablecer la contraseña cierra las sesiones

@@ -57,7 +57,8 @@ Los services dependen de una interfaz `Mailer`; `MAIL_TRANSPORT` elige la implem
 
 - El Encargado y el Administrador ya no dependen de que otra persona esté disponible.
 - Producción necesita un servicio de correo SMTP (por ejemplo Resend, SendGrid o Gmail).
+- El personal entra con un **usuario generado** (`jnavarro`) y no necesita correo; el
+  login acepta «Correo o usuario» (HU-11, HU-12).
 - Mejoras previstas, registradas como criterios de sus historias:
-  - el personal entra con un **usuario generado** (`jnavarro`) en vez de correo (HU-12);
   - **verificación en dos pasos** para Administrador y Encargado (HU-11);
   - **PIN rápido** para cambiar de cajero en un equipo compartido (HU-15).

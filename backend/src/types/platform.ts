@@ -25,7 +25,7 @@ export interface BusinessSummaryDto {
   extraUsers: number;
   maxUsers: number;
   usedSeats: number;
-  manager: { id: string; name: string; email: string } | null;
+  manager: { id: string; name: string; username: string; email: string | null } | null;
   pendingRequest: boolean;
   createdAt: string;
 }
@@ -47,12 +47,12 @@ export interface PlanRequestDto {
 export interface CreateBusinessFields {
   businessName: string;
   extraUsers: number;
-  manager: { name: string; email: string; passwordHash: string };
+  manager: { name: string; username: string; email: string; passwordHash: string };
 }
 
 export interface CreatedBusiness {
   business: BusinessSummaryDto;
-  manager: { id: string; name: string; email: string };
+  manager: { id: string; name: string; username: string; email: string | null };
 }
 
 export interface CreatePlanRequestFields {

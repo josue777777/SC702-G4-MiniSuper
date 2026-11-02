@@ -25,6 +25,25 @@ export function validateEmail(email: string): string | undefined {
   return EMAIL_PATTERN.test(email.trim()) ? undefined : 'El correo no es válido.';
 }
 
+/** Igual que `USERNAME_PATTERN` del backend (`utils/username.ts`). */
+const USERNAME_PATTERN = /^[a-z][a-z0-9._-]{1,29}$/;
+
+/** Nombre de usuario (HU-12): minúsculas, de 2 a 30, empieza con letra, sin `@`. */
+export function validateUsername(username: string): string | undefined {
+  if (username.trim() === '') {
+    return 'Escriba el usuario.';
+  }
+
+  return USERNAME_PATTERN.test(username.trim().toLowerCase())
+    ? undefined
+    : 'De 2 a 30 caracteres, empezando con una letra: solo letras, números, punto, guion o guion bajo (sin tildes ni espacios).';
+}
+
+/** Campo «Correo o usuario» del login (HU-11). */
+export function validateLogin(login: string): string | undefined {
+  return login.trim() === '' ? 'Escriba su correo o su usuario.' : undefined;
+}
+
 /**
  * Formato de la contraseña al iniciar sesión (HU-11): solo la longitud. La
  * política completa (letra y número) es de las contraseñas nuevas.

@@ -7,7 +7,7 @@ import type { AccountNotifier, PasswordChange } from './account-notifier.service
 export interface ChangedAccount {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   role: Role;
   businessId: string | null;
 }

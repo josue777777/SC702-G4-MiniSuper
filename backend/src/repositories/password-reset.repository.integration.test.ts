@@ -35,6 +35,7 @@ describe.skipIf(!databaseName.endsWith('_test'))(
         data: {
           businessId: BUSINESS_ID,
           name: 'Elena',
+          username: 'elena',
           email: 'elena@recupera.cr',
           passwordHash: 'hash-viejo',
           role: 'ENCARGADO',

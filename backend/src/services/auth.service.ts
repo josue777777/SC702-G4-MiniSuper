@@ -13,7 +13,7 @@ import type { LoginInput } from '../validators/auth.validator.js';
 
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
-const INVALID_CREDENTIALS = 'Correo o contraseña incorrectos.';
+const INVALID_CREDENTIALS = 'Usuario o contraseña incorrectos.';
 const BUSINESS_SUSPENDED =
   'El acceso de su negocio está suspendido. Comuníquese con el administrador del sistema.';
 
@@ -34,6 +34,7 @@ export function toSessionUser(user: UserRecord): SessionUserDto {
   return {
     id: user.id,
     name: user.name,
+    username: user.username,
     email: user.email,
     role: user.role,
     businessId: user.businessId,
@@ -66,7 +67,10 @@ export class AuthService {
       throw HttpError.tooManyRequests('Demasiados intentos fallidos. Intente de nuevo más tarde.');
     }
 
-    const user = await this.repository.findByEmail(input.email);
+    // Con `@` es un correo; sin `@`, un nombre de usuario (que nunca lleva `@`).
+    const user = input.login.includes('@')
+      ? await this.repository.findByEmail(input.login)
+      : await this.repository.findByUsername(input.login);
     const valid =
       user === null
         ? (await verifyAgainstDecoy(input.password), false)

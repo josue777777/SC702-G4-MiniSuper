@@ -43,7 +43,7 @@ async function loggedInAgent() {
 
   await agent
     .post('/api/auth/login')
-    .send({ email: OWNER.email, password: OWNER.password })
+    .send({ login: OWNER.email, password: OWNER.password })
     .expect(200);
 
   return { agent, app, repository };
@@ -65,7 +65,7 @@ describe('POST /api/auth/login y GET /api/auth/session', () => {
 
     const response = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'ANA@correo.cr', password: OWNER.password });
+      .send({ login: 'ANA@correo.cr', password: OWNER.password });
 
     expect(response.status).toBe(200);
 
@@ -79,19 +79,18 @@ describe('POST /api/auth/login y GET /api/auth/session', () => {
   it('responde 400 con el error de cada campo si falta un dato o el formato no es válido', async () => {
     const { app } = buildApp();
 
-    const empty = await request(app).post('/api/auth/login').send({ email: '', password: '' });
+    const empty = await request(app).post('/api/auth/login').send({ login: '', password: '' });
     const badFormat = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'ana-sin-arroba', password: 'corta' });
+      .send({ login: 'ana-sin-arroba', password: 'corta' });
 
     expect(empty.status).toBe(400);
     expect(empty.body.error.details).toEqual({
-      email: ['El correo es obligatorio.'],
+      login: ['Escriba su correo o su usuario.'],
       password: ['La contraseña es obligatoria.'],
     });
     expect(badFormat.status).toBe(400);
     expect(badFormat.body.error.details).toEqual({
-      email: ['El correo no es válido.'],
       password: ['La contraseña debe tener al menos 10 caracteres.'],
     });
     expect(badFormat.headers['set-cookie']).toBeUndefined();
@@ -102,7 +101,7 @@ describe('POST /api/auth/login y GET /api/auth/session', () => {
 
     const response = await request(app)
       .post('/api/auth/login')
-      .send({ email: OWNER.email, password: 'incorrecta123' });
+      .send({ login: OWNER.email, password: 'incorrecta123' });
 
     expect(response.status).toBe(401);
     expect(response.headers['set-cookie']).toBeUndefined();
@@ -142,7 +141,7 @@ describe('POST /api/auth/logout (HU-15)', () => {
     const { app } = buildApp();
     const login = await request(app)
       .post('/api/auth/login')
-      .send({ email: OWNER.email, password: OWNER.password });
+      .send({ login: OWNER.email, password: OWNER.password });
     const copied = String(String(login.headers['set-cookie']?.[0]).split(';')[0]);
 
     await request(app).post('/api/auth/logout').set('Cookie', copied).expect(204);
@@ -157,7 +156,7 @@ describe('POST /api/auth/logout (HU-15)', () => {
 
     await agent
       .post('/api/auth/login')
-      .send({ email: OWNER.email, password: OWNER.password })
+      .send({ login: OWNER.email, password: OWNER.password })
       .expect(200);
 
     expect((await agent.get('/api/auth/session')).status).toBe(200);
@@ -263,7 +262,7 @@ describe('/api/profile', () => {
       (
         await request(app)
           .post('/api/auth/login')
-          .send({ email: OWNER.email, password: OWNER.password })
+          .send({ login: OWNER.email, password: OWNER.password })
       ).headers['set-cookie']?.[0],
     ).split(';')[0];
 
@@ -280,14 +279,14 @@ describe('/api/profile', () => {
       (
         await request(app)
           .post('/api/auth/login')
-          .send({ email: OWNER.email, password: 'NuevaClave789012' })
+          .send({ login: OWNER.email, password: 'NuevaClave789012' })
       ).status,
     ).toBe(200);
     expect(
       (
         await request(app)
           .post('/api/auth/login')
-          .send({ email: OWNER.email, password: OWNER.password })
+          .send({ login: OWNER.email, password: OWNER.password })
       ).status,
     ).toBe(401);
   });

@@ -1,10 +1,13 @@
 import type { UsersRepository } from '../repositories/users.repository.js';
+import { recoversByEmail } from '../auth/permissions.js';
 import { type AccountSecurity, NO_ACCOUNT_SECURITY } from './account-security.service.js';
 import { toSessionUser } from './auth.service.js';
 import type { SessionUserDto, UpdateUserFields } from '../types/auth.js';
 import { HttpError } from '../utils/http-error.js';
 import { hashPassword, verifyPassword } from '../utils/password.js';
 import type { UpdateProfileInput } from '../validators/auth.validator.js';
+
+const EMAIL_REQUIRED = 'Su cuenta necesita un correo: con él recupera su contraseña si la olvida.';
 
 export interface UpdatedProfile {
   profile: SessionUserDto;
@@ -56,7 +59,12 @@ export class ProfileService {
     const emailChanged = input.email !== undefined && input.email !== user.email;
 
     if (emailChanged) {
-      changes.email = input.email;
+      // Quien recupera su contraseña por correo no puede quedarse sin correo.
+      if (input.email === null && recoversByEmail(user.role)) {
+        throw HttpError.badRequest(EMAIL_REQUIRED, { email: [EMAIL_REQUIRED] });
+      }
+
+      changes.email = input.email ?? null;
     }
 
     if (input.newPassword !== undefined) {

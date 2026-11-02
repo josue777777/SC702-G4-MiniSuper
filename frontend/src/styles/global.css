@@ -2189,3 +2189,24 @@ code {
 .login__alternative p {
   margin: 8px 0 0;
 }
+
+/* Datos de acceso que se entregan una vez: usuario y contraseña temporal. */
+.access-data {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 12px 0 16px;
+}
+
+.access-data dt {
+  font-weight: 600;
+}
+
+.access-data dd {
+  margin: 0;
+}
+
+.access-data dd.temporary-password {
+  margin: 0;
+}

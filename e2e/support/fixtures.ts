@@ -82,7 +82,7 @@ export async function signInVia(
   user: Pick<E2EUser, 'email' | 'password'>,
 ): Promise<void> {
   const login = await request.post(`${BACKEND_URL}/api/auth/login`, {
-    data: { email: user.email, password: user.password },
+    data: { login: user.email, password: user.password },
   });
 
   expect(login.status()).toBe(200);

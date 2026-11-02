@@ -15,7 +15,10 @@ import { PasswordRecoveryService } from './password-recovery.service.js';
 
 const APP_URL = 'http://localhost:5173';
 
-function account(overrides: Partial<RecoverableAccount>): RecoverableAccount {
+/** Cuenta que recupera por correo (siempre tiene uno). */
+type EmailAccount = RecoverableAccount & { email: string };
+
+function account(overrides: Partial<EmailAccount>): EmailAccount {
   return {
     id: '10000000-0000-4000-8000-000000000001',
     name: 'Elena Encargada',

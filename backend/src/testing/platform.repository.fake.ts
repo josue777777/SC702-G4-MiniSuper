@@ -26,6 +26,7 @@ export class FakePlatformRepository implements PlatformRepository {
       manager: {
         id: '22222222-1111-4111-8111-111111111111',
         name: 'Elena',
+        username: 'encargado',
         email: 'encargado@correo.cr',
       },
       pendingRequest: false,
@@ -34,6 +35,12 @@ export class FakePlatformRepository implements PlatformRepository {
   ];
   requests: PlanRequestDto[] = [];
   readonly emails = new Set<string>(['encargado@correo.cr']);
+  /** Usuarios tomados (como el índice único real). */
+  readonly usernames = new Set<string>(['encargado']);
+
+  takenUsernames(base: string): Promise<string[]> {
+    return Promise.resolve([...this.usernames].filter((name) => name.startsWith(base)));
+  }
   private nextId = 1;
 
   private id(): string {
@@ -67,7 +74,13 @@ export class FakePlatformRepository implements PlatformRepository {
 
     this.emails.add(fields.manager.email);
 
-    const manager = { id: this.id(), name: fields.manager.name, email: fields.manager.email };
+    const manager = {
+      id: this.id(),
+      name: fields.manager.name,
+      username: fields.manager.username,
+      email: fields.manager.email,
+    };
+    this.usernames.add(fields.manager.username);
     const business: BusinessSummaryDto = {
       id: this.id(),
       name: fields.businessName,

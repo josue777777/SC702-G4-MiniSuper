@@ -10,6 +10,7 @@ import type {
   PlanRequestStatus,
   PlatformSettingsDto,
 } from '../types/platform.js';
+import { takenUsernames } from './usernames.js';
 import { maxUsersOf } from './users.repository.js';
 
 /** La fila de la plataforma (una sola, lo exige un CHECK). */
@@ -31,7 +32,7 @@ const businessSummarySelection = {
   createdAt: true,
   users: {
     where: { role: 'ENCARGADO', isActive: true },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, username: true, email: true },
     orderBy: { createdAt: 'asc' },
     take: 1,
   },
@@ -102,6 +103,11 @@ function isUniqueViolation(error: unknown): boolean {
  * Encargado sobre SUS solicitudes, siempre filtradas por su negocio.
  */
 export class PlatformRepository {
+  /** Usuarios tomados que empiezan con `base`, para el usuario del Encargado nuevo. */
+  takenUsernames(base: string): Promise<string[]> {
+    return takenUsernames(base);
+  }
+
   async getSettings(): Promise<PlatformSettingsDto> {
     const row = await prisma.platformSettings.findUnique({ where: { id: PLATFORM_ROW } });
 
@@ -154,7 +160,7 @@ export class PlatformRepository {
             role: 'ENCARGADO',
             mustChangePassword: true,
           },
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, username: true, email: true },
         });
 
         return { businessId: business.id, manager: created };

@@ -58,7 +58,12 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
   it('de varias altas simultáneas con el mismo correo, solo una se guarda', async () => {
     const results = await Promise.all(
       Array.from({ length: 6 }, (_, index) =>
-        repository.create({ ...BASE, name: `Cajero ${index}`, email: 'caja@correo.cr' }),
+        repository.create({
+          ...BASE,
+          name: `Cajero ${index}`,
+          username: 'caja',
+          email: 'caja@correo.cr',
+        }),
       ),
     );
 
@@ -69,9 +74,14 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
   it('countActiveAdmins solo cuenta administradores activos', async () => {
     const admin = { ...BASE, businessId: null, role: 'ADMIN' } as const;
 
-    await repository.create({ ...admin, name: 'Ana', email: 'ana@correo.cr' });
-    const other = await repository.create({ ...admin, name: 'Luis', email: 'luis@correo.cr' });
-    await repository.create({ ...BASE, name: 'Caja', email: 'caja@correo.cr' });
+    await repository.create({ ...admin, name: 'Ana', username: 'ana', email: 'ana@correo.cr' });
+    const other = await repository.create({
+      ...admin,
+      name: 'Luis',
+      username: 'luis',
+      email: 'luis@correo.cr',
+    });
+    await repository.create({ ...BASE, name: 'Caja', username: 'caja', email: 'caja@correo.cr' });
 
     expect(await repository.countActiveAdmins()).toBe(2);
 
@@ -81,7 +91,12 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
   });
 
   it('revokeSessions incrementa la versión de sesión de forma atómica (HU-15)', async () => {
-    const created = await repository.create({ ...BASE, name: 'Ana', email: 'ana@correo.cr' });
+    const created = await repository.create({
+      ...BASE,
+      name: 'Ana',
+      username: 'ana',
+      email: 'ana@correo.cr',
+    });
     const id = created?.id ?? '';
 
     await Promise.all([repository.revokeSessions(id), repository.revokeSessions(id)]);
@@ -90,7 +105,12 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
   });
 
   it('el registro trae el negocio y su estado (para cortar sesiones si se suspende)', async () => {
-    const created = await repository.create({ ...BASE, name: 'Ana', email: 'ana@correo.cr' });
+    const created = await repository.create({
+      ...BASE,
+      name: 'Ana',
+      username: 'ana',
+      email: 'ana@correo.cr',
+    });
 
     await prisma.business.update({ where: { id: BUSINESS_ID }, data: { status: 'SUSPENDED' } });
 
@@ -105,22 +125,29 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
 
   it('la base no deja un Cajero sin negocio ni un Administrador con negocio', async () => {
     await expect(
-      repository.create({ ...BASE, businessId: null, name: 'X', email: 'x@correo.cr' }),
+      repository.create({
+        ...BASE,
+        businessId: null,
+        name: 'X',
+        username: 'x',
+        email: 'x@correo.cr',
+      }),
     ).rejects.toThrow();
     await expect(
-      repository.create({ ...BASE, role: 'ADMIN', name: 'Y', email: 'y@correo.cr' }),
+      repository.create({ ...BASE, role: 'ADMIN', name: 'Y', username: 'y', email: 'y@correo.cr' }),
     ).rejects.toThrow();
   });
 
   it('plan: de 6 altas simultáneas con 1 cupo libre en el negocio, solo 1 se guarda', async () => {
     await setExtraUsers(1); // Encargado + 1 = 2 cupos
-    await repository.create({ ...BASE, name: 'Ya estaba', email: 'ya@correo.cr' });
+    await repository.create({ ...BASE, name: 'Ya estaba', username: 'ya', email: 'ya@correo.cr' });
 
     const results = await Promise.all(
       Array.from({ length: 6 }, (_, index) =>
         repository.createWithinPlan({
           ...BASE,
           name: `Cajero ${index}`,
+          username: `cajero${index}`,
           email: `cajero${index}@correo.cr`,
         }),
       ),
@@ -135,12 +162,18 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
 
   it('plan: cada negocio usa sus cupos; los administradores no ocupan cupo', async () => {
     await setExtraUsers(0); // solo 1 cupo en el negocio A
-    await repository.create({ ...BASE, name: 'Lleno', email: 'lleno@correo.cr' });
+    await repository.create({
+      ...BASE,
+      name: 'Lleno',
+      username: 'lleno',
+      email: 'lleno@correo.cr',
+    });
 
     const inOther = await repository.createWithinPlan({
       ...BASE,
       businessId: OTHER_BUSINESS_ID,
       name: 'Otro negocio',
+      username: 'otro',
       email: 'otro@correo.cr',
     });
     const admin = await repository.createWithinPlan({
@@ -148,11 +181,13 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
       businessId: null,
       role: 'ADMIN',
       name: 'Admin',
+      username: 'admin',
       email: 'admin@correo.cr',
     });
     const full = await repository.createWithinPlan({
       ...BASE,
       name: 'Más',
+      username: 'mas',
       email: 'mas@correo.cr',
     });
 
@@ -163,10 +198,15 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
 
   it('plan: reactivar a alguien exige cupo en su negocio', async () => {
     await setExtraUsers(0);
-    const off = await repository.create({ ...BASE, name: 'Inactivo', email: 'i@correo.cr' });
+    const off = await repository.create({
+      ...BASE,
+      name: 'Inactivo',
+      username: 'i',
+      email: 'i@correo.cr',
+    });
 
     await repository.update(off?.id ?? '', { isActive: false });
-    await repository.create({ ...BASE, name: 'Activo', email: 'a@correo.cr' });
+    await repository.create({ ...BASE, name: 'Activo', username: 'a', email: 'a@correo.cr' });
 
     expect(await repository.updateWithinPlan(off?.id ?? '', { isActive: true })).toEqual({
       status: 'plan-full',
@@ -192,5 +232,7 @@ describe.skipIf(!isTestDatabase)('UsersRepository (PostgreSQL de prueba)', () =>
       expect.objectContaining({ role: 'ADMIN', businessId: null, mustChangePassword: true }),
     );
     expect(rows[0]?.passwordHash).toMatch(/^\$argon2id\$/);
+    // También recibe su usuario, generado del nombre.
+    expect(rows[0]?.username).toBe('admin');
   });
 });

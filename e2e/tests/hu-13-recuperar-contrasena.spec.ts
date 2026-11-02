@@ -20,7 +20,7 @@ const CAJERO = {
 
 async function login(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('Correo electrónico', { exact: true }).fill(email);
+  await page.getByLabel('Correo o usuario').fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
 }
@@ -83,7 +83,7 @@ test('HU-13: la Encargada recupera su contraseña con el enlace de su correo', a
 
   // La contraseña vieja ya no sirve; la nueva sí.
   await login(page, E2E_OWNER.email, E2E_OWNER.password);
-  await expect(page.getByRole('alert')).toContainText('Correo o contraseña incorrectos.');
+  await expect(page.getByRole('alert')).toContainText('Usuario o contraseña incorrectos.');
   await login(page, E2E_OWNER.email, NEW_PASSWORD);
   await expect(page).toHaveURL(/\/$/);
 });

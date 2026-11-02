@@ -3,16 +3,18 @@ import { Modal } from '../../components/Modal';
 import type { TemporaryPasswordReveal } from './use-users';
 
 /**
- * Muestra la contraseña temporal UNA sola vez (al crear o restablecer). El
- * sistema solo guarda su hash: si se pierde, hay que restablecerla de nuevo.
+ * Muestra los datos de acceso UNA sola vez (al crear o restablecer): el
+ * usuario y la contraseña temporal, para entregárselos a la persona. El
+ * sistema solo guarda el hash de la contraseña: si se pierde, hay que
+ * restablecerla de nuevo.
  */
 export function TemporaryPasswordDialog({
   reveal,
   onClose,
 }: {
-  /** También sirve para el Encargado de un negocio nuevo (solo usa nombre y correo). */
+  /** También sirve para el Encargado de un negocio nuevo (usa nombre, usuario y correo). */
   reveal: Pick<TemporaryPasswordReveal, 'temporaryPassword' | 'reason'> & {
-    user: { name: string; email: string };
+    user: { name: string; username: string; email: string | null };
   };
   onClose: () => void;
 }) {
@@ -33,14 +35,22 @@ export function TemporaryPasswordDialog({
       onClose={onClose}
     >
       <p>
-        Contraseña temporal de <strong>{reveal.user.name}</strong> ({reveal.user.email}):
+        Datos de acceso de <strong>{reveal.user.name}</strong>
+        {reveal.user.email === null ? null : ` (${reveal.user.email})`}:
       </p>
-      <p className="temporary-password">
-        <code aria-label="Contraseña temporal">{reveal.temporaryPassword}</code>
-        <button type="button" className="button" onClick={() => void copy()}>
-          {copied ? 'Copiada' : 'Copiar'}
-        </button>
-      </p>
+      <dl className="access-data">
+        <dt>Usuario</dt>
+        <dd>
+          <code aria-label="Usuario">{reveal.user.username}</code>
+        </dd>
+        <dt>Contraseña temporal</dt>
+        <dd className="temporary-password">
+          <code aria-label="Contraseña temporal">{reveal.temporaryPassword}</code>
+          <button type="button" className="button" onClick={() => void copy()}>
+            {copied ? 'Copiada' : 'Copiar'}
+          </button>
+        </dd>
+      </dl>
       <div className="alert alert--warning" role="status">
         Anótela o entréguesela ahora: no se volverá a mostrar. En su primer ingreso el sistema le
         pedirá crear su propia contraseña.

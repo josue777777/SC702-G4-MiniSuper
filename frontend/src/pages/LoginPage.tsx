@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   fieldErrorsFromDetails,
-  validateEmail,
+  validateLogin,
   validateLoginPassword,
 } from '../features/auth/account-rules';
 import { ApiError } from '../services/api-client';
@@ -14,16 +14,18 @@ interface LoginLocationState {
 }
 
 interface LoginFieldErrors {
-  email?: string;
+  login?: string;
   password?: string;
 }
 
 /**
  * Acceso al sistema (HU-11).
  *
- * Valida que vengan ambos campos y su formato antes de llamar al servidor, que
- * repite las mismas reglas. Un fallo de credenciales muestra siempre el mismo
- * mensaje, sin decir si falló el correo o la contraseña. Al cerrar sesión
+ * Un solo campo, «Correo o usuario» (HU-11): el Administrador y el Encargado
+ * entran con su correo o su usuario; el personal, con su usuario (`jnavarro`).
+ * El servidor decide por la `@`. Valida que vengan ambos campos antes de
+ * llamar al servidor, que repite las reglas. Un fallo de credenciales muestra
+ * siempre el mismo mensaje, sin decir qué falló. Al cerrar sesión
  * (HU-15) se vuelve aquí con un aviso. No hay registro público: los usuarios
  * los crea el administrador. «¿Olvidó su contraseña?» lleva a la recuperación
  * por correo (HU-13).
@@ -31,7 +33,7 @@ interface LoginFieldErrors {
 export function LoginPage() {
   const navigate = useNavigate();
   const { state } = useLocation() as { state: LoginLocationState | null };
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +43,10 @@ export function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    const emailError = validateEmail(email);
+    const loginError = validateLogin(login);
     const passwordError = validateLoginPassword(password);
     const nextErrors: LoginFieldErrors = {
-      ...(emailError === undefined ? {} : { email: emailError }),
+      ...(loginError === undefined ? {} : { login: loginError }),
       ...(passwordError === undefined ? {} : { password: passwordError }),
     };
 
@@ -58,16 +60,16 @@ export function LoginPage() {
     setBusy(true);
 
     try {
-      const user = await authService.login({ email: email.trim(), password });
+      const user = await authService.login({ login: login.trim(), password });
       // Con contraseña temporal, lo primero es cambiarla.
       navigate(user.mustChangePassword ? '/profile' : '/', { replace: true });
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 400) {
         const fromServer = fieldErrorsFromDetails(caught.details);
 
-        if (fromServer['email'] !== undefined || fromServer['password'] !== undefined) {
+        if (fromServer['login'] !== undefined || fromServer['password'] !== undefined) {
           setFieldErrors({
-            ...(fromServer['email'] === undefined ? {} : { email: fromServer['email'] }),
+            ...(fromServer['login'] === undefined ? {} : { login: fromServer['login'] }),
             ...(fromServer['password'] === undefined ? {} : { password: fromServer['password'] }),
           });
           return;
@@ -103,21 +105,23 @@ export function LoginPage() {
         )}
 
         <div className="field">
-          <label htmlFor="login-email">Correo electrónico</label>
+          <label htmlFor="login-identifier">Correo o usuario</label>
           <input
-            id="login-email"
-            type="email"
-            value={email}
+            id="login-identifier"
+            type="text"
+            value={login}
             autoComplete="username"
-            aria-invalid={fieldErrors.email !== undefined}
-            {...(fieldErrors.email === undefined
+            autoCapitalize="none"
+            spellCheck={false}
+            aria-invalid={fieldErrors.login !== undefined}
+            {...(fieldErrors.login === undefined
               ? {}
-              : { 'aria-describedby': 'login-email-error' })}
-            onChange={(event) => setEmail(event.target.value)}
+              : { 'aria-describedby': 'login-identifier-error' })}
+            onChange={(event) => setLogin(event.target.value)}
           />
-          {fieldErrors.email === undefined ? null : (
-            <p id="login-email-error" className="form__error">
-              {fieldErrors.email}
+          {fieldErrors.login === undefined ? null : (
+            <p id="login-identifier-error" className="form__error">
+              {fieldErrors.login}
             </p>
           )}
         </div>

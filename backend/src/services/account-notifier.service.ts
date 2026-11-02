@@ -7,7 +7,8 @@ export type PasswordChange = 'recovered' | 'changed' | 'reset-by-manager';
 
 interface Recipient {
   name: string;
-  email: string;
+  /** Sin correo no se envía nada. */
+  email: string | null;
   role: Role;
 }
 
@@ -33,6 +34,10 @@ export class AccountNotifier {
 
   /** El enlace para elegir una contraseña nueva. */
   sendResetLink(recipient: Recipient, link: string): void {
+    if (recipient.email === null) {
+      return;
+    }
+
     this.deliver({
       to: recipient.email,
       subject: `Recuperar su contraseña de ${SYSTEM_NAME}`,
@@ -51,7 +56,7 @@ export class AccountNotifier {
 
   /** Aviso de que su contraseña cambió: si no fue la persona, se entera de inmediato. */
   passwordChanged(recipient: Recipient, how: PasswordChange): void {
-    if (!recoversByEmail(recipient.role)) {
+    if (!recoversByEmail(recipient.role) || recipient.email === null) {
       return;
     }
 
