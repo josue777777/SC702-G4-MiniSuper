@@ -3,6 +3,8 @@ import type { SalesRepository } from '../repositories/sales.repository.js';
 import type {
   CreateSalePlan,
   DailySalesSummaryDto,
+  DailySalesHistoryDto,
+  DailySalesHistoryFilter,
   SaleAdjustmentPlan,
   SaleDto,
   SaleListFilter,
@@ -126,6 +128,19 @@ export class SalesService {
   /** Historial mínimo, con filtro por método de pago (HU-17). El módulo completo es HU-20. */
   async listSales(filter: SaleListFilter): Promise<SaleSummaryDto[]> {
     return this.repository.list(filter);
+  }
+
+  async getDailyHistory(
+    filter: DailySalesHistoryFilter,
+    now: Date = new Date(),
+  ): Promise<DailySalesHistoryDto> {
+    const date = filter.date ?? todayInBusinessZone(now);
+    // Costa Rica permanece en UTC-6 durante todo el año.
+    const startAt = new Date(`${date}T06:00:00.000Z`);
+    const endAt = new Date(startAt.getTime() + 86_400_000);
+    const result = await this.repository.dailyHistory(startAt, endAt, filter);
+
+    return { date, page: filter.page, pageSize: filter.pageSize, ...result };
   }
 
   async adjustSale(saleId: string, input: Omit<SaleAdjustmentPlan, 'saleId'>): Promise<SaleDto> {
