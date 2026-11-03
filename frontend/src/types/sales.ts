@@ -62,6 +62,15 @@ export interface SaleSummary {
   itemCount: number;
 }
 
+export interface DailySalesHistory {
+  date: string;
+  page: number;
+  pageSize: number;
+  matchingCount: number;
+  sales: Omit<Sale, 'change' | 'customerBalance'>[];
+  day: { saleCount: number; originalTotal: string; total: string };
+}
+
 export type SaleAdjustmentPayload =
   | {
       type: 'RETURN';
