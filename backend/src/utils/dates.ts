@@ -32,3 +32,40 @@ export function dateOnlyToDate(value: string): Date {
 export function dateToDateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
+
+/**
+ * Costa Rica no usa horario de verano: su medianoche siempre cae a las 06:00 UTC
+ * (misma convención que el resumen del día, HU-37).
+ */
+const BUSINESS_MIDNIGHT_UTC = 'T06:00:00.000Z';
+
+/**
+ * Instantes `[start, end)` que cubren, en la zona del negocio, desde el inicio del
+ * día `from` hasta el FINAL del día `to` (ambos incluidos): `end` es la medianoche
+ * del día siguiente, así que se compara con `< end` y nada del último día se pierde.
+ */
+export function businessDayRange(from: string, to: string): { start: Date; end: Date } {
+  return {
+    start: new Date(`${from}${BUSINESS_MIDNIGHT_UTC}`),
+    end: new Date(Date.parse(`${to}${BUSINESS_MIDNIGHT_UTC}`) + MS_PER_DAY),
+  };
+}
+
+const businessDateTime = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** Fecha y hora (`YYYY-MM-DD HH:mm`) en la zona del negocio, sin depender del idioma del servidor. */
+export function formatBusinessDateTime(value: Date): string {
+  const parts = Object.fromEntries(
+    businessDateTime.formatToParts(value).map((part) => [part.type, part.value]),
+  );
+
+  return `${parts['year']}-${parts['month']}-${parts['day']} ${parts['hour']}:${parts['minute']}`;
+}

@@ -2222,3 +2222,36 @@ code {
 .access-data dd.temporary-password {
   margin: 0;
 }
+
+/* --- Reportes comerciales (HU-28, HU-29, HU-30) ------------------------- */
+.report-result {
+  margin-top: 18px;
+}
+
+.report-result__filters {
+  margin: 0 0 12px;
+}
+
+.report-result__notices ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.report-result__notices li {
+  margin-bottom: 4px;
+}
+
+/* Los reportes tienen muchas columnas: una tabla más compacta para que quepan sin desplazarse */
+.table--compact {
+  font-size: 0.82rem;
+}
+
+.table--compact th,
+.table--compact td {
+  padding: 6px 7px;
+}
+
+.table--compact thead th {
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}

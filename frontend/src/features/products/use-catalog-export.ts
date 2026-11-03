@@ -8,7 +8,7 @@ export interface ExportNotice {
 }
 
 /** Guarda el archivo descargado con el nombre indicado por el servidor. */
-function saveBlob(blob: Blob, fileName: string): void {
+export function saveBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
 
