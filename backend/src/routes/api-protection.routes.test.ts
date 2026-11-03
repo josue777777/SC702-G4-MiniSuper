@@ -34,6 +34,7 @@ const PROTECTED: [method: 'get' | 'post' | 'put' | 'patch' | 'delete', path: str
   ['patch', '/api/inventory/products/x/expiration-date'],
   ['get', '/api/inventory/expirations'],
   ['get', '/api/sales'],
+  ['get', '/api/sales/daily-history'],
   ['get', '/api/sales/lookup'],
   ['get', '/api/sales/x'],
   ['post', '/api/sales'],

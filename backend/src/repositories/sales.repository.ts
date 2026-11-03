@@ -5,6 +5,8 @@ import type {
   CreateSalePlan,
   CustomerRef,
   DailySalesSummaryDto,
+  DailySalesHistoryDto,
+  DailySalesHistoryFilter,
   PaymentMethodKind,
   SaleAdjustmentOutcome,
   SaleAdjustmentPlan,
@@ -254,6 +256,48 @@ export class SalesRepository {
       customerName: row.customer?.name ?? null,
       itemCount: row._count.items,
     }));
+  }
+
+  async dailyHistory(
+    startAt: Date,
+    endAt: Date,
+    filter: DailySalesHistoryFilter,
+  ): Promise<Pick<DailySalesHistoryDto, 'sales' | 'matchingCount' | 'day'>> {
+    const dayWhere = { businessId: this.businessId, createdAt: { gte: startAt, lt: endAt } };
+    const where = {
+      ...dayWhere,
+      ...(filter.paymentMethod === undefined ? {} : { paymentMethod: filter.paymentMethod }),
+    };
+    // Filas y agregados deben observar el mismo estado aun si otra caja vende o devuelve.
+    const [rows, matchingCount, day, adjustments] = await prisma.$transaction(
+      [
+        prisma.sale.findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { number: 'desc' }],
+          skip: (filter.page - 1) * filter.pageSize,
+          take: filter.pageSize,
+          select: saleSelection,
+        }),
+        prisma.sale.count({ where }),
+        prisma.sale.aggregate({ where: dayWhere, _sum: { total: true }, _count: { _all: true } }),
+        prisma.saleAdjustment.aggregate({
+          where: { sale: dayWhere },
+          _sum: { total: true },
+        }),
+      ],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    const total = day._sum.total?.toFixed(2) ?? '0.00';
+    // HU-35 conserva el neto en Sale.total (cero al anular) y cada rebaja en los ajustes.
+    const originalTotal = formatCents(
+      toCents(total) + toCents(adjustments._sum.total?.toFixed(2) ?? '0.00'),
+    );
+
+    return {
+      sales: rows.map(toSale),
+      matchingCount,
+      day: { saleCount: day._count._all, originalTotal, total },
+    };
   }
 
   /** Suma todas las ventas dentro del día indicado, sin límite de filas. */

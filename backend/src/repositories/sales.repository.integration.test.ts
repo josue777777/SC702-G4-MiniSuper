@@ -83,6 +83,152 @@ describe.skipIf(!databaseName.endsWith('_test'))('Ventas (PostgreSQL de prueba)'
     paymentMethod: 'CARD' as const,
   });
 
+  it('HU-20: pagina más de 50 ventas, límites de medianoche CR y aislamiento de filas y agregados', async () => {
+    const start = Date.parse('2026-11-02T06:00:00.000Z');
+    const rows = Array.from({ length: 61 }, (_, index) => ({
+      id: randomUUID(),
+      businessId: BUSINESS_ID,
+      number: index + 1,
+      paymentMethod: index === 0 ? ('CASH' as const) : ('CARD' as const),
+      total: '1500.00',
+      createdAt: new Date(start + index * 1000),
+    }));
+    await prisma.sale.createMany({ data: rows });
+    await prisma.saleItem.createMany({
+      data: rows.map((sale) => ({
+        saleId: sale.id,
+        productId: coffeeId,
+        quantity: 1,
+        unitPrice: '1500.00',
+        unitCost: '1000.00',
+      })),
+    });
+    await prisma.sale.createMany({
+      data: [
+        {
+          businessId: BUSINESS_ID,
+          number: 62,
+          paymentMethod: 'CARD',
+          total: '999.00',
+          createdAt: new Date(start - 1),
+        },
+        {
+          businessId: BUSINESS_ID,
+          number: 63,
+          paymentMethod: 'CARD',
+          total: '999.00',
+          createdAt: new Date(start + 86_400_000),
+        },
+        {
+          businessId: BUSINESS_ID,
+          number: 64,
+          paymentMethod: 'CARD',
+          total: '100.00',
+          createdAt: new Date(start + 86_400_000 - 1),
+        },
+      ],
+    });
+    const foreign = await prisma.business.create({ data: { name: 'Otro negocio HU-20' } });
+    const foreignSale = await prisma.sale.create({
+      data: {
+        businessId: foreign.id,
+        number: 1,
+        paymentMethod: 'CARD',
+        total: '999999.00',
+        createdAt: new Date(start),
+        adjustments: { create: { type: 'RETURN', reason: 'Ajuste ajeno', total: '100.00' } },
+      },
+    });
+    const first = await service.getDailyHistory({ date: '2026-11-02', page: 1, pageSize: 50 });
+    const second = await service.getDailyHistory({ date: '2026-11-02', page: 2, pageSize: 50 });
+    const cash = await service.getDailyHistory({
+      date: '2026-11-02',
+      page: 1,
+      pageSize: 50,
+      paymentMethod: 'CASH',
+    });
+    expect(first.sales).toHaveLength(50);
+    expect(second.sales).toHaveLength(12);
+    expect([...first.sales, ...second.sales].map((sale) => sale.number)).toEqual([
+      64,
+      ...rows.map((sale) => sale.number).reverse(),
+    ]);
+    expect(first.sales[1]?.items[0]).toMatchObject({
+      name: 'Café',
+      quantity: 1,
+      unitPrice: '1500.00',
+    });
+    expect(first.matchingCount).toBe(62);
+    expect(cash.matchingCount).toBe(1);
+    expect(first.day).toEqual({ saleCount: 62, originalTotal: '91600.00', total: '91600.00' });
+    expect(second.day).toEqual(first.day);
+    expect(cash.day).toEqual(first.day);
+    expect(await repository.findById(foreignSale.id)).toBeNull();
+    expect(
+      (await service.getDailyHistory({ date: '2026-10-01', page: 1, pageSize: 50 })).day,
+    ).toEqual({ saleCount: 0, total: '0.00', originalTotal: '0.00' });
+  });
+
+  it('HU-20: conserva originales y todos los estados; HU-37 sigue usando totales efectivos', async () => {
+    await prisma.product.update({ where: { id: coffeeId }, data: { stock: 20 } });
+    const create = async (paymentMethod: 'CASH' | 'CARD' | 'CREDIT') =>
+      (
+        await service.createSale({
+          idempotencyKey: randomUUID(),
+          items: [{ productId: coffeeId, quantity: 2 }],
+          paymentMethod,
+          ...(paymentMethod === 'CASH' ? { cashReceived: '4000.00' } : {}),
+          ...(paymentMethod === 'CREDIT' ? { customerId } : {}),
+        })
+      ).sale;
+    const partial = await create('CASH');
+    const voided = await create('CARD');
+    const returned = await create('CARD');
+    const credit = await create('CREDIT');
+    await service.adjustSale(partial.id, {
+      type: 'RETURN',
+      reason: 'Una unidad',
+      items: [{ saleItemId: partial.items[0]!.id, quantity: 1 }],
+    });
+    await service.adjustSale(voided.id, { type: 'VOID', reason: 'Venta anulada' });
+    await service.adjustSale(returned.id, {
+      type: 'RETURN',
+      reason: 'Todo devuelto',
+      items: [{ saleItemId: returned.items[0]!.id, quantity: 2 }],
+    });
+    await prisma.sale.updateMany({
+      where: { businessId: BUSINESS_ID },
+      data: { createdAt: new Date('2026-11-02T23:00:00Z') },
+    });
+    // Los ajustes pueden ocurrir días después; modifican el neto de la venta original.
+    const history = await service.getDailyHistory({ date: '2026-11-02', page: 1, pageSize: 50 });
+    expect(history.day).toEqual({ saleCount: 4, originalTotal: '12000.00', total: '4500.00' });
+    expect(history.sales.map((sale) => sale.id)).toEqual([
+      credit.id,
+      returned.id,
+      voided.id,
+      partial.id,
+    ]);
+    expect(history.sales.map((sale) => sale.status)).toEqual([
+      'COMPLETED',
+      'RETURNED',
+      'VOID',
+      'PARTIALLY_RETURNED',
+    ]);
+    expect(history.sales.find((sale) => sale.id === partial.id)?.items[0]).toMatchObject({
+      quantity: 2,
+      returnedQuantity: 1,
+      availableQuantity: 1,
+    });
+    expect(await service.getDailySummary(new Date('2026-11-03T05:59:59Z'))).toEqual({
+      saleCount: 4,
+      total: '4500.00',
+      cash: '1500.00',
+      card: '0.00',
+      credit: '3000.00',
+    });
+  });
+
   it('confirma venta, ítems, stock y movimiento EXIT juntos, con fecha y precio histórico', async () => {
     const { sale } = await service.createSale(cardSale([{ productId: coffeeId, quantity: 3 }]));
 
