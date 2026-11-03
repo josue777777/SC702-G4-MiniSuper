@@ -1,61 +1,87 @@
 import { useEffect, useState } from 'react';
 import { ApiError } from '../../services/api-client';
 import { salesService } from '../../services/sales.service';
-import type { PaymentMethod, SaleSummary } from '../../types/sales';
-import { formatDateTime } from '../inventory/inventory-count';
+import type { DailySalesHistory, PaymentMethod } from '../../types/sales';
 import { formatMoney } from '../products/money';
 import { PAYMENT_LABELS } from './payment-labels';
 import { SaleAdjustmentModal } from './SaleAdjustmentModal';
+import { SaleDetailModal } from './SaleDetailModal';
+import { formatSaleDateTime, saleStatusLabel } from './sale-format';
 
 interface SalesHistoryProps {
-  /** Cambia tras cada venta confirmada para recargar el historial. */
   version: number;
-  /** Abre el comprobante de una venta del historial (HU-34). */
   onOpenReceipt: (saleId: string) => void;
-  /** Recarga el historial luego de modificar una venta. */
   onAdjustmentComplete: () => void;
 }
 
-/** Historial mínimo de ventas con filtro por método de pago (HU-17). El módulo completo es HU-20. */
+/** Historial diario del negocio, con totales independientes de la página y el método. */
 export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: SalesHistoryProps) {
+  const [date, setDate] = useState(() =>
+    new Date().toLocaleDateString('en-CA', { timeZone: 'America/Costa_Rica' }),
+  );
   const [filter, setFilter] = useState<PaymentMethod | ''>('');
-  const [sales, setSales] = useState<SaleSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState<{
+    key: string;
+    data?: DailySalesHistory;
+    error?: string;
+  } | null>(null);
   const [adjustmentSaleId, setAdjustmentSaleId] = useState<string | null>(null);
+  const [detailSaleId, setDetailSaleId] = useState<string | null>(null);
+  const key = `${date}/${filter}/${page}/${version}/${attempt}`;
 
   useEffect(() => {
     let cancelled = false;
-
     salesService
-      .list(filter === '' ? undefined : filter)
-      .then((rows) => {
-        if (!cancelled) {
-          setSales(rows);
-          setError(null);
-        }
+      .dailyHistory(date, page, filter === '' ? undefined : filter)
+      .then((data) => {
+        if (!cancelled) setResult({ key, data });
       })
       .catch((caught: unknown) => {
-        if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'No se pudo cargar el historial.');
-        }
+        if (!cancelled)
+          setResult({
+            key,
+            error: caught instanceof ApiError ? caught.message : 'No se pudo cargar el historial.',
+          });
       });
-
     return () => {
       cancelled = true;
     };
-  }, [filter, version]);
+  }, [date, page, filter, key]);
+
+  const data = result?.key === key ? result.data : undefined;
+  const error = result?.key === key ? result.error : undefined;
 
   return (
-    <section className="card">
+    <section className="card" aria-labelledby="sales-history-title">
       <header className="card__header">
-        <h2>Historial de ventas</h2>
-        <span className="card__header-end">
+        <h2 id="sales-history-title">Historial de ventas</h2>
+        <div className="row-actions">
           <label className="toolbar__filter">
-            Método de pago{' '}
+            Día (Costa Rica)
+            <input
+              type="date"
+              aria-label="Día del historial"
+              value={date}
+              required
+              onChange={(event) => {
+                if (event.target.value) {
+                  setDate(event.target.value);
+                  setPage(1);
+                }
+              }}
+            />
+          </label>
+          <label className="toolbar__filter">
+            Método de pago
             <select
               aria-label="Filtrar por método de pago"
               value={filter}
-              onChange={(event) => setFilter(event.target.value as PaymentMethod | '')}
+              onChange={(event) => {
+                setFilter(event.target.value as PaymentMethod | '');
+                setPage(1);
+              }}
             >
               <option value="">Todos</option>
               {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((method) => (
@@ -65,80 +91,148 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
               ))}
             </select>
           </label>
-        </span>
+          <button type="button" className="button" onClick={() => setAttempt(attempt + 1)}>
+            Actualizar historial
+          </button>
+        </div>
       </header>
-
-      {error === null ? null : (
+      {error === undefined ? null : (
         <div className="alert alert--error" role="alert">
-          {error}
+          {error}{' '}
+          <button type="button" className="button" onClick={() => setAttempt(attempt + 1)}>
+            Reintentar
+          </button>
         </div>
       )}
-
-      {sales === null && error === null ? <p className="muted">Cargando ventas…</p> : null}
-
-      {sales !== null && sales.length === 0 ? (
-        <p className="muted">
-          {filter === ''
-            ? 'Todavía no hay ventas registradas.'
-            : `No hay ventas pagadas con ${PAYMENT_LABELS[filter].toLowerCase()}.`}
+      {data === undefined && error === undefined ? (
+        <p className="muted" role="status">
+          Cargando ventas…
         </p>
       ) : null}
-
-      {sales !== null && sales.length > 0 ? (
-        <div className="table-wrapper">
-          <table className="table" aria-label="Historial de ventas">
-            <thead>
-              <tr>
-                <th>Venta</th>
-                <th>Fecha y hora</th>
-                <th>Método de pago</th>
-                <th>Estado</th>
-                <th>Cliente</th>
-                <th className="table__number">Productos</th>
-                <th className="table__number">Total</th>
-                <th>
-                  <span className="visually-hidden">Acciones</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sales.map((sale) => (
-                <tr key={sale.id}>
-                  <td>#{sale.number}</td>
-                  <td>{formatDateTime(sale.createdAt)}</td>
-                  <td>{PAYMENT_LABELS[sale.paymentMethod]}</td>
-                  <td>{saleStatusLabel(sale.status)}</td>
-                  <td>{sale.customerName ?? '—'}</td>
-                  <td className="table__number">{sale.itemCount}</td>
-                  <td className="table__number">{formatMoney(sale.total)}</td>
-                  <td>
-                    <div className="row-actions">
-                      <button
-                        type="button"
-                        className="button"
-                        aria-label={`Ver comprobante de la venta ${sale.number}`}
-                        onClick={() => onOpenReceipt(sale.id)}
-                      >
-                        Comprobante
-                      </button>
-                      <button
-                        type="button"
-                        className="button"
-                        aria-label={`${sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED' ? 'Anular o devolver' : 'Ver ajustes de'} la venta ${sale.number}`}
-                        onClick={() => setAdjustmentSaleId(sale.id)}
-                      >
-                        {sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED'
-                          ? 'Anular/devolver'
-                          : 'Ver ajustes'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      {data === undefined ? null : (
+        <>
+          <div className="sales-history-totals" role="status" aria-label="Totales del día">
+            <p>
+              Total efectivo vendido del día: <strong>{formatMoney(data.day.total)}</strong>
+            </p>
+            <p>
+              Total original: {formatMoney(data.day.originalTotal)} · {data.day.saleCount} ventas
+              registradas
+            </p>
+            <p className="muted">
+              El total efectivo descuenta devoluciones y anulaciones, e incluye fiados; no equivale
+              a dinero cobrado. Los totales abarcan todo el día, sin depender del filtro ni de la
+              página.
+            </p>
+          </div>
+          {data.sales.length === 0 ? (
+            <p className="muted">
+              {filter === ''
+                ? 'No hay ventas registradas en este día.'
+                : `No hay ventas pagadas con ${PAYMENT_LABELS[filter].toLowerCase()} en este día.`}
+            </p>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table" aria-label="Historial de ventas">
+                <thead>
+                  <tr>
+                    <th>Venta</th>
+                    <th>Fecha y hora (CR)</th>
+                    <th>Productos × cantidad</th>
+                    <th>Pago</th>
+                    <th>Estado</th>
+                    <th>Cliente</th>
+                    <th className="table__number">Total original</th>
+                    <th className="table__number">Total efectivo</th>
+                    <th>
+                      <span className="visually-hidden">Acciones</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.sales.map((sale) => (
+                    <tr key={sale.id}>
+                      <td>#{sale.number}</td>
+                      <td>{formatSaleDateTime(sale.createdAt)}</td>
+                      <td>
+                        {sale.items.map((item) => (
+                          <div key={item.id}>
+                            {item.name} × {item.quantity}
+                          </div>
+                        ))}
+                      </td>
+                      <td>{PAYMENT_LABELS[sale.paymentMethod]}</td>
+                      <td>{saleStatusLabel(sale.status)}</td>
+                      <td>{sale.customer?.name ?? '—'}</td>
+                      <td className="table__number">{formatMoney(sale.originalTotal)}</td>
+                      <td className="table__number">{formatMoney(sale.total)}</td>
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            type="button"
+                            className="button"
+                            aria-label={`Ver detalle de la venta ${sale.number}`}
+                            onClick={() => setDetailSaleId(sale.id)}
+                          >
+                            Detalle
+                          </button>
+                          <button
+                            type="button"
+                            className="button"
+                            aria-label={`Ver comprobante de la venta ${sale.number}`}
+                            onClick={() => onOpenReceipt(sale.id)}
+                          >
+                            Comprobante
+                          </button>
+                          <button
+                            type="button"
+                            className="button"
+                            aria-label={`${sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED' ? 'Anular o devolver' : 'Ver ajustes de'} la venta ${sale.number}`}
+                            onClick={() => setAdjustmentSaleId(sale.id)}
+                          >
+                            {sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED'
+                              ? 'Anular/devolver'
+                              : 'Ver ajustes'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <nav className="form__actions" aria-label="Páginas del historial">
+            <button
+              type="button"
+              className="button"
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+            >
+              Anterior
+            </button>
+            <span>
+              Página {page} de {Math.max(1, Math.ceil(data.matchingCount / data.pageSize))} ·{' '}
+              {data.matchingCount} ventas coincidentes
+            </span>
+            <button
+              type="button"
+              className="button"
+              disabled={page * data.pageSize >= data.matchingCount}
+              onClick={() => setPage(page + 1)}
+            >
+              Siguiente
+            </button>
+          </nav>
+        </>
+      )}
+      {detailSaleId === null ? null : (
+        <SaleDetailModal
+          saleId={detailSaleId}
+          onClose={() => setDetailSaleId(null)}
+          onOpenReceipt={onOpenReceipt}
+        />
+      )}
       {adjustmentSaleId === null ? null : (
         <SaleAdjustmentModal
           saleId={adjustmentSaleId}
@@ -151,17 +245,4 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
       )}
     </section>
   );
-}
-
-function saleStatusLabel(status: SaleSummary['status']): string {
-  switch (status) {
-    case 'COMPLETED':
-      return 'Completada';
-    case 'PARTIALLY_RETURNED':
-      return 'Con devolución';
-    case 'RETURNED':
-      return 'Devuelta';
-    case 'VOID':
-      return 'Anulada';
-  }
 }

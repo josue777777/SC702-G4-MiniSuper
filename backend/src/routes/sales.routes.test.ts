@@ -52,6 +52,50 @@ function body(overrides: Record<string, unknown> = {}) {
   };
 }
 
+describe('GET /api/sales/daily-history (HU-20)', () => {
+  it('valida consultas antes de consultar ventas', async () => {
+    const { app } = buildApp();
+    for (const query of ['date=2026-02-30', 'page=0', 'pageSize=201', 'paymentMethod=INVALID']) {
+      expect((await request(app).get(`/api/sales/daily-history?${query}`)).status).toBe(400);
+    }
+  });
+
+  it('pagina sin truncar el día, ordena y conserva el acumulado al filtrar', async () => {
+    const { app, sales } = buildApp();
+    const created = await request(app).post('/api/sales').send(body());
+    const template = sales.sales[0]!;
+    sales.sales.length = 0;
+    for (let i = 0; i < 61; i += 1) {
+      sales.sales.push({
+        ...template,
+        id: randomUUID(),
+        number: i + 1,
+        paymentMethod: i === 0 ? 'CASH' : 'CARD',
+        createdAt: new Date(Date.parse('2026-11-02T06:00:00Z') + i * 1000).toISOString(),
+      });
+    }
+    expect(created.status).toBe(201);
+    const first = await request(app).get('/api/sales/daily-history?date=2026-11-02');
+    const second = await request(app).get('/api/sales/daily-history?date=2026-11-02&page=2');
+    const cash = await request(app).get(
+      '/api/sales/daily-history?date=2026-11-02&paymentMethod=CASH',
+    );
+    expect(first.status).toBe(200);
+    expect(first.body.data.sales).toHaveLength(50);
+    expect(first.body.data.sales[0].number).toBe(61);
+    expect(second.body.data.sales).toHaveLength(11);
+    expect(second.body.data.sales[10].number).toBe(1);
+    expect(cash.body.data.matchingCount).toBe(1);
+    for (const response of [first, second, cash]) {
+      expect(response.body.data.day).toEqual({
+        saleCount: 61,
+        total: '183000.00',
+        originalTotal: '183000.00',
+      });
+    }
+  });
+});
+
 describe('GET /api/sales/daily-summary (HU-37)', () => {
   it('devuelve ceros explícitos cuando todavía no hay ventas hoy', async () => {
     const { app } = buildApp();
