@@ -11,7 +11,7 @@ import type {
 import { businessDayRange, formatBusinessDateTime } from '../utils/dates.js';
 import { HttpError } from '../utils/http-error.js';
 import { formatCents, toCents } from '../utils/money.js';
-import { creditBalance } from './customers.service.js';
+import { creditPosition } from './credit.js';
 import { cents, isCreditSaleCollected, lineAmounts, toEffectiveLines } from './reports.lines.js';
 
 const TITLES: Record<ReportKind, string> = {
@@ -173,8 +173,8 @@ export class ReportsService {
     report.notices = [
       PERIOD_NOTICE,
       'Ganancia bruta = (precio histórico − costo histórico) × unidades netas (vendidas − devueltas). No descuenta gastos operativos ni impuestos.',
-      'Contado y tarjeta se cuentan al vender. Un fiado SOLO se cuenta cuando abonos ligados a esa venta cubren su total; los fiados pendientes, los abonos parciales y los abonos generales (sin venta asignada) no se pueden atribuir a productos y quedan fuera, sin repartir ganancias por estimación.',
-      'LIMITACIÓN (HU-19): todavía no existe el flujo de registro de abonos, por lo que hoy todo fiado se considera pendiente salvo que ya tenga abonos ligados en la base. La fecha de cobro no se usa: el período es el de la venta.',
+      'Contado y tarjeta se cuentan al vender. Un fiado SOLO se cuenta cuando está completamente pagado con abonos aplicados a esa venta (HU-19 reparte cada abono entre los fiados más antiguos primero). Los fiados sin pagar o con pago PARCIAL quedan fuera: un pago parcial no dice qué productos cubrió, así que no se reparte su ganancia por estimación. Los abonos anteriores a HU-19 sin venta asignada no se atribuyen a ningún fiado.',
+      'Este reporte NO es el total cobrado en el período: el período es el de la VENTA, no el del cobro. Un fiado liquidado después aparece en el período en que se vendió, y los cobros parciales de fiados que siguen pendientes no se suman.',
       'LIMITACIÓN (costos): el modelo no distingue un costo desconocido de un costo igual a cero. Un costo 0 se toma como válido; si una venta se registró sin costo real, su ganancia aparecerá inflada y el sistema no puede detectarlo.',
     ];
     report.columns = [
@@ -294,8 +294,8 @@ export class ReportsService {
     report.filters = [{ label: 'Corte', value: 'Saldos al momento de consultar' }];
     report.notices = [
       'Saldo del cliente = ventas a crédito vigentes (sin anulaciones ni unidades devueltas) − todos sus abonos. Se calcula con las operaciones reales cada vez que se abre el reporte; no se guarda otro saldo. Se incluyen clientes inactivos.',
-      'El monto pendiente de un fiado descuenta solo los abonos ligados a esa venta. Los abonos generales (sin venta asignada) no se reparten entre fiados porque no hay un criterio verificable: aparecen en una línea aparte para que el saldo acumulado siempre cuadre con el saldo real del cliente.',
-      'LIMITACIÓN (HU-19): todavía no existe el flujo para registrar abonos. El reporte lee los abonos que haya en la base y nunca supone que un fiado está pagado.',
+      'El monto pendiente de un fiado descuenta los abonos aplicados a esa venta: HU-19 reparte cada abono entre los fiados más antiguos primero. Los abonos anteriores a HU-19 que no tienen venta asignada no se reparten porque no hay un criterio verificable: aparecen en una línea aparte para que el saldo acumulado siempre cuadre con el saldo real del cliente.',
+      'Los abonos se registran en Clientes › Registrar abono; este reporte los lee cada vez que se consulta y nunca supone que un fiado está pagado.',
     ];
     report.columns = [
       column('customer', 'Cliente'),
@@ -360,44 +360,42 @@ function periodFilters(filter: ReportFilter) {
 function debtOf(
   customer: DebtCustomerData,
 ): { balance: bigint; rows: ReportResult['rows'] } | null {
-  const credited = customer.sales.reduce((sum, sale) => sum + cents(sale.total), 0n);
-  const paid = customer.creditPayments.reduce((sum, payment) => sum + cents(payment.amount), 0n);
-  const balance = toCents(
-    creditBalance({ credited: formatCents(credited), paid: formatCents(paid) }),
+  // La MISMA cuenta que la ficha del cliente (HU-19): una sola fuente de verdad.
+  const position = creditPosition(
+    customer.sales.map((sale) => ({
+      id: sale.id,
+      number: sale.number,
+      createdAt: sale.createdAt,
+      effective: cents(sale.total),
+      original: cents(sale.total),
+    })),
+    customer.creditPayments.map((payment) => ({
+      saleId: payment.saleId,
+      amount: cents(payment.amount),
+    })),
   );
+  const balance = position.balance;
 
   if (balance <= 0n) {
     return null;
   }
 
-  const linked = new Map<string, bigint>();
-
-  for (const payment of customer.creditPayments) {
-    if (payment.saleId !== null) {
-      linked.set(payment.saleId, (linked.get(payment.saleId) ?? 0n) + cents(payment.amount));
-    }
-  }
-
   const rows: ReportResult['rows'] = [];
   let running = 0n;
 
-  for (const sale of customer.sales) {
-    const amount = cents(sale.total);
-    const settled = linked.get(sale.id) ?? 0n;
-    const pending = amount > settled ? amount - settled : 0n;
-
-    if (pending === 0n) {
+  for (const fiado of position.fiados) {
+    if (fiado.pending === 0n) {
       continue;
     }
 
-    running += pending;
+    running += fiado.pending;
     rows.push({
       customer: customer.name,
-      sale: `#${sale.number}`,
-      date: formatBusinessDateTime(sale.createdAt),
-      amount: formatCents(amount),
-      paid: formatCents(settled > amount ? amount : settled),
-      pending: formatCents(pending),
+      sale: `#${fiado.number}`,
+      date: formatBusinessDateTime(fiado.createdAt),
+      amount: formatCents(fiado.effective),
+      paid: formatCents(fiado.paid > fiado.effective ? fiado.effective : fiado.paid),
+      pending: formatCents(fiado.pending),
       balance: formatCents(running),
     });
   }

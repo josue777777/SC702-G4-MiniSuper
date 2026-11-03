@@ -32,9 +32,9 @@ import {
 /**
  * HU-30 — Productos más vendidos y deudas de clientes (issue #30). Navegador
  * real + backend real + PostgreSQL de pruebas, con el escenario sintético de
- * `support/reports.ts`. HU-19 (registro de abonos) todavía no existe: los abonos
- * de estas pruebas se insertan directo en la base y los fiados se crean por la
- * API real de ventas (HU-18).
+ * `support/reports.ts`. Los abonos de estas pruebas se siembran directo en la base
+ * para fijar cada caso (el flujo real de abonos, HU-19, se prueba de punta a punta en
+ * `hu-19-abonos-fiados.spec.ts`) y el fiado nuevo se crea por la API real de ventas (HU-18).
  */
 
 const TOP = 'Productos más vendidos';
@@ -119,7 +119,8 @@ test('ranking de productos y deudas de clientes con cifras exactas, y deja la ev
   expect(await tile(page, 'Clientes con deuda')).toBe('3');
   await expect(page.getByText('Carla Cliente')).toHaveCount(0);
   await expect(page.getByText('Cliente Ajeno')).toHaveCount(0);
-  await expect(page.getByText('LIMITACIÓN (HU-19)')).toBeVisible();
+  await expect(page.getByText('nunca supone que un fiado está pagado')).toBeVisible();
+  await expect(page.getByText('todavía no existe el flujo')).toHaveCount(0);
 
   const debtsShot = await page.screenshot({ fullPage: true });
 

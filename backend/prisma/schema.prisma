@@ -145,12 +145,13 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  business        Business?        @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  preferences     UserPreferences?
-  planRequests    PlanRequest[]    @relation("PlanRequestAuthor")
-  decidedRequests PlanRequest[]    @relation("PlanRequestDecider")
-  accessEvents    AccessEvent[]    @relation("AccessEventUser")
-  accessActions   AccessEvent[]    @relation("AccessEventActor")
+  business                Business?                @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  preferences             UserPreferences?
+  planRequests            PlanRequest[]            @relation("PlanRequestAuthor")
+  decidedRequests         PlanRequest[]            @relation("PlanRequestDecider")
+  accessEvents            AccessEvent[]            @relation("AccessEventUser")
+  accessActions           AccessEvent[]            @relation("AccessEventActor")
+  creditPaymentOperations CreditPaymentOperation[]
 
   @@index([businessId])
 }
@@ -193,16 +194,17 @@ model Business {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  users             User[]
-  planRequests      PlanRequest[]
-  documentSequences DocumentSequence[]
-  categories        Category[]
-  products          Product[]
-  customers         Customer[]
-  sales             Sale[]
-  suppliers         Supplier[]
-  purchaseOrders    PurchaseOrder[]
-  accessEvents      AccessEvent[]
+  users                   User[]
+  planRequests            PlanRequest[]
+  documentSequences       DocumentSequence[]
+  categories              Category[]
+  products                Product[]
+  customers               Customer[]
+  sales                   Sale[]
+  creditPaymentOperations CreditPaymentOperation[]
+  suppliers               Supplier[]
+  purchaseOrders          PurchaseOrder[]
+  accessEvents            AccessEvent[]
 }
 
 /// Datos de la plataforma (una sola fila, `id = 1`): el nombre del sistema que
@@ -376,9 +378,10 @@ model Customer {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  business       Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  sales          Sale[]
-  creditPayments CreditPayment[]
+  business          Business                 @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  sales             Sale[]
+  creditPayments    CreditPayment[]
+  paymentOperations CreditPaymentOperation[]
 
   /// Para que una venta solo pueda fiarle a clientes de su mismo negocio.
   @@unique([id, businessId])
@@ -484,21 +487,60 @@ model SaleAdjustmentItem {
 }
 
 /// Abono a un fiado (HU-19: "se registra el monto pagado y la fecha").
-/// Puede aplicarse a una venta concreta o ser un abono general que el service
-/// distribuye sobre las ventas a crédito más antiguas del cliente.
+///
+/// Los abonos que registra el sistema (HU-19) siempre llevan `saleId` y
+/// `operationId`: un abono del cliente se reparte entre sus fiados más antiguos
+/// (FIFO) y cada reparto es una fila, todas de la MISMA `CreditPaymentOperation`.
+/// Las filas anteriores a HU-19 pueden tener `saleId` y `operationId` nulos
+/// («abonos sin venta asignada»): se conservan tal cual y nunca se reasignan.
 model CreditPayment {
   id          String   @id @default(uuid()) @db.Uuid
   customerId  String   @db.Uuid
   saleId      String?  @db.Uuid
+  /// Operación que lo registró; nulo en los abonos anteriores a HU-19.
+  operationId String?  @db.Uuid
   amount      Decimal  @db.Decimal(12, 2)
   paymentDate DateTime @default(now())
   notes       String?
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  sale     Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  customer  Customer                @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sale      Sale?                   @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  operation CreditPaymentOperation? @relation(fields: [operationId], references: [id], onDelete: Restrict)
 
   @@index([customerId, paymentDate])
   @@index([saleId])
+  @@index([operationId])
+}
+
+/// Un abono tal como lo hizo la persona (HU-19): UNA operación que puede
+/// repartirse en varias filas de `CreditPayment`. Guarda lo necesario para que
+/// sea auditable y para que reintentar la misma confirmación no cobre dos veces:
+///   * `idempotencyKey` (única por negocio) la genera la pantalla en cada intento;
+///   * `fingerprint` es la huella de lo pedido (monto, fecha, nota, fiado elegido):
+///     la misma llave con otros datos se rechaza.
+/// El saldo NO se guarda aquí: sigue derivándose de ventas y abonos.
+model CreditPaymentOperation {
+  id             String   @id @default(uuid()) @db.Uuid
+  businessId     String   @db.Uuid
+  customerId     String   @db.Uuid
+  idempotencyKey String
+  fingerprint    String
+  /// Suma de lo repartido entre sus filas de `CreditPayment`.
+  totalAmount    Decimal  @db.Decimal(12, 2)
+  paymentDate    DateTime
+  notes          String?
+  /// Quién lo registró; si la cuenta se elimina queda nulo (no se pierde el abono).
+  createdById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+
+  business  Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  /// Compuesta: la base impide abonar a un cliente de otro negocio.
+  customer  Customer        @relation(fields: [customerId, businessId], references: [id, businessId], onDelete: Restrict)
+  createdBy User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  payments  CreditPayment[]
+
+  @@unique([businessId, idempotencyKey])
+  @@index([customerId, createdAt])
 }
 
 // -----------------------------------------------------------------------------
