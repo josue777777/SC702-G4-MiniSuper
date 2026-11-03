@@ -78,9 +78,10 @@ export function lineAmounts(line: EffectiveLine) {
  *     se reparte el margen arbitrariamente;
  *   - el abono es general (sin venta): no se atribuye a ninguna venta concreta.
  *
- * ÚNICO PUNTO DE INTEGRACIÓN con HU-19. Hoy no existe el flujo de abonos; cuando
- * HU-19 registre cómo se aplica un abono a las ventas (por ejemplo, con
- * `saleId` o una distribución explícita), solo debe cambiar esta función.
+ * Integración con HU-19: cada abono que registra el sistema se reparte entre los fiados
+ * más antiguos del cliente (FIFO) y queda ligado a cada venta con `CreditPayment.saleId`.
+ * Esta función solo compara lo abonado A ESA VENTA con su importe efectivo; la regla de
+ * reparto vive en `credit.ts`. Los abonos anteriores a HU-19 (sin venta) no cuentan aquí.
  */
 export function isCreditSaleCollected(sale: SaleReportData): boolean {
   if (sale.paymentMethod !== 'CREDIT') {

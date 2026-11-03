@@ -107,6 +107,19 @@ export type SaleAdjustmentOutcome =
       ok: false;
       reason:
         'NOT_FOUND' | 'ALREADY_VOID' | 'ALREADY_RETURNED' | 'INVALID_ITEM' | 'QUANTITY_EXCEEDED';
+    }
+  | {
+      /**
+       * Un fiado con abonos (HU-19) quedaría con más abonado que su nuevo importe. `SALE`: lo
+       * abonado a esa venta supera su nuevo importe. `CUSTOMER`: lo abonado por el cliente
+       * (incluidos abonos anteriores sin venta) supera lo que le quedaría fiado.
+       */
+      ok: false;
+      reason: 'PAID_EXCEEDS';
+      scope: 'SALE' | 'CUSTOMER';
+      number: number;
+      paid: MoneyString;
+      remaining: MoneyString;
     };
 
 /** Línea que el service le pide al repositorio descontar y registrar. */

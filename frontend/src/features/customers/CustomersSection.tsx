@@ -3,11 +3,12 @@ import { ApiError } from '../../services/api-client';
 import { customersService } from '../../services/sales.service';
 import type { Customer } from '../../types/sales';
 import { formatMoney } from '../products/money';
+import { CustomerAccount } from './CustomerAccount';
 
 /**
- * Clientes mínimos para fiar (HU-18): crear un cliente, ver los activos y su
- * saldo (ventas a crédito − abonos). Editar, desactivar y registrar abonos son
- * de HU-19 / HU-30.
+ * Clientes (HU-18, HU-19): crear un cliente, buscarlo por nombre, ver su saldo
+ * (ventas a crédito − abonos) y abrir su cuenta para consultar sus fiados y
+ * registrar abonos. Editar y desactivar clientes todavía no existe.
  */
 export function CustomersSection() {
   const [customers, setCustomers] = useState<Customer[] | null>(null);
@@ -17,6 +18,8 @@ export function CustomersSection() {
   const [formError, setFormError] = useState<string | null>(null);
   const [created, setCreated] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -30,6 +33,17 @@ export function CustomersSection() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const needle = query.trim().toLowerCase();
+  const visible =
+    customers === null
+      ? null
+      : customers.filter(
+          (customer) =>
+            needle === '' ||
+            customer.name.toLowerCase().includes(needle) ||
+            (customer.phone ?? '').includes(needle),
+        );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -122,28 +136,67 @@ export function CustomersSection() {
         ) : null}
 
         {customers !== null && customers.length > 0 ? (
-          <div className="table-wrapper">
-            <table className="table" aria-label="Clientes">
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Teléfono</th>
-                  <th className="table__number">Deuda (fiado)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.map((customer) => (
-                  <tr key={customer.id}>
-                    <td>{customer.name}</td>
-                    <td>{customer.phone ?? '—'}</td>
-                    <td className="table__number">{formatMoney(customer.balance)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <input
+              type="search"
+              className="customers-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar cliente por nombre"
+              aria-label="Buscar cliente por nombre"
+              maxLength={120}
+            />
+            {visible !== null && visible.length === 0 ? (
+              <p className="muted" role="status">
+                Ningún cliente coincide con «{query.trim()}».
+              </p>
+            ) : (
+              <div className="table-wrapper">
+                <table className="table" aria-label="Clientes">
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Teléfono</th>
+                      <th className="table__number">Deuda (fiado)</th>
+                      <th>
+                        <span className="visually-hidden">Acciones</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(visible ?? []).map((customer) => (
+                      <tr
+                        key={customer.id}
+                        className={customer.id === selectedId ? 'table__row--selected' : undefined}
+                        aria-selected={customer.id === selectedId}
+                      >
+                        <td>{customer.name}</td>
+                        <td>{customer.phone ?? '—'}</td>
+                        <td className="table__number">{formatMoney(customer.balance)}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button"
+                            aria-label={`Ver cuenta de ${customer.name}`}
+                            onClick={() => setSelectedId(customer.id)}
+                          >
+                            Ver cuenta
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         ) : null}
       </section>
+
+      {/* HU-19: la cuenta del cliente elegido (deuda, fiados, abonos); el saldo siempre viene del servidor. */}
+      {selectedId === null ? null : (
+        <CustomerAccount key={selectedId} customerId={selectedId} onChanged={() => void load()} />
+      )}
     </>
   );
 }

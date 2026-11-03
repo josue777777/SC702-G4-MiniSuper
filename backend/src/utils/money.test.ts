@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCents, isMoney, toCents } from './money.js';
+import { formatCents, formatColones, isMoney, toCents } from './money.js';
 
 describe('money', () => {
   it('convierte a céntimos y de vuelta sin errores de punto flotante', () => {
@@ -19,5 +19,15 @@ describe('money', () => {
     expect(isMoney('1e3')).toBe(false);
     expect(isMoney('')).toBe(false);
     expect(() => toCents('abc')).toThrow();
+  });
+});
+
+describe('formatColones', () => {
+  it('agrupa los miles con espacio y usa coma decimal', () => {
+    expect(formatColones(0n)).toBe('₡0,00');
+    expect(formatColones(5n)).toBe('₡0,05');
+    expect(formatColones(200_000n)).toBe('₡2 000,00');
+    expect(formatColones(123_456_789n)).toBe('₡1 234 567,89');
+    expect(formatColones(-150_000n)).toBe('-₡1 500,00');
   });
 });

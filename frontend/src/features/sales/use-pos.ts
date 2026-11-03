@@ -14,7 +14,7 @@ export interface PosNotice {
 const CODE_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 /** UUID v4 para la llave de idempotencia; `randomUUID` solo existe en contextos seguros. */
-function newKey(): string {
+export function newKey(): string {
   if (typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }

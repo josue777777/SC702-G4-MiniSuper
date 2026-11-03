@@ -289,6 +289,20 @@ export class SalesRepository {
   /** Devuelve unidades y registra el ajuste sin permitir carreras ni duplicar stock. */
   async adjustSale(plan: SaleAdjustmentPlan): Promise<SaleAdjustmentOutcome> {
     return prisma.$transaction(async (tx) => {
+      // Un fiado cambia la deuda del cliente: se bloquea PRIMERO al cliente y después la venta,
+      // el mismo orden con que se registra un abono (HU-19), para que ambos se hagan uno a la vez.
+      const owner = await tx.sale.findFirst({
+        where: { id: plan.saleId, businessId: this.businessId },
+        select: { customerId: true, paymentMethod: true },
+      });
+
+      if (owner?.paymentMethod === 'CREDIT' && owner.customerId !== null) {
+        await tx.$queryRaw`
+          SELECT id FROM "Customer"
+          WHERE id = ${owner.customerId}::uuid AND "businessId" = ${this.businessId}::uuid
+          FOR UPDATE`;
+      }
+
       const locked = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "Sale"
         WHERE id = ${plan.saleId}::uuid AND "businessId" = ${this.businessId}::uuid
@@ -305,6 +319,8 @@ export class SalesRepository {
           number: true,
           status: true,
           total: true,
+          paymentMethod: true,
+          customerId: true,
           items: {
             select: {
               id: true,
@@ -369,6 +385,57 @@ export class SalesRepository {
           unitPrice: saleItem.unitPrice.toFixed(2),
         });
         totalCents += toCents(saleItem.unitPrice.toFixed(2)) * BigInt(requested.quantity);
+      }
+
+      // Un fiado con abonos (HU-19) no puede quedar con más abonado que su nuevo importe: no existe
+      // devolución de dinero ni saldo a favor. Se rechaza SIN escribir nada, con las cifras reales.
+      if (sale.paymentMethod === 'CREDIT' && sale.customerId !== null) {
+        const [salePaid, customerCredited, customerPaid] = await Promise.all([
+          tx.creditPayment.aggregate({ where: { saleId: sale.id }, _sum: { amount: true } }),
+          tx.sale.aggregate({
+            where: {
+              businessId: this.businessId,
+              customerId: sale.customerId,
+              paymentMethod: 'CREDIT',
+            },
+            _sum: { total: true },
+          }),
+          tx.creditPayment.aggregate({
+            where: { customerId: sale.customerId },
+            _sum: { amount: true },
+          }),
+        ]);
+        const effectiveAfter = toCents(sale.total.toFixed(2)) - totalCents;
+        const assigned = toCents(salePaid._sum.amount?.toFixed(2) ?? '0.00');
+        // Abonos anteriores a HU-19 (sin venta) también cuentan contra lo que el cliente debe.
+        const balanceAfter =
+          toCents(customerCredited._sum.total?.toFixed(2) ?? '0.00') -
+          totalCents -
+          toCents(customerPaid._sum.amount?.toFixed(2) ?? '0.00');
+
+        if (assigned > effectiveAfter) {
+          return {
+            ok: false,
+            reason: 'PAID_EXCEEDS',
+            scope: 'SALE',
+            number: sale.number,
+            paid: formatCents(assigned),
+            remaining: formatCents(effectiveAfter),
+          };
+        }
+
+        if (balanceAfter < 0n) {
+          return {
+            ok: false,
+            reason: 'PAID_EXCEEDS',
+            scope: 'CUSTOMER',
+            number: sale.number,
+            paid: formatCents(toCents(customerPaid._sum.amount?.toFixed(2) ?? '0.00')),
+            remaining: formatCents(
+              toCents(customerCredited._sum.total?.toFixed(2) ?? '0.00') - totalCents,
+            ),
+          };
+        }
       }
 
       await tx.saleAdjustment.create({

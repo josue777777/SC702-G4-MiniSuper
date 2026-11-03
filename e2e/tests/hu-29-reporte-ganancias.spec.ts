@@ -31,9 +31,10 @@ import {
  * HU-29 — Reporte de ganancias (issue #29). Navegador real + backend real +
  * PostgreSQL de pruebas, con el escenario sintético de `support/reports.ts`.
  *
- * Ganancia = (precio histórico − costo histórico) × unidades netas. HU-19 (abonos)
- * todavía no existe: solo cuentan los fiados con un abono LIGADO a su venta que
- * los cubre; el resto se excluye y se informa.
+ * Ganancia = (precio histórico − costo histórico) × unidades netas. Un fiado solo
+ * cuenta cuando abonos LIGADOS a su venta (HU-19) lo cubren por completo; el resto se
+ * excluye y se informa. Aquí los abonos se siembran en la base para fijar cada caso;
+ * el flujo real de abonos se prueba de punta a punta en `hu-19-abonos-fiados.spec.ts`.
  */
 
 const REPORT = 'Reporte de ganancias';
@@ -117,9 +118,14 @@ test('calcula la ganancia bruta con precios y costos históricos y deja la evide
   expect(centsOf(rows.find((row) => row[0] === '#1' && row[2] === 'B1')?.[10] ?? '')).toBe(47_090);
 
   // Las limitaciones reales se dicen con claridad en la pantalla.
-  await expect(page.getByText('LIMITACIÓN (HU-19)')).toBeVisible();
+  await expect(
+    page.getByText('Los fiados sin pagar o con pago PARCIAL quedan fuera'),
+  ).toBeVisible();
+  await expect(page.getByText('Este reporte NO es el total cobrado en el período')).toBeVisible();
   await expect(page.getByText('LIMITACIÓN (costos)')).toBeVisible();
-  await expect(page.getByText('sin repartir ganancias por estimación')).toBeVisible();
+  await expect(page.getByText('no se reparte su ganancia por estimación')).toBeVisible();
+  // Ya existe el flujo de abonos: el aviso obsoleto no debe seguir apareciendo.
+  await expect(page.getByText('todavía no existe el flujo')).toHaveCount(0);
 
   expect(errors).toEqual([]);
   await saveEvidence(page, 'HU-29', 'HU-29-reporte-ganancias.png', { fullPage: true });
@@ -220,7 +226,8 @@ test('exporta a Excel exactamente lo que se muestra, con las advertencias', asyn
 
   const notes = exported.summary.filter((row) => row[0] === 'Nota').map((row) => String(row[1]));
 
-  expect(notes.some((note) => note.includes('LIMITACIÓN (HU-19)'))).toBe(true);
+  expect(notes.some((note) => note.includes('pago PARCIAL'))).toBe(true);
+  expect(notes.some((note) => note.includes('todavía no existe el flujo'))).toBe(false);
   expect(notes.some((note) => note.includes('LIMITACIÓN (costos)'))).toBe(true);
 });
 
