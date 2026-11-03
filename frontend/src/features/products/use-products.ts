@@ -257,6 +257,12 @@ export function useProducts() {
     await load();
   }, [load]);
 
+  /** Tras el alta rápida de un proveedor desde el modal de producto (HU-21). */
+  const afterSupplierCreated = useCallback(async () => {
+    setNotice({ kind: 'success', text: 'Proveedor registrado correctamente.' });
+    await load();
+  }, [load]);
+
   return {
     ...state,
     notice,
@@ -272,6 +278,7 @@ export function useProducts() {
     activateProduct,
     deleteProduct,
     afterCategoryCreated,
+    afterSupplierCreated,
     dismissNotice,
   };
 }

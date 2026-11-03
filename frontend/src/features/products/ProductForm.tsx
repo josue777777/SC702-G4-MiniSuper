@@ -1,7 +1,8 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
+import { useSession } from '../auth/session-context';
 import { CategoryForm } from '../categories/CategoryForm';
+import { QuickSupplierForm } from '../suppliers/QuickSupplierForm';
 import { parseMinStock, todayDateOnly } from '../inventory/inventory-count';
 import { productsService } from '../../services/products.service';
 import {
@@ -30,6 +31,8 @@ interface ProductFormProps {
   initialValues: ProductFormValues;
   /** Recarga las opciones tras crear una categoría desde el modal (HU-04). */
   onCategoryCreated?: () => Promise<void>;
+  /** Recarga las opciones tras registrar un proveedor desde el modal (HU-21). */
+  onSupplierCreated?: () => Promise<void>;
   /** Imagen guardada del producto (HU-01); `null` si no tiene o es un alta. */
   imageUrl?: string | null;
   /** Mínimo (HU-08) y vencimiento (HU-09) guardados; en un alta, 0 y sin fecha. */
@@ -110,10 +113,13 @@ export function ProductForm({
   initialMinStock = 0,
   initialExpirationDate = null,
   onCategoryCreated,
+  onSupplierCreated,
   busy,
   onCancel,
   onSubmit,
 }: ProductFormProps) {
+  /** Registrar proveedores exige el permiso de compras; sin él, no se ofrece. */
+  const canCreateSupplier = useSession().can('purchasing');
   const [values, setValues] = useState<ProductFormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tab, setTab] = useState<Tab>('general');
@@ -128,6 +134,7 @@ export function ProductForm({
 
   /** Alta de categoría sin salir del modal (HU-04). */
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [supplierFormOpen, setSupplierFormOpen] = useState(false);
   /** Cambio de imagen pendiente: se aplica al guardar, no al elegir el archivo. */
   const [image, setImage] = useState<ProductImageChange>({ kind: 'keep' });
   const [imageError, setImageError] = useState<string | null>(null);
@@ -276,13 +283,11 @@ export function ProductForm({
             {missingCategories
               ? ' Todavía no hay categorías: cree una con «+ Nueva categoría», junto al campo Categoría.'
               : ''}
-            {missingSuppliers ? (
-              <>
-                {' Todavía no hay proveedores activos: '}
-                <Link to="/suppliers">registre uno en Proveedores</Link> (este formulario se
-                cierra).
-              </>
-            ) : null}
+            {missingSuppliers
+              ? canCreateSupplier
+                ? ' Todavía no hay proveedores activos: registre uno con «+ Nuevo proveedor», junto al campo Proveedor.'
+                : ' Todavía no hay proveedores activos: pídale a quien maneja las compras que registre uno.'
+              : ''}
           </span>
         </p>
       ) : null}
@@ -321,6 +326,19 @@ export function ProductForm({
               updateField('categoryId', category.id);
             }}
             onClose={() => setCategoryFormOpen(false)}
+          />
+        </div>
+      ) : null}
+
+      {/* Igual que la categoría: alta rápida sin salir; al guardar queda seleccionado. */}
+      {supplierFormOpen ? (
+        <div className="modal__subform">
+          <QuickSupplierForm
+            onCreated={async (supplier) => {
+              await onSupplierCreated?.();
+              updateField('supplierId', supplier.id);
+            }}
+            onClose={() => setSupplierFormOpen(false)}
           />
         </div>
       ) : null}
@@ -374,10 +392,16 @@ export function ProductForm({
                     </option>
                   ))}
                 </select>
-                {/* El formulario de proveedor es grande (contactos y productos): se registra en su pantalla. */}
-                <Link to="/suppliers" className="link-button">
-                  + Nuevo proveedor (en Proveedores)
-                </Link>
+                {canCreateSupplier ? (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setSupplierFormOpen(true)}
+                    disabled={busy || supplierFormOpen}
+                  >
+                    + Nuevo proveedor
+                  </button>
+                ) : null}
               </div>
             </Field>
           </div>

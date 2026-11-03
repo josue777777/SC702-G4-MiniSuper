@@ -72,6 +72,7 @@ export function ProductsSection({
     activateProduct,
     deleteProduct,
     afterCategoryCreated,
+    afterSupplierCreated,
     dismissNotice,
   } = useProducts();
 
@@ -446,6 +447,7 @@ export function ProductsSection({
           initialMinStock={editing?.minStock ?? 0}
           initialExpirationDate={editing?.expirationDate ?? null}
           onCategoryCreated={afterCategoryCreated}
+          onSupplierCreated={afterSupplierCreated}
           busy={busy}
           onCancel={closeForm}
           onSubmit={(payload, image, settings) => void handleSubmit(payload, image, settings)}
