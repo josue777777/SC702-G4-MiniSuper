@@ -23,6 +23,7 @@ import {
 import { productsRouter } from './products.routes.js';
 import { profileRouter } from './profile.routes.js';
 import { purchaseOrdersRouter } from './purchase-orders.routes.js';
+import { reportsRouter } from './reports.routes.js';
 import { salesRouter } from './sales.routes.js';
 import { suppliersRouter } from './suppliers.routes.js';
 import { usersRouter } from './users.routes.js';
@@ -102,6 +103,12 @@ apiRouter.use(
 ); // HU-08, HU-09, HU-10
 apiRouter.use('/kardex', ...businessRequired, requirePermission('kardex'), kardexRouter); // HU-31
 apiRouter.use('/sales', ...businessRequired, requirePermission('sales'), salesRouter); // HU-16 … HU-18, HU-34, HU-35, HU-37
+apiRouter.use(
+  '/reports/commercial',
+  ...businessRequired,
+  requirePermission('reports.sales'),
+  reportsRouter,
+); // HU-28, HU-29, HU-30 (los reportes de inventario, HU-25 a HU-27, usan otro permiso)
 apiRouter.use('/customers', ...businessRequired, requirePermission('customers'), customersRouter); // HU-18, HU-36
 apiRouter.use('/suppliers', ...businessRequired, requirePermission('purchasing'), suppliersRouter); // HU-21
 apiRouter.use(
