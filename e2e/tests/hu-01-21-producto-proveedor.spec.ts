@@ -72,3 +72,28 @@ test('HU-01/HU-21: crea categoría y proveedor desde el modal del producto sin p
 
   expect(saved.rows[0]?.supplier).toBe('Distribuidora Central');
 });
+
+test('HU-21: un proveedor con nombre repetido no se crea y ofrece ver los existentes, como la categoría', async ({
+  page,
+}) => {
+  await page.goto('/inventory');
+  await page.getByRole('button', { name: '+ Crear' }).click();
+
+  const modal = page.getByRole('dialog', { name: 'Crear producto' });
+  const createSupplier = async () => {
+    await modal.getByRole('button', { name: '+ Nuevo proveedor' }).click();
+    await modal.locator('#quick-supplier-name').fill('Distribuidora Central');
+    await modal.locator('#quick-supplier-phone').fill('2222-3333');
+    await modal.getByRole('button', { name: 'Guardar', exact: true }).click();
+  };
+
+  await createSupplier();
+  await expect(modal.locator('#quick-supplier-name')).toHaveCount(0);
+
+  // El mismo nombre otra vez: queda abierto con el error y la opción de ver los existentes.
+  await createSupplier();
+  await expect(modal.getByRole('alert')).toContainText('Ya existe un proveedor con ese nombre.');
+  await modal.getByRole('button', { name: 'Ver proveedores existentes' }).click();
+  await expect(modal.getByText('Proveedores existentes (1)')).toBeVisible();
+  await expect(modal.locator('#quick-supplier-name')).toHaveValue('Distribuidora Central');
+});

@@ -1,6 +1,4 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { ApiError } from '../../services/api-client';
-import { suppliersService } from '../../services/suppliers.service';
 import type { Supplier, SupplierFormValues } from '../../types/suppliers';
 import {
   EMPTY_SUPPLIER_VALUES,
@@ -9,6 +7,7 @@ import {
   validateSupplierForm,
   type SupplierFormErrors,
 } from './supplier-form';
+import { useQuickSupplierForm } from './use-quick-supplier-form';
 
 interface QuickSupplierFormProps {
   /**
@@ -31,13 +30,14 @@ const EMPTY: QuickValues = { name: '', contactName: '', phone: '', email: '' };
  * Pide solo lo necesario (nombre y un contacto). La dirección, las notas y los
  * productos que suministra se completan después en Proveedores. Usa las mismas
  * reglas que el formulario completo (`supplier-form.ts`), y el servidor las
- * vuelve a validar.
+ * vuelve a validar. El envío y los errores viven en `use-quick-supplier-form.ts`,
+ * igual que en la categoría (`CategoryForm` + `use-category-form.ts`).
  */
 export function QuickSupplierForm({ onCreated, onClose }: QuickSupplierFormProps) {
+  const { busy, error, existing, listError, create, showExisting, hideExisting } =
+    useQuickSupplierForm(onCreated);
   const [values, setValues] = useState<QuickValues>(EMPTY);
   const [errors, setErrors] = useState<SupplierFormErrors>({});
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   function update(field: keyof QuickValues) {
     return (event: ChangeEvent<HTMLInputElement>) =>
@@ -53,26 +53,14 @@ export function QuickSupplierForm({ onCreated, onClose }: QuickSupplierFormProps
     const found = validateSupplierForm(full);
 
     setErrors(found);
-    setServerError(null);
 
     if (hasSupplierErrors(found)) {
       return;
     }
 
-    setBusy(true);
-
-    try {
-      const created = await suppliersService.create(toSupplierPayload(full));
-
-      await onCreated(created);
+    // Solo se cierra si se guardó: ante un nombre repetido queda abierto con el error.
+    if (await create(toSupplierPayload(full))) {
       onClose();
-    } catch (caught) {
-      // Por ejemplo, un nombre repetido (409): queda abierto con el mensaje.
-      setServerError(
-        caught instanceof ApiError ? caught.message : 'No se pudo registrar el proveedor.',
-      );
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -139,10 +127,36 @@ export function QuickSupplierForm({ onCreated, onClose }: QuickSupplierFormProps
           <p className="form__error">{errors.contact}</p>
         )}
 
-        {serverError === null ? null : (
-          <p className="form__error" role="alert">
-            {serverError}
-          </p>
+        {error === null ? null : (
+          <div className="form__error-row" role="alert">
+            <p className="form__error">{error.message}</p>
+            {error.duplicate ? (
+              <button type="button" className="button" onClick={() => void showExisting()}>
+                Ver proveedores existentes
+              </button>
+            ) : null}
+          </div>
+        )}
+
+        {listError === null ? null : <p className="form__error">{listError}</p>}
+
+        {existing === null ? null : (
+          <div>
+            <p className="muted">
+              Proveedores existentes ({existing.length}){' '}
+              <button type="button" className="button" onClick={hideExisting}>
+                Ocultar
+              </button>
+            </p>
+            <ul className="category-list">
+              {existing.map((supplier) => (
+                <li key={supplier.id}>
+                  {supplier.name}
+                  {supplier.isActive ? '' : ' (inactivo)'}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         <p className="muted">
