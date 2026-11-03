@@ -94,6 +94,23 @@ export interface SaleListFilter {
   limit: number;
 }
 
+export interface DailySalesHistoryFilter {
+  date?: string;
+  paymentMethod?: PaymentMethodKind;
+  page: number;
+  pageSize: number;
+}
+
+export interface DailySalesHistoryDto {
+  date: string;
+  page: number;
+  pageSize: number;
+  matchingCount: number;
+  sales: SaleRecord[];
+  /** Todo el día, sin filtrar por método de pago ni página. Incluye fiados. */
+  day: { saleCount: number; originalTotal: MoneyString; total: MoneyString };
+}
+
 export interface SaleAdjustmentPlan {
   saleId: string;
   type: SaleAdjustmentTypeKind;

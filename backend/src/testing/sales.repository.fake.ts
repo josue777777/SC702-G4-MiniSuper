@@ -7,6 +7,8 @@ import type {
   CreateSalePlan,
   CreditTotals,
   DailySalesSummaryDto,
+  DailySalesHistoryDto,
+  DailySalesHistoryFilter,
   CustomerRef,
   SaleAdjustmentOutcome,
   SaleAdjustmentPlan,
@@ -119,6 +121,34 @@ export class FakeSalesRepository implements SalesRepository {
           itemCount: sale.items.length,
         })),
     );
+  }
+
+  dailyHistory(
+    startAt: Date,
+    endAt: Date,
+    filter: DailySalesHistoryFilter,
+  ): Promise<Pick<DailySalesHistoryDto, 'sales' | 'matchingCount' | 'day'>> {
+    const day = this.sales.filter((sale) => {
+      const at = new Date(sale.createdAt);
+      return at >= startAt && at < endAt;
+    });
+    const matches = day
+      .filter(
+        (sale) => filter.paymentMethod === undefined || sale.paymentMethod === filter.paymentMethod,
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.number - a.number);
+    const start = (filter.page - 1) * filter.pageSize;
+    return Promise.resolve({
+      sales: matches.slice(start, start + filter.pageSize),
+      matchingCount: matches.length,
+      day: {
+        saleCount: day.length,
+        originalTotal: formatCents(
+          day.reduce((sum, sale) => sum + toCents(sale.originalTotal), 0n),
+        ),
+        total: formatCents(day.reduce((sum, sale) => sum + toCents(sale.total), 0n)),
+      },
+    });
   }
 
   adjustSale(plan: SaleAdjustmentPlan): Promise<SaleAdjustmentOutcome> {
