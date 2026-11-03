@@ -443,6 +443,7 @@ export function ProductsSection({
           options={options}
           initialValues={editing === null ? EMPTY_FORM_VALUES : toFormValues(editing)}
           imageUrl={editing?.imageUrl ?? null}
+          initialBarcode={editing?.barcode ?? null}
           initialMinStock={editing?.minStock ?? 0}
           initialExpirationDate={editing?.expirationDate ?? null}
           onCategoryCreated={afterCategoryCreated}
@@ -538,7 +539,9 @@ export function ProductsSection({
             className="action-bar__button"
             onClick={() => {
               if (selected === null) {
-                setSelectionHint('Primero seleccione el producto para generar su código de barras.');
+                setSelectionHint(
+                  'Primero seleccione el producto para generar su código de barras.',
+                );
 
                 return;
               }
@@ -550,8 +553,7 @@ export function ProductsSection({
               }
             }}
             disabled={
-              phase !== 'ready' ||
-              (selected !== null && barcodeGeneratingId === selected.id)
+              phase !== 'ready' || (selected !== null && barcodeGeneratingId === selected.id)
             }
           >
             {selected !== null && barcodeGeneratingId === selected.id
