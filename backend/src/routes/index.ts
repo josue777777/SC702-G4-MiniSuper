@@ -13,6 +13,7 @@ import { categoriesRouter } from './categories.routes.js';
 import { customersRouter } from './customers.routes.js';
 import { healthRouter } from './health.routes.js';
 import { inventoryRouter } from './inventory.routes.js';
+import { kardexRouter } from './kardex.routes.js';
 import { passwordRecoveryRouter } from './password-recovery.routes.js';
 import {
   planRequestsRouter,
@@ -99,6 +100,7 @@ apiRouter.use(
   requirePermission('inventory.read', 'inventory.write'),
   inventoryRouter,
 ); // HU-08, HU-09, HU-10
+apiRouter.use('/kardex', ...businessRequired, requirePermission('kardex'), kardexRouter); // HU-31
 apiRouter.use('/sales', ...businessRequired, requirePermission('sales'), salesRouter); // HU-16 … HU-18, HU-34, HU-35, HU-37
 apiRouter.use('/customers', ...businessRequired, requirePermission('customers'), customersRouter); // HU-18, HU-36
 apiRouter.use('/suppliers', ...businessRequired, requirePermission('purchasing'), suppliersRouter); // HU-21

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { InventoryReport } from './InventoryReport';
 import { productsService } from '../../services/products.service';
@@ -8,6 +9,7 @@ import type {
   ProductPayload,
   ProductSettingsChange,
 } from '../../types/products';
+import { useSession } from '../auth/session-context';
 import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
@@ -74,6 +76,10 @@ export function ProductsSection({
     afterCategoryCreated,
     dismissNotice,
   } = useProducts();
+
+  const navigate = useNavigate();
+  /** «Ver ficha» solo se ofrece a quien puede usar el Kardex (la API lo exige igual). */
+  const { can } = useSession();
 
   /** Producto que se está editando; `null` significa que el formulario es de alta. */
   const [editing, setEditing] = useState<Product | null>(null);
@@ -560,6 +566,22 @@ export function ProductsSection({
               : selected?.barcode === null || selected === null
                 ? '▥ Generar código'
                 : '▥ Ver código'}
+          </button>
+        ) : null}
+        {/* HU-31: la ficha con el historial de movimientos; también de los desactivados. */}
+        {can('kardex') ? (
+          <button
+            type="button"
+            className="action-bar__button"
+            onClick={() =>
+              withSelection(
+                (product) => navigate(`/kardex?productId=${encodeURIComponent(product.id)}`),
+                'consultar',
+              )
+            }
+            disabled={phase !== 'ready'}
+          >
+            ▤ Ver ficha
           </button>
         ) : null}
         {view === 'inactive' ? (
