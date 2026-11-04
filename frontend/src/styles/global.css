@@ -706,9 +706,10 @@ code {
   outline-offset: 0;
 }
 
-/* Los botones junto a los filtros miden lo mismo que los campos. */
+/* Los botones junto a los filtros miden lo mismo que los campos, en todas las pantallas. */
 .toolbar .button,
-.card__header .row-actions .button {
+.card__header .row-actions .button,
+.filter-bar .button {
   min-height: 36px;
 }
 
@@ -2965,11 +2966,6 @@ fieldset.filter-bar__field {
   align-items: center;
   gap: 10px;
   margin-left: auto;
-}
-
-.button--small {
-  padding: 5px 10px;
-  font-size: 0.85rem;
 }
 
 .filter-bar__note {

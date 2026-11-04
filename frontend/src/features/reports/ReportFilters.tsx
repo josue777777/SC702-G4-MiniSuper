@@ -219,7 +219,7 @@ export function ReportFilters({
             ))}
             {chips.length > 1 ? (
               <li>
-                <button type="button" className="button button--small" onClick={onClear}>
+                <button type="button" className="button" onClick={onClear}>
                   Limpiar filtros
                 </button>
               </li>
@@ -231,7 +231,7 @@ export function ReportFilters({
           {/* Con los mismos filtros: trae lo que cambió (por ejemplo, una venta recién hecha). */}
           <button
             type="button"
-            className="button button--small"
+            className="button"
             disabled={sync !== 'done'}
             onClick={onRefresh}
             title="Volver a consultar con los mismos filtros"
