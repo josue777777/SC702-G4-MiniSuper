@@ -1,7 +1,9 @@
 # Reglas del equipo
 
 Lectura obligatoria antes de abrir un PR: la plantilla pide confirmarlo y el CI
-no deja pasar un PR sin esa confirmación. Son pocas a propósito; el detalle y
+no deja pasar un PR sin esa confirmación. Valen igual para el código escrito a
+mano o con IA (las herramientas de IA las encuentran por `AGENTS.md`,
+`CLAUDE.md` y `.github/copilot-instructions.md`). Son pocas a propósito; el detalle y
 los ejemplos están en las guías enlazadas.
 
 ## 1. Las historias de usuario mandan
