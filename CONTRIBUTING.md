@@ -1,0 +1,68 @@
+# Reglas del equipo
+
+Lectura obligatoria antes de abrir un PR: la plantilla pide confirmarlo y el CI
+no deja pasar un PR sin esa confirmación. Son pocas a propósito; el detalle y
+los ejemplos están en las guías enlazadas.
+
+## 1. Las historias de usuario mandan
+
+- Nunca se quita un criterio de aceptación que ya se cumple. Si algo cambia de
+  lugar (se pliega, se resume, pasa a otra pantalla), el criterio se sigue
+  cumpliendo y su prueba se ajusta.
+- Se suma, no se resta: si una mejora agrega algo, se agrega como criterio
+  nuevo en su historia.
+- Un criterio se marca solo cuando el sistema lo cumple y hay una prueba que lo
+  demuestra.
+
+## 2. Todo el sistema se ve y se comporta igual
+
+- Lo mismo se resuelve de la misma forma en todas las pantallas: listas,
+  formularios, filtros, buscadores, documentos y reportes.
+- Se usan los componentes y estilos que ya existen (`Modal`, `Pagination`,
+  `ListSearch`, `ReportActions`, `.filter-bar`, `.toolbar__filter`, `.button`)
+  y los colores de `global.css`. No se crea un estilo nuevo para algo que ya
+  tiene uno.
+- Si algo se necesita en dos lugares, se vuelve compartido; no se copia.
+- Una pantalla que se ve distinta a las demás es un error de diseño, aunque
+  funcione.
+
+## 3. Pantallas claras y livianas
+
+Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
+
+- La pantalla abre mostrando la información; los formularios se piden con un
+  botón y abren en una ventana (`Modal`).
+- Toda lista va paginada. Lo que crece sin límite (ventas, movimientos,
+  detalle de reportes) se pagina en el servidor.
+- Buscadores y filtros se aplican solos, sin botón «Buscar» ni «Generar».
+- Lo secundario va plegado; los avisos aparecen solo cuando aplican.
+- Poco texto en pantalla; la ayuda, a pedido.
+
+## 4. Datos y seguridad
+
+Guía completa: [`docs/ESCALABILIDAD.md`](docs/ESCALABILIDAD.md).
+
+- Cada negocio ve solo lo suyo: el negocio sale siempre de la sesión, nunca de
+  la URL ni del cuerpo de la petición.
+- Los permisos se validan en el servidor; la pantalla solo oculta.
+- El dinero nunca va en `float`; lo que mueve dinero o stock va en una
+  transacción.
+- Lo que tiene historia se desactiva, no se borra.
+- Nunca se suben `.env`, contraseñas ni datos reales.
+
+## 5. Código y pruebas
+
+- Antes de subir: `npm run format:check`, `npm run lint`,
+  `npm run typecheck` y las pruebas de lo que se tocó.
+- Cada regla nueva lleva su prueba; cada criterio de una historia, su prueba
+  E2E.
+- Nunca se desactiva ni se salta una prueba para que el CI pase: se arregla la
+  causa.
+- Sin código muerto ni comentarios que ya no son ciertos.
+
+## 6. Ramas y PR
+
+- Se trabaja en una rama desde `develop` y se abre el PR hacia `develop`;
+  `develop` pasa a `main` cuando todo está en verde.
+- Un PR se integra solo con el CI en verde y sin conflictos.
+- La descripción del PR dice qué historia toca y cómo se probó.
