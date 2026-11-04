@@ -1,6 +1,7 @@
+import type { ExpirationAlert } from '../../types/inventory';
 import type { Product } from '../../types/products';
 import { formatDateOnly } from '../inventory/inventory-count';
-import { formatMoney } from './money';
+import { formatMoney } from '../products/money';
 
 /**
  * Reglas del reporte de inventario, sin React: qué columnas hay, cómo se
@@ -228,4 +229,19 @@ export function summarize(products: Product[]): string {
   const cents = products.reduce((sum, product) => sum + toCents(product.cost) * product.stock, 0);
 
   return `${products.length} producto(s) · ${units} unidad(es) · valor al costo ${formatMoney((cents / 100).toFixed(2))}`;
+}
+
+/** Qué parte de los vencimientos se incluye. */
+export type ExpirationFilter = 'ALL' | ExpirationAlert['status'];
+
+export const EXPIRATION_FILTERS: Record<ExpirationFilter, string> = {
+  ALL: 'Vencidos y próximos a vencer',
+  EXPIRED: 'Solo vencidos',
+  EXPIRING_SOON: 'Solo próximos a vencer',
+};
+
+export interface InventorySections {
+  products: boolean;
+  expirations: boolean;
+  lowStock: boolean;
 }

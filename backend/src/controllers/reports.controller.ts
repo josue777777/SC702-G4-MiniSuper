@@ -4,9 +4,11 @@ import type { ReportsService } from '../services/reports.service.js';
 import type { ReportKind, ReportResult } from '../types/reports.js';
 import type { ForBusiness } from '../types/tenant.js';
 import { XLSX_CONTENT_TYPE } from '../utils/catalog-xlsx.js';
+import { HttpError } from '../utils/http-error.js';
 import { buildReportWorkbook } from '../utils/reports-xlsx.js';
 import {
   debtsReportQuerySchema,
+  exportColumnsSchema,
   periodReportQuerySchema,
   reportKindSchema,
   salesReportQuerySchema,
@@ -18,7 +20,8 @@ import {
  *
  *   GET /options        categorías para el filtro de ventas
  *   GET /:kind          el reporte (sales | profits | top-products | customer-debts)
- *   GET /:kind/export   el MISMO reporte, como Excel
+ *   GET /:kind/export   el MISMO reporte, como Excel; `?columns=` exporta solo
+ *                       las columnas que el usuario dejó activas (HU-40)
  */
 export class ReportsController {
   constructor(private readonly serviceFor: ForBusiness<ReportsService>) {}
@@ -29,15 +32,18 @@ export class ReportsController {
   }
 
   async get(req: Request, res: Response): Promise<void> {
-    const report = await this.generate(req, res);
+    const report = await this.generate(req.params['kind'], req.query, res);
 
     res.setHeader('Cache-Control', 'no-store');
     res.json({ data: report });
   }
 
   async export(req: Request, res: Response): Promise<void> {
-    const report = await this.generate(req, res);
-    const content = await buildReportWorkbook(report);
+    // `columns` no es un filtro del reporte: se separa antes de validar los filtros.
+    const { columns: rawColumns, ...filters } = req.query;
+    const columns = exportColumnsSchema.parse(rawColumns);
+    const report = await this.generate(req.params['kind'], filters, res);
+    const content = await buildReportWorkbook(onlyColumns(report, columns));
 
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Type', XLSX_CONTENT_TYPE);
@@ -46,21 +52,47 @@ export class ReportsController {
   }
 
   /** Valida los filtros propios de cada reporte y lo genera. */
-  private async generate(req: Request, res: Response): Promise<ReportResult> {
-    const kind: ReportKind = reportKindSchema.parse(req.params['kind']);
+  private async generate(
+    rawKind: unknown,
+    query: Request['query'],
+    res: Response,
+  ): Promise<ReportResult> {
+    const kind: ReportKind = reportKindSchema.parse(rawKind);
     const service = this.serviceFor(businessIdOf(res));
 
     switch (kind) {
       case 'sales':
-        return service.sales(salesReportQuerySchema.parse(req.query));
+        return service.sales(salesReportQuerySchema.parse(query));
       case 'profits':
-        return service.profits(periodReportQuerySchema.parse(req.query));
+        return service.profits(periodReportQuerySchema.parse(query));
       case 'top-products':
-        return service.topProducts(periodReportQuerySchema.parse(req.query));
+        return service.topProducts(periodReportQuerySchema.parse(query));
       case 'customer-debts':
-        debtsReportQuerySchema.parse(req.query);
+        debtsReportQuerySchema.parse(query);
 
         return service.customerDebts();
     }
   }
+}
+
+/**
+ * El reporte con solo las columnas elegidas, en el orden del reporte. Una
+ * columna que no existe en ESTE reporte se rechaza: exportar algo distinto de
+ * lo que se ve sería peor que avisar.
+ */
+function onlyColumns(report: ReportResult, keys: string[] | undefined): ReportResult {
+  if (keys === undefined) {
+    return report;
+  }
+
+  const known = new Set(report.columns.map((column) => column.key));
+  const unknown = keys.filter((key) => !known.has(key));
+
+  if (unknown.length > 0) {
+    throw HttpError.badRequest(`Columnas que no existen en este reporte: ${unknown.join(', ')}.`);
+  }
+
+  const wanted = new Set(keys);
+
+  return { ...report, columns: report.columns.filter((column) => wanted.has(column.key)) };
 }

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
-import { InventoryReport } from './InventoryReport';
 import { productsService } from '../../services/products.service';
 import type {
   Product,
@@ -96,7 +95,6 @@ export function ProductsSection({
   const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
   const [barcodeGeneratingId, setBarcodeGeneratingId] = useState<string | null>(null);
   const [barcodeMessage, setBarcodeMessage] = useState<string | null>(null);
-  const [reportOpen, setReportOpen] = useState(false);
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
 
@@ -379,14 +377,22 @@ export function ProductsSection({
           </select>
         </label>
         {tools}
-        <button
-          type="button"
-          className="button button--tool"
-          onClick={() => setReportOpen(true)}
-          disabled={phase !== 'ready'}
-        >
-          🖨 Imprimir reporte
-        </button>
+        {/* El reporte vive en Reportes (con PDF, Excel y personalización); abre su categoría. */}
+        {can('reports.inventory') ? (
+          <button
+            type="button"
+            className="button button--tool"
+            onClick={() =>
+              navigate(
+                categoryFilter === ''
+                  ? '/reports?reporte=inventario'
+                  : `/reports?reporte=inventario&categoria=${encodeURIComponent(categoryFilter)}`,
+              )
+            }
+          >
+            🖨 Reporte de inventario
+          </button>
+        ) : null}
         <button
           type="button"
           className="button button--tool"
@@ -614,14 +620,6 @@ export function ProductsSection({
             (selected === null ? '' : `Seleccionado: ${selected.code} · ${selected.name}`)}
         </span>
       </div>
-
-      {reportOpen ? (
-        <InventoryReport
-          categories={options.categories}
-          initialCategoryId={categoryFilter}
-          onClose={() => setReportOpen(false)}
-        />
-      ) : null}
 
       {barcodeProduct !== null ? (
         <BarcodeLabel

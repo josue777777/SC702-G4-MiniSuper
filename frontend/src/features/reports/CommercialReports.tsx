@@ -1,87 +1,110 @@
+import { useEffect, useState } from 'react';
 import type { ReportKind } from '../../types/reports';
+import { ReportCustomizeModal } from './ReportCustomizeModal';
 import { ReportFilters } from './ReportFilters';
+import { ReportPdfPreview } from './ReportPdfPreview';
 import { ReportResultView } from './ReportResultView';
+import {
+  loadReportPreferences,
+  saveReportPreferences,
+  visibleReportColumns,
+  type ReportPreferences,
+} from './report-preferences';
 import { useCommercialReport } from './use-commercial-report';
 
-const TABS: { kind: ReportKind; label: string; stories: string }[] = [
-  { kind: 'sales', label: 'Ventas', stories: 'HU-28' },
-  { kind: 'profits', label: 'Ganancias', stories: 'HU-29' },
-  { kind: 'top-products', label: 'Más vendidos', stories: 'HU-30' },
-  { kind: 'customer-debts', label: 'Deudas de clientes', stories: 'HU-30' },
-];
+interface CommercialReportPanelProps {
+  kind: ReportKind;
+}
 
 /**
- * Reportes comerciales del negocio (HU-28 ventas, HU-29 ganancias, HU-30
- * productos más vendidos y deudas de clientes). Solo se monta con el permiso
- * `reports.sales`; la API lo exige además en cada consulta.
+ * Un reporte comercial (HU-28 ventas, HU-29 ganancias, HU-30 productos más
+ * vendidos y deudas): filtros, resultado y sus acciones (HU-40). Solo se monta
+ * con el permiso `reports.sales`; la API lo exige además en cada consulta.
+ *
+ * Lo que el usuario personaliza (columnas y hoja) vale para la tabla, el PDF y
+ * el Excel, y se recuerda por reporte.
  */
-export function CommercialReports() {
-  const report = useCommercialReport();
+export function CommercialReportPanel({ kind }: CommercialReportPanelProps) {
+  const report = useCommercialReport(kind);
   const { view } = report;
+  const [preferences, setPreferences] = useState<ReportPreferences>(() =>
+    loadReportPreferences(kind),
+  );
+  const [customizing, setCustomizing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  // Cada reporte recuerda su propia personalización.
+  useEffect(() => {
+    setPreferences(loadReportPreferences(kind));
+  }, [kind]);
+
+  const ready = view.status === 'ready' ? view.report : null;
+  const columns = ready === null ? [] : visibleReportColumns(ready.columns, preferences);
+  // Si no se ocultó nada, el Excel va completo (sin parámetro).
+  const exportColumns =
+    ready !== null && columns.length < ready.columns.length
+      ? columns.map((column) => column.key)
+      : undefined;
 
   return (
-    <section className="card" aria-labelledby="commercial-reports-title">
-      <header className="card__header">
-        <h2 id="commercial-reports-title">Reportes comerciales</h2>
-      </header>
+    <>
+      <ReportFilters
+        kind={kind}
+        draft={report.draft}
+        errors={report.errors}
+        categories={report.categories}
+        categoriesError={report.categoriesError}
+        busy={view.status === 'loading'}
+        onChange={report.setField}
+        onSubmit={report.consult}
+      />
 
-      <div className="tabs" role="tablist" aria-label="Reportes comerciales">
-        {TABS.map((tab) => (
-          <button
-            key={tab.kind}
-            type="button"
-            role="tab"
-            id={`report-tab-${tab.kind}`}
-            aria-selected={report.kind === tab.kind}
-            aria-controls="report-panel"
-            title={tab.stories}
-            className={`tabs__tab${report.kind === tab.kind ? ' tabs__tab--active' : ''}`}
-            onClick={() => report.selectKind(tab.kind)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {view.status === 'loading' ? (
+        <p className="muted" role="status">
+          Cargando reporte…
+        </p>
+      ) : null}
 
-      <div
-        id="report-panel"
-        role="tabpanel"
-        aria-labelledby={`report-tab-${report.kind}`}
-        className="tabs__panel"
-      >
-        <ReportFilters
-          kind={report.kind}
-          draft={report.draft}
-          errors={report.errors}
-          categories={report.categories}
-          categoriesError={report.categoriesError}
-          busy={view.status === 'loading'}
-          onChange={report.setField}
-          onSubmit={report.consult}
+      {view.status === 'error' ? (
+        <div className="alert alert--error" role="alert">
+          {view.message}
+        </div>
+      ) : null}
+
+      {ready === null ? null : (
+        <ReportResultView
+          report={ready}
+          columns={columns}
+          exporting={report.exporting}
+          notice={report.notice}
+          onExport={() => void report.exportReport(exportColumns)}
+          onPdf={() => setPreviewing(true)}
+          onCustomize={() => setCustomizing(true)}
+          onDismissNotice={report.dismissNotice}
         />
+      )}
 
-        {view.status === 'loading' ? (
-          <p className="muted" role="status">
-            Cargando reporte…
-          </p>
-        ) : null}
+      {customizing && ready !== null ? (
+        <ReportCustomizeModal
+          columns={ready.columns}
+          preferences={preferences}
+          onApply={(next) => {
+            setPreferences(next);
+            saveReportPreferences(kind, next);
+            setCustomizing(false);
+          }}
+          onClose={() => setCustomizing(false)}
+        />
+      ) : null}
 
-        {view.status === 'error' ? (
-          <div className="alert alert--error" role="alert">
-            {view.message}
-          </div>
-        ) : null}
-
-        {view.status === 'ready' ? (
-          <ReportResultView
-            report={view.report}
-            exporting={report.exporting}
-            notice={report.notice}
-            onExport={() => void report.exportReport()}
-            onDismissNotice={report.dismissNotice}
-          />
-        ) : null}
-      </div>
-    </section>
+      {previewing && ready !== null ? (
+        <ReportPdfPreview
+          report={ready}
+          columns={columns}
+          orientation={preferences.orientation}
+          onClose={() => setPreviewing(false)}
+        />
+      ) : null}
+    </>
   );
 }

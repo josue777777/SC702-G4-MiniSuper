@@ -24,6 +24,9 @@ import type { Permission } from '../types/auth';
 
 export type NavIconName =
   | 'barcode'
+  | 'download'
+  | 'file'
+  | 'sliders'
   | 'card'
   | 'ledger'
   | 'trash'

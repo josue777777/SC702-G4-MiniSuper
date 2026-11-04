@@ -425,12 +425,15 @@ export function trackRuntimeErrors(page: Page): string[] {
 /** Abre Reportes y elige el reporte comercial. */
 export async function openReport(page: Page, tab: string): Promise<void> {
   await page.goto('/reports');
-  await expect(page.getByRole('heading', { name: 'Reportes comerciales' })).toBeVisible();
-  await page.getByRole('tab', { name: tab }).click();
+  await page.getByRole('tab', { name: tab, exact: true }).click();
+  await expect(page.getByRole('tab', { name: tab, exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 }
 
 /** Pulsa el botón del formulario y espera la respuesta REAL del servidor. */
-export async function consult(page: Page, button = 'Consultar'): Promise<void> {
+export async function consult(page: Page, button = 'Generar reporte'): Promise<void> {
   await Promise.all([
     page.waitForResponse(
       (response) =>

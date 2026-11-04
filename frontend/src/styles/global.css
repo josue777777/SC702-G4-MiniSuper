@@ -1580,74 +1580,6 @@ code {
   background: #f8fbff;
 }
 
-/* Reporte imprimible del inventario: opciones arriba, vista previa abajo */
-.report-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0 0 16px;
-}
-
-.report-options__group {
-  /* Un fieldset no se encoge por defecto (min-width: min-content) y se sale de la cuadrícula */
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 10px 14px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-}
-
-.report-options__group:disabled {
-  opacity: 0.5;
-}
-
-.report-options__group legend {
-  padding: 0 6px;
-  font-weight: 600;
-}
-
-.report-options__group label,
-.report-options__radios {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.report-options__group .hint {
-  margin: -4px 0 0;
-}
-
-.report-options__nested {
-  margin-left: 26px;
-}
-
-.report-options__disabled {
-  color: var(--color-muted);
-}
-
-/* Casillas de columnas en dos columnas */
-.report-options__columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 12px;
-}
-
-.report-options__group .link-button {
-  align-self: flex-start;
-}
-
-.report-options__actions {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-
 .report-preview {
   padding: 14px;
   border: 1px dashed var(--color-border);
@@ -1702,43 +1634,6 @@ code {
   color: var(--color-primary-dark);
   font-size: 0.82rem;
   font-weight: 600;
-}
-
-/* Casilla y su texto siempre juntos: si el texto es largo, se parte él, no la fila */
-.report-options__group label:has(> input[type='checkbox']),
-.report-options__group label:has(> input[type='radio']) {
-  flex-wrap: nowrap;
-  align-items: flex-start;
-}
-
-.report-options__group input[type='checkbox'],
-.report-options__group input[type='radio'] {
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-
-.report-options select {
-  max-width: 100%;
-  padding: 5px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: #fff;
-  font: inherit;
-  font-size: 0.88rem;
-}
-
-.report-options__group .report-options__radios label:has(> input) {
-  align-items: center;
-}
-
-.report-options__group .report-options__radios input {
-  margin-top: 0;
-}
-
-@media (max-width: 759px) {
-  .report-options {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Documento del pedido (HU-24): espacios para llenar a mano al recibir */
@@ -2869,4 +2764,256 @@ code {
 .table--compact thead th {
   font-size: 0.7rem;
   letter-spacing: 0.02em;
+}
+
+/* --- Reportes gestionables (HU-40): filtros, acciones y personalización ---- */
+.reports .tabs__panel {
+  display: grid;
+  gap: 14px;
+}
+
+.report-filters {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.report-filters__actions {
+  justify-content: flex-end;
+  border-top: none;
+  padding-top: 0;
+}
+
+.report-sections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: 10px 0 0;
+  padding: 0;
+  border: none;
+}
+
+.report-sections legend {
+  float: left;
+  margin-right: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.report-sections label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.report-result__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.report-result__header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.report-result__header p {
+  margin: 2px 0 0;
+}
+
+.report-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Botones de acción unidos, como una barra de herramientas. */
+.report-actions__group {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.report-actions__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.report-actions__button:last-child {
+  border-right: none;
+}
+
+.report-actions__button:hover:not(:disabled) {
+  background: var(--color-row-hover);
+  color: var(--color-primary-dark);
+}
+
+.report-actions__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.report-actions__note {
+  font-size: 0.8rem;
+}
+
+/* Interruptor (switch): checkbox accesible con apariencia de palanca. */
+.switch {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch__track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-border);
+  transition: background 0.15s;
+}
+
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .switch__track {
+  background: var(--color-primary);
+}
+
+.switch input:checked + .switch__track::after {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible + .switch__track {
+  outline: 3px solid rgba(28, 100, 168, 0.35);
+  outline-offset: 2px;
+}
+
+.switch input:disabled + .switch__track {
+  opacity: 0.55;
+}
+
+.switch:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.customize {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(200px, 1fr);
+  gap: 24px;
+  margin-top: 12px;
+}
+
+.customize fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.customize legend {
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.customize__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 28px;
+}
+
+.customize__side {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.customize__radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.customize__actions {
+  align-items: center;
+}
+
+.customize__spacer {
+  flex: 1;
+}
+
+@media (max-width: 720px) {
+  .customize,
+  .customize__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-pdf__actions {
+  margin: 0 0 14px;
+  align-items: center;
+}
+
+.report-pdf__totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0 0 12px;
+}
+
+.report-pdf__totals dt {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.report-pdf__totals dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.report-pdf__warning {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-left: 4px solid #b45309;
+  background: #fef3c7;
 }

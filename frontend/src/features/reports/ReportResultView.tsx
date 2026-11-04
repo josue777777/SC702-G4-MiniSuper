@@ -1,14 +1,27 @@
-import type { ReportResult, ReportTotal } from '../../types/reports';
+import type { ReportColumn, ReportKind, ReportResult, ReportTotal } from '../../types/reports';
+import { ReportActions } from './ReportActions';
 import { formatReportMoney } from './report-format';
 import type { ExportNotice } from './use-commercial-report';
 
 interface ReportResultViewProps {
   report: ReportResult;
+  /** Columnas que el usuario dejó activas al personalizar (HU-40). */
+  columns: ReportColumn[];
   exporting: boolean;
   notice: ExportNotice | null;
   onExport: () => void;
+  onPdf: () => void;
+  onCustomize: () => void;
   onDismissNotice: () => void;
 }
+
+/** Qué responde cada reporte, en una línea, bajo su título. */
+const DESCRIPTIONS: Record<ReportKind, string> = {
+  sales: 'Lo vendido en el período, línea por línea, con devoluciones.',
+  profits: 'Cuánto se ganó con lo cobrado en el período.',
+  'top-products': 'Los productos que más se vendieron en el período.',
+  'customer-debts': 'Lo que deben hoy los clientes por ventas fiadas.',
+};
 
 /**
  * Un reporte ya generado: filtros aplicados, totales, avisos y las filas (o el
@@ -20,9 +33,12 @@ interface ReportResultViewProps {
  */
 export function ReportResultView({
   report,
+  columns,
   exporting,
   notice,
   onExport,
+  onPdf,
+  onCustomize,
   onDismissNotice,
 }: ReportResultViewProps) {
   const appliedFilters = report.filters.filter((filter) => filter.isDefault !== true);
@@ -31,19 +47,23 @@ export function ReportResultView({
 
   return (
     <div className="report-result">
-      <header className="card__header">
-        <h3>{report.title}</h3>
-        <span className="card__header-end">
-          <button
-            type="button"
-            className="button"
-            onClick={onExport}
-            disabled={exporting}
-            aria-label={`Exportar ${report.title.toLowerCase()} a Excel`}
-          >
-            {exporting ? 'Exportando…' : 'Exportar a Excel'}
-          </button>
-        </span>
+      <header className="report-result__header">
+        <div>
+          <h3>{report.title}</h3>
+          <p className="muted">{DESCRIPTIONS[report.kind]}</p>
+        </div>
+        <ReportActions
+          title={report.title}
+          emptyReason={
+            report.rows.length === 0
+              ? 'Sin datos: no hay nada que exportar con estos filtros.'
+              : null
+          }
+          exportingExcel={exporting}
+          onPdf={onPdf}
+          onExcel={onExport}
+          onCustomize={onCustomize}
+        />
       </header>
 
       {notice === null ? null : (
@@ -121,7 +141,7 @@ export function ReportResultView({
           <table className="table table--compact" aria-label={report.title}>
             <thead>
               <tr>
-                {report.columns.map((column) => (
+                {columns.map((column) => (
                   <th
                     key={column.key}
                     className={isNumeric(report, column.key) ? 'table__number' : undefined}
@@ -134,7 +154,7 @@ export function ReportResultView({
             <tbody>
               {report.rows.map((row, index) => (
                 <tr key={index}>
-                  {report.columns.map((column) => (
+                  {columns.map((column) => (
                     <td
                       key={column.key}
                       className={isNumeric(report, column.key) ? 'table__number' : undefined}

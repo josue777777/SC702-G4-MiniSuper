@@ -36,10 +36,23 @@ export const reportsService = {
     ).data;
   },
 
-  /** Descarga el MISMO reporte como Excel; el nombre lo da el servidor. */
-  export(kind: ReportKind, filter: ReportFilter): Promise<{ blob: Blob; fileName: string }> {
+  /**
+   * Descarga el MISMO reporte como Excel; el nombre lo da el servidor. Con
+   * `columns`, solo las columnas que el usuario dejó activas (HU-40).
+   */
+  export(
+    kind: ReportKind,
+    filter: ReportFilter,
+    columns?: string[],
+  ): Promise<{ blob: Blob; fileName: string }> {
+    const query = queryOf(filter);
+    const withColumns =
+      columns === undefined
+        ? query
+        : `${query}${query === '' ? '?' : '&'}columns=${encodeURIComponent(columns.join(','))}`;
+
     return apiDownload(
-      `/api/reports/commercial/${kind}/export${queryOf(filter)}`,
+      `/api/reports/commercial/${kind}/export${withColumns}`,
       `reporte-${kind}.xlsx`,
     );
   },

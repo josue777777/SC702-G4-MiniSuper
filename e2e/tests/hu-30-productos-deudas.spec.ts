@@ -153,7 +153,7 @@ test('el ranking respeta el período y vacío muestra su mensaje', async ({ page
   await expect(page.getByRole('table', { name: TOP })).toHaveCount(0);
 
   await setPeriod(page, '2024-05-31', '2024-05-01');
-  await page.getByRole('button', { name: 'Consultar', exact: true }).click();
+  await page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
 });
 
