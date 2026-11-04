@@ -84,15 +84,20 @@ export class ReportsService {
 
     report.filters = [
       ...periodFilters(filter),
-      { label: 'Categoría actual', value: data.categoryName ?? 'Todas' },
-      {
-        label: 'Precio mínimo',
-        value: filter.minPrice === undefined ? 'Sin mínimo' : price(filter.minPrice),
-      },
-      {
-        label: 'Precio máximo',
-        value: filter.maxPrice === undefined ? 'Sin máximo' : price(filter.maxPrice),
-      },
+      data.categoryName === null
+        ? { label: 'Categoría actual', value: 'Todas', isDefault: true }
+        : { label: 'Categoría actual', value: data.categoryName },
+      filter.minPrice === undefined
+        ? { label: 'Precio mínimo', value: 'Sin mínimo', isDefault: true }
+        : { label: 'Precio mínimo', value: price(filter.minPrice) },
+      filter.maxPrice === undefined
+        ? { label: 'Precio máximo', value: 'Sin máximo', isDefault: true }
+        : { label: 'Precio máximo', value: price(filter.maxPrice) },
+    ];
+    report.help = [
+      'Es lo vendido en el período, al contado y fiado (no lo cobrado).',
+      'Las devoluciones se restan de la venta original; las ventas anuladas no cuentan.',
+      'Los precios son los de cada venta; la categoría es la que el producto tiene hoy.',
     ];
     report.notices = [
       PERIOD_NOTICE,
@@ -115,7 +120,7 @@ export class ReportsService {
       column('net', 'Importe neto', true),
     ];
     report.totals = [
-      { label: 'Total vendido (neto)', value: formatCents(net), money: true },
+      { label: 'Total vendido (neto)', value: formatCents(net), money: true, primary: true },
       { label: 'Transacciones', value: transactions.size },
       { label: 'Unidades netas', value: units },
       { label: 'Importe original', value: formatCents(original), money: true },
@@ -135,6 +140,8 @@ export class ReportsService {
     let costs = 0n;
     let excludedSales = 0;
     let excludedAmount = 0n;
+    /** Productos vendidos con costo ₡0: su ganancia puede salir inflada (HU-29). */
+    const withoutCost = new Map<string, string>();
 
     for (const sale of data.sales) {
       if (!isCreditSaleCollected(sale)) {
@@ -151,6 +158,11 @@ export class ReportsService {
         const amounts = lineAmounts(line);
 
         considered.add(sale.id);
+
+        if (line.unitCost === 0n) {
+          withoutCost.set(line.code, `${line.code} · ${line.name}`);
+        }
+
         revenue += amounts.net;
         costs += amounts.cost;
         report.rows.push({
@@ -170,6 +182,21 @@ export class ReportsService {
     }
 
     report.filters = periodFilters(filter);
+    report.help = [
+      'Ganancia = precio de venta − costo, por cada unidad vendida (ya restadas las devoluciones).',
+      'Solo cuenta lo cobrado: los fiados pendientes no entran hasta que se paguen.',
+      'No descuenta gastos del negocio ni impuestos.',
+    ];
+    report.warnings =
+      withoutCost.size === 0
+        ? []
+        : [
+            `${withoutCost.size} producto(s) vendido(s) sin costo registrado (₡0): ${[
+              ...withoutCost.values(),
+            ].join(
+              ', ',
+            )}. Su ganancia no es exacta: aparece como si no hubiera costado nada. Registre su costo en Inventario.`,
+          ];
     report.notices = [
       PERIOD_NOTICE,
       'Ganancia bruta = (precio histórico − costo histórico) × unidades netas (vendidas − devueltas). No descuenta gastos operativos ni impuestos.',
@@ -191,7 +218,12 @@ export class ReportsService {
       column('profit', 'Ganancia bruta', true),
     ];
     report.totals = [
-      { label: 'Ganancia bruta', value: formatCents(revenue - costs), money: true },
+      {
+        label: 'Ganancia bruta',
+        value: formatCents(revenue - costs),
+        money: true,
+        primary: true,
+      },
       { label: 'Ingresos considerados', value: formatCents(revenue), money: true },
       { label: 'Costos correspondientes', value: formatCents(costs), money: true },
       { label: 'Ventas consideradas', value: considered.size },
@@ -249,6 +281,10 @@ export class ReportsService {
         amount: formatCents(entry.amount),
       }));
     report.filters = periodFilters(filter);
+    report.help = [
+      'Ordena los productos por unidades vendidas, ya restadas las devoluciones.',
+      'Incluye ventas al contado y fiadas, y productos desactivados que se vendieron en el período.',
+    ];
     report.notices = [
       PERIOD_NOTICE,
       CATALOG_NOTICE,
@@ -263,8 +299,8 @@ export class ReportsService {
       column('amount', 'Importe neto', true),
     ];
     report.totals = [
+      { label: 'Unidades netas', value: units, primary: true },
       { label: 'Productos distintos', value: ranking.size },
-      { label: 'Unidades netas', value: units },
       { label: 'Importe neto', value: formatCents(revenue), money: true },
     ];
     report.emptyMessage = 'No hay productos vendidos en el período seleccionado.';
@@ -292,6 +328,10 @@ export class ReportsService {
     }
 
     report.filters = [{ label: 'Corte', value: 'Saldos al momento de consultar' }];
+    report.help = [
+      'Saldo de cada cliente = lo fiado − lo abonado, calculado al abrir el reporte.',
+      'Incluye clientes inactivos que todavía deben.',
+    ];
     report.notices = [
       'Saldo del cliente = ventas a crédito vigentes (sin anulaciones ni unidades devueltas) − todos sus abonos. Se calcula con las operaciones reales cada vez que se abre el reporte; no se guarda otro saldo. Se incluyen clientes inactivos.',
       'El monto pendiente de un fiado descuenta solo los abonos ligados a esa venta. Los abonos generales (sin venta asignada) no se reparten entre fiados porque no hay un criterio verificable: aparecen en una línea aparte para que el saldo acumulado siempre cuadre con el saldo real del cliente.',
@@ -307,7 +347,7 @@ export class ReportsService {
       column('balance', 'Saldo acumulado del cliente', true),
     ];
     report.totals = [
-      { label: 'Total general de deudas', value: formatCents(total), money: true },
+      { label: 'Total general de deudas', value: formatCents(total), money: true, primary: true },
       { label: 'Clientes con deuda', value: debtors },
     ];
     report.emptyMessage = 'No hay clientes con deudas pendientes.';
@@ -322,6 +362,8 @@ export class ReportsService {
       businessName,
       generatedAt: new Date().toISOString(),
       filters: [],
+      help: [],
+      warnings: [],
       notices: [],
       columns: [],
       rows: [],

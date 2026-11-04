@@ -2382,13 +2382,67 @@ code {
   margin: 0 0 12px;
 }
 
-.report-result__notices ul {
-  margin: 6px 0 0;
+.report-result__help ul {
+  margin: 6px 0 8px;
   padding-left: 18px;
 }
 
-.report-result__notices li {
+.report-result__help li {
   margin-bottom: 4px;
+}
+
+.report-result__help {
+  margin-bottom: 14px;
+}
+
+.report-result__notices {
+  margin-left: 18px;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+/* Totales: el dato principal grande; el resto, una fila compacta de detalle. */
+.report-totals {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.report-totals__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 8px 24px;
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.stat-tile--primary .stat-tile__value {
+  font-size: 2rem;
+}
+
+.stat-tile--secondary {
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.stat-tile--secondary:hover {
+  box-shadow: none;
+}
+
+.stat-tile--secondary .stat-tile__value {
+  font-size: 1.05rem;
+}
+
+@media (max-width: 720px) {
+  .report-totals {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Los reportes tienen muchas columnas: una tabla más compacta para que quepan sin desplazarse */

@@ -37,10 +37,7 @@ export function ReportFilters({
   if (!hasFilters(kind)) {
     return (
       <form onSubmit={submit} className="form__error-row">
-        <p className="muted">
-          Muestra los saldos actuales de todos los clientes; no tiene filtros. Actualice para ver
-          fiados o abonos recientes.
-        </p>
+        <p className="muted">Saldos actuales de todos los clientes.</p>
         <button type="submit" className="button" disabled={busy}>
           Actualizar
         </button>

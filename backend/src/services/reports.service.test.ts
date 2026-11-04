@@ -120,6 +120,7 @@ describe('HU-28 — reporte de ventas', () => {
       maxPrice: '1500.5',
     });
 
+    expect(report.filters.every((entry) => entry.isDefault === undefined)).toBe(true);
     expect(report.filters).toEqual([
       { label: 'Desde', value: '2026-10-01' },
       { label: 'Hasta', value: '2026-10-31' },
@@ -130,6 +131,19 @@ describe('HU-28 — reporte de ventas', () => {
     expect(report.rows).toEqual([]);
     expect(total(report, 'Total vendido (neto)')).toBe('0.00');
     expect(report.emptyMessage).toBe('No hay ventas que coincidan con los filtros seleccionados.');
+  });
+
+  it('marca los filtros que no se usaron, para que la pantalla muestre solo los elegidos', async () => {
+    const { service } = build();
+
+    const report = await service.sales(PERIOD);
+
+    expect(report.filters.filter((entry) => entry.isDefault).map((entry) => entry.label)).toEqual([
+      'Categoría actual',
+      'Precio mínimo',
+      'Precio máximo',
+    ]);
+    expect(report.totals.find((entry) => entry.primary)?.label).toBe('Total vendido (neto)');
   });
 
   it('rechaza una categoría que no existe en el negocio', async () => {
@@ -239,7 +253,7 @@ describe('HU-29 — reporte de ganancias', () => {
           number: 1,
           at: '2026-10-10T18:00:00Z',
           total: '100.00',
-          items: [line({ code: 'Z1', quantity: 1, price: '100.00', cost: '0.00' })],
+          items: [line({ code: 'Z1', name: 'Bolsa', quantity: 1, price: '100.00', cost: '0.00' })],
         }),
       ],
     });
@@ -247,6 +261,19 @@ describe('HU-29 — reporte de ganancias', () => {
     const report = await service.profits(PERIOD);
 
     expect(total(report, 'Ganancia bruta')).toBe('100.00');
+    // …pero advierte, nombrando el producto, que esa ganancia no es exacta.
+    expect(report.warnings).toHaveLength(1);
+    expect(report.warnings[0]).toContain('Z1 · Bolsa');
+    expect(report.warnings[0]).toContain('sin costo registrado');
+  });
+
+  it('sin productos de costo cero no muestra ningún aviso', async () => {
+    const { service } = build({ sales });
+
+    const report = await service.profits(PERIOD);
+
+    expect(report.warnings).toEqual([]);
+    expect(report.help.length).toBeGreaterThan(0);
   });
 
   it('usa los valores históricos aunque el producto ya valga otra cosa', async () => {

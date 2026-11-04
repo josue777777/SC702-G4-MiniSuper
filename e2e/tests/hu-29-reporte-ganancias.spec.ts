@@ -12,12 +12,14 @@ import {
   consult,
   expectExportMatchesScreen,
   openAs,
+  openCalculationNotes,
   openReport,
   readDownload,
   readTable,
   saleIdByNumber,
   seedOtherBusiness,
   seedPayment,
+  seedSale,
   seedScenario,
   setPeriod,
   summaryValue,
@@ -116,7 +118,11 @@ test('calcula la ganancia bruta con precios y costos históricos y deja la evide
   expect(rows.find((row) => row[0] === '#9')?.[4]).toBe('Fiado cobrado');
   expect(centsOf(rows.find((row) => row[0] === '#1' && row[2] === 'B1')?.[10] ?? '')).toBe(47_090);
 
-  // Las limitaciones reales se dicen con claridad en la pantalla.
+  // Sin productos de costo ₡0 no hay ningún aviso que distraiga.
+  await expect(page.getByText('sin costo registrado')).toHaveCount(0);
+
+  // Las limitaciones reales siguen completas a un clic, en «Cómo se calcula».
+  await openCalculationNotes(page);
   await expect(page.getByText('LIMITACIÓN (HU-19)')).toBeVisible();
   await expect(page.getByText('LIMITACIÓN (costos)')).toBeVisible();
   await expect(page.getByText('sin repartir ganancias por estimación')).toBeVisible();
@@ -168,6 +174,24 @@ test('sin ventas cobradas verificables muestra el estado vacío e informa el fia
   expect(await tileCents(page, 'Ganancia bruta')).toBe(0);
   expect(await tile(page, 'Fiados excluidos (pendientes)')).toBe('1');
   expect(await tileCents(page, 'Monto de fiados excluidos')).toBe(100_000);
+});
+
+test('advierte, nombrando el producto, cuando una venta tiene costo ₡0', async ({ page }) => {
+  // Una venta cobrada de M1 registrada sin costo: su ganancia no es exacta.
+  await seedSale({
+    at: '2024-03-15T10:00:00',
+    lines: [{ code: 'M1', quantity: 1, unitPrice: '2500.00', unitCost: '0.00' }],
+  });
+
+  await openReport(page, 'Ganancias');
+  await setPeriod(page, PERIOD.from, PERIOD.to);
+  await consult(page);
+
+  const warning = page.getByRole('alert').filter({ hasText: 'sin costo registrado' });
+
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText('M1 ·');
+  await expect(warning).toContainText('Registre su costo en Inventario.');
 });
 
 test('valida las fechas con mensajes visibles', async ({ page }) => {

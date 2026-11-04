@@ -12,6 +12,7 @@ import {
   consult,
   expectExportMatchesScreen,
   openAs,
+  openCalculationNotes,
   openReport,
   readDownload,
   readTable,
@@ -115,6 +116,7 @@ test('muestra las ventas del período con totales exactos y deja la evidencia', 
   expect(returned?.[8]).toBe('0');
   expect(centsOf(returned?.[11] ?? '')).toBe(0);
 
+  await openCalculationNotes(page);
   await expect(page.getByText('categoría que el producto tiene hoy')).toBeVisible();
 
   expect(errors).toEqual([]);
