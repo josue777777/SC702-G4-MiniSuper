@@ -23,6 +23,10 @@
 import type { Permission } from '../types/auth';
 
 export type NavIconName =
+  | 'barcode'
+  | 'card'
+  | 'ledger'
+  | 'trash'
   | 'home'
   | 'warehouse'
   | 'entries'

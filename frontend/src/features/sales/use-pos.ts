@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '../../services/api-client';
 import { customersService, salesService } from '../../services/sales.service';
-import type { Customer, CustomerPayload, PaymentMethod, Sale } from '../../types/sales';
+import type {
+  Customer,
+  CustomerPayload,
+  PaymentMethod,
+  Sale,
+  SaleProduct,
+} from '../../types/sales';
 import { addProduct, cartTotal, removeLine, setQuantity, type CartLine } from './cart';
 import { hasValidGtinCheckDigit } from './barcode-scanner';
 import { formatCents, isMoneyText, toCents } from './cents';
@@ -105,6 +111,26 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
     (method !== 'CASH' || cashValid) &&
     (method !== 'CREDIT' || selectedCustomer !== null);
 
+  /**
+   * Agrega un producto ya identificado (por el lector o por la búsqueda manual)
+   * con las mismas reglas: suma si ya está y avisa si no alcanza el stock.
+   */
+  const addToCart = useCallback(
+    (product: SaleProduct): void => {
+      const added = addProduct(cartRef.current, product);
+
+      setResult(null);
+      applyCart(added.cart);
+      touch();
+      setNotice(
+        added.warning === undefined
+          ? { kind: 'success', text: `Agregado: ${product.name}` }
+          : { kind: 'warning', text: added.warning },
+      );
+    },
+    [applyCart, touch],
+  );
+
   /** Busca el código (leído o escrito) y lo agrega al carrito. */
   const scan = useCallback(
     async (rawCode: string): Promise<void> => {
@@ -135,23 +161,14 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
       setResult(null);
 
       try {
-        const product = await salesService.lookupProduct(code);
-        const added = addProduct(cartRef.current, product);
-
-        applyCart(added.cart);
-        touch();
-        setNotice(
-          added.warning === undefined
-            ? { kind: 'success', text: `Agregado: ${product.name}` }
-            : { kind: 'warning', text: added.warning },
-        );
+        addToCart(await salesService.lookupProduct(code));
       } catch (caught) {
         setNotice({ kind: 'error', text: describe(caught) });
       } finally {
         setScanning(false);
       }
     },
-    [applyCart, touch],
+    [addToCart],
   );
 
   const changeQuantity = useCallback(
@@ -172,6 +189,12 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
     },
     [applyCart, touch],
   );
+
+  /** Vacía el carrito para empezar de nuevo (por ejemplo, si el cliente desiste). */
+  const clearCart = useCallback((): void => {
+    applyCart([]);
+    touch();
+  }, [applyCart, touch]);
 
   const selectMethod = useCallback(
     (next: PaymentMethod): void => {
@@ -273,8 +296,10 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
     historyVersion,
     canConfirm,
     scan,
+    addToCart,
     changeQuantity,
     remove,
+    clearCart,
     selectMethod,
     changeCash,
     selectCustomer,

@@ -1794,7 +1794,8 @@ code {
 
 .pos {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  /* Izquierda: escanear y revisar. Derecha: el cobro, de ancho fijo como una caja. */
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 16px;
   align-items: start;
 }
@@ -1805,7 +1806,7 @@ code {
   top: 16px;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
   .pos {
     grid-template-columns: 1fr;
   }
@@ -1815,12 +1816,14 @@ code {
   }
 }
 
+/* --- Caja: escáner -------------------------------------------------------- */
 .pos__scanner {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 16px;
+  padding: 14px 16px 10px;
+  margin-bottom: 14px;
 }
 
 .pos__scanner label {
@@ -1833,62 +1836,413 @@ code {
 .pos__scanner-row {
   display: flex;
   gap: 10px;
+  position: relative;
+}
+
+.pos__scanner-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-muted);
+  pointer-events: none;
 }
 
 .pos__scanner-row input {
   flex: 1;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px 12px 12px 46px;
+  font-size: 1.15rem;
+}
+
+.pos__scanner-row input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(28, 100, 168, 0.15);
+}
+
+.pos__scanner-row .button {
+  padding: 0 22px;
+}
+
+.pos__scanner-hint {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* Punto verde: el lector está listo para la siguiente lectura. */
+.pos__ready::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--color-ok);
+}
+
+.pos__scanner-hint kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-bg);
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+
+/* Resultado de la última lectura, en la línea del lector. */
+.pos__feedback {
+  font-weight: 600;
+}
+
+.pos__feedback::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pos__feedback--success {
+  color: var(--color-ok);
+}
+
+.pos__feedback--warning {
+  color: #b45309;
+}
+
+.pos__feedback--error {
+  color: var(--color-error);
+}
+
+/* Mensaje de la lectura + «Buscar por nombre» cuando el lector no pudo. */
+.pos__feedback-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* --- Caja: búsqueda manual de producto ------------------------------------ */
+.pos-search__results {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.pos-search__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 1.05rem;
+  background: var(--color-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pos-search__item--active,
+.pos-search__item:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-row-hover);
+}
+
+.pos-search__item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pos-search__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* --- Caja: carrito -------------------------------------------------------- */
+.pos__cart .card__header {
+  align-items: center;
+}
+
+.button--quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--color-muted);
+}
+
+.button--quiet:hover:not(:disabled) {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.pos__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  text-align: center;
+  color: var(--color-muted);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius);
+}
+
+.pos__empty p {
+  margin: 0;
+  max-width: 340px;
+}
+
+.pos__empty strong {
+  display: block;
+  color: var(--color-text);
+}
+
+.pos__col-index {
+  width: 36px;
+  color: var(--color-muted);
+}
+
+.pos__product {
+  display: block;
+}
+
+.pos__code {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+/* Lo último que se escaneó, resaltado: se confirma de un vistazo. */
+.pos__lines-table tbody tr.pos__line--last {
+  background: var(--color-row-hover);
+  box-shadow: inset 4px 0 0 var(--color-primary);
+}
+
+.pos__stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.pos__stepper button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--color-bg);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.pos__stepper button:hover:not(:disabled) {
+  background: var(--color-row-hover);
+}
+
+.pos__stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pos__stepper input.pos__qty {
+  padding: 0;
+  text-align: center;
 }
 
 .pos__qty {
-  width: 72px;
-  border: 1px solid var(--color-border);
+  width: 52px;
+  height: 32px;
+  border: none;
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  text-align: center;
+  font-weight: 600;
+  -moz-appearance: textfield;
+}
+
+.pos__qty::-webkit-inner-spin-button,
+.pos__qty::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pos__remove {
+  display: inline-flex;
+  padding: 6px;
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 5px 6px;
-  text-align: right;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
 }
 
-.pos__total {
+.pos__remove:hover:not(:disabled) {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+/* --- Caja: cobro (como el visor de una caja registradora) ----------------- */
+.pos__checkout {
+  padding: 0;
+  overflow: hidden;
+}
+
+.pos__checkout > :not(.pos__display) {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.pos__display {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin: 0 0 12px;
-  font-size: 1rem;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  background: var(--color-sidebar);
+  color: #fff;
 }
 
-.pos__total strong {
-  font-size: 1.6rem;
+.pos__display-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-sidebar-text);
+}
+
+.pos__display-total {
+  font-size: 2.4rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos__display-detail {
+  font-size: 0.85rem;
+  color: var(--color-sidebar-text);
 }
 
 .pos__methods {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border: none;
   margin: 0 0 14px;
-  padding: 8px 12px 10px;
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .pos__methods legend {
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 0 6px;
+  margin-bottom: 6px;
+  padding: 0;
 }
 
+/* Cada método es un botón grande; el radio sigue ahí para teclado y lectores. */
 .pos__method {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+.pos__method input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
   cursor: pointer;
 }
 
+.pos__method:hover {
+  border-color: var(--color-primary);
+}
+
+.pos__method:has(input:focus-visible) {
+  outline: 3px solid rgba(28, 100, 168, 0.35);
+  outline-offset: 1px;
+}
+
+.pos__method--active {
+  border-color: var(--color-primary);
+  background: var(--color-row-hover);
+  color: var(--color-primary-dark);
+}
+
+.pos__cash input {
+  font-size: 1.2rem;
+  padding: 10px 12px;
+}
+
+.pos__quick-cash {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .pos__change {
-  margin: 4px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-ok-bg);
   color: var(--color-ok);
+  font-weight: 600;
+}
+
+.pos__change strong {
+  font-size: 1.4rem;
+}
+
+.pos__confirm {
+  /* El 100 % menos los márgenes del panel: así no se sale por la derecha. */
+  width: calc(100% - 32px);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pos__confirm:disabled .pos__confirm-total {
+  opacity: 0.7;
+}
+
+.pos__confirm-total {
+  font-variant-numeric: tabular-nums;
 }
 
 .pos__customer {
@@ -1928,7 +2282,64 @@ code {
 }
 
 .pos__result {
-  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    'title summary actions'
+    'lines lines lines';
+  align-items: center;
+  gap: 8px 20px;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  background: var(--color-ok-bg);
+  border: 1px solid #86efac;
+  border-left: 4px solid var(--color-ok);
+  border-radius: var(--radius);
+}
+
+.pos__result-title {
+  grid-area: title;
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-ok);
+}
+
+.pos__result-check {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--color-ok);
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.pos__result .pos__summary {
+  grid-area: summary;
+  margin: 0;
+}
+
+.pos__summary-change dd {
+  color: var(--color-ok);
+}
+
+.pos__result-lines {
+  grid-area: lines;
+}
+
+.pos__result-actions {
+  grid-area: actions;
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .pos__result {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'title' 'summary' 'lines' 'actions';
+  }
 }
 
 .pos__lines {

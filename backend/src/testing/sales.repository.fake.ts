@@ -90,6 +90,23 @@ export class FakeSalesRepository implements SalesRepository {
     );
   }
 
+  searchSellableProducts(term: string, limit: number): Promise<SaleProductDto[]> {
+    const wanted = term.toLowerCase();
+
+    return Promise.resolve(
+      this.products
+        .filter(
+          (product) =>
+            product.isActive &&
+            [product.name, product.code, product.barcode ?? ''].some((text) =>
+              text.toLowerCase().includes(wanted),
+            ),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+        .slice(0, limit),
+    );
+  }
+
   findProductsByIds(ids: string[]): Promise<SaleProductDto[]> {
     return Promise.resolve(this.products.filter((product) => ids.includes(product.id)));
   }
