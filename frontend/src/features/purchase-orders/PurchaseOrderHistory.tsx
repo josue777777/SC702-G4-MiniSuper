@@ -107,9 +107,10 @@ export function PurchaseOrderHistory({
                       type="button"
                       className="button"
                       disabled={busy}
+                      aria-label={`Ver pedido ${formatOrderNumber(order.number)}`}
                       onClick={() => onOpen(order.id)}
                     >
-                      Ver detalle
+                      Ver pedido
                     </button>
                   </td>
                 </tr>

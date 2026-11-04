@@ -75,6 +75,8 @@ test('ventas reales, detalle, comprobante y ajustes actualizan el total sin perd
   const card = await sell(page, 'CARD');
   const credit = await sell(page, 'CREDIT');
   await page.goto('/sales');
+  // El historial está en su propia pestaña, separado de la caja.
+  await page.getByRole('tab', { name: 'Historial del día' }).click();
   const history = page.getByRole('region', { name: 'Historial de ventas' });
   const table = history.getByRole('table', { name: 'Historial de ventas' });
   await expect(table.locator('tbody tr')).toHaveCount(3);
@@ -195,6 +197,8 @@ test('62 ventas, medianoche CR, paginación, rendimiento y aislamiento entre neg
     );
   });
   await page.goto('/sales');
+  // El historial está en su propia pestaña, separado de la caja.
+  await page.getByRole('tab', { name: 'Historial del día' }).click();
   const history = page.getByRole('region', { name: 'Historial de ventas' });
   const table = history.getByRole('table');
   await expect(table.locator('tbody tr')).toHaveCount(50);
@@ -250,6 +254,8 @@ test('62 ventas, medianoche CR, paginación, rendimiento y aislamiento entre neg
 
 test('día vacío, validación, error recuperable y permisos', async ({ page, request, browser }) => {
   await page.goto('/sales');
+  // El historial está en su propia pestaña, separado de la caja.
+  await page.getByRole('tab', { name: 'Historial del día' }).click();
   const history = page.getByRole('region', { name: 'Historial de ventas' });
   await expect(history.getByText('No hay ventas registradas en este día.')).toBeVisible();
   await history.getByLabel('Día del historial').fill('2024-02-29');

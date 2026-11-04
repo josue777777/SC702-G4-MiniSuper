@@ -89,7 +89,8 @@ export function CustomersSection() {
   }
 
   return (
-    <>
+    // Tres columnas: la lista no se estira a todo el ancho (docs/PANTALLAS.md).
+    <div className="list-narrow">
       <div className="toolbar">
         <ListSearch
           value={search}
@@ -216,6 +217,6 @@ export function CustomersSection() {
 
         <Pagination {...pages} itemLabel="clientes" onPage={pages.setPage} />
       </section>
-    </>
+    </div>
   );
 }
