@@ -5,6 +5,16 @@ import type { NavIconName } from './navigation';
  * el color del texto (`currentColor`), así cambian solos con el tema.
  */
 const PATHS: Record<NavIconName, string[]> = {
+  // Caja (punto de venta)
+  barcode: ['M3 5v14', 'M7 5v14', 'M10 5v14', 'M14 5v14', 'M17 5v14', 'M21 5v14'],
+  card: ['M2 6h20v12H2z', 'M2 10h20', 'M6 15h4'],
+  ledger: [
+    'M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2z',
+    'M5 19a2 2 0 0 1 2-2h12',
+    'M9 7h6',
+    'M9 11h6',
+  ],
+  trash: ['M4 7h16', 'M9 7V4h6v3', 'M6 7l1 13h10l1-13', 'M10 11v6', 'M14 11v6'],
   home: ['M3 11l9-8 9 8', 'M5 10v10h14V10', 'M10 20v-6h4v6'],
   warehouse: ['M3 21V8l9-5 9 5v13', 'M7 21v-8h10v8', 'M7 17h10'],
   entries: ['M12 3v10', 'M8 9l4 4 4-4', 'M4 15v5h16v-5'],

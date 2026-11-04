@@ -173,6 +173,12 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
     [applyCart, touch],
   );
 
+  /** Vacía el carrito para empezar de nuevo (por ejemplo, si el cliente desiste). */
+  const clearCart = useCallback((): void => {
+    applyCart([]);
+    touch();
+  }, [applyCart, touch]);
+
   const selectMethod = useCallback(
     (next: PaymentMethod): void => {
       setMethod(next);
@@ -275,6 +281,7 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
     scan,
     changeQuantity,
     remove,
+    clearCart,
     selectMethod,
     changeCash,
     selectCustomer,

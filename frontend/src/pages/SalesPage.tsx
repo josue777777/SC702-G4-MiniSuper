@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ReceiptModal } from '../features/sales/ReceiptModal';
 import { useWedgeScanner } from '../features/sales/barcode-scanner';
@@ -6,7 +6,7 @@ import { CartTable } from '../features/sales/CartTable';
 import { CheckoutPanel } from '../features/sales/CheckoutPanel';
 import { SaleResult } from '../features/sales/SaleResult';
 import { SalesHistory } from '../features/sales/SalesHistory';
-import { ScannerBar } from '../features/sales/ScannerBar';
+import { SCANNER_INPUT_ID, ScannerBar } from '../features/sales/ScannerBar';
 import { usePos } from '../features/sales/use-pos';
 
 /** Las dos partes de la pantalla: vender o consultar lo vendido. */
@@ -53,6 +53,29 @@ export function SalesPage() {
     view === 'caja' && !pos.submitting && receiptId === null,
   );
 
+  // Atajos de la caja, como en un punto de venta: F2 vuelve al código y F9 finaliza.
+  const { canConfirm, confirm } = pos;
+
+  useEffect(() => {
+    if (view !== 'caja' || receiptId !== null) {
+      return;
+    }
+
+    function handleKey(event: KeyboardEvent): void {
+      if (event.key === 'F2') {
+        event.preventDefault();
+        document.getElementById(SCANNER_INPUT_ID)?.focus();
+      } else if (event.key === 'F9' && canConfirm) {
+        event.preventDefault();
+        void confirm();
+      }
+    }
+
+    window.addEventListener('keydown', handleKey);
+
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [view, receiptId, canConfirm, confirm]);
+
   return (
     <>
       <header className="page-header">
@@ -96,21 +119,7 @@ export function SalesPage() {
             {/* Izquierda: agregar y revisar productos. Derecha: cobrar. */}
             <div className="pos">
               <div className="pos__main">
-                <ScannerBar busy={pos.scanning} onScan={pos.scan} />
-
-                {pos.notice === null ? null : (
-                  <p className={`alert alert--${pos.notice.kind}`} role="status">
-                    {pos.notice.text}
-                    <button
-                      type="button"
-                      className="alert__close"
-                      onClick={pos.dismissNotice}
-                      aria-label="Cerrar aviso"
-                    >
-                      ×
-                    </button>
-                  </p>
-                )}
+                <ScannerBar busy={pos.scanning} notice={pos.notice} onScan={pos.scan} />
 
                 <CartTable
                   cart={pos.cart}
@@ -118,11 +127,13 @@ export function SalesPage() {
                   disabled={pos.submitting}
                   onQuantity={pos.changeQuantity}
                   onRemove={pos.remove}
+                  onClear={pos.clearCart}
                 />
               </div>
               <div className="pos__side">
                 <CheckoutPanel
                   total={pos.total}
+                  units={pos.cart.reduce((sum, line) => sum + line.quantity, 0)}
                   hasItems={pos.cart.length > 0}
                   method={pos.method}
                   cashReceived={pos.cashReceived}
