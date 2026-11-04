@@ -278,9 +278,7 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
               </span>
             </div>
           </fieldset>
-        </div>
 
-        <div className="filter-bar__meta">
           <div className="filter-bar__end">
             <span
               className={`filter-bar__status filter-bar__status--${

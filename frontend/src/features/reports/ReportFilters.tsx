@@ -52,18 +52,20 @@ export function ReportFilters({
   if (!hasFilters(kind)) {
     return (
       <div className="filter-bar card" aria-label="Filtros del reporte" role="group">
-        <p className="muted filter-bar__note">Saldos actuales de todos los clientes.</p>
-        <div className="filter-bar__end">
-          <SyncStatus sync={sync} />
-          <button
-            type="button"
-            className="button"
-            disabled={sync === 'pending'}
-            onClick={onRefresh}
-            title="Volver a consultar"
-          >
-            ↻ Actualizar
-          </button>
+        <div className="filter-bar__row">
+          <p className="muted filter-bar__note">Saldos actuales de todos los clientes.</p>
+          <div className="filter-bar__end">
+            <SyncStatus sync={sync} />
+            <button
+              type="button"
+              className="button"
+              disabled={sync === 'pending'}
+              onClick={onRefresh}
+              title="Volver a consultar"
+            >
+              ↻ Actualizar
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -98,6 +100,24 @@ export function ReportFilters({
       });
     }
   }
+
+  // Estado y «Actualizar»: en la misma fila de los campos si caben; con
+  // filtros activos, junto a sus etiquetas (así no queda una fila casi vacía).
+  const status = (
+    <div className="filter-bar__end">
+      <SyncStatus sync={sync} />
+      {/* Con los mismos filtros: trae lo que cambió (por ejemplo, una venta recién hecha). */}
+      <button
+        type="button"
+        className="button"
+        disabled={sync !== 'done'}
+        onClick={onRefresh}
+        title="Volver a consultar con los mismos filtros"
+      >
+        ↻ Actualizar
+      </button>
+    </div>
+  );
 
   return (
     <form
@@ -199,47 +219,38 @@ export function ReportFilters({
             </Field>
           </>
         ) : null}
+        {chips.length === 0 ? status : null}
       </div>
 
-      <div className="filter-bar__meta">
-        {chips.length === 0 ? null : (
-          <ul className="filter-chips" aria-label="Filtros activos">
-            {chips.map((chip) => (
-              <li key={chip.key} className="filter-chip">
-                <span>{chip.label}</span>
-                <button
-                  type="button"
-                  className="filter-chip__remove"
-                  aria-label={`Quitar filtro: ${chip.label}`}
-                  onClick={chip.clear}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-            {chips.length > 1 ? (
-              <li>
-                <button type="button" className="button" onClick={onClear}>
-                  Limpiar filtros
-                </button>
-              </li>
-            ) : null}
-          </ul>
-        )}
-        <div className="filter-bar__end">
-          <SyncStatus sync={sync} />
-          {/* Con los mismos filtros: trae lo que cambió (por ejemplo, una venta recién hecha). */}
-          <button
-            type="button"
-            className="button"
-            disabled={sync !== 'done'}
-            onClick={onRefresh}
-            title="Volver a consultar con los mismos filtros"
-          >
-            ↻ Actualizar
-          </button>
+      {chips.length === 0 ? null : (
+        <div className="filter-bar__meta">
+          {
+            <ul className="filter-chips" aria-label="Filtros activos">
+              {chips.map((chip) => (
+                <li key={chip.key} className="filter-chip">
+                  <span>{chip.label}</span>
+                  <button
+                    type="button"
+                    className="filter-chip__remove"
+                    aria-label={`Quitar filtro: ${chip.label}`}
+                    onClick={chip.clear}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+              {chips.length > 1 ? (
+                <li>
+                  <button type="button" className="button" onClick={onClear}>
+                    Limpiar filtros
+                  </button>
+                </li>
+              ) : null}
+            </ul>
+          }
+          {status}
         </div>
-      </div>
+      )}
     </form>
   );
 }

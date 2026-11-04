@@ -2968,6 +2968,12 @@ fieldset.filter-bar__field {
   margin-left: auto;
 }
 
+/* En la fila de los campos, el estado queda abajo a la derecha, alineado con ellos. */
+.filter-bar__row > .filter-bar__end {
+  align-self: flex-end;
+  min-height: 36px;
+}
+
 .filter-bar__note {
   margin: 0;
   align-self: center;
