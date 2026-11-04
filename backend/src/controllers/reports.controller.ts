@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express';
 import { businessIdOf } from '../middleware/require-auth.middleware.js';
 import type { ReportsService } from '../services/reports.service.js';
-import type { ReportKind, ReportResult, ReportRowsPage, ReportSummary } from '../types/reports.js';
+import type { ReportKind, ReportResult, ReportSummary } from '../types/reports.js';
 import type { ForBusiness } from '../types/tenant.js';
 import { XLSX_CONTENT_TYPE } from '../utils/catalog-xlsx.js';
 import { HttpError } from '../utils/http-error.js';
+import { allOf, pageOf } from '../utils/paginate.js';
 import { chartsFor } from '../utils/report-charts.js';
 import { buildReportWorkbook } from '../utils/reports-xlsx.js';
 import {
@@ -66,7 +67,7 @@ export class ReportsController {
       data:
         paging.all === undefined
           ? pageOf(report.rows, paging.page ?? 1, paging.pageSize ?? DEFAULT_ROWS_PAGE_SIZE)
-          : pageOf(report.rows, 1, Math.max(1, report.rows.length)),
+          : allOf(report.rows),
     });
   }
 
@@ -134,18 +135,4 @@ function summaryOf(report: ReportResult): ReportSummary {
   const { rows, ...rest } = report;
 
   return { ...rest, rowCount: rows.length, charts: chartsFor(report.kind, rows) };
-}
-
-/**
- * Una página de filas. Si se pide una página que ya no existe (por ejemplo,
- * porque se anuló una venta entre una consulta y otra), se devuelve la última:
- * mejor ver filas que una tabla vacía sin explicación.
- */
-export function pageOf(rows: ReportResult['rows'], page: number, pageSize: number): ReportRowsPage {
-  const total = rows.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const current = Math.min(page, pageCount);
-  const start = (current - 1) * pageSize;
-
-  return { rows: rows.slice(start, start + pageSize), page: current, pageSize, total, pageCount };
 }

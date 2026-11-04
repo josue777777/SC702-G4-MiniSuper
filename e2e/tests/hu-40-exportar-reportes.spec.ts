@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { saveEvidence } from '../support/evidence';
-import { resetCatalog, signInAsOwner } from '../support/fixtures';
+import { resetCatalog, seedProducts, signInAsOwner } from '../support/fixtures';
 import {
   PERIOD,
   consult,
@@ -235,4 +235,67 @@ test('un PDF de miles de filas pregunta antes y ofrece el Excel', async ({ page 
   await expect(preview.getByRole('button', { name: 'Descargar Excel' })).toBeVisible();
   await preview.getByRole('button', { name: 'Generar el PDF igual' }).click();
   await expect(preview.getByRole('article', { name: 'Documento del reporte' })).toBeVisible();
+});
+
+test('inventario: el resumen llega sin filas y cada sección se pide de a una página', async ({
+  page,
+}) => {
+  // 25 productos más los 3 activos del escenario: 28, en 2 páginas.
+  await seedProducts(
+    Array.from({ length: 25 }, (_, index) => ({
+      code: `INV${String(index + 1).padStart(2, '0')}`,
+      name: `Producto de inventario ${index + 1}`,
+      category: 'Abarrotes',
+      price: '1000.00',
+      cost: '500.00',
+      stock: index + 1,
+      supplier: null,
+    })),
+  );
+
+  const rowRequests: string[] = [];
+
+  page.on('request', (request) => {
+    if (request.url().includes('/api/reports/inventory/rows')) {
+      rowRequests.push(request.url());
+    }
+  });
+
+  const [summaryResponse] = await Promise.all([
+    page.waitForResponse((response) => /\/api\/reports\/inventory\?/.test(response.url())),
+    page.goto('/reports?reporte=inventario'),
+  ]);
+  const summary = (await summaryResponse.json()).data;
+
+  // El resumen: totales, gráficos y cuántos hay; ninguna fila.
+  expect(summary).not.toHaveProperty('products');
+  expect(summary.counts.products).toBe(28);
+  expect(summary.charts.map((chart: { id: string }) => chart.id)).toEqual([
+    'inventory-value',
+    'inventory-status',
+  ]);
+  await expect(page.getByText('Ver detalle (28 productos)')).toBeVisible();
+  expect(rowRequests).toEqual([]);
+
+  await openDetail(page);
+  const table = page.getByRole('table', { name: 'Stock de productos' });
+  const pages = page.getByRole('navigation', { name: 'Páginas de stock de productos' });
+
+  await expect(table.locator('tbody tr')).toHaveCount(20);
+  await pages.getByRole('button', { name: 'Ir a la página 2' }).click();
+  await expect(pages.getByText('Mostrando 21–28 de 28 productos · Página 2 de 2')).toBeVisible();
+  await expect(table.locator('tbody tr')).toHaveCount(8);
+  // El total es de TODO el inventario, no solo de la página.
+  await expect(table.locator('tfoot')).toContainText('28 producto(s)');
+  expect(rowRequests.every((url) => url.includes('section=products'))).toBe(true);
+  await saveEvidence(page, 'HU-40', 'HU-40-inventario-paginado.png');
+
+  // El PDF lleva los 28.
+  await page.getByRole('button', { name: /Descargar reporte de inventario en PDF/ }).click();
+  await expect(
+    page
+      .getByRole('dialog', { name: 'Vista previa: Reporte de inventario' })
+      .getByRole('table', { name: 'Stock de productos' })
+      .locator('tbody tr'),
+  ).toHaveCount(28);
 });

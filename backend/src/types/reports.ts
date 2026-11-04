@@ -7,6 +7,8 @@
  * pueden diferir. El dinero viaja como cadena con dos decimales (`"1500.00"`).
  */
 
+import type { PageOf } from '../utils/paginate.js';
+
 export type ReportKind = 'sales' | 'profits' | 'top-products' | 'customer-debts';
 
 /** Filtros de los reportes por período. Las fechas son días (`YYYY-MM-DD`) de la zona del negocio. */
@@ -92,16 +94,8 @@ export interface ReportSummary extends Omit<ReportResult, 'rows'> {
   charts: ReportChart[];
 }
 
-/** Una página del detalle de un reporte. */
-export interface ReportRowsPage {
-  rows: ReportResult['rows'];
-  /** Página devuelta (desde 1); si se pidió una que ya no existe, la última. */
-  page: number;
-  pageSize: number;
-  /** Filas del detalle completo, no solo de esta página. */
-  total: number;
-  pageCount: number;
-}
+/** Una página del detalle de un reporte (ver `utils/paginate.ts`). */
+export type ReportRowsPage = PageOf<ReportResult['rows'][number]>;
 
 export interface ReportOptions {
   categories: { id: string; name: string }[];

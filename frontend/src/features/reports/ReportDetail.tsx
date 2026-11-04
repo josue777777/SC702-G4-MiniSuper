@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pagination } from '../../components/Pagination';
+import { reportsService } from '../../services/reports.service';
 import type {
   ReportColumn,
   ReportFilter,
@@ -7,7 +8,7 @@ import type {
   ReportSummary,
 } from '../../types/reports';
 import { formatReportMoney } from './report-format';
-import { useReportRows } from './use-report-rows';
+import { usePagedRows } from './use-paged-rows';
 
 interface ReportDetailProps {
   report: ReportSummary;
@@ -29,12 +30,11 @@ interface ReportDetailProps {
  */
 export function ReportDetail({ report, filter, columns }: ReportDetailProps) {
   const [open, setOpen] = useState(false);
-  const rows = useReportRows(report.kind, filter, open);
-  const { view } = rows;
-  const data =
-    view.status === 'ready' ? view.data : view.status === 'loading' ? view.previous : null;
-  const loading = view.status === 'loading';
-  const from = data === null || data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1;
+  const rows = usePagedRows(
+    (page, pageSize) => reportsService.rows(report.kind, filter, page, pageSize),
+    open,
+  );
+  const { data, view, loading } = rows;
 
   return (
     <details
@@ -52,7 +52,7 @@ export function ReportDetail({ report, filter, columns }: ReportDetailProps) {
         </div>
       ) : null}
 
-      {data === null ? (
+      {data === null || rows.pagination === null ? (
         loading ? (
           <p className="muted" role="status">
             Cargando filas…
@@ -95,16 +95,7 @@ export function ReportDetail({ report, filter, columns }: ReportDetailProps) {
               </tbody>
             </table>
           </div>
-          <Pagination
-            page={rows.page}
-            pageCount={data.pageCount}
-            total={data.total}
-            from={from}
-            to={from === 0 ? 0 : from + data.rows.length - 1}
-            itemLabel="filas"
-            busy={loading}
-            onPage={rows.setPage}
-          />
+          <Pagination {...rows.pagination} itemLabel="filas" busy={loading} onPage={rows.setPage} />
           <p className="muted">El PDF y el Excel llevan todas las filas.</p>
         </>
       )}

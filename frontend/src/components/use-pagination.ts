@@ -27,7 +27,7 @@ export interface PaginationState<T> {
  * Paginar en el navegador alcanza para listas que no crecen sin límite
  * (clientes, proveedores, productos). Lo que crece con el tiempo (ventas,
  * movimientos, el detalle de los reportes) se pagina en el servidor y usa el
- * mismo componente `Pagination` (ver `useReportRows` y docs/PANTALLAS.md).
+ * mismo componente `Pagination` (ver `usePagedRows` y docs/PANTALLAS.md).
  */
 export function usePagination<T>(
   items: readonly T[],

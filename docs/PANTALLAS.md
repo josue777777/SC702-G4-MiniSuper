@@ -53,9 +53,9 @@ const pages = usePagination(visibles, busqueda); // 20 por página; vuelve a la 
 
 Pregunta guía: **¿esta lista va a tener miles de filas en un año?** Si la
 respuesta es sí, se pagina en el servidor. Ejemplos: el historial de
-Movimientos y «Ver detalle» de los reportes comerciales
-(`GET /api/reports/commercial/:kind/rows?page=&pageSize=`, con
-`useReportRows`). Las dos formas usan el mismo componente `Pagination`.
+Movimientos y «Ver detalle» de todos los reportes
+(`GET /api/reports/commercial/:kind/rows` y `GET /api/reports/inventory/rows`,
+con `usePagedRows`). Las dos formas usan el mismo componente `Pagination`.
 
 ## Regla 3: buscar antes que recorrer
 
@@ -159,12 +159,13 @@ Un reporte en pantalla no repite la lista que ya se ve en su módulo
 | Cifras destacadas (`report-totals`) y gráficos de una sola serie (`ReportChartView`: barras para comparar, columnas por día) | Todo el detalle fila por fila |
 | El detalle en «Ver detalle (N filas)», cerrado y paginado | — |
 
-Cómo viajan los datos de un reporte comercial:
+Cómo viajan los datos de un reporte (los comerciales y el de inventario):
 
 1. **Al generarlo** llega el resumen: totales, avisos y los gráficos ya
    calculados en el servidor. **No** llegan las filas, solo cuántas son.
-2. **Al abrir «Ver detalle»** se piden las filas de a 20 (`/rows?page=`). Si
-   nadie lo abre, no se descarga ninguna.
+2. **Al abrir «Ver detalle»** se piden las filas de a 20 (`/rows?page=`); en
+   inventario, cada sección (productos, vencimientos, stock bajo) por su lado.
+   Si nadie lo abre, no se descarga ninguna.
 3. **El PDF y el Excel** son el documento completo y piden todas. Si el PDF
    pasaría de 1.000 filas, primero se pregunta y se ofrece el Excel.
 

@@ -1,51 +1,44 @@
-import { useEffect, useState } from 'react';
-import { Modal } from '../../components/Modal';
+import { useEffect, useMemo, useState } from 'react';
 import { ApiError } from '../../services/api-client';
-import { inventoryService } from '../../services/inventory.service';
 import { productsService } from '../../services/products.service';
-import type { ExpirationAlert, LowStockAlert } from '../../types/inventory';
-import type { Product, ReferenceOption } from '../../types/products';
-import { formatDateTime } from '../inventory/inventory-count';
-import { formatMoney } from '../products/money';
 import { reportsService } from '../../services/reports.service';
+import type { ReferenceOption } from '../../types/products';
+import type {
+  InventoryReportOptions,
+  InventoryReportSection,
+  InventoryReportSummary,
+} from '../../types/reports';
+import { formatMoney } from '../products/money';
 import { saveBlob } from '../products/use-catalog-export';
 import {
   EXPIRATION_FILTERS,
-  groupByCategory,
-  inventoryTotals,
-  stockStatus,
-  valueByCategory,
   loadPreferences,
   REPORT_COLUMNS,
   REPORT_SORTS,
   savePreferences,
-  sortProducts,
   visibleColumns,
-  type ProductGroup,
   type ReportPreferences,
   type ExpirationFilter,
   type InventorySections,
   type ReportSort,
 } from './inventory-report';
-import { InventoryReportDocument } from './InventoryReportDocument';
+import { InventoryPdfPreview } from './InventoryPdfPreview';
+import { InventoryReportDetail } from './InventoryReportDetail';
 import { ReportActions } from './ReportActions';
 import { ReportChartView } from './ReportChartView';
 import { ReportCustomizeModal } from './ReportCustomizeModal';
-import { printReport } from './report-preferences';
 
 interface InventoryStockReportProps {
   /** Categoría con la que abre (por ejemplo, la que estaba filtrada en Inventario). */
   initialCategoryId: string;
 }
 
-interface ReportData {
-  phase: 'loading' | 'ready' | 'failed';
-  products: Product[];
-  expirations: ExpirationAlert[];
-  lowStock: LowStockAlert[];
-  categories: ReferenceOption[];
-  message?: string;
-}
+type SummaryView =
+  | { phase: 'loading' }
+  | { phase: 'failed'; message: string }
+  | { phase: 'ready'; summary: InventoryReportSummary; options: InventoryReportOptions };
+
+const SECTION_KEYS: InventoryReportSection[] = ['products', 'expirations', 'lowStock'];
 
 /**
  * Reporte de inventario dentro de Reportes (HU-25, con stock bajo de HU-08 y
@@ -58,6 +51,11 @@ interface ReportData {
  *   por sección.
  *
  * Siempre productos ACTIVOS: es el inventario disponible para vender.
+ *
+ * Igual que los reportes comerciales, la pantalla recibe solo el RESUMEN
+ * (totales, gráficos y cuántas filas hay); las filas llegan de a una página al
+ * abrir «Ver detalle», y el PDF las pide todas. Así, con miles de productos la
+ * pantalla sigue liviana.
  */
 export function InventoryStockReport({ initialCategoryId }: InventoryStockReportProps) {
   const [categoryId, setCategoryId] = useState(initialCategoryId);
@@ -73,77 +71,69 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
   const [previewing, setPreviewing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
-  const [data, setData] = useState<ReportData>({
-    phase: 'loading',
-    products: [],
-    expirations: [],
-    lowStock: [],
-    categories: [],
-  });
+  const [categories, setCategories] = useState<ReferenceOption[]>([]);
+  const [view, setView] = useState<SummaryView>({ phase: 'loading' });
 
   useEffect(() => savePreferences(preferences), [preferences]);
 
   useEffect(() => {
+    productsService
+      .getFormOptions()
+      .then((options) => setCategories(options.categories))
+      .catch(() => setCategories([]));
+  }, []);
+
+  const chosen = SECTION_KEYS.filter((key) => sections[key]);
+  const nothingChosen = chosen.length === 0;
+  const chosenKey = chosen.join(',');
+  // Los filtros del reporte; mismo objeto mientras no cambien (lo usan las consultas).
+  const options = useMemo<InventoryReportOptions>(
+    () => ({
+      categoryId,
+      sort: preferences.sort,
+      // Sin secciones igual se piden los totales (con productos), para el resumen.
+      sections:
+        chosenKey === '' ? ['products'] : (chosenKey.split(',') as InventoryReportSection[]),
+      expirations: expirationFilter,
+    }),
+    [categoryId, preferences.sort, chosenKey, expirationFilter],
+  );
+
+  // Cada cambio de filtro vuelve a pedir el resumen; una respuesta vieja se descarta.
+  useEffect(() => {
     let active = true;
 
-    Promise.all([
-      productsService.list(),
-      inventoryService.listExpirations(),
-      inventoryService.listLowStock(),
-      productsService.getFormOptions(),
-    ])
-      .then(([products, expirations, lowStock, options]) => {
-        if (active) {
-          setData({
-            phase: 'ready',
-            products,
-            expirations,
-            lowStock,
-            categories: options.categories,
-          });
-        }
+    setView({ phase: 'loading' });
+    reportsService
+      .inventorySummary(options)
+      .then((summary) => {
+        if (active) setView({ phase: 'ready', summary, options });
       })
       .catch((error: unknown) => {
         if (active) {
-          setData((current) => ({
-            ...current,
+          setView({
             phase: 'failed',
             message: error instanceof ApiError ? error.message : 'No se pudieron cargar los datos.',
-          }));
+          });
         }
       });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [options]);
 
-  const products = sortProducts(
-    data.products.filter(
-      (product) => product.isActive && (categoryId === '' || product.categoryId === categoryId),
-    ),
-    preferences.sort,
-  );
-  // Vencimientos y stock bajo respetan la misma categoría.
-  const inScope = new Set(products.map((product) => product.id));
-  const expirations = data.expirations.filter(
-    (alert) =>
-      inScope.has(alert.productId) &&
-      (expirationFilter === 'ALL' || alert.status === expirationFilter),
-  );
-  const lowStock = data.lowStock.filter((alert) => inScope.has(alert.productId));
-  const categoryName = data.categories.find((category) => category.id === categoryId)?.name;
+  const categoryName = categories.find((category) => category.id === categoryId)?.name;
   const scope = categoryName === undefined ? 'todas las categorías' : `categoría ${categoryName}`;
-  const groups: ProductGroup[] =
-    grouped && categoryId === ''
-      ? groupByCategory(products)
-      : [{ key: 'all', title: null, products }];
   const columns = visibleColumns(preferences.columns);
-  const nothingChosen = !sections.products && !sections.expirations && !sections.lowStock;
+  const ready = view.phase === 'ready' ? view : null;
+  const counts = ready?.summary.counts;
   const isEmpty =
-    (!sections.products || products.length === 0) &&
-    (!sections.expirations || expirations.length === 0) &&
-    (!sections.lowStock || lowStock.length === 0);
+    counts === undefined ||
+    ((!sections.products || counts.products === 0) &&
+      (!sections.expirations || (counts.expirations ?? 0) === 0) &&
+      (!sections.lowStock || (counts.lowStock ?? 0) === 0));
+  const isGrouped = grouped && categoryId === '';
 
   async function exportExcel(): Promise<void> {
     setExporting(true);
@@ -154,11 +144,9 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
         categoryId,
         sort: preferences.sort,
         columns: columns.map((column) => column.key),
-        sections: (Object.keys(sections) as (keyof InventorySections)[]).filter(
-          (key) => sections[key],
-        ),
+        sections: chosen,
         expirations: expirationFilter,
-        grouped: grouped && categoryId === '',
+        grouped: isGrouped,
       });
 
       saveBlob(blob, fileName);
@@ -177,20 +165,6 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
     setSections((current) => ({ ...current, [section]: !current[section] }));
   }
 
-  const totals = inventoryTotals(products);
-  const documentProps = {
-    sections,
-    scope,
-    columns,
-    products,
-    groups,
-    expirations,
-    expirationFilter,
-    lowStock,
-  };
-  // El PDF lleva el reporte completo, con grupos y subtotales.
-  const content = <InventoryReportDocument {...documentProps} />;
-
   return (
     <>
       <form className="report-filters card" onSubmit={(event) => event.preventDefault()}>
@@ -203,7 +177,7 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
               onChange={(event) => setCategoryId(event.target.value)}
             >
               <option value="">Todas</option>
-              {data.categories.map((category) => (
+              {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
@@ -295,7 +269,7 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
           <ReportActions
             title="Reporte de inventario"
             emptyReason={
-              data.phase !== 'ready'
+              view.phase !== 'ready'
                 ? 'Cargando datos…'
                 : nothingChosen
                   ? 'Marque al menos una sección.'
@@ -338,80 +312,70 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
           </ul>
         </details>
 
-        {data.phase === 'loading' ? (
+        {view.phase === 'loading' ? (
           <p className="muted" role="status">
             Cargando inventario…
           </p>
         ) : null}
-        {data.phase === 'failed' ? (
+        {view.phase === 'failed' ? (
           <p className="alert alert--error" role="alert">
-            {data.message}
+            {view.message}
           </p>
         ) : null}
         {nothingChosen ? <p className="muted">Marque al menos una sección.</p> : null}
-        {data.phase === 'ready' ? (
+        {ready === null ? null : (
           <>
             {/* Primero el resumen; la lista completa sale en el PDF y el Excel. */}
             <div className="report-totals" aria-label="Resumen del inventario">
               <div className="stat-tile stat-tile--primary">
                 <span className="stat-tile__label">Valor del inventario (al costo)</span>
-                <strong className="stat-tile__value">{formatMoney(totals.value)}</strong>
+                <strong className="stat-tile__value">
+                  {formatMoney(ready.summary.totals.value)}
+                </strong>
               </div>
               <div className="report-totals__secondary">
                 <div className="stat-tile stat-tile--secondary">
                   <span className="stat-tile__label">Productos activos</span>
-                  <strong className="stat-tile__value">{totals.count}</strong>
+                  <strong className="stat-tile__value">{ready.summary.totals.count}</strong>
                 </div>
                 <div className="stat-tile stat-tile--secondary">
                   <span className="stat-tile__label">Unidades en stock</span>
-                  <strong className="stat-tile__value">{totals.units}</strong>
+                  <strong className="stat-tile__value">{ready.summary.totals.units}</strong>
                 </div>
-                {sections.lowStock ? (
+                {ready.summary.counts.lowStock === null ? null : (
                   <div className="stat-tile stat-tile--secondary">
                     <span className="stat-tile__label">En stock bajo</span>
-                    <strong className="stat-tile__value">{lowStock.length}</strong>
+                    <strong className="stat-tile__value">{ready.summary.counts.lowStock}</strong>
                   </div>
-                ) : null}
-                {sections.expirations ? (
+                )}
+                {ready.summary.counts.expirations === null ? null : (
                   <div className="stat-tile stat-tile--secondary">
                     <span className="stat-tile__label">{EXPIRATION_FILTERS[expirationFilter]}</span>
-                    <strong className="stat-tile__value">{expirations.length}</strong>
+                    <strong className="stat-tile__value">{ready.summary.counts.expirations}</strong>
                   </div>
-                ) : null}
+                )}
               </div>
             </div>
-            {products.length === 0 ? null : (
+            {ready.summary.charts.length === 0 ? null : (
               <div className="report-charts">
-                <ReportChartView
-                  chart={{
-                    id: 'inventory-value',
-                    title: 'Valor del inventario por categoría',
-                    subtitle: 'Stock × precio de compra: dónde está el dinero invertido.',
-                    form: 'bars',
-                    unit: 'money',
-                    data: valueByCategory(products),
-                  }}
-                />
-                <ReportChartView
-                  chart={{
-                    id: 'inventory-status',
-                    title: 'Estado del stock',
-                    subtitle: 'Cuántos productos activos hay en cada situación.',
-                    form: 'bars',
-                    unit: 'products',
-                    data: stockStatus(products),
-                  }}
-                />
+                {ready.summary.charts.map((chart) => (
+                  <ReportChartView key={chart.id} chart={chart} />
+                ))}
               </div>
             )}
 
-            <details className="disclosure report-detail">
-              <summary>Ver detalle ({products.length} productos)</summary>
-              <InventoryReportDocument {...documentProps} paginated />
-              <p className="muted">El PDF lleva el detalle completo.</p>
-            </details>
+            {nothingChosen ? null : (
+              <InventoryReportDetail
+                key={ready.summary.generatedAt}
+                summary={ready.summary}
+                options={ready.options}
+                columns={columns}
+                scopeText={scope}
+                grouped={isGrouped && sections.products}
+              />
+            )}
           </>
-        ) : null}
+        )}
       </div>
 
       {customizing ? (
@@ -438,33 +402,19 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
         />
       ) : null}
 
-      {previewing ? (
-        <Modal
-          title="Vista previa: Reporte de inventario"
-          size="wide"
+      {previewing && ready !== null ? (
+        <InventoryPdfPreview
+          summary={ready.summary}
+          options={ready.options}
+          sections={sections}
+          scope={scope}
+          columns={columns}
+          grouped={isGrouped}
+          expirationFilter={expirationFilter}
+          orientation={preferences.orientation}
+          onExcel={() => void exportExcel()}
           onClose={() => setPreviewing(false)}
-        >
-          {preferences.orientation === 'landscape' ? (
-            <style>{'@media print { @page { size: landscape; } }'}</style>
-          ) : null}
-          <div className="form__actions report-pdf__actions">
-            <button type="button" className="button button--primary" onClick={printReport}>
-              🖨 Imprimir / Guardar PDF
-            </button>
-            <button type="button" className="button" onClick={() => setPreviewing(false)}>
-              Cerrar
-            </button>
-          </div>
-          <article className="print-area report-preview" aria-label="Documento del reporte">
-            <header className="report-preview__header">
-              <h1>Reporte de inventario</h1>
-              <p className="muted">
-                Productos activos · {scope} · generado el {formatDateTime(new Date().toISOString())}
-              </p>
-            </header>
-            {content}
-          </article>
-        </Modal>
+        />
       ) : null}
     </>
   );
