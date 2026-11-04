@@ -170,40 +170,47 @@ test('combina categoría, precio histórico y fechas', async ({ page }) => {
 
 test('valida los filtros con mensajes visibles y sin consultar al servidor', async ({ page }) => {
   await openReport(page, 'Ventas');
+  await consult(page);
 
   const requests: string[] = [];
 
   page.on('request', (request) => {
     if (request.url().includes('/api/reports/commercial/')) {
-      requests.push(request.url());
+      requests.push(decodeURIComponent(request.url()));
     }
   });
 
-  const submit = () => page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
+  // Los filtros se aplican solos: el error aparece al escribir y no se consulta.
+  const invalid = () => expect(page.getByText('Revise los filtros')).toBeVisible();
 
   await page.getByLabel('Desde').fill('');
-  await submit();
   await expect(page.getByText('Indique la fecha inicial.')).toBeVisible();
+  await invalid();
 
   await setPeriod(page, '2024-03-31', '2024-03-01');
-  await submit();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
+  await invalid();
 
   await setPeriod(page, '2023-01-01', '2024-03-31');
-  await submit();
   await expect(page.getByText('El período no puede superar 366 días.')).toBeVisible();
 
   await setPeriod(page, PERIOD.from, PERIOD.to);
   await page.getByLabel('Precio mínimo').fill('abc');
-  await submit();
   await expect(page.getByText('Use un importe sin signo y con hasta dos decimales.')).toBeVisible();
 
   await page.getByLabel('Precio mínimo').fill('500');
   await page.getByLabel('Precio máximo').fill('100');
-  await submit();
   await expect(page.getByText('El precio máximo debe ser mayor o igual al mínimo.')).toBeVisible();
+  // Se espera más que la pausa de aplicación automática: igual no debe consultar.
+  await page.waitForTimeout(800);
 
-  expect(requests).toEqual([]);
+  // Ningún filtro inválido llegó al servidor.
+  for (const bad of ['to=2024-03-01', 'from=2023-01-01', 'minPrice=abc', 'maxPrice=100']) {
+    expect(
+      requests.filter((url) => url.includes(bad)),
+      bad,
+    ).toEqual([]);
+  }
 
   // Corregidos los datos, el reporte sí se consulta.
   await page.getByLabel('Precio mínimo').fill('');

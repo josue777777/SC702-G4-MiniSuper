@@ -33,10 +33,17 @@ interface InventoryStockReportProps {
   initialCategoryId: string;
 }
 
+interface ReadySummary {
+  phase: 'ready';
+  summary: InventoryReportSummary;
+  options: InventoryReportOptions;
+}
+
+/** Mientras se actualiza con filtros nuevos, el resumen anterior (`previous`) sigue a la vista. */
 type SummaryView =
-  | { phase: 'loading' }
+  | { phase: 'loading'; previous: ReadySummary | null }
   | { phase: 'failed'; message: string }
-  | { phase: 'ready'; summary: InventoryReportSummary; options: InventoryReportOptions };
+  | ReadySummary;
 
 const SECTION_KEYS: InventoryReportSection[] = ['products', 'expirations', 'lowStock'];
 
@@ -72,7 +79,7 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
   const [exporting, setExporting] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [categories, setCategories] = useState<ReferenceOption[]>([]);
-  const [view, setView] = useState<SummaryView>({ phase: 'loading' });
+  const [view, setView] = useState<SummaryView>({ phase: 'loading', previous: null });
 
   useEffect(() => savePreferences(preferences), [preferences]);
 
@@ -103,7 +110,11 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
   useEffect(() => {
     let active = true;
 
-    setView({ phase: 'loading' });
+    setView((current) => ({
+      phase: 'loading',
+      previous:
+        current.phase === 'ready' ? current : current.phase === 'loading' ? current.previous : null,
+    }));
     reportsService
       .inventorySummary(options)
       .then((summary) => {
@@ -126,7 +137,10 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
   const categoryName = categories.find((category) => category.id === categoryId)?.name;
   const scope = categoryName === undefined ? 'todas las categorías' : `categoría ${categoryName}`;
   const columns = visibleColumns(preferences.columns);
-  const ready = view.phase === 'ready' ? view : null;
+  const ready = view.phase === 'ready' ? view : view.phase === 'loading' ? view.previous : null;
+  const updating = view.phase === 'loading' && ready !== null;
+  // Abierto o cerrado se recuerda aquí: al cambiar un filtro el detalle no se cierra.
+  const [detailOpen, setDetailOpen] = useState(false);
   const counts = ready?.summary.counts;
   const isEmpty =
     counts === undefined ||
@@ -167,9 +181,13 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
 
   return (
     <>
-      <form className="report-filters card" onSubmit={(event) => event.preventDefault()}>
-        <div className="form__grid">
-          <div className="form__field">
+      <form
+        className="filter-bar card"
+        aria-label="Filtros del reporte"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <div className="filter-bar__row">
+          <div className="filter-bar__field filter-bar__field--wide">
             <label htmlFor="inventory-report-category">Categoría</label>
             <select
               id="inventory-report-category"
@@ -184,7 +202,7 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
               ))}
             </select>
           </div>
-          <div className="form__field">
+          <div className="filter-bar__field filter-bar__field--wide">
             <label htmlFor="inventory-report-sort">Ordenar por</label>
             <select
               id="inventory-report-sort"
@@ -203,64 +221,88 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
               ))}
             </select>
           </div>
+
+          <fieldset className="filter-bar__field">
+            <legend className="filter-bar__legend">Secciones</legend>
+            <div className="filter-toggles">
+              <label className="filter-toggle">
+                <input
+                  type="checkbox"
+                  checked={sections.products}
+                  onChange={() => toggle('products')}
+                />
+                Productos
+              </label>
+              {sections.products && categoryId === '' ? (
+                <label className="filter-toggle">
+                  <input
+                    type="checkbox"
+                    checked={grouped}
+                    onChange={() => setGrouped((current) => !current)}
+                  />
+                  Agrupar por categoría, con subtotales
+                </label>
+              ) : null}
+              <label className="filter-toggle">
+                <input
+                  type="checkbox"
+                  checked={sections.expirations}
+                  onChange={() => toggle('expirations')}
+                />
+                Vencidos y por vencer
+              </label>
+              {sections.expirations ? (
+                <select
+                  className="filter-toggle"
+                  aria-label="Filtro de vencimientos"
+                  value={expirationFilter}
+                  onChange={(event) => setExpirationFilter(event.target.value as ExpirationFilter)}
+                >
+                  {Object.entries(EXPIRATION_FILTERS).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              <label className="filter-toggle">
+                <input
+                  type="checkbox"
+                  checked={sections.lowStock}
+                  onChange={() => toggle('lowStock')}
+                />
+                Stock bajo
+              </label>
+              <span className="filter-toggle filter-toggle--muted" title="Llega con HU-38">
+                Lotes: próximamente
+              </span>
+            </div>
+          </fieldset>
         </div>
 
-        <fieldset className="report-sections">
-          <legend>Secciones</legend>
-          <label>
-            <input
-              type="checkbox"
-              checked={sections.products}
-              onChange={() => toggle('products')}
-            />
-            Productos
-          </label>
-          {sections.products && categoryId === '' ? (
-            <label>
-              <input
-                type="checkbox"
-                checked={grouped}
-                onChange={() => setGrouped((current) => !current)}
-              />
-              Agrupar por categoría, con subtotales
-            </label>
-          ) : null}
-          <label>
-            <input
-              type="checkbox"
-              checked={sections.expirations}
-              onChange={() => toggle('expirations')}
-            />
-            Vencidos y por vencer
-          </label>
-          {sections.expirations ? (
-            <select
-              aria-label="Filtro de vencimientos"
-              value={expirationFilter}
-              onChange={(event) => setExpirationFilter(event.target.value as ExpirationFilter)}
+        <div className="filter-bar__meta">
+          <div className="filter-bar__end">
+            <span
+              className={`filter-bar__status filter-bar__status--${
+                view.phase === 'loading' ? 'pending' : view.phase === 'failed' ? 'invalid' : 'done'
+              }`}
+              aria-live="polite"
+              data-report-sync={view.phase === 'loading' ? 'pending' : 'done'}
             >
-              {Object.entries(EXPIRATION_FILTERS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          ) : null}
-          <label>
-            <input
-              type="checkbox"
-              checked={sections.lowStock}
-              onChange={() => toggle('lowStock')}
-            />
-            Stock bajo
-          </label>
-          <span className="muted" title="Llega con HU-38">
-            Lotes: próximamente
-          </span>
-        </fieldset>
+              {view.phase === 'loading'
+                ? 'Actualizando…'
+                : view.phase === 'failed'
+                  ? 'No se pudo actualizar'
+                  : 'Al día'}
+            </span>
+          </div>
+        </div>
       </form>
 
-      <div className="report-result">
+      <div
+        className={`report-result${updating ? ' report-result--updating' : ''}`}
+        aria-busy={updating}
+      >
         <header className="report-result__header">
           <div>
             <h3>Reporte de inventario</h3>
@@ -312,7 +354,7 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
           </ul>
         </details>
 
-        {view.phase === 'loading' ? (
+        {view.phase === 'loading' && ready === null ? (
           <p className="muted" role="status">
             Cargando inventario…
           </p>
@@ -372,6 +414,8 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
                 columns={columns}
                 scopeText={scope}
                 grouped={isGrouped && sections.products}
+                open={detailOpen}
+                onOpenChange={setDetailOpen}
               />
             )}
           </>

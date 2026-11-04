@@ -11,11 +11,29 @@ import {
   type FilterErrors,
 } from './report-filters';
 
-/** Qué muestra el reporte: consultando, listo (con los filtros YA aplicados) o con error. */
+/** Cuánto se espera a que el usuario termine de escribir antes de consultar. */
+export const AUTO_APPLY_DELAY_MS = 400;
+
+/**
+ * Qué muestra el reporte. Mientras se consulta con filtros nuevos, el resultado
+ * anterior (`previous`) sigue a la vista, atenuado: la pantalla no parpadea.
+ */
 export type ReportView =
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'ready'; report: ReportSummary; filter: ReportFilter };
+  { status: 'loading'; previous: Ready | null } | { status: 'error'; message: string } | Ready;
+
+interface Ready {
+  status: 'ready';
+  report: ReportSummary;
+  /** Filtros con que se generó (los que usan el detalle, el PDF y el Excel). */
+  filter: ReportFilter;
+}
+
+/**
+ * Estado para las pruebas y los lectores de pantalla: `pending` si hay filtros
+ * sin aplicar o una consulta en curso; `done` si lo mostrado corresponde a los
+ * filtros escritos; `invalid` si hay errores (no se consulta).
+ */
+export type ReportSync = 'pending' | 'done' | 'invalid';
 
 export interface ExportNotice {
   kind: 'success' | 'error';
@@ -27,37 +45,27 @@ function messageOf(caught: unknown, fallback: string): string {
 }
 
 /**
- * Reportes comerciales (HU-28, HU-29, HU-30). Una consulta a la vez: si el
- * usuario cambia de reporte mientras otro carga, la respuesta tardía se ignora.
- * La exportación usa los filtros YA aplicados al reporte mostrado (`view.filter`),
- * no lo que se esté escribiendo en el formulario, para que el archivo sea
- * exactamente lo que se ve.
+ * Reportes comerciales (HU-28, HU-29, HU-30). Los filtros se aplican SOLOS:
+ * al cambiar uno se espera un instante (`AUTO_APPLY_DELAY_MS`, por si sigue
+ * escribiendo) y se consulta. Con errores, se muestran y no se consulta.
+ *
+ * Una consulta a la vez: si llega tarde la respuesta de filtros viejos, se
+ * descarta. La exportación usa los filtros YA aplicados al reporte mostrado
+ * (`view.filter`), para que el archivo sea exactamente lo que se ve.
  */
 export function useCommercialReport(kind: ReportKind) {
   const [draft, setDraft] = useState<FilterDraft>(() => defaultDraft());
   const [errors, setErrors] = useState<FilterErrors>({});
-  const [view, setView] = useState<ReportView>({ status: 'loading' });
+  const [view, setView] = useState<ReportView>({ status: 'loading', previous: null });
+  const [requestedKey, setRequestedKey] = useState<string | null>(null);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [categoriesError, setCategoriesError] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [notice, setNotice] = useState<ExportNotice | null>(null);
+  const [refreshes, setRefreshes] = useState(0);
   const latest = useRef(0);
-
-  const load = useCallback(async (nextKind: ReportKind, filter: ReportFilter) => {
-    const id = (latest.current += 1);
-
-    try {
-      const report = await reportsService.get(nextKind, filter);
-
-      if (id === latest.current) {
-        setView({ status: 'ready', report, filter });
-      }
-    } catch (caught) {
-      if (id === latest.current) {
-        setView({ status: 'error', message: messageOf(caught, 'No se pudo generar el reporte.') });
-      }
-    }
-  }, []);
+  const shownKind = useRef<ReportKind | null>(null);
+  const shownRefresh = useRef(0);
 
   useEffect(() => {
     reportsService
@@ -66,38 +74,91 @@ export function useCommercialReport(kind: ReportKind) {
       .catch(() => setCategoriesError(true));
   }, []);
 
-  /** Valida los filtros a la vista y, si están bien, consulta. */
-  const consult = useCallback(
-    (nextKind: ReportKind, nextDraft: FilterDraft) => {
-      const found = validateFilters(nextKind, nextDraft);
+  const found = validateFilters(kind, draft);
+  const valid = Object.keys(found).length === 0;
+  const filter = valid ? toFilter(kind, draft) : null;
+  const filterKey = filter === null ? null : `${kind}|${JSON.stringify(filter)}|${refreshes}`;
+  // El filtro de ESTE render, para el temporizador (su contenido lo resume `filterKey`).
+  const filterRef = useRef(filter);
 
-      setErrors(found);
+  filterRef.current = filter;
 
-      if (Object.keys(found).length > 0) {
-        return;
+  const load = useCallback(async (nextKind: ReportKind, nextFilter: ReportFilter, key: string) => {
+    const id = (latest.current += 1);
+
+    shownKind.current = nextKind;
+    setRequestedKey(key);
+    setNotice(null);
+    setView((current) => ({
+      status: 'loading',
+      // Al cambiar de pestaña no se muestra el reporte de otra: solo el del mismo tipo.
+      previous:
+        current.status === 'ready' && current.report.kind === nextKind
+          ? current
+          : current.status === 'loading'
+            ? current.previous
+            : null,
+    }));
+
+    try {
+      const report = await reportsService.get(nextKind, nextFilter);
+
+      if (id === latest.current) {
+        setView({ status: 'ready', report, filter: nextFilter });
       }
+    } catch (caught) {
+      if (id === latest.current) {
+        setView({ status: 'error', message: messageOf(caught, 'No se pudo generar el reporte.') });
+      }
+    }
+  }, []);
 
-      setNotice(null);
-      setView({ status: 'loading' });
-      void load(nextKind, toFilter(nextKind, nextDraft));
-    },
-    [load],
-  );
-
-  // Al cambiar de pestaña se consulta ese reporte con los filtros que ya hay escritos.
-  const draftRef = useRef(draft);
-
-  useEffect(() => {
-    draftRef.current = draft;
-  }, [draft]);
+  // Los errores se muestran a medida que se escribe.
+  const foundKey = JSON.stringify(found);
 
   useEffect(() => {
-    consult(kind, draftRef.current);
-  }, [kind, consult]);
+    setErrors(JSON.parse(foundKey) as FilterErrors);
+  }, [foundKey]);
+
+  // Aplicar solo: inmediato al abrir o cambiar de reporte; con una espera corta al filtrar.
+  useEffect(() => {
+    const current = filterRef.current;
+
+    if (current === null || filterKey === null) {
+      return;
+    }
+
+    // Sin esperar: al abrir, al cambiar de pestaña o al pulsar «Actualizar».
+    const immediate = shownKind.current !== kind || shownRefresh.current !== refreshes;
+
+    shownRefresh.current = refreshes;
+
+    const timer = window.setTimeout(
+      () => void load(kind, current, filterKey),
+      immediate ? 0 : AUTO_APPLY_DELAY_MS,
+    );
+
+    return () => window.clearTimeout(timer);
+    // `filterKey` resume el reporte y sus filtros: solo se consulta si cambian de verdad.
+  }, [kind, filterKey, refreshes, load]);
 
   const setField = useCallback(<K extends keyof FilterDraft>(key: K, value: FilterDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   }, []);
+
+  /** Cambia varios filtros a la vez (un período rápido cambia desde y hasta). */
+  const setFields = useCallback((changes: Partial<FilterDraft>) => {
+    setDraft((current) => ({ ...current, ...changes }));
+  }, []);
+
+  /** Vuelve a consultar con los mismos filtros (el de deudas es una foto del momento). */
+  const refresh = useCallback(() => setRefreshes((count) => count + 1), []);
+
+  const sync: ReportSync = !valid
+    ? 'invalid'
+    : view.status === 'loading' || requestedKey !== filterKey
+      ? 'pending'
+      : 'done';
 
   /** `columns`: solo las que el usuario dejó activas; sin ella, todas. */
   const exportReport = useCallback(
@@ -132,12 +193,15 @@ export function useCommercialReport(kind: ReportKind) {
     draft,
     errors,
     view,
+    sync,
     categories,
     categoriesError,
     exporting,
     notice,
     setField,
-    consult: () => consult(kind, draft),
+    setFields,
+    reset: () => setDraft((current) => ({ ...defaultDraft(), from: current.from, to: current.to })),
+    refresh,
     exportReport,
     dismissNotice: () => setNotice(null),
   };

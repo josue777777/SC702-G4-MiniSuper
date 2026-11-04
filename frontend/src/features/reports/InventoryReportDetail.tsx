@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Pagination } from '../../components/Pagination';
 import { reportsService, type InventoryRow } from '../../services/reports.service';
 import type {
@@ -22,6 +22,9 @@ interface InventoryReportDetailProps {
   scopeText: string;
   /** La agrupación con subtotales se arma en el PDF, que tiene todas las filas. */
   grouped: boolean;
+  /** Abierto o cerrado lo recuerda quien lo usa: así no se cierra al filtrar. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 /**
@@ -38,14 +41,16 @@ export function InventoryReportDetail({
   columns,
   scopeText,
   grouped,
+  open,
+  onOpenChange,
 }: InventoryReportDetailProps) {
-  const [open, setOpen] = useState(false);
   const { counts, totals } = summary;
 
   return (
     <details
       className="disclosure report-detail"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      open={open}
+      onToggle={(event) => onOpenChange(event.currentTarget.open)}
     >
       <summary>Ver detalle ({counts.products} productos)</summary>
 

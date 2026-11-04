@@ -177,6 +177,24 @@ de un día.
 - Todo reporte tiene las mismas acciones (`ReportActions`): PDF, Excel y
   Personalizar; sin datos, no se exporta un archivo vacío.
 
+## Regla 10: los filtros se aplican solos
+
+Los filtros de un reporte van en una barra compacta (`.filter-bar`), en una
+fila, **sin botón de consultar**: cada cambio se aplica solo, como en los
+sistemas de reportes habituales.
+
+| Pieza | Cómo funciona |
+| --- | --- |
+| Período rápido | «Hoy», «Este mes», «Mes pasado»… llenan Desde y Hasta. Si se cambia una fecha a mano, pasa a «Personalizado» (`report-periods.ts`). |
+| Aplicación automática | Se espera un instante (`AUTO_APPLY_DELAY_MS`, 400 ms) por si el usuario sigue escribiendo, y se consulta una sola vez. |
+| Errores | Se muestran junto al campo mientras se escribe; con un error, **no** se consulta. |
+| Sin parpadeo | Mientras llega el resultado nuevo, el anterior queda a la vista, atenuado, con «Actualizando…». «Ver detalle» no se cierra. |
+| Filtros activos | Etiquetas que se quitan con ×, y «Limpiar filtros». |
+| ↻ Actualizar | Vuelve a consultar con los mismos filtros (trae, por ejemplo, una venta recién hecha). |
+
+En las pruebas E2E, `consult(page)` espera a que la barra diga «Al día»
+(`data-report-sync="done"`).
+
 ## Lista de revisión para una pantalla nueva
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
@@ -190,4 +208,5 @@ de un día.
 - [ ] ¿Los documentos abren en `Modal`?
 - [ ] ¿Las explicaciones están plegadas y los avisos aparecen solo cuando aplican?
 - [ ] Si es un reporte: ¿muestra gráficos y deja el detalle a pedido y en el PDF/Excel?
+- [ ] Si tiene filtros: ¿se aplican solos, sin botón, y muestran los activos?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?

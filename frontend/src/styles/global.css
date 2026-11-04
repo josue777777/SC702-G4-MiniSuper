@@ -2827,41 +2827,274 @@ code {
   gap: 14px;
 }
 
-.report-filters {
+/* --- Barra de filtros de los reportes ---------------------------------------
+ * Una fila compacta que se aplica sola (sin botón de consultar). Los campos
+ * llevan la etiqueta arriba, en pequeño; los filtros activos, como etiquetas
+ * que se quitan con ×. Mismos colores de la aplicación.
+ */
+.filter-bar {
   margin: 0;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   box-shadow: none;
 }
 
-.report-filters__actions {
-  justify-content: flex-end;
-  border-top: none;
-  padding-top: 0;
+.filter-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 12px;
 }
 
-.report-sections {
+.filter-bar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.filter-bar__field--wide {
+  min-width: 200px;
+}
+
+.filter-bar__field--narrow {
+  min-width: 0;
+  width: 128px;
+}
+
+/* Las secciones de inventario van en un fieldset sin marco ni sangría. */
+fieldset.filter-bar__field {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.filter-bar__legend {
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.filter-bar__field > label,
+.filter-bar__legend {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.filter-bar__field input,
+.filter-bar__field select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+
+.filter-bar__field input:focus-visible,
+.filter-bar__field select:focus-visible {
+  border-color: var(--color-primary);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  outline-offset: 0;
+}
+
+.filter-bar__field input[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+.filter-bar__field .form__error {
+  max-width: 220px;
+  font-size: 0.8rem;
+}
+
+/* Segunda línea: filtros activos a la izquierda y el estado («Al día») a la derecha. */
+.filter-bar__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 18px;
-  margin: 10px 0 0;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.filter-bar__end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.button--small {
+  padding: 5px 10px;
+  font-size: 0.85rem;
+}
+
+.filter-bar__note {
+  margin: 0;
+  align-self: center;
+}
+
+.filter-bar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.filter-bar__status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-ok);
+}
+
+.filter-bar__status--pending::before {
+  background: var(--color-primary);
+  animation: filter-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.filter-bar__status--invalid::before {
+  background: var(--color-error);
+}
+
+@keyframes filter-pulse {
+  from {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-bar__status--pending::before {
+    animation: none;
+  }
+}
+
+/* Filtros activos: etiquetas que se quitan con × */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 8%, #fff);
+  color: var(--color-primary-dark);
+  font-size: 0.82rem;
+}
+
+.filter-chip__remove {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.filter-chip__remove:hover {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.filter-chips__clear {
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Secciones del reporte de inventario: casillas con forma de etiqueta. */
+.filter-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
   padding: 0;
   border: none;
 }
 
-.report-sections legend {
-  float: left;
-  margin-right: 6px;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.report-sections label {
+.filter-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.filter-toggle:has(input:checked) {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, #fff);
+  color: var(--color-primary-dark);
+}
+
+.filter-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.filter-toggle input {
+  accent-color: var(--color-primary);
+}
+
+.filter-toggle select {
+  height: 26px;
+  margin-left: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 0.82rem;
+}
+
+.filter-toggle--muted {
+  border-style: dashed;
+  color: var(--color-muted);
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .filter-bar__field,
+  .filter-bar__field--wide {
+    flex: 1 1 100%;
+  }
+
+  .filter-bar__field--narrow {
+    flex: 1 1 calc(50% - 6px);
+    width: auto;
+  }
+}
+
+/* Mientras se actualiza con filtros nuevos, el resultado anterior queda atenuado. */
+.report-result--updating {
+  opacity: 0.6;
+  transition: opacity 0.15s;
 }
 
 .report-result__header {

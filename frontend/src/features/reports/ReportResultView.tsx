@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type {
   ReportColumn,
   ReportFilter,
@@ -15,6 +16,8 @@ interface ReportResultViewProps {
   report: ReportSummary;
   /** Filtros con que se generó: «Ver detalle» pide sus páginas con los mismos. */
   filter: ReportFilter;
+  /** Se está consultando con filtros nuevos: este resultado queda atenuado. */
+  updating?: boolean;
   /** Columnas que el usuario dejó activas al personalizar (HU-40). */
   columns: ReportColumn[];
   exporting: boolean;
@@ -44,6 +47,7 @@ const DESCRIPTIONS: Record<ReportKind, string> = {
 export function ReportResultView({
   report,
   filter,
+  updating = false,
   columns,
   exporting,
   notice,
@@ -55,9 +59,15 @@ export function ReportResultView({
   const appliedFilters = report.filters.filter((filter) => filter.isDefault !== true);
   const primary = report.totals.filter((total) => total.primary === true);
   const secondary = report.totals.filter((total) => total.primary !== true);
+  // Abierto o cerrado se recuerda aquí: al aplicar un filtro el detalle se
+  // vuelve a pedir, pero no se cierra en la cara del usuario.
+  const [detailOpen, setDetailOpen] = useState(false);
 
   return (
-    <div className="report-result">
+    <div
+      className={`report-result${updating ? ' report-result--updating' : ''}`}
+      aria-busy={updating}
+    >
       <header className="report-result__header">
         <div>
           <h3>{report.title}</h3>
@@ -160,6 +170,8 @@ export function ReportResultView({
             report={report}
             filter={filter}
             columns={columns}
+            open={detailOpen}
+            onOpenChange={setDetailOpen}
           />
         </>
       )}

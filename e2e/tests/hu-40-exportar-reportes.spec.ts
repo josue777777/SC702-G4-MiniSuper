@@ -163,16 +163,19 @@ test('«Ver detalle» pide las filas al servidor de a una página y se navega co
   });
 
   await openReport(page, 'Ventas');
-  await setPeriod(page, PERIOD.from, PERIOD.to);
+  await consult(page);
 
   // El resumen llega sin filas: solo cuántas son y los gráficos ya calculados.
+  // Los filtros se aplican solos al cambiar el período.
   const [summaryResponse] = await Promise.all([
     page.waitForResponse(
       (response) =>
-        /\/api\/reports\/commercial\/sales\?/.test(response.url()) &&
+        response
+          .url()
+          .includes(`/api/reports/commercial/sales?from=${PERIOD.from}&to=${PERIOD.to}`) &&
         response.request().method() === 'GET',
     ),
-    page.getByRole('button', { name: 'Generar reporte', exact: true }).click(),
+    setPeriod(page, PERIOD.from, PERIOD.to),
   ]);
   const summary = (await summaryResponse.json()).data;
   const total: number = summary.rowCount;

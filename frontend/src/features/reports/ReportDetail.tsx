@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Pagination } from '../../components/Pagination';
 import { reportsService } from '../../services/reports.service';
 import type {
@@ -16,6 +15,9 @@ interface ReportDetailProps {
   filter: ReportFilter;
   /** Columnas que el usuario dejó activas al personalizar (HU-40). */
   columns: ReportColumn[];
+  /** Abierto o cerrado lo recuerda quien lo usa: así no se cierra al filtrar. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 /**
@@ -28,8 +30,7 @@ interface ReportDetailProps {
  *
  * Se monta con `key` = el reporte generado: al regenerarlo, empieza de cero.
  */
-export function ReportDetail({ report, filter, columns }: ReportDetailProps) {
-  const [open, setOpen] = useState(false);
+export function ReportDetail({ report, filter, columns, open, onOpenChange }: ReportDetailProps) {
   const rows = usePagedRows(
     (page, pageSize) => reportsService.rows(report.kind, filter, page, pageSize),
     open,
@@ -39,7 +40,8 @@ export function ReportDetail({ report, filter, columns }: ReportDetailProps) {
   return (
     <details
       className="disclosure report-detail"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      open={open}
+      onToggle={(event) => onOpenChange(event.currentTarget.open)}
     >
       <summary>Ver detalle ({report.rowCount} filas)</summary>
 
