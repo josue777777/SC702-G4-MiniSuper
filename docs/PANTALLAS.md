@@ -80,7 +80,17 @@ Detalles largos dentro de una fila o textos de ayuda se pliegan con
 </details>
 ```
 
-Ejemplos: los productos de cada proveedor. Si una historia de usuario pide que
+Pregunta guía: **¿el usuario necesita esto para la tarea principal de la
+pantalla, o solo si quiere ir más a fondo?** Si es lo segundo, se pliega.
+
+Ejemplos ya aplicados:
+
+| Pantalla | Se muestra de entrada | Se abre a pedido |
+| --- | --- | --- |
+| Proveedores | «14 productos» | El detalle de cada producto y su costo |
+| Pedidos | El producto, si es uno; si son varios, «2 productos» | La lista de productos (y todo en «Ver detalle») |
+| Conteo físico | El formulario para contar | «Historial de conteos (4)» |
+| Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) | Si una historia de usuario pide que
 un texto se vea siempre (como «Cómo leer este reporte»), se deja con `open`:
 visible de entrada, pero se puede plegar. La historia manda sobre la guía.
 

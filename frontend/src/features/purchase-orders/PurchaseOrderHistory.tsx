@@ -77,7 +77,21 @@ export function PurchaseOrderHistory({
                   </td>
                   <td>{formatDateTime(order.createdAt)}</td>
                   <td>{order.supplierName}</td>
-                  <td>{order.productNames.join(', ')}</td>
+                  <td>
+                    {/* Uno se ve directo; varios se pliegan, como en Proveedores. */}
+                    {order.productNames.length === 1 ? (
+                      order.productNames[0]
+                    ) : (
+                      <details className="disclosure">
+                        <summary>{order.productNames.length} productos</summary>
+                        <ul className="supplier-products">
+                          {order.productNames.map((name, index) => (
+                            <li key={`${index}-${name}`}>{name}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </td>
                   <td className="table__number">{formatMoney(order.total)}</td>
                   <td>
                     <span
