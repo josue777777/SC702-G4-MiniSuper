@@ -520,6 +520,8 @@ export interface DownloadedReport {
   summary: Cell[][];
   /** Hoja «Datos»: encabezado y filas. */
   data: Cell[][];
+  /** Cualquier hoja por su nombre (el reporte de inventario usa una por sección). */
+  sheet: (name: string) => Cell[][];
 }
 
 export async function readDownload(download: Download): Promise<DownloadedReport> {
@@ -542,6 +544,7 @@ export async function readDownload(download: Download): Promise<DownloadedReport
   };
 
   return {
+    sheet: rowsOf,
     fileName: download.suggestedFilename(),
     summary: rowsOf('Resumen'),
     data: rowsOf('Datos'),

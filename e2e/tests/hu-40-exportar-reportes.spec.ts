@@ -121,6 +121,17 @@ test('el reporte de inventario está en Reportes, con las mismas acciones, y se 
     ).map((text) => text.trim()),
   ).not.toContain('Categoría');
 
+  // Excel del inventario: el mismo reporte (no el catálogo), con las columnas elegidas.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /Exportar reporte de inventario a Excel/ }).click(),
+  ]);
+  const exported = await readDownload(download);
+
+  expect(exported.fileName).toBe('reporte-inventario.xlsx');
+  expect(exported.sheet('Productos')[0]).toContain('Producto');
+  expect(exported.sheet('Productos')[0]).not.toContain('Categoría');
+
   // PDF del inventario.
   await page.getByRole('button', { name: /Descargar reporte de inventario en PDF/ }).click();
   await expect(

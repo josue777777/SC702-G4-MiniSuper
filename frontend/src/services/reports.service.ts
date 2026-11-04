@@ -56,4 +56,34 @@ export const reportsService = {
       `reporte-${kind}.xlsx`,
     );
   },
+
+  /**
+   * Excel del reporte de inventario (HU-25 / HU-40) con los mismos filtros,
+   * columnas y secciones que se ven en Reportes › Inventario.
+   */
+  exportInventory(options: {
+    categoryId: string;
+    sort: string;
+    columns: string[];
+    sections: string[];
+    expirations: string;
+    grouped: boolean;
+  }): Promise<{ blob: Blob; fileName: string }> {
+    const query = new URLSearchParams({
+      sort: options.sort,
+      columns: options.columns.join(','),
+      sections: options.sections.join(','),
+      expirations: options.expirations,
+      grouped: String(options.grouped),
+    });
+
+    if (options.categoryId !== '') {
+      query.set('categoryId', options.categoryId);
+    }
+
+    return apiDownload(
+      `/api/reports/inventory/export?${query.toString()}`,
+      'reporte-inventario.xlsx',
+    );
+  },
 };

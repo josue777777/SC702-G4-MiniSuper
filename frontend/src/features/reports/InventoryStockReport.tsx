@@ -7,7 +7,8 @@ import type { ExpirationAlert, LowStockAlert } from '../../types/inventory';
 import type { Product, ReferenceOption } from '../../types/products';
 import { formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
-import { useCatalogExport } from '../products/use-catalog-export';
+import { reportsService } from '../../services/reports.service';
+import { saveBlob } from '../products/use-catalog-export';
 import {
   EXPIRATION_FILTERS,
   groupByCategory,
@@ -53,7 +54,8 @@ interface ReportData {
  *
  * - Personalizar: columnas y hoja (se recuerdan en este navegador).
  * - PDF: vista previa con «Imprimir / Guardar PDF».
- * - Excel: el catálogo de la categoría elegida (HU-33).
+ * - Excel: el mismo reporte (categoría, orden, columnas y secciones), una hoja
+ *   por sección.
  *
  * Siempre productos ACTIVOS: es el inventario disponible para vender.
  */
@@ -69,7 +71,8 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('ALL');
   const [customizing, setCustomizing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
-  const catalog = useCatalogExport();
+  const [exporting, setExporting] = useState(false);
+  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [data, setData] = useState<ReportData>({
     phase: 'loading',
     products: [],
@@ -141,6 +144,34 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
     (!sections.products || products.length === 0) &&
     (!sections.expirations || expirations.length === 0) &&
     (!sections.lowStock || lowStock.length === 0);
+
+  async function exportExcel(): Promise<void> {
+    setExporting(true);
+    setNotice(null);
+
+    try {
+      const { blob, fileName } = await reportsService.exportInventory({
+        categoryId,
+        sort: preferences.sort,
+        columns: columns.map((column) => column.key),
+        sections: (Object.keys(sections) as (keyof InventorySections)[]).filter(
+          (key) => sections[key],
+        ),
+        expirations: expirationFilter,
+        grouped: grouped && categoryId === '',
+      });
+
+      saveBlob(blob, fileName);
+      setNotice({ kind: 'success', text: `Reporte exportado: ${fileName}` });
+    } catch (caught) {
+      setNotice({
+        kind: 'error',
+        text: caught instanceof ApiError ? caught.message : 'No se pudo exportar el reporte.',
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function toggle(section: keyof InventorySections): void {
     setSections((current) => ({ ...current, [section]: !current[section] }));
@@ -272,24 +303,24 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
                     ? 'Sin datos: no hay nada que exportar con estos filtros.'
                     : null
             }
-            exportingExcel={catalog.exporting}
+            exportingExcel={exporting}
             onPdf={() => setPreviewing(true)}
-            onExcel={() => void catalog.exportCatalog(categoryId)}
+            onExcel={() => void exportExcel()}
             onCustomize={() => setCustomizing(true)}
           />
         </header>
 
-        {catalog.notice === null ? null : (
+        {notice === null ? null : (
           <div
-            className={`alert ${catalog.notice.kind === 'success' ? 'alert--success' : 'alert--error'}`}
-            role={catalog.notice.kind === 'success' ? 'status' : 'alert'}
+            className={`alert ${notice.kind === 'success' ? 'alert--success' : 'alert--error'}`}
+            role={notice.kind === 'success' ? 'status' : 'alert'}
           >
-            <span>{catalog.notice.text}</span>
+            <span>{notice.text}</span>
             <button
               type="button"
               className="alert__close"
               aria-label="Cerrar aviso"
-              onClick={catalog.dismiss}
+              onClick={() => setNotice(null)}
             >
               ×
             </button>
@@ -301,7 +332,9 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
           <ul>
             <li>Solo productos activos: es el inventario disponible para vender.</li>
             <li>Vencimientos y stock bajo respetan la misma categoría.</li>
-            <li>El Excel descarga el catálogo de la categoría elegida.</li>
+            <li>
+              El PDF y el Excel llevan el detalle completo, con las columnas y secciones elegidas.
+            </li>
           </ul>
         </details>
 
