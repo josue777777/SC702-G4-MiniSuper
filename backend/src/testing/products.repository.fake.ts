@@ -117,6 +117,14 @@ export class FakeProductsRepository implements ProductsRepository {
     );
   }
 
+  existsByBarcode(barcode: string, exceptProductId?: string): Promise<boolean> {
+    return Promise.resolve(
+      this.products.some(
+        (product) => product.barcode === barcode && product.id !== exceptProductId,
+      ),
+    );
+  }
+
   assignBarcode(id: string, barcode: string, replaceExisting: boolean): Promise<ProductDto | null> {
     const current = this.products.find((product) => product.id === id);
 
@@ -153,6 +161,7 @@ export class FakeProductsRepository implements ProductsRepository {
     const created = buildProduct({
       id: NEW_PRODUCT_ID,
       code: plan.fields.code,
+      barcode: plan.fields.barcode ?? null,
       name: plan.fields.name,
       categoryId: plan.fields.categoryId,
       price: plan.fields.price,
@@ -182,6 +191,7 @@ export class FakeProductsRepository implements ProductsRepository {
     const updated: ProductDto = {
       ...current,
       code: plan.fields.code,
+      barcode: plan.fields.barcode ?? current.barcode,
       name: plan.fields.name,
       categoryId: plan.fields.categoryId,
       price: plan.fields.price,

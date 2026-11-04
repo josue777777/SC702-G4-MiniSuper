@@ -1,80 +1,7 @@
 import { Modal } from '../../components/Modal';
 import type { Product } from '../../types/products';
 import { useState } from 'react';
-
-const L_CODES = [
-  '0001101',
-  '0011001',
-  '0010011',
-  '0111101',
-  '0100011',
-  '0110001',
-  '0101111',
-  '0111011',
-  '0110111',
-  '0001011',
-] as const;
-const G_CODES = [
-  '0100111',
-  '0110011',
-  '0011011',
-  '0100001',
-  '0011101',
-  '0111001',
-  '0000101',
-  '0010001',
-  '0001001',
-  '0010111',
-] as const;
-const R_CODES = [
-  '1110010',
-  '1100110',
-  '1101100',
-  '1000010',
-  '1011100',
-  '1001110',
-  '1010000',
-  '1000100',
-  '1001000',
-  '1110100',
-] as const;
-const FIRST_DIGIT_PARITY = [
-  'LLLLLL',
-  'LLGLGG',
-  'LLGGLG',
-  'LLGGGL',
-  'LGLLGG',
-  'LGGLLG',
-  'LGGGLL',
-  'LGLGLG',
-  'LGLGGL',
-  'LGGLGL',
-] as const;
-
-function ean13Modules(barcode: string): string {
-  if (!/^\d{13}$/.test(barcode)) {
-    throw new Error('El código de barras debe tener 13 dígitos.');
-  }
-
-  const parity = FIRST_DIGIT_PARITY[Number(barcode[0])];
-  const left = [...barcode.slice(1, 7)]
-    .map((digit, index) => (parity[index] === 'L' ? L_CODES : G_CODES)[Number(digit)])
-    .join('');
-  const right = [...barcode.slice(7)].map((digit) => R_CODES[Number(digit)]).join('');
-
-  return `101${left}01010${right}101`;
-}
-
-function barcodeSvg(barcode: string): string {
-  const modules = ean13Modules(barcode);
-  const bars = [...modules]
-    .map((module, index) =>
-      module === '1' ? `<rect x="${index + 9}" y="0" width="1" height="50"/>` : '',
-    )
-    .join('');
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 113 50" role="img" aria-label="Código de barras ${barcode}"><rect width="113" height="50" fill="white"/>${bars}</svg>`;
-}
+import { ean13Svg } from './barcode';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {
@@ -105,7 +32,7 @@ export function BarcodeLabel({ product, onClose, onReplace }: BarcodeLabelProps)
     return null;
   }
 
-  const svg = barcodeSvg(barcode);
+  const svg = ean13Svg(barcode);
 
   function downloadSvg(): void {
     const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));

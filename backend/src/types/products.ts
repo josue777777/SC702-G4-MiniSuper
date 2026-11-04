@@ -118,6 +118,7 @@ export interface ProductFormOptionsDto {
  */
 export interface ProductWritableFields {
   code: string;
+  barcode?: string;
   name: string;
   categoryId: string;
   price: MoneyString;

@@ -72,6 +72,18 @@ const codeSchema = z
   .min(1, 'El código no puede estar vacío.')
   .max(50, 'El código no puede superar 50 caracteres.');
 
+const barcodeSchema = z
+  .string()
+  .regex(/^\d{13}$/, 'El código de barras debe tener 13 dígitos.')
+  .refine((barcode) => {
+    const sum = [...barcode.slice(0, 12)].reduce(
+      (total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3),
+      0,
+    );
+
+    return Number(barcode[12]) === (10 - (sum % 10)) % 10;
+  }, 'El dígito de control del código de barras no es válido.');
+
 const nameSchema = z
   .string({ error: 'El nombre es obligatorio.' })
   .trim()
@@ -91,6 +103,7 @@ const stockSchema = z
 /** Cuerpo de `POST /api/products` (HU-01). */
 export const createProductSchema = z.object({
   code: codeSchema,
+  barcode: barcodeSchema.optional(),
   name: nameSchema,
   categoryId: categoryIdSchema,
   price: moneySchema('El precio'),
