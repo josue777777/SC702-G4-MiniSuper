@@ -206,11 +206,11 @@ test('valida las fechas con mensajes visibles', async ({ page }) => {
   });
 
   await setPeriod(page, '2024-03-31', '2024-03-01');
-  await page.getByRole('button', { name: 'Consultar', exact: true }).click();
+  await page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
 
   await page.getByLabel('Hasta').fill('');
-  await page.getByRole('button', { name: 'Consultar', exact: true }).click();
+  await page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
   await expect(page.getByText('Indique la fecha final.')).toBeVisible();
   expect(requests).toEqual([]);
 });

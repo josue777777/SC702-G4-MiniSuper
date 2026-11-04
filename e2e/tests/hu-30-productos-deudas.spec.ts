@@ -14,6 +14,7 @@ import {
   expectExportMatchesScreen,
   openAs,
   openCalculationNotes,
+  openDetail,
   openReport,
   productIdByCode,
   readDownload,
@@ -153,7 +154,7 @@ test('el ranking respeta el período y vacío muestra su mensaje', async ({ page
   await expect(page.getByRole('table', { name: TOP })).toHaveCount(0);
 
   await setPeriod(page, '2024-05-31', '2024-05-01');
-  await page.getByRole('button', { name: 'Consultar', exact: true }).click();
+  await page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
 });
 
@@ -196,6 +197,7 @@ test('exporta el ranking y las deudas exactamente como se muestran', async ({ pa
 
 test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', async ({ page }) => {
   await openReport(page, 'Deudas de clientes');
+  await openDetail(page);
   await expect(page.getByRole('table', { name: DEBTS })).toBeVisible();
   expect(await tileCents(page, 'Total general de deudas')).toBe(160_000);
 
@@ -302,6 +304,7 @@ test('solo el Encargado ve el ranking y las deudas, y cada negocio solo las suya
   const other = await openAs(browser, OTHER_OWNER);
 
   await openReport(other.page, 'Deudas de clientes');
+  await openDetail(other.page);
   await expect(other.page.getByRole('table', { name: DEBTS })).toBeVisible();
   expect((await readTable(other.page, DEBTS)).rows.map((row) => row[0])).toEqual(['Cliente Ajeno']);
   expect(await tileCents(other.page, 'Total general de deudas')).toBe(777_700);
@@ -315,6 +318,7 @@ test('solo el Encargado ve el ranking y las deudas, y cada negocio solo las suya
 
   // Y el negocio de las pruebas no ve nada del ajeno.
   await openReport(page, 'Deudas de clientes');
+  await openDetail(page);
   await expect(page.getByRole('table', { name: DEBTS })).toBeVisible();
   await expect(page.getByText('Cliente Ajeno')).toHaveCount(0);
 });

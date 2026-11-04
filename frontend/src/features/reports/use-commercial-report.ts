@@ -33,8 +33,7 @@ function messageOf(caught: unknown, fallback: string): string {
  * no lo que se esté escribiendo en el formulario, para que el archivo sea
  * exactamente lo que se ve.
  */
-export function useCommercialReport() {
-  const [kind, setKind] = useState<ReportKind>('sales');
+export function useCommercialReport(kind: ReportKind) {
   const [draft, setDraft] = useState<FilterDraft>(() => defaultDraft());
   const [errors, setErrors] = useState<FilterErrors>({});
   const [view, setView] = useState<ReportView>({ status: 'loading' });
@@ -61,12 +60,11 @@ export function useCommercialReport() {
   }, []);
 
   useEffect(() => {
-    void load('sales', toFilter('sales', defaultDraft()));
     reportsService
       .options()
       .then((options) => setCategories(options.categories))
       .catch(() => setCategoriesError(true));
-  }, [load]);
+  }, []);
 
   /** Valida los filtros a la vista y, si están bien, consulta. */
   const consult = useCallback(
@@ -86,37 +84,48 @@ export function useCommercialReport() {
     [load],
   );
 
-  const selectKind = useCallback(
-    (next: ReportKind) => {
-      setKind(next);
-      consult(next, draft);
-    },
-    [consult, draft],
-  );
+  // Al cambiar de pestaña se consulta ese reporte con los filtros que ya hay escritos.
+  const draftRef = useRef(draft);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    consult(kind, draftRef.current);
+  }, [kind, consult]);
 
   const setField = useCallback(<K extends keyof FilterDraft>(key: K, value: FilterDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   }, []);
 
-  const exportReport = useCallback(async () => {
-    if (view.status !== 'ready') {
-      return;
-    }
+  /** `columns`: solo las que el usuario dejó activas; sin ella, todas. */
+  const exportReport = useCallback(
+    async (columns?: string[]) => {
+      if (view.status !== 'ready') {
+        return;
+      }
 
-    setExporting(true);
-    setNotice(null);
+      setExporting(true);
+      setNotice(null);
 
-    try {
-      const { blob, fileName } = await reportsService.export(view.report.kind, view.filter);
+      try {
+        const { blob, fileName } = await reportsService.export(
+          view.report.kind,
+          view.filter,
+          columns,
+        );
 
-      saveBlob(blob, fileName);
-      setNotice({ kind: 'success', text: `Reporte exportado: ${fileName}` });
-    } catch (caught) {
-      setNotice({ kind: 'error', text: messageOf(caught, 'No se pudo exportar el reporte.') });
-    } finally {
-      setExporting(false);
-    }
-  }, [view]);
+        saveBlob(blob, fileName);
+        setNotice({ kind: 'success', text: `Reporte exportado: ${fileName}` });
+      } catch (caught) {
+        setNotice({ kind: 'error', text: messageOf(caught, 'No se pudo exportar el reporte.') });
+      } finally {
+        setExporting(false);
+      }
+    },
+    [view],
+  );
 
   return {
     kind,
@@ -127,7 +136,6 @@ export function useCommercialReport() {
     categoriesError,
     exporting,
     notice,
-    selectKind,
     setField,
     consult: () => consult(kind, draft),
     exportReport,

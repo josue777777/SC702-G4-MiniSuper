@@ -179,7 +179,7 @@ test('valida los filtros con mensajes visibles y sin consultar al servidor', asy
     }
   });
 
-  const submit = () => page.getByRole('button', { name: 'Consultar', exact: true }).click();
+  const submit = () => page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
 
   await page.getByLabel('Desde').fill('');
   await submit();
@@ -262,20 +262,22 @@ test('exporta a Excel exactamente lo que se muestra, con sus filtros aplicados',
   );
 });
 
-test('exporta también el estado vacío', async ({ page }) => {
+test('HU-40: un reporte sin datos no se exporta vacío y dice por qué', async ({ page }) => {
   await openReport(page, 'Ventas');
   await setPeriod(page, PERIOD.from, PERIOD.to);
   await page.getByLabel('Precio mínimo').fill('90000');
   await consult(page);
 
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: /Exportar reporte de ventas a Excel/ }).click(),
-  ]);
-  const exported = await readDownload(download);
-
-  expect(exported.data).toHaveLength(1);
-  expect(summaryValue(exported, 'Resultado')).toBe(EMPTY);
+  await expect(page.getByRole('status').filter({ hasText: EMPTY })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /Exportar reporte de ventas a Excel/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: /Descargar reporte de ventas en PDF/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText('Sin datos: no hay nada que exportar con estos filtros.'),
+  ).toBeVisible();
 });
 
 async function apiStatuses(request: APIRequestContext, paths: string[]): Promise<number[]> {
@@ -323,7 +325,9 @@ test('solo el Encargado accede: Cajero, Bodega, la plataforma y sin sesión no',
   await expect(bodeguero.page.getByRole('heading', { name: 'Reportes comerciales' })).toHaveCount(
     0,
   );
-  await expect(bodeguero.page.getByRole('tab')).toHaveCount(0);
+  // Solo su reporte de inventario (HU-25); ninguna pestaña financiera.
+  await expect(bodeguero.page.getByRole('tab')).toHaveText(['Inventario']);
+  await expect(bodeguero.page.getByRole('tab', { name: 'Ventas' })).toHaveCount(0);
   await bodeguero.context.close();
 
   // La Encargada (sesión abierta en `beforeEach`) sí.

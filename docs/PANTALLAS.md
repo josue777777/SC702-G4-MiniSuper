@@ -137,6 +137,21 @@ Además:
   (se pliega, se resume o se muestra cuando aplica), y la prueba de la historia
   se ajusta para abrirla.
 
+## Regla 9: los reportes muestran conclusiones, no listas
+
+Un reporte en pantalla no repite la lista que ya se ve en su módulo
+(Inventario, Ventas, Clientes). Muestra lo que ayuda a decidir:
+
+| En pantalla | En el PDF y el Excel |
+| --- | --- |
+| Cifras destacadas (`report-totals`) y gráficos de una sola serie (`ReportChartView`: barras para comparar, columnas por día) | Todo el detalle fila por fila |
+| El detalle en «Ver detalle (N filas)», cerrado y paginado | — |
+
+- Gráficos: un solo color, cada barra con su etiqueta y su valor escritos (no
+  depende del color) y el valor exacto al pasar el cursor.
+- Todo reporte tiene las mismas acciones (`ReportActions`): PDF, Excel y
+  Personalizar; sin datos, no se exporta un archivo vacío.
+
 ## Lista de revisión para una pantalla nueva
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
@@ -149,4 +164,5 @@ Además:
 - [ ] ¿Hacer y consultar están en pestañas separadas?
 - [ ] ¿Los documentos abren en `Modal`?
 - [ ] ¿Las explicaciones están plegadas y los avisos aparecen solo cuando aplican?
+- [ ] Si es un reporte: ¿muestra gráficos y deja el detalle a pedido y en el PDF/Excel?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?
