@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../components/use-pagination';
 import { validateEmail, validateName } from '../features/auth/account-rules';
 import { TemporaryPasswordDialog } from '../features/users/TemporaryPasswordDialog';
 import { ApiError } from '../services/api-client';
@@ -53,6 +55,8 @@ export function BusinessesPage() {
     setNotice(text);
     void load();
   }
+
+  const pages = usePagination(businesses ?? [], null);
 
   return (
     <>
@@ -130,7 +134,7 @@ export function BusinessesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {businesses.map((business) => (
+                  {pages.pageItems.map((business) => (
                     <tr key={business.id}>
                       <td>
                         <strong>{business.name}</strong>
@@ -194,6 +198,7 @@ export function BusinessesPage() {
               </table>
             </div>
           )}
+          <Pagination {...pages} itemLabel="negocios" onPage={pages.setPage} />
         </section>
       )}
 

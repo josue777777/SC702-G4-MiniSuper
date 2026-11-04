@@ -71,14 +71,18 @@ export function ReportResultView({
       </div>
 
       <div className="alert alert--warning report-result__notices" role="note">
-        <div>
-          <strong>Cómo leer este reporte</strong>
+        {/*
+          Abierta de entrada porque las historias de reportes (HU-28 a HU-30) piden
+          que se vea; quien ya la conoce la puede plegar.
+        */}
+        <details className="disclosure" open>
+          <summary>Cómo leer este reporte</summary>
           <ul>
             {report.notices.map((text) => (
               <li key={text}>{text}</li>
             ))}
           </ul>
-        </div>
+        </details>
       </div>
 
       {report.rows.length === 0 ? (

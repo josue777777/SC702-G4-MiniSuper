@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { ListSearch } from '../components/ListSearch';
+import { matchesSearch } from '../components/list-search';
 import { EMPTY_SUPPLIER_VALUES, toSupplierFormValues } from '../features/suppliers/supplier-form';
 import { SupplierForm } from '../features/suppliers/SupplierForm';
 import { SupplierTable } from '../features/suppliers/SupplierTable';
@@ -23,6 +25,21 @@ export function SuppliersPage() {
   /** Proveedor en edición; `null` con el formulario abierto significa alta. */
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const visible = useMemo(
+    () =>
+      suppliers.filter((supplier) =>
+        matchesSearch(
+          search,
+          supplier.name,
+          supplier.contactName,
+          supplier.phone,
+          supplier.email,
+          ...supplier.products.flatMap((product) => [product.productName, product.productCode]),
+        ),
+      ),
+    [suppliers, search],
+  );
 
   function closeForm(): void {
     setFormOpen(false);
@@ -51,6 +68,12 @@ export function SuppliersPage() {
       </header>
 
       <div className="toolbar">
+        <ListSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar proveedor o producto"
+          label="Buscar proveedores"
+        />
         <button
           type="button"
           className="button button--primary"
@@ -115,7 +138,9 @@ export function SuppliersPage() {
 
       {phase === 'ready' ? (
         <SupplierTable
-          suppliers={suppliers}
+          suppliers={visible}
+          totalCount={suppliers.length}
+          search={search}
           busy={busy || formOpen}
           onEdit={(supplier) => {
             setEditing(supplier);
