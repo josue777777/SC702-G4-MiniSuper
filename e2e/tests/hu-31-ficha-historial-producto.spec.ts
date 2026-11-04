@@ -158,13 +158,13 @@ test.beforeEach(async ({ page }) => {
   coffeeId = await productIdOf('P001');
 });
 
-/** Entra a Inventario, busca el producto, lo marca y abre su ficha con «Ver ficha». */
+/** Entra a Inventario, busca el producto, lo marca y abre su ficha con «Ver movimientos». */
 async function openFromInventory(page: Page, search: string, code: string): Promise<void> {
   await page.goto('/inventory');
   await page.getByLabel('Buscar producto por nombre o código').fill(search);
   await expect(page.getByRole('row', { name: new RegExp(code) })).toBeVisible();
   await page.getByRole('row', { name: new RegExp(code) }).click();
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
 }
 
 const SHEET = 'Ficha de Café molido 500 g';
@@ -251,14 +251,14 @@ test('el ajuste que baja el stock es una salida y el que lo sube es una entrada;
   expect(rows[0]?.[6]).toBe('8');
 });
 
-test('doble clic sigue abriendo la edición y «Ver ficha» pide primero elegir un producto', async ({
+test('doble clic sigue abriendo la edición y «Ver movimientos» pide primero elegir un producto', async ({
   page,
 }) => {
   await page.goto('/inventory');
   await expect(page.getByRole('row', { name: /P001/ })).toBeVisible();
 
   // Sin producto marcado: aviso claro, no navega.
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
   await expect(
     page
       .getByRole('status')
@@ -275,10 +275,10 @@ test('doble clic sigue abriendo la edición y «Ver ficha» pide primero elegir 
   await dialog.getByRole('button', { name: 'Cancelar' }).click();
   await expect(dialog).toBeHidden();
 
-  // Y marcar la fila con un clic simple sigue funcionando junto con «Ver ficha».
+  // Y marcar la fila con un clic simple sigue funcionando junto con «Ver movimientos».
   await page.getByRole('row', { name: /P001/ }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Seleccionado: P001' })).toBeVisible();
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 });
 
@@ -306,7 +306,7 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
   await page.goto('/inventory');
   await page.getByRole('button', { name: /Desactivados/ }).click();
   await page.getByRole('row', { name: /P003/ }).click();
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
 
   const sheet = page.getByRole('region', { name: 'Ficha de Producto descontinuado' });
 
@@ -494,13 +494,13 @@ test('solo Encargado y Bodega usan Movimientos: Cajero, plataforma y sin sesión
   await signInVia(request, E2E_ADMIN);
   expect(await statuses(request, coffeeId)).toEqual([403, 403, 403]);
 
-  // Cajera: consulta el inventario, pero no ve «Ver ficha», ni el Kardex, ni su API.
+  // Cajera: consulta el inventario, pero no ve «Ver movimientos», ni Movimientos, ni su API.
   const cajera = await openAs(browser, CAJERO);
 
   expect(await statuses(cajera.context.request, coffeeId)).toEqual([403, 403, 403]);
   await cajera.page.goto('/inventory');
   await expect(cajera.page.getByRole('row', { name: /P001/ })).toBeVisible();
-  await expect(cajera.page.getByRole('button', { name: /Ver ficha/ })).toHaveCount(0);
+  await expect(cajera.page.getByRole('button', { name: /Ver movimientos/ })).toHaveCount(0);
   await cajera.page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(cajera.page.getByRole('heading', { name: 'Acceso no permitido' })).toBeVisible();
   await expect(cajera.page.getByText('Café molido 500 g')).toHaveCount(0);

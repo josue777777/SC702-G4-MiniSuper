@@ -16,7 +16,7 @@ import { kardexService } from '../services/kardex.service';
  * guarda el stock antes y después de cada uno.
  *
  * El producto viaja en la dirección (`/movimientos?productId=<uuid>`): se abre desde
- * Inventario con «Ver ficha» y se puede compartir o recargar. El id se verifica
+ * Inventario con «Ver movimientos» y se puede compartir o recargar. El id se verifica
  * antes de pedirlo al servidor.
  */
 export function KardexPage() {

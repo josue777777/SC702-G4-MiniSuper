@@ -79,7 +79,7 @@ export function ProductsSection({
   } = useProducts();
 
   const navigate = useNavigate();
-  /** «Ver ficha» solo se ofrece a quien puede usar el Kardex (la API lo exige igual). */
+  /** «Ver movimientos» solo se ofrece a quien puede usar Movimientos (la API lo exige igual). */
   const { can } = useSession();
 
   /** Producto que se está editando; `null` significa que el formulario es de alta. */
@@ -583,7 +583,7 @@ export function ProductsSection({
             }
             disabled={phase !== 'ready'}
           >
-            ▤ Ver ficha
+            ▤ Ver movimientos
           </button>
         ) : null}
         {view === 'inactive' ? (
