@@ -50,3 +50,8 @@ export const inventoryReportQuerySchema = z
 
 export type InventoryReportQuery = z.infer<typeof inventoryReportQuerySchema>;
 export type InventoryReportColumn = (typeof INVENTORY_REPORT_COLUMNS)[number];
+
+/** Qué sección del detalle se pide en `GET /api/reports/inventory/rows`. */
+export const inventoryRowsSectionSchema = z.enum(INVENTORY_REPORT_SECTIONS, {
+  error: 'Sección inválida: use products, expirations o lowStock.',
+});

@@ -37,7 +37,7 @@ export function PurchaseOrderHistory({
       <header className="card__header">
         <h2>Historial de pedidos</h2>
         <label className="toolbar__filter">
-          <span className="muted">Proveedor:</span>
+          <span>Proveedor</span>
           <select value={filter} onChange={(event) => onFilterChange(event.target.value)}>
             <option value="">Todos</option>
             {suppliers.map((supplier) => (

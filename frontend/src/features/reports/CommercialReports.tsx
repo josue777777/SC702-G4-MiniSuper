@@ -38,7 +38,10 @@ export function CommercialReportPanel({ kind }: CommercialReportPanelProps) {
     setPreferences(loadReportPreferences(kind));
   }, [kind]);
 
-  const ready = view.status === 'ready' ? view.report : null;
+  // Mientras se actualiza, el reporte anterior sigue a la vista (atenuado).
+  const shown = view.status === 'ready' ? view : view.status === 'loading' ? view.previous : null;
+  const ready = shown === null ? null : shown.report;
+  const updating = view.status === 'loading' && shown !== null;
   const columns = ready === null ? [] : visibleReportColumns(ready.columns, preferences);
   // Si no se ocultó nada, el Excel va completo (sin parámetro).
   const exportColumns =
@@ -54,12 +57,14 @@ export function CommercialReportPanel({ kind }: CommercialReportPanelProps) {
         errors={report.errors}
         categories={report.categories}
         categoriesError={report.categoriesError}
-        busy={view.status === 'loading'}
+        sync={report.sync}
         onChange={report.setField}
-        onSubmit={report.consult}
+        onChangeMany={report.setFields}
+        onClear={report.reset}
+        onRefresh={report.refresh}
       />
 
-      {view.status === 'loading' ? (
+      {view.status === 'loading' && shown === null ? (
         <p className="muted" role="status">
           Cargando reporte…
         </p>
@@ -74,6 +79,8 @@ export function CommercialReportPanel({ kind }: CommercialReportPanelProps) {
       {ready === null ? null : (
         <ReportResultView
           report={ready}
+          filter={shown?.filter ?? {}}
+          updating={updating}
           columns={columns}
           exporting={report.exporting}
           notice={report.notice}
@@ -100,9 +107,11 @@ export function CommercialReportPanel({ kind }: CommercialReportPanelProps) {
       {previewing && ready !== null ? (
         <ReportPdfPreview
           report={ready}
+          filter={shown?.filter ?? {}}
           columns={columns}
           orientation={preferences.orientation}
           onClose={() => setPreviewing(false)}
+          onExcel={() => void report.exportReport(exportColumns)}
         />
       ) : null}
     </>

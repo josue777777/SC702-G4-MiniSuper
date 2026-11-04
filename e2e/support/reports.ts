@@ -432,16 +432,27 @@ export async function openReport(page: Page, tab: string): Promise<void> {
   );
 }
 
-/** Pulsa el botón del formulario y espera la respuesta REAL del servidor. */
-export async function consult(page: Page, button = 'Generar reporte'): Promise<void> {
-  await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.url().includes('/api/reports/commercial/') &&
-        response.request().method() === 'GET',
-    ),
-    page.getByRole('button', { name: button, exact: true }).click(),
-  ]);
+/**
+ * Espera a que el reporte muestre lo que dicen los filtros. Los filtros se
+ * aplican solos (sin botón): tras cambiar uno, la barra pasa a «Actualizando…»
+ * y vuelve a «Al día» cuando llega el resultado de ESOS filtros.
+ *
+ * Con `button` (el «Actualizar» del reporte de deudas), lo pulsa y espera la
+ * respuesta real del servidor.
+ */
+export async function consult(page: Page, button?: string): Promise<void> {
+  if (button !== undefined) {
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/reports/commercial/') &&
+          response.request().method() === 'GET',
+      ),
+      page.getByRole('button', { name: button, exact: true }).click(),
+    ]);
+  }
+
+  await expect(page.locator('[data-report-sync]')).toHaveAttribute('data-report-sync', 'done');
 }
 
 export async function setPeriod(page: Page, from: string, to: string): Promise<void> {

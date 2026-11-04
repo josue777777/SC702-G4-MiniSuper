@@ -161,3 +161,90 @@ describe('GET /api/reports/inventory/export (HU-25, HU-40)', () => {
     }
   });
 });
+
+describe('GET /api/reports/inventory (resumen, sin filas)', () => {
+  it('trae totales, gráficos y cuántas filas tiene cada sección, pero no las filas', async () => {
+    const response = await request(buildApp())
+      .get('/api/reports/inventory?sections=products,expirations,lowStock')
+      .expect(200);
+    const summary = response.body.data;
+
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(summary).not.toHaveProperty('products');
+    expect(summary).toMatchObject({
+      scope: 'Todas',
+      // Solo activos: Café (2 × ₡1.000) y Arroz (20 × ₡500).
+      totals: { count: 2, units: 22, value: '12000.00' },
+      counts: { products: 2, expirations: 1, lowStock: 1 },
+    });
+    expect(summary.charts.map((chart: { id: string }) => chart.id)).toEqual([
+      'inventory-value',
+      'inventory-status',
+    ]);
+    expect(summary.charts[0].data).toEqual([
+      { key: 'Granos', label: 'Granos', value: 10000 },
+      { key: 'Bebidas', label: 'Bebidas', value: 2000 },
+    ]);
+  });
+
+  it('una sección que no se eligió no se cuenta, y la categoría limita todo', async () => {
+    const all = await request(buildApp()).get('/api/reports/inventory').expect(200);
+    const granos = await request(buildApp())
+      .get(`/api/reports/inventory?categoryId=${OTHER_CATEGORY}&sections=products,lowStock`)
+      .expect(200);
+
+    expect(all.body.data.counts).toEqual({ products: 2, expirations: null, lowStock: null });
+    expect(granos.body.data).toMatchObject({
+      scope: 'Granos',
+      totals: { count: 1, units: 20, value: '10000.00' },
+      counts: { products: 1, expirations: null, lowStock: 0 },
+    });
+  });
+});
+
+describe('GET /api/reports/inventory/rows (una página de una sección)', () => {
+  it('entrega una página de productos en el orden elegido', async () => {
+    const app = buildApp();
+    const first = await request(app)
+      .get('/api/reports/inventory/rows?section=products&sort=name&pageSize=1')
+      .expect(200);
+    const second = await request(app)
+      .get('/api/reports/inventory/rows?section=products&sort=name&pageSize=1&page=2')
+      .expect(200);
+
+    expect(first.body.data).toMatchObject({ page: 1, pageSize: 1, total: 2, pageCount: 2 });
+    expect(first.body.data.rows.map((row: { name: string }) => row.name)).toEqual(['=Arroz']);
+    expect(second.body.data.rows.map((row: { name: string }) => row.name)).toEqual(['Café']);
+  });
+
+  it('cada sección tiene sus filas y respeta la categoría', async () => {
+    const app = buildApp();
+    const get = async (query: string) =>
+      (await request(app).get(`/api/reports/inventory/rows?${query}`).expect(200)).body.data;
+
+    expect(
+      (await get('section=lowStock')).rows.map((row: { productCode: string }) => row.productCode),
+    ).toEqual(['P001']);
+    expect((await get('section=expirations')).rows).toHaveLength(1);
+    expect((await get('section=expirations&expirations=EXPIRING_SOON')).rows).toHaveLength(0);
+    expect((await get(`section=lowStock&categoryId=${OTHER_CATEGORY}`)).total).toBe(0);
+    expect((await get('section=products&all=true')).rows).toHaveLength(2);
+  });
+
+  it('rechaza una sección o una página inválidas y filtros desconocidos', async () => {
+    const app = buildApp();
+
+    for (const query of [
+      '',
+      'section=otra',
+      'section=products&page=0',
+      'section=products&pageSize=101',
+      'section=products&all=true&page=1',
+      'section=products&businessId=x',
+    ]) {
+      const response = await request(app).get(`/api/reports/inventory/rows?${query}`);
+
+      expect(response.status, query).toBe(400);
+    }
+  });
+});

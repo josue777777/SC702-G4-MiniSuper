@@ -83,3 +83,42 @@ export const exportColumnsSchema = z
   .regex(/^[A-Za-z]+(,[A-Za-z]+){0,29}$/, 'Columnas inválidas.')
   .transform((value) => value.split(','))
   .optional();
+
+/** Filas por página del detalle en pantalla, si no se indica otra cosa. */
+export const DEFAULT_ROWS_PAGE_SIZE = 20;
+
+/** Tope de filas por página: más que esto ya no es «una página». */
+export const MAX_ROWS_PAGE_SIZE = 100;
+
+const positiveInteger = (message: string) =>
+  z
+    .string()
+    .regex(/^[1-9]\d{0,5}$/, message)
+    .transform(Number);
+
+/**
+ * Qué parte del detalle se pide (`GET /:kind/rows`). En pantalla, una página
+ * (`?page=3&pageSize=20`). `?all=true` trae todas: solo la usa el PDF, que es
+ * el documento completo, igual que el Excel.
+ */
+export const rowsPageQuerySchema = z
+  .object({
+    page: positiveInteger('Página inválida: use un número entero desde 1.').optional(),
+    pageSize: positiveInteger('Tamaño de página inválido: use un número entero desde 1.')
+      .refine(
+        (value) => value <= MAX_ROWS_PAGE_SIZE,
+        `El tamaño de página no puede superar ${MAX_ROWS_PAGE_SIZE} filas.`,
+      )
+      .optional(),
+    all: z.literal('true', 'Use all=true para pedir todas las filas.').optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    if (input.all !== undefined && (input.page !== undefined || input.pageSize !== undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['all'],
+        message: 'Pida una página (page y pageSize) o todas las filas (all), no ambas.',
+      });
+    }
+  });

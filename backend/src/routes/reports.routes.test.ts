@@ -134,7 +134,13 @@ describe('GET /api/reports/commercial/:kind', () => {
       label: 'Total vendido (neto)',
       value: '2479.00',
     });
-    expect(response.body.data.rows).toHaveLength(2);
+    // El resumen no lleva las filas: solo cuántas son y los gráficos ya calculados.
+    expect(response.body.data.rows).toBeUndefined();
+    expect(response.body.data.rowCount).toBe(2);
+    expect(response.body.data.charts.map((chart: { id: string }) => chart.id)).toEqual([
+      'sales-by-day',
+      'sales-by-category',
+    ]);
   });
 
   it('pasa los filtros combinados al repositorio', async () => {
@@ -201,6 +207,137 @@ describe('GET /api/reports/commercial/:kind', () => {
   });
 });
 
+/** `count` ventas de una línea cada una, en días distintos de octubre. */
+function withManySales(repository: FakeReportsRepository, count: number) {
+  for (let index = 1; index <= count; index += 1) {
+    repository.salesData.sales.push(
+      sale({
+        id: `s${index}`,
+        number: index,
+        at: `2026-10-${String(((index - 1) % 28) + 1).padStart(2, '0')}T18:00:00Z`,
+        total: `${index}.00`,
+        items: [
+          line({
+            code: `P${String(index).padStart(3, '0')}`,
+            quantity: 1,
+            price: `${index}.00`,
+            cost: '0.50',
+          }),
+        ],
+      }),
+    );
+  }
+}
+
+describe('GET /api/reports/commercial/:kind/rows', () => {
+  const ROWS = `/api/reports/commercial/sales/rows?${PERIOD}`;
+
+  it('entrega el detalle de a una página y dice cuántas filas y páginas hay', async () => {
+    const { app, repository } = buildApp();
+
+    withManySales(repository, 45);
+
+    const first = await request(app).get(ROWS).expect(200);
+    const last = await request(app).get(`${ROWS}&page=3`).expect(200);
+
+    expect(first.headers['cache-control']).toBe('no-store');
+    expect(first.body.data).toMatchObject({ page: 1, pageSize: 20, total: 45, pageCount: 3 });
+    expect(first.body.data.rows).toHaveLength(20);
+    expect(last.body.data).toMatchObject({ page: 3, total: 45, pageCount: 3 });
+    expect(last.body.data.rows).toHaveLength(5);
+  });
+
+  it('las páginas, juntas, son exactamente el detalle completo: sin repetir ni omitir', async () => {
+    const { app, repository } = buildApp();
+
+    withManySales(repository, 45);
+
+    const all = (await request(app).get(`${ROWS}&all=true`).expect(200)).body.data;
+    const pages = [];
+
+    for (const page of [1, 2, 3]) {
+      pages.push(...(await request(app).get(`${ROWS}&page=${page}`)).body.data.rows);
+    }
+
+    expect(all).toMatchObject({ page: 1, total: 45, pageCount: 1 });
+    expect(pages).toEqual(all.rows);
+    expect(new Set(pages.map((row: { code: string }) => row.code)).size).toBe(45);
+  });
+
+  it('una página que ya no existe devuelve la última, y sin filas responde vacío', async () => {
+    const { app, repository } = buildApp();
+
+    expect((await request(app).get(ROWS).expect(200)).body.data).toEqual({
+      rows: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      pageCount: 1,
+    });
+
+    withManySales(repository, 21);
+
+    expect((await request(app).get(`${ROWS}&page=99`).expect(200)).body.data).toMatchObject({
+      page: 2,
+      pageCount: 2,
+    });
+  });
+
+  it('acepta otro tamaño de página hasta 100 y rechaza valores inválidos', async () => {
+    const { app, repository } = buildApp();
+
+    withManySales(repository, 45);
+
+    expect(
+      (await request(app).get(`${ROWS}&pageSize=100`).expect(200)).body.data.rows,
+    ).toHaveLength(45);
+
+    for (const query of [
+      'page=0',
+      'page=-1',
+      'page=abc',
+      'page=1.5',
+      'pageSize=101',
+      'pageSize=0',
+      'all=yes',
+      'all=true&page=2',
+      'page=1&page=2',
+    ]) {
+      const response = await request(app).get(`${ROWS}&${query}`);
+
+      expect(response.status, query).toBe(400);
+    }
+  });
+
+  it('valida los filtros del reporte igual que el resumen', async () => {
+    const { app } = buildApp();
+
+    expect(
+      (await request(app).get('/api/reports/commercial/sales/rows?from=2026-10-31&to=2026-10-01'))
+        .status,
+    ).toBe(400);
+    expect((await request(app).get(`${ROWS}&otro=1`)).status).toBe(400);
+    expect(
+      (await request(app).get('/api/reports/commercial/customer-debts/rows?page=1')).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get(`/api/reports/commercial/customer-debts/rows?${PERIOD}`)).status,
+    ).toBe(400);
+  });
+
+  it('exige el mismo permiso y el negocio de la sesión', async () => {
+    for (const role of ['CAJERO', 'BODEGA', 'ADMIN'] as const) {
+      expect((await request(buildApp(role).app).get(ROWS)).status, role).toBe(403);
+    }
+
+    const { app, requestedBusinesses } = buildApp('ENCARGADO', TEST_BUSINESS_ID);
+
+    expect((await request(app).get(`${ROWS}&businessId=${OTHER_BUSINESS_ID}`)).status).toBe(400);
+    await request(app).get(ROWS).expect(200);
+    expect(new Set(requestedBusinesses)).toEqual(new Set([TEST_BUSINESS_ID]));
+  });
+});
+
 describe('GET /api/reports/commercial/:kind/export', () => {
   async function download(app: express.Express, path: string) {
     return request(app)
@@ -249,7 +386,7 @@ describe('GET /api/reports/commercial/:kind/export', () => {
     const report = json.body.data;
 
     expect(data[0]).toEqual(report.columns.map((column: { label: string }) => column.label));
-    expect(data).toHaveLength(report.rows.length + 1);
+    expect(data).toHaveLength(report.rowCount + 1);
 
     // Importes numéricos exactos; el texto que parece fórmula queda inerte.
     const coffee = data.find((row) => row[2] === 'B1');

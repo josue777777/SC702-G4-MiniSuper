@@ -1,5 +1,4 @@
 import { useSearchParams } from 'react-router-dom';
-import { PagePlaceholder } from '../components/PagePlaceholder';
 import { useSession } from '../features/auth/session-context';
 import { CommercialReportPanel } from '../features/reports/CommercialReports';
 import { InventoryStockReport } from '../features/reports/InventoryStockReport';
@@ -38,16 +37,12 @@ export function ReportsPage() {
   const active: ReportTab | undefined = tabs.find((tab) => tab.id === requested)?.id ?? tabs[0]?.id;
 
   return (
-    <PagePlaceholder
-      title="Reportes"
-      summary="Consulte, personalice y descargue en PDF o Excel los reportes del negocio."
-      stories="HU-25, HU-26, HU-27"
-      tasks={[
-        'Stock actual por producto, filtrable por categoría (HU-25).',
-        'Productos con stock bajo, con la cantidad actual y la mínima (HU-26).',
-        'Vencidos y próximos a vencer, distinguiendo unos de otros (HU-27).',
-      ]}
-    >
+    <>
+      <header className="page-header">
+        <h1>Reportes</h1>
+        <p>Consulte, personalice y descargue en PDF o Excel los reportes del negocio.</p>
+      </header>
+
       {active === undefined ? (
         <p className="card muted">Todavía no hay reportes disponibles para su rol.</p>
       ) : (
@@ -84,6 +79,6 @@ export function ReportsPage() {
           </div>
         </section>
       )}
-    </PagePlaceholder>
+    </>
   );
 }

@@ -7,6 +7,8 @@
  * pueden diferir. El dinero viaja como cadena con dos decimales (`"1500.00"`).
  */
 
+import type { PageOf } from '../utils/paginate.js';
+
 export type ReportKind = 'sales' | 'profits' | 'top-products' | 'customer-debts';
 
 /** Filtros de los reportes por período. Las fechas son días (`YYYY-MM-DD`) de la zona del negocio. */
@@ -62,6 +64,38 @@ export interface ReportResult {
   /** Mensaje cuando no hay filas. */
   emptyMessage: string;
 }
+
+/** Un punto de un gráfico: etiqueta y valor (colones o unidades). */
+export interface ReportChartDatum {
+  key: string;
+  label: string;
+  value: number;
+}
+
+export interface ReportChart {
+  id: string;
+  title: string;
+  subtitle: string;
+  /** `columns`: en el tiempo (por día); `bars`: comparar entre nombres. */
+  form: 'columns' | 'bars';
+  unit: 'money' | 'units' | 'products';
+  data: ReportChartDatum[];
+}
+
+/**
+ * Lo que la pantalla necesita para mostrar un reporte: totales, avisos y
+ * gráficos, SIN las filas. Las filas pueden ser miles (un año de ventas): se
+ * piden aparte, de a una página, solo si el usuario abre «Ver detalle»
+ * (`ReportRowsPage`). El PDF y el Excel siguen llevando todas.
+ */
+export interface ReportSummary extends Omit<ReportResult, 'rows'> {
+  /** Cuántas filas tiene el detalle completo. */
+  rowCount: number;
+  charts: ReportChart[];
+}
+
+/** Una página del detalle de un reporte (ver `utils/paginate.ts`). */
+export type ReportRowsPage = PageOf<ReportResult['rows'][number]>;
 
 export interface ReportOptions {
   categories: { id: string; name: string }[];
