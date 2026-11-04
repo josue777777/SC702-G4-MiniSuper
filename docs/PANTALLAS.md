@@ -192,6 +192,11 @@ sistemas de reportes habituales.
 | Filtros activos | Etiquetas que se quitan con ×, y «Limpiar filtros». |
 | ↻ Actualizar | Vuelve a consultar con los mismos filtros (trae, por ejemplo, una venta recién hecha). |
 
+Los filtros de las listas (Inventario, Pedidos, Historial de ventas) usan el
+mismo aspecto con `.toolbar__filter` (etiqueta pequeña en un `<span>` y campo
+de 36 px), y los buscadores filtran mientras se escribe, sin botón «Buscar».
+Todos los botones son botones (`.button`), nunca un texto subrayado.
+
 En las pruebas E2E, `consult(page)` espera a que la barra diga «Al día»
 (`data-report-sync="done"`).
 

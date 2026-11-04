@@ -219,7 +219,7 @@ export function ReportFilters({
             ))}
             {chips.length > 1 ? (
               <li>
-                <button type="button" className="filter-chips__clear" onClick={onClear}>
+                <button type="button" className="button button--small" onClick={onClear}>
                   Limpiar filtros
                 </button>
               </li>
