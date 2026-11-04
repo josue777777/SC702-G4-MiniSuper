@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { InventoryReport } from './InventoryReport';
 import { productsService } from '../../services/products.service';
@@ -8,6 +9,7 @@ import type {
   ProductPayload,
   ProductSettingsChange,
 } from '../../types/products';
+import { useSession } from '../auth/session-context';
 import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
@@ -72,8 +74,13 @@ export function ProductsSection({
     activateProduct,
     deleteProduct,
     afterCategoryCreated,
+    afterSupplierCreated,
     dismissNotice,
   } = useProducts();
+
+  const navigate = useNavigate();
+  /** «Ver movimientos» solo se ofrece a quien puede usar Movimientos (la API lo exige igual). */
+  const { can } = useSession();
 
   /** Producto que se está editando; `null` significa que el formulario es de alta. */
   const [editing, setEditing] = useState<Product | null>(null);
@@ -443,9 +450,11 @@ export function ProductsSection({
           options={options}
           initialValues={editing === null ? EMPTY_FORM_VALUES : toFormValues(editing)}
           imageUrl={editing?.imageUrl ?? null}
+          initialBarcode={editing?.barcode ?? null}
           initialMinStock={editing?.minStock ?? 0}
           initialExpirationDate={editing?.expirationDate ?? null}
           onCategoryCreated={afterCategoryCreated}
+          onSupplierCreated={afterSupplierCreated}
           busy={busy}
           onCancel={closeForm}
           onSubmit={(payload, image, settings) => void handleSubmit(payload, image, settings)}
@@ -560,6 +569,22 @@ export function ProductsSection({
               : selected?.barcode === null || selected === null
                 ? '▥ Generar código'
                 : '▥ Ver código'}
+          </button>
+        ) : null}
+        {/* HU-31: la ficha con el historial de movimientos; también de los desactivados. */}
+        {can('kardex') ? (
+          <button
+            type="button"
+            className="action-bar__button"
+            onClick={() =>
+              withSelection(
+                (product) => navigate(`/movimientos?productId=${encodeURIComponent(product.id)}`),
+                'consultar',
+              )
+            }
+            disabled={phase !== 'ready'}
+          >
+            ▤ Ver movimientos
           </button>
         ) : null}
         {view === 'inactive' ? (

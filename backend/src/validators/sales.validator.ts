@@ -63,6 +63,13 @@ export const saleListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
+export const dailySalesHistoryQuerySchema = z.object({
+  date: z.iso.date({ error: 'Indique una fecha válida (AAAA-MM-DD).' }).optional(),
+  paymentMethod: paymentMethodSchema.optional(),
+  page: z.coerce.number().int().min(1).max(1_000_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
+
 export const saleIdParamSchema = z.object({
   id: z.uuid({ error: 'La venta indicada no es válida.' }),
 });

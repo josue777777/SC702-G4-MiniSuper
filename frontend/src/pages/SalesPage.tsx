@@ -101,15 +101,6 @@ export function SalesPage() {
       />
 
       {receiptId === null ? null : <ReceiptModal saleId={receiptId} onClose={closeReceipt} />}
-
-      <section className="card">
-        <header className="card__header">
-          <h2>Pendiente de implementar</h2>
-        </header>
-        <ul className="todo-list">
-          <li>Historial completo del día, con totales y detalle (HU-20).</li>
-        </ul>
-      </section>
     </>
   );
 }

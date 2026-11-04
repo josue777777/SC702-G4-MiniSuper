@@ -649,3 +649,41 @@ extiende la arquitectura — no se cuela en el código actual.
   si el equipo necesita el archivo, está en el historial de Git.
 
 
+
+## 12. Reportes comerciales (HU-28, HU-29, HU-30)
+
+API: `GET /api/reports/commercial/{sales|profits|top-products|customer-debts}` y su
+`/export` (Excel), más `/options` (categorías del filtro). Permiso `reports.sales`
+(solo Encargado); el negocio sale **siempre** de la sesión y un `businessId` enviado en
+la consulta se rechaza (400). Los reportes de inventario (HU-25 a HU-27) usan otro
+permiso y no cuelgan de esta ruta. Pantalla: Reportes › Reportes comerciales.
+
+Pantalla y Excel salen del mismo `ReportResult`; el Excel usa los filtros ya aplicados
+al reporte mostrado.
+
+**Reglas de cálculo**
+
+* Período en hora de Costa Rica, ambos días incluidos (`businessDayRange`); máximo 366 días.
+* Importes con `SaleItem.unitPrice` / `unitCost` (históricos), en céntimos exactos.
+* Ventas `VOID` fuera. Devoluciones: unidades netas = vendidas − devueltas; una venta
+  pertenece al período en que se hizo aunque se devuelva después. Una venta con varios
+  productos cuenta como una transacción; si todo se devolvió, no cuenta.
+* Deudas: mismo saldo que `CustomersService` (`Sale.total` ya descuenta devoluciones y
+  anulaciones, menos todos los abonos). Nunca se guarda un saldo.
+
+**Límites conocidos (visibles también en la pantalla y en el Excel)**
+
+1. **Categoría, código y nombre son los actuales del producto.** `SaleItem` no guarda un
+   snapshot; no se inventó uno retroactivo. Si un producto cambia de categoría, sus
+   ventas antiguas se mueven con él.
+2. **Ganancias y fiados (dependencia de HU-19).** No existe el flujo de abonos. Un fiado
+   solo cuenta como cobrado si abonos ligados a *esa venta y su cliente* cubren su total
+   (`isCreditSaleCollected`, único punto a cambiar cuando HU-19 defina cómo se aplica un
+   abono). Pendientes, parciales y abonos generales se excluyen y se informan; no se
+   reparten ganancias por estimación. El período es el de la venta, no el del cobro.
+3. **Costo desconocido vs. cero.** El esquema no los distingue; un costo 0 se toma como
+   válido y no se puede detectar un costo faltante. Resolverlo exigiría un costo
+   anulable en `SaleItem` (cambio de esquema, no hecho aquí).
+4. **Deudas por fiado.** El pendiente de cada fiado descuenta solo abonos ligados a esa
+   venta; los abonos generales aparecen en una línea «Abonos sin venta asignada» para que
+   el saldo acumulado cuadre siempre con el saldo real del cliente.

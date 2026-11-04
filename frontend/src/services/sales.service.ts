@@ -3,6 +3,7 @@ import type {
   Customer,
   CustomerPayload,
   DailySalesSummary,
+  DailySalesHistory,
   PaymentMethod,
   SaleAdjustmentPayload,
   Sale,
@@ -16,6 +17,16 @@ interface DataResponse<T> {
 }
 
 export const salesService = {
+  async dailyHistory(
+    date: string,
+    page: number,
+    paymentMethod?: PaymentMethod,
+  ): Promise<DailySalesHistory> {
+    const query = new URLSearchParams({ date, page: String(page) });
+    if (paymentMethod !== undefined) query.set('paymentMethod', paymentMethod);
+    return (await apiGet<DataResponse<DailySalesHistory>>(`/api/sales/daily-history?${query}`))
+      .data;
+  },
   /** HU-16: producto vendible por código interno o código de barras. 404 si no existe. */
   async lookupProduct(code: string): Promise<SaleProduct> {
     const query = new URLSearchParams({ code });

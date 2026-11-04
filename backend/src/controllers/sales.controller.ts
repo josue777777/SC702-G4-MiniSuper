@@ -4,6 +4,7 @@ import type { ForBusiness } from '../types/tenant.js';
 import type { SalesService } from '../services/sales.service.js';
 import {
   createSaleSchema,
+  dailySalesHistoryQuerySchema,
   lookupQuerySchema,
   saleAdjustmentSchema,
   saleIdParamSchema,
@@ -40,6 +41,13 @@ export class SalesController {
   /** `GET /api/sales/daily-summary` — totales de hoy en la zona del negocio (HU-37). */
   async dailySummary(_req: Request, res: Response): Promise<void> {
     res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).getDailySummary() });
+  }
+
+  async dailyHistory(req: Request, res: Response): Promise<void> {
+    const filter = dailySalesHistoryQuerySchema.parse(req.query);
+    res
+      .status(200)
+      .json({ data: await this.serviceFor(businessIdOf(res)).getDailyHistory(filter) });
   }
 
   /** `POST /api/sales/:id/adjustments` — devolución parcial o anulación (HU-35). */

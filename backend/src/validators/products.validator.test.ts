@@ -154,16 +154,16 @@ describe('createProductSchema', () => {
     );
   });
 
-  it('descarta campos que no pertenecen al formulario', () => {
-    // Un cliente no debe poder colar isActive, barcode ni otros campos por aquí.
+  it('acepta un código de barras válido y descarta campos ajenos al formulario', () => {
     const parsed = createProductSchema.parse({
       ...validPayload(),
       isActive: false,
-      barcode: '7501234567890',
+      barcode: '7501234567893',
       minStock: 99,
     });
 
     expect(Object.keys(parsed).sort()).toEqual([
+      'barcode',
       'categoryId',
       'code',
       'cost',
@@ -172,6 +172,13 @@ describe('createProductSchema', () => {
       'stock',
       'supplierId',
     ]);
+    expect(parsed.barcode).toBe('7501234567893');
+  });
+
+  it('rechaza un código de barras con dígito de control inválido', () => {
+    expect(issueMessages({ ...validPayload(), barcode: '7501234567890' })).toContain(
+      'El dígito de control del código de barras no es válido.',
+    );
   });
 });
 

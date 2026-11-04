@@ -404,7 +404,7 @@ test.describe('HU-17 — método de pago', () => {
     await expect(history).toContainText('Tarjeta');
     await expect(history).not.toContainText('Efectivo');
     await page.getByLabel('Filtrar por método de pago').selectOption('CREDIT');
-    await expect(page.getByText('No hay ventas pagadas con fiado.')).toBeVisible();
+    await expect(page.getByText('No hay ventas pagadas con fiado en este día.')).toBeVisible();
     await page.getByLabel('Filtrar por método de pago').selectOption('CASH');
     await expect(history).toContainText('Efectivo');
     await saveEvidence(page, 'HU-17', 'HU-17-historial-filtrado.png');
