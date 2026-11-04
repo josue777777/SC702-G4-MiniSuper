@@ -54,6 +54,44 @@ export interface ReportResult {
   emptyMessage: string;
 }
 
+/** Un punto de un gráfico: etiqueta y valor (colones o unidades). */
+export interface ReportChartDatum {
+  key: string;
+  label: string;
+  value: number;
+}
+
+export interface ReportChart {
+  id: string;
+  title: string;
+  subtitle: string;
+  /** `columns`: en el tiempo (por día); `bars`: comparar entre nombres. */
+  form: 'columns' | 'bars';
+  /** Cómo se escribe el valor: colones, unidades o cantidad de productos. */
+  unit: 'money' | 'units' | 'products';
+  data: ReportChartDatum[];
+}
+
+/**
+ * El reporte para la pantalla: totales, avisos y gráficos (ya calculados en el
+ * servidor), SIN las filas. Las filas pueden ser miles: llegan aparte, de a
+ * una página, solo al abrir «Ver detalle» (`ReportRowsPage`).
+ */
+export interface ReportSummary extends Omit<ReportResult, 'rows'> {
+  /** Cuántas filas tiene el detalle completo. */
+  rowCount: number;
+  charts: ReportChart[];
+}
+
+/** Una página del detalle de un reporte. */
+export interface ReportRowsPage {
+  rows: ReportResult['rows'];
+  page: number;
+  pageSize: number;
+  total: number;
+  pageCount: number;
+}
+
 export interface ReportOptions {
   categories: { id: string; name: string }[];
 }

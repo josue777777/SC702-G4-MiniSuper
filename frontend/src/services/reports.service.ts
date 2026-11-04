@@ -1,4 +1,10 @@
-import type { ReportFilter, ReportKind, ReportOptions, ReportResult } from '../types/reports';
+import type {
+  ReportFilter,
+  ReportKind,
+  ReportOptions,
+  ReportRowsPage,
+  ReportSummary,
+} from '../types/reports';
 import { apiDownload, apiGet } from './api-client';
 
 interface DataResponse<T> {
@@ -6,8 +12,8 @@ interface DataResponse<T> {
 }
 
 /** Filtros de la petición: solo los que tienen valor (el servidor rechaza los desconocidos). */
-function queryOf(filter: ReportFilter): string {
-  const query = new URLSearchParams();
+function queryOf(filter: ReportFilter, extra: Record<string, string> = {}): string {
+  const query = new URLSearchParams(extra);
 
   for (const [key, value] of Object.entries(filter)) {
     if (value !== undefined && value !== '') {
@@ -30,9 +36,33 @@ export const reportsService = {
     return (await apiGet<DataResponse<ReportOptions>>('/api/reports/commercial/options')).data;
   },
 
-  async get(kind: ReportKind, filter: ReportFilter): Promise<ReportResult> {
+  /** El resumen: totales, avisos y gráficos, sin las filas. */
+  async get(kind: ReportKind, filter: ReportFilter): Promise<ReportSummary> {
     return (
-      await apiGet<DataResponse<ReportResult>>(`/api/reports/commercial/${kind}${queryOf(filter)}`)
+      await apiGet<DataResponse<ReportSummary>>(`/api/reports/commercial/${kind}${queryOf(filter)}`)
+    ).data;
+  },
+
+  /** Una página del detalle («Ver detalle»), con los mismos filtros. */
+  async rows(
+    kind: ReportKind,
+    filter: ReportFilter,
+    page: number,
+    pageSize: number,
+  ): Promise<ReportRowsPage> {
+    const query = queryOf(filter, { page: String(page), pageSize: String(pageSize) });
+
+    return (
+      await apiGet<DataResponse<ReportRowsPage>>(`/api/reports/commercial/${kind}/rows${query}`)
+    ).data;
+  },
+
+  /** Todas las filas: solo para el PDF, que es el documento completo. */
+  async allRows(kind: ReportKind, filter: ReportFilter): Promise<ReportRowsPage> {
+    const query = queryOf(filter, { all: 'true' });
+
+    return (
+      await apiGet<DataResponse<ReportRowsPage>>(`/api/reports/commercial/${kind}/rows${query}`)
     ).data;
   },
 

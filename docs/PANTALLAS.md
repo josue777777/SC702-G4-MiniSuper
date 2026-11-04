@@ -39,11 +39,23 @@ const pages = usePagination(visibles, busqueda); // 20 por página; vuelve a la 
 
 - `usePagination` recibe la lista **ya filtrada** y una clave que, al cambiar,
   devuelve la lista a la página 1 (la búsqueda, el filtro…).
-- `Pagination` no dibuja nada si todo cabe en una página.
-- Hoy se pagina en el navegador: el servidor manda la lista y se muestra de 20
-  en 20. Alcanza para el tamaño de un minisúper. Si una lista llega a miles de
-  filas (como el historial de ventas), se pagina **en el servidor** con
-  `page` y `pageSize`, y se reutiliza el mismo componente `Pagination`.
+- `Pagination` muestra «Anterior · 1 2 3 … 20 · Siguiente»: con los números se
+  salta a cualquier página sin pasar por todas. Con muchas páginas se ven solo
+  la primera, la última y las vecinas de la actual. No dibuja nada si todo cabe
+  en una página.
+
+### En el navegador o en el servidor
+
+| | En el navegador (`usePagination`) | En el servidor (`page` y `pageSize`) |
+| --- | --- | --- |
+| Qué viaja | La lista completa; se muestran 20 | Solo las 20 de la página |
+| Cuándo usarlo | Listas que no crecen sin límite: clientes, proveedores, productos | Lo que crece con el tiempo: ventas, movimientos, el detalle de los reportes |
+
+Pregunta guía: **¿esta lista va a tener miles de filas en un año?** Si la
+respuesta es sí, se pagina en el servidor. Ejemplos: el historial de
+Movimientos y «Ver detalle» de los reportes comerciales
+(`GET /api/reports/commercial/:kind/rows?page=&pageSize=`, con
+`useReportRows`). Las dos formas usan el mismo componente `Pagination`.
 
 ## Regla 3: buscar antes que recorrer
 
@@ -147,6 +159,18 @@ Un reporte en pantalla no repite la lista que ya se ve en su módulo
 | Cifras destacadas (`report-totals`) y gráficos de una sola serie (`ReportChartView`: barras para comparar, columnas por día) | Todo el detalle fila por fila |
 | El detalle en «Ver detalle (N filas)», cerrado y paginado | — |
 
+Cómo viajan los datos de un reporte comercial:
+
+1. **Al generarlo** llega el resumen: totales, avisos y los gráficos ya
+   calculados en el servidor. **No** llegan las filas, solo cuántas son.
+2. **Al abrir «Ver detalle»** se piden las filas de a 20 (`/rows?page=`). Si
+   nadie lo abre, no se descarga ninguna.
+3. **El PDF y el Excel** son el documento completo y piden todas. Si el PDF
+   pasaría de 1.000 filas, primero se pregunta y se ofrece el Excel.
+
+Así, un reporte de un año (decenas de miles de líneas) abre tan rápido como uno
+de un día.
+
 - Gráficos: un solo color, cada barra con su etiqueta y su valor escritos (no
   depende del color) y el valor exacto al pasar el cursor.
 - Todo reporte tiene las mismas acciones (`ReportActions`): PDF, Excel y
@@ -156,7 +180,7 @@ Un reporte en pantalla no repite la lista que ya se ve en su módulo
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
 - [ ] ¿El formulario abre en `Modal` desde un botón y se cierra solo al guardar?
-- [ ] ¿La lista usa `usePagination` + `Pagination`?
+- [ ] ¿La lista usa `Pagination`? ¿Y si va a crecer a miles de filas, se pagina en el servidor?
 - [ ] ¿Tiene buscador (`ListSearch`) si puede tener más de 20 filas?
 - [ ] ¿Muestra el total y un mensaje cuando no hay resultados?
 - [ ] ¿Los detalles largos están plegados?

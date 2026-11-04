@@ -1,38 +1,23 @@
-import type { ReportKind, ReportResult } from '../../types/reports';
-
-/** Un punto de un gráfico: etiqueta y valor numérico (colones o unidades). */
-export interface ChartDatum {
-  key: string;
-  label: string;
-  value: number;
-}
-
-export interface ReportChart {
-  id: string;
-  title: string;
-  subtitle: string;
-  /** `columns`: en el tiempo (por día); `bars`: comparar entre nombres. */
-  form: 'columns' | 'bars';
-  /** Cómo se escribe el valor: colones, unidades o cantidad de productos. */
-  unit: 'money' | 'units' | 'products';
-  data: ChartDatum[];
-}
+import type { ReportChart, ReportChartDatum, ReportKind, ReportResult } from '../types/reports.js';
 
 type Row = ReportResult['rows'][number];
 
 const toNumber = (value: Row[string] | undefined): number =>
   typeof value === 'number' ? value : Number(value ?? 0) || 0;
 
+/** Redondea a céntimos: sumar importes con decimales en coma flotante deja restos. */
+const round = (value: number): number => Math.round(value * 100) / 100;
+
 /**
  * Suma `valueKey` agrupando por `labelKey`, de mayor a menor. Si hay más de
  * `limit` grupos, el resto se junta en «Otros»: nunca se inventan más barras.
  */
 export function sumBy(
-  rows: Row[],
+  rows: readonly Row[],
   labelKey: string,
   valueKey: string,
   limit: number,
-): ChartDatum[] {
+): ReportChartDatum[] {
   const totals = new Map<string, number>();
 
   for (const row of rows) {
@@ -42,9 +27,9 @@ export function sumBy(
   }
 
   const sorted = [...totals.entries()]
-    .map(([label, value]) => ({ key: label, label, value }))
+    .map(([label, value]) => ({ key: label, label, value: round(value) }))
     .filter((datum) => datum.value !== 0)
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, 'es'));
 
   if (sorted.length <= limit) {
     return sorted;
@@ -52,11 +37,11 @@ export function sumBy(
 
   const rest = sorted.slice(limit - 1).reduce((sum, datum) => sum + datum.value, 0);
 
-  return [...sorted.slice(0, limit - 1), { key: '__otros', label: 'Otros', value: rest }];
+  return [...sorted.slice(0, limit - 1), { key: '__otros', label: 'Otros', value: round(rest) }];
 }
 
 /** Suma por día (las fechas del reporte vienen como «AAAA-MM-DD HH:mm»), en orden. */
-export function sumByDay(rows: Row[], valueKey: string): ChartDatum[] {
+export function sumByDay(rows: readonly Row[], valueKey: string): ReportChartDatum[] {
   const totals = new Map<string, number>();
 
   for (const row of rows) {
@@ -69,14 +54,15 @@ export function sumByDay(rows: Row[], valueKey: string): ChartDatum[] {
 
   return [...totals.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([day, value]) => ({ key: day, label: day, value }));
+    .map(([day, value]) => ({ key: day, label: day, value: round(value) }));
 }
 
 /**
- * Los gráficos de cada reporte: lo que ayuda a decidir de un vistazo. El
- * detalle fila por fila sigue en «Ver detalle», el PDF y el Excel.
+ * Los gráficos de cada reporte: lo que ayuda a decidir de un vistazo. Se
+ * calculan AQUÍ, con todas las filas, para que la pantalla reciba solo los
+ * puntos del gráfico (pocos) y no miles de filas que no va a dibujar.
  */
-export function chartsFor(kind: ReportKind, rows: Row[]): ReportChart[] {
+export function chartsFor(kind: ReportKind, rows: readonly Row[]): ReportChart[] {
   switch (kind) {
     case 'sales':
       return [

@@ -1,5 +1,5 @@
 import { formatMoney } from '../products/money';
-import type { ReportChart } from './report-charts';
+import type { ReportChart } from '../../types/reports';
 
 interface ReportChartViewProps {
   chart: ReportChart;

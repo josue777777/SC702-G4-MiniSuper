@@ -17,6 +17,7 @@ export function createReportsRouter(repositoryFor: ForBusiness<ReportsRepository
 
   // `/options` va antes de `/:kind` para que no se tome como un tipo de reporte.
   router.get('/options', (req, res) => controller.options(req, res));
+  router.get('/:kind/rows', (req, res) => controller.rows(req, res));
   router.get('/:kind/export', (req, res) => controller.export(req, res));
   router.get('/:kind', (req, res) => controller.get(req, res));
 

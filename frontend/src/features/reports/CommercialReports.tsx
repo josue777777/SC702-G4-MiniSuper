@@ -74,6 +74,7 @@ export function CommercialReportPanel({ kind }: CommercialReportPanelProps) {
       {ready === null ? null : (
         <ReportResultView
           report={ready}
+          filter={view.status === 'ready' ? view.filter : {}}
           columns={columns}
           exporting={report.exporting}
           notice={report.notice}
@@ -100,9 +101,11 @@ export function CommercialReportPanel({ kind }: CommercialReportPanelProps) {
       {previewing && ready !== null ? (
         <ReportPdfPreview
           report={ready}
+          filter={view.status === 'ready' ? view.filter : {}}
           columns={columns}
           orientation={preferences.orientation}
           onClose={() => setPreviewing(false)}
+          onExcel={() => void report.exportReport(exportColumns)}
         />
       ) : null}
     </>

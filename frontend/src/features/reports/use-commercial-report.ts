@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../services/api-client';
 import { reportsService } from '../../services/reports.service';
-import type { ReportFilter, ReportKind, ReportResult } from '../../types/reports';
+import type { ReportFilter, ReportKind, ReportSummary } from '../../types/reports';
 import { saveBlob } from '../products/use-catalog-export';
 import {
   defaultDraft,
@@ -15,7 +15,7 @@ import {
 export type ReportView =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; report: ReportResult; filter: ReportFilter };
+  | { status: 'ready'; report: ReportSummary; filter: ReportFilter };
 
 export interface ExportNotice {
   kind: 'success' | 'error';

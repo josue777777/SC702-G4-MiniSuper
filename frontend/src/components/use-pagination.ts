@@ -24,9 +24,10 @@ export interface PaginationState<T> {
  * interminable. `resetKey` vuelve a la página 1 cuando cambia lo que se busca
  * o se filtra (si no, una búsqueda nueva podría quedar en una página vacía).
  *
- * Paginar en el navegador alcanza para el tamaño de un minisúper. Si una lista
- * llega a miles de filas, lo siguiente es paginar en el servidor (como el
- * historial de ventas) y reutilizar el mismo componente `Pagination`.
+ * Paginar en el navegador alcanza para listas que no crecen sin límite
+ * (clientes, proveedores, productos). Lo que crece con el tiempo (ventas,
+ * movimientos, el detalle de los reportes) se pagina en el servidor y usa el
+ * mismo componente `Pagination` (ver `useReportRows` y docs/PANTALLAS.md).
  */
 export function usePagination<T>(
   items: readonly T[],

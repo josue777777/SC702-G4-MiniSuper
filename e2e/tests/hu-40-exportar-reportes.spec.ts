@@ -8,6 +8,7 @@ import {
   openReport,
   readDownload,
   readTable,
+  seedSale,
   seedScenario,
   setPeriod,
 } from '../support/reports';
@@ -137,4 +138,101 @@ test('el reporte de inventario está en Reportes, con las mismas acciones, y se 
   await expect(
     page.getByRole('dialog', { name: 'Vista previa: Reporte de inventario' }),
   ).toContainText('Productos activos');
+});
+
+test('«Ver detalle» pide las filas al servidor de a una página y se navega con números', async ({
+  page,
+}) => {
+  // Una venta grande: 45 líneas más las del escenario, para tener 3 páginas.
+  await seedSale({
+    at: '2024-03-22T10:00:00',
+    lines: Array.from({ length: 45 }, (_, index) => ({
+      code: 'A1',
+      quantity: 1,
+      unitPrice: `${100 + index}.00`,
+      unitCost: '50.00',
+    })),
+  });
+
+  const rowRequests: string[] = [];
+
+  page.on('request', (request) => {
+    if (request.url().includes('/rows')) {
+      rowRequests.push(request.url());
+    }
+  });
+
+  await openReport(page, 'Ventas');
+  await setPeriod(page, PERIOD.from, PERIOD.to);
+
+  // El resumen llega sin filas: solo cuántas son y los gráficos ya calculados.
+  const [summaryResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        /\/api\/reports\/commercial\/sales\?/.test(response.url()) &&
+        response.request().method() === 'GET',
+    ),
+    page.getByRole('button', { name: 'Generar reporte', exact: true }).click(),
+  ]);
+  const summary = (await summaryResponse.json()).data;
+  const total: number = summary.rowCount;
+
+  expect(summary.rows).toBeUndefined();
+  expect(summary.charts.length).toBeGreaterThan(0);
+  expect(total).toBeGreaterThan(40);
+  await expect(page.getByText(`Ver detalle (${total} filas)`)).toBeVisible();
+
+  // Mientras el detalle está cerrado, no se piden filas.
+  expect(rowRequests).toEqual([]);
+
+  await openDetail(page);
+  const table = page.getByRole('table', { name: REPORT, exact: true });
+  const pages = page.getByRole('navigation', { name: 'Páginas de filas' });
+
+  await expect(table.locator('tbody tr')).toHaveCount(20);
+  expect(rowRequests).toHaveLength(1);
+  await expect(pages.getByRole('button', { name: 'Ir a la página 1' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  // Directo a la última página, sin pasar por la 2.
+  await pages.getByRole('button', { name: 'Ir a la página 3' }).click();
+  await expect(
+    pages.getByText(`Mostrando 41–${total} de ${total} filas · Página 3 de 3`),
+  ).toBeVisible();
+  await expect(table.locator('tbody tr')).toHaveCount(total - 40);
+  await expect(pages.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+  expect(rowRequests.some((url) => url.includes('page=2'))).toBe(false);
+  await saveEvidence(page, 'HU-40', 'HU-40-detalle-paginado.png');
+
+  // El PDF sigue siendo el documento completo: todas las filas.
+  await page.getByRole('button', { name: /Descargar reporte de ventas en PDF/ }).click();
+  const preview = page.getByRole('dialog', { name: `Vista previa: ${REPORT}` });
+
+  await expect(
+    preview.getByRole('article', { name: 'Documento del reporte' }).locator('tbody tr'),
+  ).toHaveCount(total);
+});
+
+test('un PDF de miles de filas pregunta antes y ofrece el Excel', async ({ page }) => {
+  // Se simula un reporte enorme cambiando solo la cantidad que informa el resumen.
+  await page.route(/\/api\/reports\/commercial\/sales\?/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+
+    await route.fulfill({ response, json: { data: { ...body.data, rowCount: 12000 } } });
+  });
+
+  await openReport(page, 'Ventas');
+  await setPeriod(page, PERIOD.from, PERIOD.to);
+  await consult(page);
+  await page.getByRole('button', { name: /Descargar reporte de ventas en PDF/ }).click();
+
+  const preview = page.getByRole('dialog', { name: `Vista previa: ${REPORT}` });
+
+  await expect(preview).toContainText(/12\s000 filas/);
+  await expect(preview.getByRole('button', { name: 'Descargar Excel' })).toBeVisible();
+  await preview.getByRole('button', { name: 'Generar el PDF igual' }).click();
+  await expect(preview.getByRole('article', { name: 'Documento del reporte' })).toBeVisible();
 });

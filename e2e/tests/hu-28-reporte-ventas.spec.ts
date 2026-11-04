@@ -288,6 +288,7 @@ async function apiStatuses(request: APIRequestContext, paths: string[]): Promise
 
 const REPORT_APIS = [
   `/api/reports/commercial/sales?from=${PERIOD.from}&to=${PERIOD.to}`,
+  `/api/reports/commercial/sales/rows?from=${PERIOD.from}&to=${PERIOD.to}&page=1`,
   `/api/reports/commercial/sales/export?from=${PERIOD.from}&to=${PERIOD.to}`,
   '/api/reports/commercial/options',
 ];
@@ -301,16 +302,16 @@ test('solo el Encargado accede: Cajero, Bodega, la plataforma y sin sesión no',
   await insertUser(BODEGA);
 
   // Sin sesión.
-  expect(await apiStatuses(request, REPORT_APIS)).toEqual([401, 401, 401]);
+  expect(await apiStatuses(request, REPORT_APIS)).toEqual([401, 401, 401, 401]);
 
   // La plataforma no entra a los datos de los negocios.
   await signInVia(request, E2E_ADMIN);
-  expect(await apiStatuses(request, REPORT_APIS)).toEqual([403, 403, 403]);
+  expect(await apiStatuses(request, REPORT_APIS)).toEqual([403, 403, 403, 403]);
 
   // Cajero: vende y fía, pero no ve reportes.
   const cajera = await openAs(browser, CAJERO);
 
-  expect(await apiStatuses(cajera.context.request, REPORT_APIS)).toEqual([403, 403, 403]);
+  expect(await apiStatuses(cajera.context.request, REPORT_APIS)).toEqual([403, 403, 403, 403]);
   await cajera.page.goto('/reports');
   await expect(cajera.page.getByRole('heading', { name: 'Acceso no permitido' })).toBeVisible();
   await cajera.context.close();
@@ -318,10 +319,11 @@ test('solo el Encargado accede: Cajero, Bodega, la plataforma y sin sesión no',
   // Bodega: tiene reportes de INVENTARIO, no los financieros.
   const bodeguero = await openAs(browser, BODEGA);
 
-  expect(await apiStatuses(bodeguero.context.request, REPORT_APIS)).toEqual([403, 403, 403]);
+  expect(await apiStatuses(bodeguero.context.request, REPORT_APIS)).toEqual([403, 403, 403, 403]);
   await bodeguero.page.goto('/reports');
   await expect(bodeguero.page.getByRole('heading', { level: 1 })).toContainText('Reportes');
-  await expect(bodeguero.page.getByText('Pendiente de implementar')).toBeVisible();
+  // HU-25 … HU-27 ya están hechas: no queda el aviso de pendientes del equipo.
+  await expect(bodeguero.page.getByText('Pendiente de implementar')).toHaveCount(0);
   await expect(bodeguero.page.getByRole('heading', { name: 'Reportes comerciales' })).toHaveCount(
     0,
   );

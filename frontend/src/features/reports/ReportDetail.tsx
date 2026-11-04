@@ -1,0 +1,118 @@
+import { useState } from 'react';
+import { Pagination } from '../../components/Pagination';
+import type {
+  ReportColumn,
+  ReportFilter,
+  ReportRowsPage,
+  ReportSummary,
+} from '../../types/reports';
+import { formatReportMoney } from './report-format';
+import { useReportRows } from './use-report-rows';
+
+interface ReportDetailProps {
+  report: ReportSummary;
+  /** Filtros con que se generó el reporte: las páginas se piden con los mismos. */
+  filter: ReportFilter;
+  /** Columnas que el usuario dejó activas al personalizar (HU-40). */
+  columns: ReportColumn[];
+}
+
+/**
+ * «Ver detalle»: las filas del reporte, cerradas hasta que se piden.
+ *
+ * Las filas NO vienen con el reporte: al abrir el detalle se piden al servidor
+ * de a 20 (`GET /api/reports/commercial/:kind/rows`). Con un año de ventas, la
+ * pantalla nunca recibe ni dibuja más que una página. Los números de página
+ * permiten ir directo a la última o a una del medio.
+ *
+ * Se monta con `key` = el reporte generado: al regenerarlo, empieza de cero.
+ */
+export function ReportDetail({ report, filter, columns }: ReportDetailProps) {
+  const [open, setOpen] = useState(false);
+  const rows = useReportRows(report.kind, filter, open);
+  const { view } = rows;
+  const data =
+    view.status === 'ready' ? view.data : view.status === 'loading' ? view.previous : null;
+  const loading = view.status === 'loading';
+  const from = data === null || data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1;
+
+  return (
+    <details
+      className="disclosure report-detail"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>Ver detalle ({report.rowCount} filas)</summary>
+
+      {view.status === 'error' ? (
+        <div className="alert alert--error" role="alert">
+          <span>{view.message}</span>
+          <button type="button" className="button" onClick={rows.retry}>
+            Reintentar
+          </button>
+        </div>
+      ) : null}
+
+      {data === null ? (
+        loading ? (
+          <p className="muted" role="status">
+            Cargando filas…
+          </p>
+        ) : null
+      ) : (
+        <>
+          <div className="table-wrapper" aria-busy={loading}>
+            <table
+              className={`table table--compact${loading ? ' table--loading' : ''}`}
+              aria-label={report.title}
+            >
+              <thead>
+                <tr>
+                  {columns.map((column) => (
+                    <th
+                      key={column.key}
+                      className={isNumeric(column, data.rows) ? 'table__number' : undefined}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row, index) => (
+                  <tr key={`${data.page}-${index}`}>
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className={isNumeric(column, data.rows) ? 'table__number' : undefined}
+                      >
+                        {column.money === true
+                          ? formatReportMoney(row[column.key] ?? '')
+                          : (row[column.key] ?? '')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={rows.page}
+            pageCount={data.pageCount}
+            total={data.total}
+            from={from}
+            to={from === 0 ? 0 : from + data.rows.length - 1}
+            itemLabel="filas"
+            busy={loading}
+            onPage={rows.setPage}
+          />
+          <p className="muted">El PDF y el Excel llevan todas las filas.</p>
+        </>
+      )}
+    </details>
+  );
+}
+
+/** Importes y cantidades se alinean a la derecha. */
+function isNumeric(column: ReportColumn, rows: ReportRowsPage['rows']): boolean {
+  return column.money === true || rows.some((row) => typeof row[column.key] === 'number');
+}
