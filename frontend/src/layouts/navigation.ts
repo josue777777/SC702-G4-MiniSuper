@@ -85,7 +85,13 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
         stories: 'HU-01 … HU-10',
         permission: 'inventory.read',
       },
-      { kind: 'link', to: '/kardex', label: 'Kardex', stories: 'HU-31', permission: 'kardex' },
+      {
+        kind: 'link',
+        to: '/movimientos',
+        label: 'Movimientos',
+        stories: 'HU-31',
+        permission: 'kardex',
+      },
     ],
   },
   {

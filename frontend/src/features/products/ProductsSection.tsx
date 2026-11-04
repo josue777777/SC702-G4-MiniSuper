@@ -577,7 +577,7 @@ export function ProductsSection({
             className="action-bar__button"
             onClick={() =>
               withSelection(
-                (product) => navigate(`/kardex?productId=${encodeURIComponent(product.id)}`),
+                (product) => navigate(`/movimientos?productId=${encodeURIComponent(product.id)}`),
                 'consultar',
               )
             }

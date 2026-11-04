@@ -20,7 +20,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   ENCARGADO:
     'Dueño del negocio: todo el negocio, sus datos y logo, y los usuarios Cajero y Bodega.',
   CAJERO: 'Ventas y clientes; consulta productos sin modificarlos.',
-  BODEGA: 'Inventario, kardex, pedidos a proveedor y reportes de inventario.',
+  BODEGA: 'Inventario, movimientos, pedidos a proveedor y reportes de inventario.',
 };
 
 /**

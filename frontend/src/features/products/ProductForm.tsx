@@ -492,8 +492,8 @@ export function ProductForm({
           </div>
           <p className="muted hint">
             {mode === 'create'
-              ? 'El stock inicial queda registrado como la entrada del producto en el Kardex.'
-              : 'Si cambia las existencias, la diferencia queda registrada como un ajuste en el Kardex. Para el día a día use el «Conteo físico».'}{' '}
+              ? 'El stock inicial queda registrado como la entrada del producto en Movimientos.'
+              : 'Si cambia las existencias, la diferencia queda registrada como un ajuste en Movimientos. Para el día a día use el «Conteo físico».'}{' '}
             Con un mínimo mayor que 0, el panel avisa cuando el stock llega a ese nivel (HU-08); la
             fecha de vencimiento activa las alertas de vencidos y por vencer (HU-09).
           </p>

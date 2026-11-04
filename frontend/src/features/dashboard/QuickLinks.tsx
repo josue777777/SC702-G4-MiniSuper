@@ -17,7 +17,7 @@ interface QuickLink {
 /** Accesos rápidos a cada sección, en el orden del menú. */
 const LINKS: QuickLink[] = [
   { to: '/inventory', label: 'Inventario', icon: 'warehouse', permission: 'inventory.read' },
-  { to: '/kardex', label: 'Kardex', icon: 'list', permission: 'kardex', pending: true },
+  { to: '/movimientos', label: 'Movimientos', icon: 'list', permission: 'kardex' },
   { to: '/orders', label: 'Pedidos a proveedor', icon: 'cart', permission: 'purchasing' },
   { to: '/suppliers', label: 'Proveedores', icon: 'truck', permission: 'purchasing' },
   { to: '/sales', label: 'Ventas', icon: 'cash', permission: 'sales' },
