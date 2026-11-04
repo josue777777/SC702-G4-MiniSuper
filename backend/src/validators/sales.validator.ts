@@ -28,6 +28,18 @@ export const productCodeSchema = z
 /** Query de `GET /api/sales/lookup`. */
 export const lookupQuerySchema = z.object({ code: productCodeSchema });
 
+/**
+ * Búsqueda manual en la caja cuando el lector no reconoce el código (HU-16):
+ * por nombre, código o código de barras, desde 2 caracteres.
+ */
+export const productSearchQuerySchema = z.object({
+  q: z
+    .string({ error: 'Escriba qué producto busca.' })
+    .trim()
+    .min(2, 'Escriba al menos 2 caracteres.')
+    .max(60, 'La búsqueda no puede superar 60 caracteres.'),
+});
+
 const lineSchema = z.object({
   productId: z.uuid({ error: 'El producto indicado no es válido.' }),
   quantity: z

@@ -34,6 +34,14 @@ export const salesService = {
     return (await apiGet<DataResponse<SaleProduct>>(`/api/sales/lookup?${query.toString()}`)).data;
   },
 
+  /** HU-16: búsqueda manual (nombre, código o código de barras) si el lector no reconoce el código. */
+  async searchProducts(term: string): Promise<SaleProduct[]> {
+    const query = new URLSearchParams({ q: term });
+
+    return (await apiGet<DataResponse<SaleProduct[]>>(`/api/sales/products?${query.toString()}`))
+      .data;
+  },
+
   /** HU-16/17/18: confirma la venta. Reenviar la misma llave no duplica la venta. */
   async create(payload: CreateSalePayload): Promise<Sale> {
     return (await apiPost<DataResponse<Sale>>('/api/sales', payload)).data;

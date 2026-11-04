@@ -7,6 +7,8 @@ interface ScannerBarProps {
   /** Resultado de la última lectura («Agregado: …», «No se encontró…»). */
   notice: PosNotice | null;
   onScan: (code: string) => Promise<void>;
+  /** Abre la búsqueda por nombre (plan B si el lector no reconoce el código). */
+  onSearch: (term?: string) => void;
 }
 
 /** Id del campo: el atajo F2 de la caja lo usa para volver a él. */
@@ -22,7 +24,7 @@ export const SCANNER_INPUT_ID = 'pos-code';
  * lectura aparece en esa misma línea, debajo del campo: así el carrito no se
  * mueve con cada escaneo.
  */
-export function ScannerBar({ busy, notice, onScan }: ScannerBarProps) {
+export function ScannerBar({ busy, notice, onScan, onSearch }: ScannerBarProps) {
   const [code, setCode] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -59,6 +61,15 @@ export function ScannerBar({ busy, notice, onScan }: ScannerBarProps) {
         <button type="submit" className="button button--dark" disabled={busy}>
           {busy ? 'Buscando…' : 'Agregar'}
         </button>
+        <button
+          type="button"
+          className="button"
+          disabled={busy}
+          title="Buscar el producto por nombre (F4)"
+          onClick={() => onSearch(code.trim())}
+        >
+          Buscar producto
+        </button>
       </div>
       <p className="pos__scanner-hint">
         {busy ? (
@@ -66,12 +77,21 @@ export function ScannerBar({ busy, notice, onScan }: ScannerBarProps) {
         ) : notice === null ? (
           <span className="pos__ready">Lector listo</span>
         ) : (
-          <span className={`pos__feedback pos__feedback--${notice.kind}`} role="status">
-            {notice.text}
+          <span className="pos__feedback-row">
+            <span className={`pos__feedback pos__feedback--${notice.kind}`} role="status">
+              {notice.text}
+            </span>
+            {/* Si el lector no pudo, el siguiente paso es buscarlo a mano. */}
+            {notice.kind === 'error' ? (
+              <button type="button" className="link-button" onClick={() => onSearch()}>
+                Buscar por nombre
+              </button>
+            ) : null}
           </span>
         )}
         <span>
-          <kbd>F2</kbd> volver al código · <kbd>F9</kbd> finalizar venta
+          <kbd>F2</kbd> volver al código · <kbd>F4</kbd> buscar producto · <kbd>F9</kbd> finalizar
+          venta
         </span>
       </p>
     </form>

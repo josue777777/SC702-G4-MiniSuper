@@ -6,6 +6,7 @@ import {
   createSaleSchema,
   dailySalesHistoryQuerySchema,
   lookupQuerySchema,
+  productSearchQuerySchema,
   saleAdjustmentSchema,
   saleIdParamSchema,
   saleListQuerySchema,
@@ -15,6 +16,13 @@ import {
 export class SalesController {
   /** El service del negocio de la sesión: cada petición trabaja solo con el suyo. */
   constructor(private readonly serviceFor: ForBusiness<SalesService>) {}
+
+  /** `GET /api/sales/products?q=` — búsqueda manual cuando el lector no reconoce el código. */
+  async searchProducts(req: Request, res: Response): Promise<void> {
+    const { q } = productSearchQuerySchema.parse(req.query);
+
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).searchProducts(q) });
+  }
 
   /** `GET /api/sales/lookup?code=` — producto vendible por código o código de barras. */
   async lookup(req: Request, res: Response): Promise<void> {

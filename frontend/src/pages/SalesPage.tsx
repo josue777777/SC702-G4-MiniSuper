@@ -6,6 +6,7 @@ import { CartTable } from '../features/sales/CartTable';
 import { CheckoutPanel } from '../features/sales/CheckoutPanel';
 import { SaleResult } from '../features/sales/SaleResult';
 import { SalesHistory } from '../features/sales/SalesHistory';
+import { ProductSearchModal } from '../features/sales/ProductSearchModal';
 import { SCANNER_INPUT_ID, ScannerBar } from '../features/sales/ScannerBar';
 import { usePos } from '../features/sales/use-pos';
 
@@ -38,6 +39,8 @@ export function SalesPage() {
   const receiptId = searchParams.get('receipt');
   const pos = usePos((sale) => setSearchParams({ receipt: sale.id }));
   const [view, setView] = useState<SalesView>('caja');
+  /** Búsqueda manual abierta (con el texto inicial), o `null` si está cerrada. */
+  const [search, setSearch] = useState<string | null>(null);
 
   function openReceipt(saleId: string): void {
     setSearchParams({ receipt: saleId });
@@ -50,14 +53,15 @@ export function SalesPage() {
   // Lector USB tipo teclado cuando el foco no está en un campo de texto.
   useWedgeScanner(
     (code) => void pos.scan(code),
-    view === 'caja' && !pos.submitting && receiptId === null,
+    view === 'caja' && !pos.submitting && receiptId === null && search === null,
   );
 
-  // Atajos de la caja, como en un punto de venta: F2 vuelve al código y F9 finaliza.
+  // Atajos de la caja, como en un punto de venta: F2 vuelve al código, F4 busca
+  // el producto por nombre y F9 finaliza.
   const { canConfirm, confirm } = pos;
 
   useEffect(() => {
-    if (view !== 'caja' || receiptId !== null) {
+    if (view !== 'caja' || receiptId !== null || search !== null) {
       return;
     }
 
@@ -65,6 +69,9 @@ export function SalesPage() {
       if (event.key === 'F2') {
         event.preventDefault();
         document.getElementById(SCANNER_INPUT_ID)?.focus();
+      } else if (event.key === 'F4') {
+        event.preventDefault();
+        setSearch('');
       } else if (event.key === 'F9' && canConfirm) {
         event.preventDefault();
         void confirm();
@@ -74,7 +81,13 @@ export function SalesPage() {
     window.addEventListener('keydown', handleKey);
 
     return () => window.removeEventListener('keydown', handleKey);
-  }, [view, receiptId, canConfirm, confirm]);
+  }, [view, receiptId, search, canConfirm, confirm]);
+
+  function closeSearch(): void {
+    setSearch(null);
+    // De vuelta al lector, listo para el siguiente producto.
+    window.setTimeout(() => document.getElementById(SCANNER_INPUT_ID)?.focus(), 0);
+  }
 
   return (
     <>
@@ -119,7 +132,12 @@ export function SalesPage() {
             {/* Izquierda: agregar y revisar productos. Derecha: cobrar. */}
             <div className="pos">
               <div className="pos__main">
-                <ScannerBar busy={pos.scanning} notice={pos.notice} onScan={pos.scan} />
+                <ScannerBar
+                  busy={pos.scanning}
+                  notice={pos.notice}
+                  onScan={pos.scan}
+                  onSearch={(term) => setSearch(term ?? '')}
+                />
 
                 <CartTable
                   cart={pos.cart}
@@ -162,6 +180,17 @@ export function SalesPage() {
           />
         )}
       </div>
+
+      {search === null ? null : (
+        <ProductSearchModal
+          initialTerm={search}
+          onPick={(product) => {
+            pos.addToCart(product);
+            closeSearch();
+          }}
+          onClose={closeSearch}
+        />
+      )}
 
       {receiptId === null ? null : <ReceiptModal saleId={receiptId} onClose={closeReceipt} />}
     </>

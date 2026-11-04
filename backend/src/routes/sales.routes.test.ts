@@ -177,6 +177,42 @@ describe('GET /api/sales/lookup (HU-16)', () => {
   });
 });
 
+describe('GET /api/sales/products (HU-16: búsqueda cuando el lector falla)', () => {
+  it('busca por nombre sin importar mayúsculas, por código o por código de barras', async () => {
+    const { app } = buildApp();
+
+    const byName = await request(app).get('/api/sales/products?q=ARROZ');
+    const byCode = await request(app).get('/api/sales/products?q=p001');
+    const byBarcode = await request(app).get('/api/sales/products?q=75010');
+
+    expect(byName.status).toBe(200);
+    expect(byName.body.data.map((product: { id: string }) => product.id)).toEqual([RICE_ID]);
+    expect(byName.body.data[0]).toEqual(
+      expect.objectContaining({ code: 'P002', price: '900.00', stock: 5 }),
+    );
+    expect(byCode.body.data.map((product: { id: string }) => product.id)).toEqual([COFFEE_ID]);
+    expect(byBarcode.body.data.map((product: { id: string }) => product.id)).toEqual([COFFEE_ID]);
+  });
+
+  it('no ofrece productos desactivados: no se venden', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get('/api/sales/products?q=Descontinuado');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual([]);
+  });
+
+  it('pide al menos 2 caracteres y como mucho 60', async () => {
+    const { app } = buildApp();
+
+    expect((await request(app).get('/api/sales/products?q=a')).status).toBe(400);
+    expect((await request(app).get('/api/sales/products?q=%20%20')).status).toBe(400);
+    expect((await request(app).get('/api/sales/products')).status).toBe(400);
+    expect((await request(app).get(`/api/sales/products?q=${'x'.repeat(61)}`)).status).toBe(400);
+  });
+});
+
 describe('POST /api/sales/:id/adjustments (HU-35)', () => {
   it('registra una devolución parcial, devuelve el stock y reduce el total conservando la auditoría', async () => {
     const { app, sales } = buildApp();

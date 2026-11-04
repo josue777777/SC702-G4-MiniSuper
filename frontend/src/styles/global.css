@@ -1924,6 +1924,59 @@ code {
   color: var(--color-error);
 }
 
+/* Mensaje de la lectura + «Buscar por nombre» cuando el lector no pudo. */
+.pos__feedback-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* --- Caja: búsqueda manual de producto ------------------------------------ */
+.pos-search__results {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.pos-search__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pos-search__item--active,
+.pos-search__item:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-row-hover);
+}
+
+.pos-search__item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pos-search__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 /* --- Caja: carrito -------------------------------------------------------- */
 .pos__cart .card__header {
   align-items: center;
