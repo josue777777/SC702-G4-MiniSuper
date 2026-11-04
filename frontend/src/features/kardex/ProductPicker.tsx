@@ -5,13 +5,20 @@ import { useKeyedRequest } from './use-keyed-request';
 /** Pausa al escribir antes de buscar, como en la búsqueda de productos (HU-05). */
 const SEARCH_DEBOUNCE_MS = 300;
 
+/**
+ * Sin texto se sugieren pocos productos: el selector invita a buscar en lugar
+ * de recorrer el catálogo. El servidor ya devuelve como máximo 20 por búsqueda.
+ */
+const SUGGESTIONS_WITHOUT_SEARCH = 8;
+
 interface ProductPickerProps {
   onPick: (productId: string) => void;
 }
 
 /**
  * Selector de producto del Kardex: busca por nombre o código e incluye los
- * desactivados (conservan su historial). Sin texto lista los primeros productos.
+ * desactivados (conservan su historial). Sin texto sugiere solo los primeros
+ * productos; los demás aparecen al buscar.
  */
 export function ProductPicker({ onPick }: ProductPickerProps) {
   const [input, setInput] = useState('');
@@ -28,6 +35,14 @@ export function ProductPicker({ onPick }: ProductPickerProps) {
     () => kardexService.searchProducts(term),
     'No se pudieron cargar los productos.',
   );
+
+  const shown =
+    options.phase === 'ready' && term === ''
+      ? options.value.slice(0, SUGGESTIONS_WITHOUT_SEARCH)
+      : options.phase === 'ready'
+        ? options.value
+        : [];
+  const hidden = options.phase === 'ready' ? options.value.length - shown.length : 0;
 
   return (
     <section className="card" aria-label="Elegir producto">
@@ -62,9 +77,9 @@ export function ProductPicker({ onPick }: ProductPickerProps) {
         </p>
       ) : null}
 
-      {options.phase === 'ready' && options.value.length > 0 ? (
+      {shown.length > 0 ? (
         <ul className="kardex-picker__results" aria-label="Productos encontrados">
-          {options.value.map((option) => (
+          {shown.map((option) => (
             <li key={option.id}>
               <button
                 type="button"
@@ -77,6 +92,10 @@ export function ProductPicker({ onPick }: ProductPickerProps) {
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {hidden > 0 ? (
+        <p className="muted">Escriba el nombre o el código para encontrar los demás productos.</p>
       ) : null}
     </section>
   );

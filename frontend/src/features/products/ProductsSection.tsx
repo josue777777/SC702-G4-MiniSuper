@@ -74,11 +74,12 @@ export function ProductsSection({
     activateProduct,
     deleteProduct,
     afterCategoryCreated,
+    afterSupplierCreated,
     dismissNotice,
   } = useProducts();
 
   const navigate = useNavigate();
-  /** «Ver ficha» solo se ofrece a quien puede usar el Kardex (la API lo exige igual). */
+  /** «Ver movimientos» solo se ofrece a quien puede usar Movimientos (la API lo exige igual). */
   const { can } = useSession();
 
   /** Producto que se está editando; `null` significa que el formulario es de alta. */
@@ -453,6 +454,7 @@ export function ProductsSection({
           initialMinStock={editing?.minStock ?? 0}
           initialExpirationDate={editing?.expirationDate ?? null}
           onCategoryCreated={afterCategoryCreated}
+          onSupplierCreated={afterSupplierCreated}
           busy={busy}
           onCancel={closeForm}
           onSubmit={(payload, image, settings) => void handleSubmit(payload, image, settings)}
@@ -485,6 +487,7 @@ export function ProductsSection({
           headerActions={viewSelector}
           filtered={categoryFilter !== ''}
           searchTerm={searchTerm}
+          pageResetKey={`${view}/${categoryFilter}/${searchTerm}`}
           selectedId={selected?.id ?? null}
           onSelect={selectProduct}
           onOpen={(product) => {
@@ -576,13 +579,13 @@ export function ProductsSection({
             className="action-bar__button"
             onClick={() =>
               withSelection(
-                (product) => navigate(`/kardex?productId=${encodeURIComponent(product.id)}`),
+                (product) => navigate(`/movimientos?productId=${encodeURIComponent(product.id)}`),
                 'consultar',
               )
             }
             disabled={phase !== 'ready'}
           >
-            ▤ Ver ficha
+            ▤ Ver movimientos
           </button>
         ) : null}
         {view === 'inactive' ? (

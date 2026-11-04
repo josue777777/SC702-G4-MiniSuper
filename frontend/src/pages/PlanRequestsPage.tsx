@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../components/use-pagination';
 import { RequestStatusBadge } from '../features/platform/RequestStatusBadge';
 import { ApiError } from '../services/api-client';
 import { platformService } from '../services/platform.service';
@@ -39,6 +41,8 @@ export function PlanRequestsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const pages = usePagination(requests ?? [], filter);
 
   return (
     <>
@@ -122,7 +126,7 @@ export function PlanRequestsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {requests.map((request) => (
+                  {pages.pageItems.map((request) => (
                     <tr key={request.id}>
                       <td>{new Date(request.createdAt).toLocaleDateString('es-CR')}</td>
                       <td>
@@ -163,6 +167,7 @@ export function PlanRequestsPage() {
               </table>
             </div>
           )}
+          <Pagination {...pages} itemLabel="solicitudes" onPage={pages.setPage} />
         </section>
       )}
 

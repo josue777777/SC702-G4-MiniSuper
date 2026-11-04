@@ -15,8 +15,8 @@ import { kardexService } from '../services/kardex.service';
  * `InventoryMovement` (y, cuando exista HU-38, las recepciones de pedidos), que
  * guarda el stock antes y después de cada uno.
  *
- * El producto viaja en la dirección (`/kardex?productId=<uuid>`): se abre desde
- * Inventario con «Ver ficha» y se puede compartir o recargar. El id se verifica
+ * El producto viaja en la dirección (`/movimientos?productId=<uuid>`): se abre desde
+ * Inventario con «Ver movimientos» y se puede compartir o recargar. El id se verifica
  * antes de pedirlo al servidor.
  */
 export function KardexPage() {
@@ -41,7 +41,7 @@ export function KardexPage() {
   return (
     <>
       <header className="page-header">
-        <h1>Kardex</h1>
+        <h1>Movimientos</h1>
         <p>Entradas y salidas de cada producto, con el saldo después de cada movimiento.</p>
       </header>
 

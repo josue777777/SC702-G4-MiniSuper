@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ListSearch } from '../../components/ListSearch';
+import { matchesSearch } from '../../components/list-search';
+import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { usePagination } from '../../components/use-pagination';
 import { ApiError } from '../../services/api-client';
 import { customersService } from '../../services/sales.service';
 import type { Customer } from '../../types/sales';
@@ -8,6 +13,10 @@ import { formatMoney } from '../products/money';
  * Clientes mínimos para fiar (HU-18): crear un cliente, ver los activos y su
  * saldo (ventas a crédito − abonos). Editar, desactivar y registrar abonos son
  * de HU-19 / HU-30.
+ *
+ * La pantalla es de consulta: lista con buscador y páginas. El formulario no
+ * ocupa espacio hasta que se pide con «+ Nuevo cliente», y se abre en un modal
+ * (ver docs/PANTALLAS.md).
  */
 export function CustomersSection() {
   const [customers, setCustomers] = useState<Customer[] | null>(null);
@@ -17,6 +26,22 @@ export function CustomersSection() {
   const [formError, setFormError] = useState<string | null>(null);
   const [created, setCreated] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const visible = useMemo(
+    () =>
+      (customers ?? []).filter((customer) => matchesSearch(search, customer.name, customer.phone)),
+    [customers, search],
+  );
+  const pages = usePagination(visible, search);
+
+  function openForm(): void {
+    setName('');
+    setPhone('');
+    setFormError(null);
+    setCreated(null);
+    setFormOpen(true);
+  }
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -30,6 +55,13 @@ export function CustomersSection() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  function closeForm(): void {
+    // Mientras guarda no se cierra: el resultado debe verse.
+    if (!busy) {
+      setFormOpen(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -46,8 +78,7 @@ export function CustomersSection() {
     try {
       const customer = await customersService.create({ name: name.trim(), phone: phone.trim() });
 
-      setName('');
-      setPhone('');
+      setFormOpen(false);
       setCreated(`Cliente "${customer.name}" creado.`);
       await load();
     } catch (caught) {
@@ -58,55 +89,92 @@ export function CustomersSection() {
   }
 
   return (
-    <>
-      <section className="card">
-        <header className="card__header">
-          <h2>Nuevo cliente</h2>
-        </header>
-        <form className="form" onSubmit={(event) => void handleSubmit(event)} noValidate>
-          <div className="form__grid">
-            <div className="form__field">
-              <label htmlFor="customer-name">Nombre</label>
-              <input
-                id="customer-name"
-                value={name}
-                maxLength={120}
-                autoComplete="off"
-                onChange={(event) => setName(event.target.value)}
-              />
+    // Tres columnas: la lista no se estira a todo el ancho (docs/PANTALLAS.md).
+    <div className="list-narrow">
+      <div className="toolbar">
+        <ListSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por nombre o teléfono"
+          label="Buscar clientes"
+        />
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={customers === null}
+          onClick={openForm}
+        >
+          + Nuevo cliente
+        </button>
+      </div>
+
+      {created === null ? null : (
+        <p className="alert alert--success" role="status">
+          {created}
+          <button
+            type="button"
+            className="alert__close"
+            onClick={() => setCreated(null)}
+            aria-label="Cerrar aviso"
+          >
+            ×
+          </button>
+        </p>
+      )}
+
+      {formOpen ? (
+        <Modal title="Nuevo cliente" onClose={closeForm}>
+          <form className="form" onSubmit={(event) => void handleSubmit(event)} noValidate>
+            <div className="form__grid">
+              <div className="form__field">
+                <label htmlFor="customer-name">Nombre</label>
+                <input
+                  id="customer-name"
+                  value={name}
+                  maxLength={120}
+                  autoComplete="off"
+                  autoFocus
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </div>
+              <div className="form__field">
+                <label htmlFor="customer-phone">Teléfono (opcional)</label>
+                <input
+                  id="customer-phone"
+                  value={phone}
+                  maxLength={30}
+                  autoComplete="off"
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+              </div>
             </div>
-            <div className="form__field">
-              <label htmlFor="customer-phone">Teléfono (opcional)</label>
-              <input
-                id="customer-phone"
-                value={phone}
-                maxLength={30}
-                autoComplete="off"
-                onChange={(event) => setPhone(event.target.value)}
-              />
+            {formError === null ? null : (
+              <p className="form__error" role="alert">
+                {formError}
+              </p>
+            )}
+            <div className="form__actions">
+              <button type="submit" className="button button--primary" disabled={busy}>
+                {busy ? 'Guardando…' : 'Guardar cliente'}
+              </button>
+              <button type="button" className="button" disabled={busy} onClick={closeForm}>
+                Cancelar
+              </button>
             </div>
-          </div>
-          {formError === null ? null : (
-            <p className="form__error" role="alert">
-              {formError}
-            </p>
-          )}
-          {created === null ? null : (
-            <p className="alert alert--success" role="status">
-              {created}
-            </p>
-          )}
-          <div className="form__actions">
-            <button type="submit" className="button button--primary" disabled={busy}>
-              {busy ? 'Guardando…' : 'Guardar cliente'}
-            </button>
-          </div>
-        </form>
-      </section>
+          </form>
+        </Modal>
+      ) : null}
 
       <section className="card">
         <header className="card__header">
           <h2>Clientes y saldos</h2>
+          {customers === null ? null : (
+            <span className="muted">
+              {search === ''
+                ? `${customers.length} cliente(s)`
+                : `${visible.length} de ${customers.length} cliente(s)`}
+            </span>
+          )}
         </header>
 
         {loadError === null ? null : (
@@ -118,10 +186,13 @@ export function CustomersSection() {
           <p className="muted">Cargando clientes…</p>
         ) : null}
         {customers !== null && customers.length === 0 ? (
-          <p className="muted">Todavía no hay clientes registrados.</p>
+          <p className="muted">Todavía no hay clientes registrados. Use «+ Nuevo cliente».</p>
+        ) : null}
+        {customers !== null && customers.length > 0 && visible.length === 0 ? (
+          <p className="muted">Ningún cliente coincide con «{search}».</p>
         ) : null}
 
-        {customers !== null && customers.length > 0 ? (
+        {visible.length > 0 ? (
           <div className="table-wrapper">
             <table className="table" aria-label="Clientes">
               <thead>
@@ -132,7 +203,7 @@ export function CustomersSection() {
                 </tr>
               </thead>
               <tbody>
-                {customers.map((customer) => (
+                {pages.pageItems.map((customer) => (
                   <tr key={customer.id}>
                     <td>{customer.name}</td>
                     <td>{customer.phone ?? '—'}</td>
@@ -143,7 +214,9 @@ export function CustomersSection() {
             </table>
           </div>
         ) : null}
+
+        <Pagination {...pages} itemLabel="clientes" onPage={pages.setPage} />
       </section>
-    </>
+    </div>
   );
 }

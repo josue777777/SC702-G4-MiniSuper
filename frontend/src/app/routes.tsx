@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { RequirePermission } from '../features/auth/RequirePermission';
 import { RequireSession } from '../features/auth/RequireSession';
 import { useSession } from '../features/auth/session-context';
@@ -24,6 +24,17 @@ import type { Permission } from '../types/auth';
 /** Atajo para envolver una pantalla con el permiso que pide. */
 function only(permission: Permission, page: ReactNode) {
   return <RequirePermission permission={permission}>{page}</RequirePermission>;
+}
+
+/**
+ * La sección se llamaba «Kardex» y ahora es «Movimientos». Los enlaces viejos
+ * (`/kardex?productId=…`) siguen funcionando: llevan a la dirección nueva con
+ * el mismo producto.
+ */
+function OldKardexRedirect() {
+  const { search } = useLocation();
+
+  return <Navigate to={{ pathname: '/movimientos', search }} replace />;
 }
 
 /**
@@ -75,7 +86,8 @@ export function AppRoutes() {
         {/* Productos se muestra ahora dentro de Inventario. */}
         <Route path="/products" element={<Navigate to="/inventory" replace />} />
         <Route path="/inventory" element={only('inventory.read', <InventoryPage />)} />
-        <Route path="/kardex" element={only('kardex', <KardexPage />)} />
+        <Route path="/movimientos" element={only('kardex', <KardexPage />)} />
+        <Route path="/kardex" element={<OldKardexRedirect />} />
         <Route path="/sales" element={only('sales', <SalesPage />)} />
         <Route path="/customers" element={only('customers', <CustomersPage />)} />
         <Route path="/suppliers" element={only('purchasing', <SuppliersPage />)} />

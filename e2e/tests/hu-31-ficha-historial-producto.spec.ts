@@ -158,13 +158,13 @@ test.beforeEach(async ({ page }) => {
   coffeeId = await productIdOf('P001');
 });
 
-/** Entra a Inventario, busca el producto, lo marca y abre su ficha con «Ver ficha». */
+/** Entra a Inventario, busca el producto, lo marca y abre su ficha con «Ver movimientos». */
 async function openFromInventory(page: Page, search: string, code: string): Promise<void> {
   await page.goto('/inventory');
   await page.getByLabel('Buscar producto por nombre o código').fill(search);
   await expect(page.getByRole('row', { name: new RegExp(code) })).toBeVisible();
   await page.getByRole('row', { name: new RegExp(code) }).click();
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
 }
 
 const SHEET = 'Ficha de Café molido 500 g';
@@ -177,7 +177,7 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
   await openFromInventory(page, 'molido', 'P001');
 
   // Criterio 3: se llega desde la búsqueda y la dirección lleva el producto.
-  await expect(page).toHaveURL(new RegExp(`/kardex\\?productId=${coffeeId}$`));
+  await expect(page).toHaveURL(new RegExp(`/movimientos\\?productId=${coffeeId}$`));
 
   // Criterio 1: código, categoría, precio, costo, proveedor (y stock).
   const sheet = page.getByRole('region', { name: SHEET });
@@ -228,7 +228,7 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
 test('el ajuste que baja el stock es una salida y el que lo sube es una entrada; el saldo encadena', async ({
   page,
 }) => {
-  await page.goto(`/kardex?productId=${coffeeId}`);
+  await page.goto(`/movimientos?productId=${coffeeId}`);
 
   const rows = await readHistory(page);
 
@@ -251,14 +251,14 @@ test('el ajuste que baja el stock es una salida y el que lo sube es una entrada;
   expect(rows[0]?.[6]).toBe('8');
 });
 
-test('doble clic sigue abriendo la edición y «Ver ficha» pide primero elegir un producto', async ({
+test('doble clic sigue abriendo la edición y «Ver movimientos» pide primero elegir un producto', async ({
   page,
 }) => {
   await page.goto('/inventory');
   await expect(page.getByRole('row', { name: /P001/ })).toBeVisible();
 
   // Sin producto marcado: aviso claro, no navega.
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
   await expect(
     page
       .getByRole('status')
@@ -275,10 +275,10 @@ test('doble clic sigue abriendo la edición y «Ver ficha» pide primero elegir 
   await dialog.getByRole('button', { name: 'Cancelar' }).click();
   await expect(dialog).toBeHidden();
 
-  // Y marcar la fila con un clic simple sigue funcionando junto con «Ver ficha».
+  // Y marcar la fila con un clic simple sigue funcionando junto con «Ver movimientos».
   await page.getByRole('row', { name: /P001/ }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Seleccionado: P001' })).toBeVisible();
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 });
 
@@ -286,12 +286,12 @@ test('un producto sin movimientos muestra su ficha y el mensaje de que no hay hi
   page,
 }) => {
   // Sin producto en la dirección: aparece el selector, con búsqueda.
-  await page.goto('/kardex');
+  await page.goto('/movimientos');
   await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
   await page.getByLabel('Buscar producto por nombre o código').fill('arroz');
   await page.getByRole('button', { name: /P002 · Arroz 1 kg/ }).click();
 
-  await expect(page).toHaveURL(/\/kardex\?productId=/);
+  await expect(page).toHaveURL(/\/movimientos\?productId=/);
   await expect(page.getByRole('region', { name: 'Ficha de Arroz 1 kg' })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: HISTORY_EMPTY })).toBeVisible();
   await expect(page.getByRole('table', { name: 'Movimientos del producto' })).toHaveCount(0);
@@ -306,7 +306,7 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
   await page.goto('/inventory');
   await page.getByRole('button', { name: /Desactivados/ }).click();
   await page.getByRole('row', { name: /P003/ }).click();
-  await page.getByRole('button', { name: /Ver ficha/ }).click();
+  await page.getByRole('button', { name: /Ver movimientos/ }).click();
 
   const sheet = page.getByRole('region', { name: 'Ficha de Producto descontinuado' });
 
@@ -321,7 +321,7 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
 test('el selector encuentra productos desactivados y permite cambiar de producto', async ({
   page,
 }) => {
-  await page.goto(`/kardex?productId=${coffeeId}`);
+  await page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 
   await page.getByRole('button', { name: 'Elegir otro producto' }).click();
@@ -339,7 +339,7 @@ test('el selector encuentra productos desactivados y permite cambiar de producto
 test('un historial de más de una página se recorre completo, sin repetir ni omitir movimientos', async ({
   page,
 }) => {
-  await page.goto(`/kardex?productId=${await productIdOf('P004')}`);
+  await page.goto(`/movimientos?productId=${await productIdOf('P004')}`);
   await expect(page.getByText('60 movimientos')).toBeVisible();
   await expect(page.getByText('Página 1 de 3')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Anterior' })).toBeDisabled();
@@ -388,7 +388,7 @@ test('la ficha se ve y la pantalla responde aunque el historial tarde en llegar'
     await route.continue();
   });
 
-  await page.goto(`/kardex?productId=${coffeeId}`);
+  await page.goto(`/movimientos?productId=${coffeeId}`);
 
   // Criterio 5: la ficha ya está, el historial se anuncia como «cargando» y la página responde.
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
@@ -409,21 +409,21 @@ test('direcciones inválidas o de otro negocio muestran un error claro sin revel
   const foreignId = await seedOtherBusiness();
 
   // Id con forma inválida: se rechaza antes de pedirlo al servidor.
-  await page.goto('/kardex?productId=no-es-un-id');
+  await page.goto('/movimientos?productId=no-es-un-id');
   await expect(page.getByRole('alert')).toContainText(
     'El producto indicado en la dirección no es válido.',
   );
   await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
 
   // Id válido que no existe.
-  await page.goto(`/kardex?productId=${randomUUID()}`);
+  await page.goto(`/movimientos?productId=${randomUUID()}`);
   await expect(page.getByRole('alert')).toContainText(
     'El producto no existe o ya no está disponible.',
   );
   await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
 
   // Producto de OTRO negocio: igual que si no existiera.
-  await page.goto(`/kardex?productId=${foreignId}`);
+  await page.goto(`/movimientos?productId=${foreignId}`);
   await expect(page.getByRole('alert')).toContainText(
     'El producto no existe o ya no está disponible.',
   );
@@ -450,7 +450,7 @@ test('cada negocio ve solo su producto aunque compartan el código «P001»', as
   const foreignId = await seedOtherBusiness();
   const other = await openAs(browser, OTHER_OWNER);
 
-  await other.page.goto(`/kardex?productId=${foreignId}`);
+  await other.page.goto(`/movimientos?productId=${foreignId}`);
   await expect(
     other.page.getByRole('region', { name: 'Ficha de Producto del negocio ajeno' }),
   ).toBeVisible();
@@ -460,14 +460,14 @@ test('cada negocio ve solo su producto aunque compartan el código «P001»', as
   const foreign = await other.context.request.get(`${BACKEND_URL}/api/kardex/products/${coffeeId}`);
 
   expect(foreign.status()).toBe(404);
-  await other.page.goto(`/kardex?productId=${coffeeId}`);
+  await other.page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(other.page.getByRole('alert')).toContainText(
     'El producto no existe o ya no está disponible.',
   );
   await expect(other.page.getByText('Café molido 500 g')).toHaveCount(0);
   await other.context.close();
 
-  await page.goto(`/kardex?productId=${coffeeId}`);
+  await page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 });
 
@@ -479,7 +479,7 @@ async function statuses(request: APIRequestContext, productId: string): Promise<
   );
 }
 
-test('solo Encargado y Bodega usan el Kardex: Cajero, plataforma y sin sesión no', async ({
+test('solo Encargado y Bodega usan Movimientos: Cajero, plataforma y sin sesión no', async ({
   page,
   browser,
   request,
@@ -494,14 +494,14 @@ test('solo Encargado y Bodega usan el Kardex: Cajero, plataforma y sin sesión n
   await signInVia(request, E2E_ADMIN);
   expect(await statuses(request, coffeeId)).toEqual([403, 403, 403]);
 
-  // Cajera: consulta el inventario, pero no ve «Ver ficha», ni el Kardex, ni su API.
+  // Cajera: consulta el inventario, pero no ve «Ver movimientos», ni Movimientos, ni su API.
   const cajera = await openAs(browser, CAJERO);
 
   expect(await statuses(cajera.context.request, coffeeId)).toEqual([403, 403, 403]);
   await cajera.page.goto('/inventory');
   await expect(cajera.page.getByRole('row', { name: /P001/ })).toBeVisible();
-  await expect(cajera.page.getByRole('button', { name: /Ver ficha/ })).toHaveCount(0);
-  await cajera.page.goto(`/kardex?productId=${coffeeId}`);
+  await expect(cajera.page.getByRole('button', { name: /Ver movimientos/ })).toHaveCount(0);
+  await cajera.page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(cajera.page.getByRole('heading', { name: 'Acceso no permitido' })).toBeVisible();
   await expect(cajera.page.getByText('Café molido 500 g')).toHaveCount(0);
   await cajera.context.close();
@@ -516,11 +516,11 @@ test('solo Encargado y Bodega usan el Kardex: Cajero, plataforma y sin sesión n
   await bodeguero.context.close();
 
   // La Encargada (sesión abierta en `beforeEach`) también.
-  await page.goto(`/kardex?productId=${coffeeId}`);
+  await page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 });
 
-test('una venta real aparece en el historial y consultar el Kardex no cambia stock ni movimientos', async ({
+test('una venta real aparece en el historial y consultar Movimientos no cambia stock ni movimientos', async ({
   page,
 }) => {
   // Venta REAL por la API de caja (HU-16): 2 unidades de P001, tarjeta.
@@ -537,7 +537,7 @@ test('una venta real aparece en el historial y consultar el Kardex no cambia sto
 
   const before = await inventoryState();
 
-  await page.goto(`/kardex?productId=${coffeeId}`);
+  await page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(
     page
       .getByRole('region', { name: SHEET })
@@ -552,10 +552,24 @@ test('una venta real aparece en el historial y consultar el Kardex no cambia sto
   expect(rows[0]?.slice(1)).toEqual(['Venta #3', 'Venta #3', '—', '2', '8', '6']);
 
   // Recorrer fichas, historiales y el selector es solo lectura.
-  await page.goto(`/kardex?productId=${await productIdOf('P004')}`);
+  await page.goto(`/movimientos?productId=${await productIdOf('P004')}`);
   await page.getByRole('button', { name: 'Siguiente' }).click();
-  await page.goto('/kardex');
+  await page.goto('/movimientos');
   await page.reload();
 
   expect(await inventoryState()).toEqual(before);
+});
+
+test('la sección se llama «Movimientos» y la dirección vieja /kardex sigue llevando al mismo producto', async ({
+  page,
+}) => {
+  await page.goto(`/kardex?productId=${coffeeId}`);
+
+  await expect(page).toHaveURL(new RegExp(`/movimientos\\?productId=${coffeeId}$`));
+  await expect(page.getByRole('heading', { level: 1, name: 'Movimientos' })).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('link', {
+      name: 'Movimientos',
+    }),
+  ).toBeVisible();
 });
