@@ -145,14 +145,14 @@ test('solo cuentan los fiados cubiertos por abonos ligados, y el reporte se actu
   await seedPayment(scenario.customers.beto, '100.00', await saleIdByNumber(11));
   // Un abono ligado a la venta pero de OTRO cliente no vale.
   await seedPayment(scenario.customers.carla, '200.00', await saleIdByNumber(10));
-  await consult(page);
+  await consult(page, '↻ Actualizar');
 
   expect(await tileCents(page, 'Ganancia bruta')).toBe(457_090);
   expect(await tile(page, 'Fiados excluidos (pendientes)')).toBe('3');
 
   // El fiado de Zoila (#10, B1 ₡200 con costo ₡100) queda cubierto por SU abono ligado: suma ₡100.
   await seedPayment(scenario.customers.zoila, '200.00', await saleIdByNumber(10));
-  await consult(page);
+  await consult(page, '↻ Actualizar');
 
   expect(await tileCents(page, 'Ganancia bruta')).toBe(467_090);
   expect(await tile(page, 'Ventas consideradas')).toBe('6');
@@ -196,6 +196,7 @@ test('advierte, nombrando el producto, cuando una venta tiene costo ₡0', async
 
 test('valida las fechas con mensajes visibles', async ({ page }) => {
   await openReport(page, 'Ganancias');
+  await consult(page);
 
   const requests: string[] = [];
 
@@ -205,14 +206,18 @@ test('valida las fechas con mensajes visibles', async ({ page }) => {
     }
   });
 
+  // Los filtros se aplican solos: el error aparece al escribir y no se consulta.
   await setPeriod(page, '2024-03-31', '2024-03-01');
-  await page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
 
   await page.getByLabel('Hasta').fill('');
-  await page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
   await expect(page.getByText('Indique la fecha final.')).toBeVisible();
-  expect(requests).toEqual([]);
+  await expect(page.getByText('Revise los filtros')).toBeVisible();
+  // Se espera más que la pausa de aplicación automática: igual no debe consultar.
+  await page.waitForTimeout(800);
+  expect(requests.filter((url) => url.includes('to=2024-03-01') || /to=(&|$)/.test(url))).toEqual(
+    [],
+  );
 });
 
 test('exporta a Excel exactamente lo que se muestra, con las advertencias', async ({ page }) => {

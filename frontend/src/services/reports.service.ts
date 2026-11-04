@@ -1,4 +1,16 @@
-import type { ReportFilter, ReportKind, ReportOptions, ReportResult } from '../types/reports';
+import type { ExpirationAlert, LowStockAlert } from '../types/inventory';
+import type { Product } from '../types/products';
+import type {
+  InventoryReportOptions,
+  InventoryReportSection,
+  InventoryReportSummary,
+  PageOf,
+  ReportFilter,
+  ReportKind,
+  ReportOptions,
+  ReportRowsPage,
+  ReportSummary,
+} from '../types/reports';
 import { apiDownload, apiGet } from './api-client';
 
 interface DataResponse<T> {
@@ -6,8 +18,8 @@ interface DataResponse<T> {
 }
 
 /** Filtros de la petición: solo los que tienen valor (el servidor rechaza los desconocidos). */
-function queryOf(filter: ReportFilter): string {
-  const query = new URLSearchParams();
+function queryOf(filter: ReportFilter, extra: Record<string, string> = {}): string {
+  const query = new URLSearchParams(extra);
 
   for (const [key, value] of Object.entries(filter)) {
     if (value !== undefined && value !== '') {
@@ -30,9 +42,33 @@ export const reportsService = {
     return (await apiGet<DataResponse<ReportOptions>>('/api/reports/commercial/options')).data;
   },
 
-  async get(kind: ReportKind, filter: ReportFilter): Promise<ReportResult> {
+  /** El resumen: totales, avisos y gráficos, sin las filas. */
+  async get(kind: ReportKind, filter: ReportFilter): Promise<ReportSummary> {
     return (
-      await apiGet<DataResponse<ReportResult>>(`/api/reports/commercial/${kind}${queryOf(filter)}`)
+      await apiGet<DataResponse<ReportSummary>>(`/api/reports/commercial/${kind}${queryOf(filter)}`)
+    ).data;
+  },
+
+  /** Una página del detalle («Ver detalle»), con los mismos filtros. */
+  async rows(
+    kind: ReportKind,
+    filter: ReportFilter,
+    page: number,
+    pageSize: number,
+  ): Promise<ReportRowsPage> {
+    const query = queryOf(filter, { page: String(page), pageSize: String(pageSize) });
+
+    return (
+      await apiGet<DataResponse<ReportRowsPage>>(`/api/reports/commercial/${kind}/rows${query}`)
+    ).data;
+  },
+
+  /** Todas las filas: solo para el PDF, que es el documento completo. */
+  async allRows(kind: ReportKind, filter: ReportFilter): Promise<ReportRowsPage> {
+    const query = queryOf(filter, { all: 'true' });
+
+    return (
+      await apiGet<DataResponse<ReportRowsPage>>(`/api/reports/commercial/${kind}/rows${query}`)
     ).data;
   },
 
@@ -57,33 +93,83 @@ export const reportsService = {
     );
   },
 
+  /** Resumen del reporte de inventario: totales, gráficos y cuántas filas hay. */
+  async inventorySummary(options: InventoryReportOptions): Promise<InventoryReportSummary> {
+    return (
+      await apiGet<DataResponse<InventoryReportSummary>>(
+        `/api/reports/inventory?${inventoryQuery(options)}`,
+      )
+    ).data;
+  },
+
+  /** Una página de una sección del reporte de inventario («Ver detalle»). */
+  async inventoryRows<S extends InventoryReportSection>(
+    section: S,
+    options: InventoryReportOptions,
+    page: number,
+    pageSize: number,
+  ): Promise<PageOf<InventoryRow<S>>> {
+    const query = inventoryQuery(options, {
+      section,
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+
+    return (
+      await apiGet<DataResponse<PageOf<InventoryRow<S>>>>(`/api/reports/inventory/rows?${query}`)
+    ).data;
+  },
+
+  /** Todas las filas de una sección: solo para el PDF, que es el documento completo. */
+  async inventoryAllRows<S extends InventoryReportSection>(
+    section: S,
+    options: InventoryReportOptions,
+  ): Promise<InventoryRow<S>[]> {
+    const query = inventoryQuery(options, { section, all: 'true' });
+
+    return (
+      await apiGet<DataResponse<PageOf<InventoryRow<S>>>>(`/api/reports/inventory/rows?${query}`)
+    ).data.rows;
+  },
+
   /**
    * Excel del reporte de inventario (HU-25 / HU-40) con los mismos filtros,
    * columnas y secciones que se ven en Reportes › Inventario.
    */
-  exportInventory(options: {
-    categoryId: string;
-    sort: string;
-    columns: string[];
-    sections: string[];
-    expirations: string;
-    grouped: boolean;
-  }): Promise<{ blob: Blob; fileName: string }> {
-    const query = new URLSearchParams({
-      sort: options.sort,
+  exportInventory(
+    options: InventoryReportOptions & { columns: string[]; grouped: boolean },
+  ): Promise<{ blob: Blob; fileName: string }> {
+    const query = inventoryQuery(options, {
       columns: options.columns.join(','),
-      sections: options.sections.join(','),
-      expirations: options.expirations,
       grouped: String(options.grouped),
     });
 
-    if (options.categoryId !== '') {
-      query.set('categoryId', options.categoryId);
-    }
-
-    return apiDownload(
-      `/api/reports/inventory/export?${query.toString()}`,
-      'reporte-inventario.xlsx',
-    );
+    return apiDownload(`/api/reports/inventory/export?${query}`, 'reporte-inventario.xlsx');
   },
 };
+
+/** Qué trae cada sección del reporte de inventario. */
+export type InventoryRow<S extends InventoryReportSection> = S extends 'products'
+  ? Product
+  : S extends 'expirations'
+    ? ExpirationAlert
+    : LowStockAlert;
+
+/** Filtros del reporte de inventario como parámetros de la dirección. */
+function inventoryQuery(
+  options: InventoryReportOptions,
+  extra: Record<string, string> = {},
+): string {
+  const query = new URLSearchParams({
+    sort: options.sort,
+    sections: options.sections.join(','),
+    expirations: options.expirations,
+    ...extra,
+  });
+
+  if (options.categoryId !== '') {
+    query.set('categoryId', options.categoryId);
+  }
+
+  return query.toString();
+}

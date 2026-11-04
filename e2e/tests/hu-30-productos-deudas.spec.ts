@@ -154,7 +154,6 @@ test('el ranking respeta el período y vacío muestra su mensaje', async ({ page
   await expect(page.getByRole('table', { name: TOP })).toHaveCount(0);
 
   await setPeriod(page, '2024-05-31', '2024-05-01');
-  await page.getByRole('button', { name: 'Generar reporte', exact: true }).click();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
 });
 
@@ -213,7 +212,7 @@ test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', 
   });
 
   expect(sale.status()).toBe(201);
-  await consult(page, 'Actualizar');
+  await consult(page, '↻ Actualizar');
   expect(await tileCents(page, 'Total general de deudas')).toBe(660_000);
 
   const ana = async () =>
@@ -228,7 +227,7 @@ test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', 
 
   // Un abono general: no se reparte entre fiados, se descuenta en una línea aparte.
   await seedPayment(scenario.customers.ana, '1500.00');
-  await consult(page, 'Actualizar');
+  await consult(page, '↻ Actualizar');
   expect(await tileCents(page, 'Total general de deudas')).toBe(510_000);
   expect(await ana()).toEqual([
     ['#8', 100_000, 100_000],
@@ -238,7 +237,7 @@ test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', 
 
   // Un abono ligado al primer fiado lo cancela: su fila desaparece y el saldo del cliente baja.
   await seedPayment(scenario.customers.ana, '1000.00', await saleIdByNumber(8));
-  await consult(page, 'Actualizar');
+  await consult(page, '↻ Actualizar');
   expect(await tileCents(page, 'Total general de deudas')).toBe(410_000);
   expect(await ana()).toEqual([
     ['#14', 500_000, 500_000],

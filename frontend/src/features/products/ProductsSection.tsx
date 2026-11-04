@@ -351,9 +351,6 @@ export function ProductsSection({
             aria-label="Buscar producto por nombre o código"
             maxLength={120}
           />
-          <button type="submit" className="button button--dark">
-            Buscar
-          </button>
           {searchInput !== '' || searchTerm !== '' ? (
             <button type="button" className="button" onClick={() => handleSearchInputChange('')}>
               Limpiar
@@ -361,7 +358,7 @@ export function ProductsSection({
           ) : null}
         </form>
         <label className="toolbar__filter">
-          Categoría{' '}
+          <span>Categoría</span>
           <select
             value={categoryFilter}
             onChange={(event) => handleCategorySelect(event.target.value)}

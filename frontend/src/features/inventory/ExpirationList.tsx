@@ -68,18 +68,18 @@ export function ExpirationList({
 
       {showFilter && alerts.length > 0 ? (
         <div className="toolbar no-print">
-          <label htmlFor="expiration-filter" className="muted">
-            Mostrar:{' '}
+          <label htmlFor="expiration-filter" className="toolbar__filter">
+            <span>Mostrar</span>
+            <select
+              id="expiration-filter"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value as Filter)}
+            >
+              <option value="ALL">Todos</option>
+              <option value="EXPIRED">Vencidos</option>
+              <option value="EXPIRING_SOON">Próximos a vencer</option>
+            </select>
           </label>
-          <select
-            id="expiration-filter"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value as Filter)}
-          >
-            <option value="ALL">Todos</option>
-            <option value="EXPIRED">Vencidos</option>
-            <option value="EXPIRING_SOON">Próximos a vencer</option>
-          </select>
           <button
             type="button"
             className="button"

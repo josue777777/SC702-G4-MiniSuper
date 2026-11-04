@@ -1,14 +1,23 @@
-import { Pagination } from '../../components/Pagination';
-import { usePagination } from '../../components/use-pagination';
-import type { ReportColumn, ReportKind, ReportResult, ReportTotal } from '../../types/reports';
+import { useState } from 'react';
+import type {
+  ReportColumn,
+  ReportFilter,
+  ReportKind,
+  ReportSummary,
+  ReportTotal,
+} from '../../types/reports';
 import { ReportActions } from './ReportActions';
 import { ReportChartView } from './ReportChartView';
-import { chartsFor } from './report-charts';
+import { ReportDetail } from './ReportDetail';
 import { formatReportMoney } from './report-format';
 import type { ExportNotice } from './use-commercial-report';
 
 interface ReportResultViewProps {
-  report: ReportResult;
+  report: ReportSummary;
+  /** Filtros con que se generó: «Ver detalle» pide sus páginas con los mismos. */
+  filter: ReportFilter;
+  /** Se está consultando con filtros nuevos: este resultado queda atenuado. */
+  updating?: boolean;
   /** Columnas que el usuario dejó activas al personalizar (HU-40). */
   columns: ReportColumn[];
   exporting: boolean;
@@ -37,6 +46,8 @@ const DESCRIPTIONS: Record<ReportKind, string> = {
  */
 export function ReportResultView({
   report,
+  filter,
+  updating = false,
   columns,
   exporting,
   notice,
@@ -45,14 +56,18 @@ export function ReportResultView({
   onCustomize,
   onDismissNotice,
 }: ReportResultViewProps) {
-  // En pantalla, de 20 en 20; el PDF y el Excel llevan todas las filas.
-  const pages = usePagination(report.rows, report.generatedAt);
   const appliedFilters = report.filters.filter((filter) => filter.isDefault !== true);
   const primary = report.totals.filter((total) => total.primary === true);
   const secondary = report.totals.filter((total) => total.primary !== true);
+  // Abierto o cerrado se recuerda aquí: al aplicar un filtro el detalle se
+  // vuelve a pedir, pero no se cierra en la cara del usuario.
+  const [detailOpen, setDetailOpen] = useState(false);
 
   return (
-    <div className="report-result">
+    <div
+      className={`report-result${updating ? ' report-result--updating' : ''}`}
+      aria-busy={updating}
+    >
       <header className="report-result__header">
         <div>
           <h3>{report.title}</h3>
@@ -61,9 +76,7 @@ export function ReportResultView({
         <ReportActions
           title={report.title}
           emptyReason={
-            report.rows.length === 0
-              ? 'Sin datos: no hay nada que exportar con estos filtros.'
-              : null
+            report.rowCount === 0 ? 'Sin datos: no hay nada que exportar con estos filtros.' : null
           }
           exportingExcel={exporting}
           onPdf={onPdf}
@@ -138,7 +151,7 @@ export function ReportResultView({
         </details>
       </details>
 
-      {report.rows.length === 0 ? (
+      {report.rowCount === 0 ? (
         <p className="muted" role="status">
           {report.emptyMessage}
         </p>
@@ -146,59 +159,24 @@ export function ReportResultView({
         <>
           {/* En pantalla, lo que ayuda a decidir: gráficos. El detalle va a pedido. */}
           <div className="report-charts">
-            {chartsFor(report.kind, report.rows).map((chart) => (
+            {report.charts.map((chart) => (
               <ReportChartView key={chart.id} chart={chart} />
             ))}
           </div>
 
-          <details className="disclosure report-detail">
-            <summary>Ver detalle ({report.rows.length} filas)</summary>
-            <div className="table-wrapper">
-              <table className="table table--compact" aria-label={report.title}>
-                <thead>
-                  <tr>
-                    {columns.map((column) => (
-                      <th
-                        key={column.key}
-                        className={isNumeric(report, column.key) ? 'table__number' : undefined}
-                      >
-                        {column.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pages.pageItems.map((row, index) => (
-                    <tr key={index}>
-                      {columns.map((column) => (
-                        <td
-                          key={column.key}
-                          className={isNumeric(report, column.key) ? 'table__number' : undefined}
-                        >
-                          {column.money === true
-                            ? formatReportMoney(row[column.key] ?? '')
-                            : (row[column.key] ?? '')}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Pagination {...pages} itemLabel="filas" onPage={pages.setPage} />
-            <p className="muted">El PDF y el Excel llevan todas las filas.</p>
-          </details>
+          {/* Las filas se piden al abrir el detalle, de a una página. */}
+          <ReportDetail
+            key={report.generatedAt}
+            report={report}
+            filter={filter}
+            columns={columns}
+            open={detailOpen}
+            onOpenChange={setDetailOpen}
+          />
         </>
       )}
     </div>
   );
-}
-
-/** Importes y cantidades se alinean a la derecha. */
-function isNumeric(report: ReportResult, key: string): boolean {
-  const column = report.columns.find((entry) => entry.key === key);
-
-  return column?.money === true || report.rows.some((row) => typeof row[key] === 'number');
 }
 
 function formatTotal(total: ReportTotal): string | number {

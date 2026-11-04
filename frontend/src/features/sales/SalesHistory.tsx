@@ -59,7 +59,7 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
         <h2 id="sales-history-title">Historial de ventas</h2>
         <div className="row-actions">
           <label className="toolbar__filter">
-            Día (Costa Rica)
+            <span>Día (Costa Rica)</span>
             <input
               type="date"
               aria-label="Día del historial"
@@ -74,7 +74,7 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
             />
           </label>
           <label className="toolbar__filter">
-            Método de pago
+            <span>Método de pago</span>
             <select
               aria-label="Filtrar por método de pago"
               value={filter}
@@ -91,8 +91,14 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
               ))}
             </select>
           </label>
-          <button type="button" className="button" onClick={() => setAttempt(attempt + 1)}>
-            Actualizar historial
+          <button
+            type="button"
+            className="button"
+            aria-label="Actualizar historial"
+            title="Volver a consultar el día"
+            onClick={() => setAttempt(attempt + 1)}
+          >
+            ↻ Actualizar
           </button>
         </div>
       </header>

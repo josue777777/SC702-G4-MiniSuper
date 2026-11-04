@@ -174,31 +174,6 @@ export function visibleColumns(keys: ReportColumnKey[]): ReportColumn[] {
   return REPORT_COLUMNS.filter((column) => chosen.has(column.key));
 }
 
-export function sortProducts(products: Product[], sort: ReportSort): Product[] {
-  const byName = (a: Product, b: Product) => a.name.localeCompare(b.name, 'es');
-  const sorted = [...products];
-
-  switch (sort) {
-    case 'code':
-      // Orden natural: «P2» antes que «P10», como lo leería una persona.
-      return sorted.sort((a, b) =>
-        a.code.localeCompare(b.code, 'es', { numeric: true, sensitivity: 'base' }),
-      );
-    case 'name':
-      return sorted.sort(byName);
-    case 'stockAsc':
-      return sorted.sort((a, b) => a.stock - b.stock || byName(a, b));
-    case 'valueDesc':
-      return sorted.sort(
-        (a, b) => toCents(b.cost) * b.stock - toCents(a.cost) * a.stock || byName(a, b),
-      );
-    default:
-      return sorted.sort(
-        (a, b) => a.categoryName.localeCompare(b.categoryName, 'es') || byName(a, b),
-      );
-  }
-}
-
 /** Un bloque de la tabla: una categoría, o todo junto (`title` en `null`). */
 export interface ProductGroup {
   key: string;
@@ -229,50 +204,6 @@ export function summarize(products: Product[]): string {
   const cents = products.reduce((sum, product) => sum + toCents(product.cost) * product.stock, 0);
 
   return `${products.length} producto(s) · ${units} unidad(es) · valor al costo ${formatMoney((cents / 100).toFixed(2))}`;
-}
-
-/** Totales del inventario para el resumen de la pantalla. */
-export function inventoryTotals(products: Product[]): {
-  count: number;
-  units: number;
-  value: string;
-} {
-  const units = products.reduce((sum, product) => sum + product.stock, 0);
-  const cents = products.reduce((sum, product) => sum + toCents(product.cost) * product.stock, 0);
-
-  return { count: products.length, units, value: (cents / 100).toFixed(2) };
-}
-
-/** Valor al costo por categoría, de mayor a menor (para el gráfico). */
-export function valueByCategory(
-  products: Product[],
-): { key: string; label: string; value: number }[] {
-  const totals = new Map<string, number>();
-
-  for (const product of products) {
-    totals.set(
-      product.categoryName,
-      (totals.get(product.categoryName) ?? 0) + (toCents(product.cost) * product.stock) / 100,
-    );
-  }
-
-  return [...totals.entries()]
-    .map(([label, value]) => ({ key: label, label, value }))
-    .sort((a, b) => b.value - a.value);
-}
-
-/** Cuántos productos hay agotados, en su mínimo y con stock suficiente. */
-export function stockStatus(products: Product[]): { key: string; label: string; value: number }[] {
-  const out = products.filter((product) => product.stock === 0).length;
-  const atMinimum = products.filter(
-    (product) => product.stock > 0 && product.minStock > 0 && product.stock <= product.minStock,
-  ).length;
-
-  return [
-    { key: 'ok', label: 'Con stock suficiente', value: products.length - out - atMinimum },
-    { key: 'min', label: 'En su mínimo o debajo', value: atMinimum },
-    { key: 'out', label: 'Agotados', value: out },
-  ];
 }
 
 /** Qué parte de los vencimientos se incluye. */
