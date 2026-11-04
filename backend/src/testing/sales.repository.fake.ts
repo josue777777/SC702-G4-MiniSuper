@@ -16,6 +16,7 @@ import type {
   SaleSummaryDto,
 } from '../types/sales.js';
 import { formatCents, toCents } from '../utils/money.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /** Dobles de repositorio de ventas y clientes para los tests (sin base de datos). */
 
@@ -41,6 +42,8 @@ export function buildSaleProduct(overrides: Partial<SaleProductDto> = {}): SaleP
 }
 
 export class FakeSalesRepository implements SalesRepository {
+  readonly businessId = TEST_BUSINESS_ID;
+
   /** Planes recibidos por `createSale`. */
   readonly plans: CreateSalePlan[] = [];
   /** Fuerza un rechazo del repositorio (p. ej. otra venta se llevó el stock). */
@@ -315,6 +318,7 @@ export class FakeSalesRepository implements SalesRepository {
 }
 
 export class FakeCustomersRepository implements CustomersRepository {
+  readonly businessId = TEST_BUSINESS_ID;
   readonly created: CreateCustomerFields[] = [];
   /** Totales de crédito y abonos por cliente. */
   readonly totals = new Map<string, CreditTotals>();

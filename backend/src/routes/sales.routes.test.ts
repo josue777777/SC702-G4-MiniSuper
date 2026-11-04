@@ -15,6 +15,7 @@ import {
 } from '../testing/sales.repository.fake.js';
 import { createCustomersRouter } from './customers.routes.js';
 import { createSalesRouter } from './sales.routes.js';
+import { fakeSession } from '../testing/fake-session.js';
 
 /** Ventas, método de pago y fiado (HU-16, HU-17, HU-18): rutas reales con repositorios falsos. */
 
@@ -24,8 +25,19 @@ function buildApp() {
   const app = express();
 
   app.use(express.json());
-  app.use('/api/sales', createSalesRouter(sales, customers));
-  app.use('/api/customers', createCustomersRouter(customers));
+  app.use(
+    '/api/sales',
+    fakeSession(),
+    createSalesRouter(
+      () => sales,
+      () => customers,
+    ),
+  );
+  app.use(
+    '/api/customers',
+    fakeSession(),
+    createCustomersRouter(() => customers),
+  );
   app.use(errorHandler);
 
   return { app, sales, customers };

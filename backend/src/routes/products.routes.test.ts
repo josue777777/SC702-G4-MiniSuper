@@ -11,6 +11,7 @@ import {
 } from '../testing/products.repository.fake.js';
 import { errorHandler } from '../middleware/error-handler.middleware.js';
 import { createProductsRouter } from './products.routes.js';
+import { fakeSession } from '../testing/fake-session.js';
 
 /**
  * Pruebas de las rutas REALES (routes → controller → service → repositorio
@@ -23,7 +24,11 @@ import { createProductsRouter } from './products.routes.js';
 function buildApp(repository = new FakeProductsRepository()) {
   const app = express();
   app.use(express.json());
-  app.use('/api/products', createProductsRouter(repository));
+  app.use(
+    '/api/products',
+    fakeSession(),
+    createProductsRouter(() => repository),
+  );
   app.use(errorHandler);
 
   return { app, repository };
@@ -124,7 +129,6 @@ describe('GET /api/products/form-options', () => {
         suppliers: [{ id: SUPPLIER_ID, name: 'Distribuidora Central' }],
       },
     });
-
   });
 
   it('responde 200 con arreglos vacíos si todavía no hay datos de apoyo', async () => {

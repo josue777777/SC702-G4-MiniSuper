@@ -13,6 +13,7 @@ import {
 import { sanitizeCell } from '../utils/catalog-xlsx.js';
 import { todayInBusinessZone } from '../utils/dates.js';
 import { createProductsRouter } from './products.routes.js';
+import { fakeSession } from '../testing/fake-session.js';
 
 /** Exportación del catálogo a Excel (HU-33): ruta real, repositorio falso, archivo leído de vuelta. */
 
@@ -21,7 +22,11 @@ const OTHER_CATEGORY_ID = '22222222-9999-4999-8999-999999999999';
 function buildApp(repository: FakeProductsRepository) {
   const app = express();
   app.use(express.json());
-  app.use('/api/products', createProductsRouter(repository));
+  app.use(
+    '/api/products',
+    fakeSession(),
+    createProductsRouter(() => repository),
+  );
   app.use(errorHandler);
 
   return app;

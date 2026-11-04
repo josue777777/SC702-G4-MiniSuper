@@ -6,11 +6,16 @@ import { emailSchema, nameSchema } from './auth.validator.js';
 
 const roleSchema = z.enum(ROLES, { error: 'Elija un rol válido.' });
 
-/** Cuerpo de `POST /api/users`. La contraseña temporal la genera el servidor. */
+/**
+ * Cuerpo de `POST /api/users`. La contraseña temporal la genera el servidor.
+ * `businessId` solo lo usa el Administrador al crear un Encargado; el
+ * Encargado crea siempre en su propio negocio (el de su sesión).
+ */
 export const createUserSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   role: roleSchema,
+  businessId: z.uuid({ error: 'El negocio indicado no es válido.' }).optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;

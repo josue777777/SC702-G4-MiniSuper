@@ -81,13 +81,18 @@ function toInventoryCountDto(row: CountRow): InventoryCountDto {
  * movimiento corresponde y este repositorio lo persiste, junto con el cambio de
  * stock, en una sola transacción.
  *
+ * Atado a UN negocio: solo ve y cambia productos y movimientos de ese negocio
+ * (multi-negocio, ADR 0002).
+ *
  * Sin miembros privados, para poder sustituirlo por un doble en las pruebas.
  */
 export class InventoryRepository {
-  /** Stock actual de un producto, o `null` si el producto no existe. */
+  constructor(readonly businessId: string) {}
+
+  /** Stock actual de un producto del negocio, o `null` si no existe en él. */
   async findProductStock(productId: string): Promise<{ id: string; stock: number } | null> {
-    return prisma.product.findUnique({
-      where: { id: productId },
+    return prisma.product.findFirst({
+      where: { id: productId, businessId: this.businessId },
       select: { id: true, stock: true },
     });
   }
@@ -99,10 +104,14 @@ export class InventoryRepository {
    */
   async createCount(plan: CreateInventoryCountPlan): Promise<InventoryCountDto> {
     const row = await prisma.$transaction(async (tx) => {
-      await tx.product.update({
-        where: { id: plan.productId },
+      const changed = await tx.product.updateMany({
+        where: { id: plan.productId, businessId: this.businessId },
         data: { stock: plan.movement.stockAfter },
       });
+
+      if (changed.count === 0) {
+        throw new Error(`El producto ${plan.productId} no es de este negocio.`);
+      }
 
       return tx.inventoryMovement.create({
         data: { productId: plan.productId, ...plan.movement },
@@ -121,7 +130,7 @@ export class InventoryRepository {
    */
   async listCounts(reason: string): Promise<InventoryCountDto[]> {
     const rows = await prisma.inventoryMovement.findMany({
-      where: { type: 'ADJUSTMENT', reason },
+      where: { type: 'ADJUSTMENT', reason, product: { businessId: this.businessId } },
       select: countSelection,
       orderBy: { createdAt: 'desc' },
     });
@@ -136,7 +145,7 @@ export class InventoryRepository {
    */
   async listStockLevels(): Promise<StockLevel[]> {
     const rows = await prisma.product.findMany({
-      where: { isActive: true },
+      where: { businessId: this.businessId, isActive: true },
       select: { id: true, code: true, name: true, stock: true, minStock: true },
       orderBy: { name: 'asc' },
     });
@@ -153,7 +162,7 @@ export class InventoryRepository {
   /** Mínimo y vencimiento de los productos activos (HU-08, HU-09). */
   async listProductSettings(): Promise<ProductStockSettingsDto[]> {
     const rows = await prisma.product.findMany({
-      where: { isActive: true },
+      where: { businessId: this.businessId, isActive: true },
       select: settingsSelection,
       orderBy: { name: 'asc' },
     });
@@ -163,8 +172,8 @@ export class InventoryRepository {
 
   /** Configuración de un producto, o `null` si no existe. */
   async findProductSettings(productId: string): Promise<ProductStockSettingsDto | null> {
-    const row = await prisma.product.findUnique({
-      where: { id: productId },
+    const row = await prisma.product.findFirst({
+      where: { id: productId, businessId: this.businessId },
       select: settingsSelection,
     });
 
@@ -173,13 +182,7 @@ export class InventoryRepository {
 
   /** Guarda el mínimo de stock (HU-08). No cambia el stock, así que no genera movimiento. */
   async updateMinStock(productId: string, minStock: number): Promise<ProductStockSettingsDto> {
-    const row = await prisma.product.update({
-      where: { id: productId },
-      data: { minStock },
-      select: settingsSelection,
-    });
-
-    return toSettingsDto(row);
+    return this.updateSettings(productId, { minStock });
   }
 
   /** Guarda o quita (`null`) la fecha de vencimiento (HU-09). */
@@ -187,12 +190,27 @@ export class InventoryRepository {
     productId: string,
     expirationDate: string | null,
   ): Promise<ProductStockSettingsDto> {
-    const row = await prisma.product.update({
-      where: { id: productId },
-      data: { expirationDate: expirationDate === null ? null : dateOnlyToDate(expirationDate) },
-      select: settingsSelection,
+    return this.updateSettings(productId, {
+      expirationDate: expirationDate === null ? null : dateOnlyToDate(expirationDate),
+    });
+  }
+
+  /** Cambia la configuración de un producto SOLO si es de este negocio. */
+  async updateSettings(
+    productId: string,
+    data: { minStock?: number; expirationDate?: Date | null },
+  ): Promise<ProductStockSettingsDto> {
+    await prisma.product.updateMany({
+      where: { id: productId, businessId: this.businessId },
+      data,
     });
 
-    return toSettingsDto(row);
+    const updated = await this.findProductSettings(productId);
+
+    if (updated === null) {
+      throw new Error(`El producto ${productId} no es de este negocio.`);
+    }
+
+    return updated;
   }
 }

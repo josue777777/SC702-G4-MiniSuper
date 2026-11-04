@@ -121,7 +121,9 @@ export function InventoryCountForm({ products, busy, onConfirm }: InventoryCount
             </div>
             {scanMessage === null ? null : (
               <p
-                className={scanMessage.startsWith('Producto identificado') ? 'muted hint' : 'form__error'}
+                className={
+                  scanMessage.startsWith('Producto identificado') ? 'muted hint' : 'form__error'
+                }
                 role="status"
               >
                 {scanMessage}

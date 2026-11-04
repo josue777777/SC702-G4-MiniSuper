@@ -2,17 +2,19 @@ import { Router } from 'express';
 import { InventoryController } from '../controllers/inventory.controller.js';
 import { InventoryRepository } from '../repositories/inventory.repository.js';
 import { InventoryService } from '../services/inventory.service.js';
+import type { ForBusiness } from '../types/tenant.js';
 
 /**
  * Rutas del módulo de inventario. Igual que en productos, se exponen la fábrica
  * (para montarla con un repositorio falso en las pruebas) y el router compuesto.
  */
 export function createInventoryRouter(
-  repository: InventoryRepository,
+  repositoryFor: ForBusiness<InventoryRepository>,
   today?: () => string,
 ): Router {
-  const inventoryService = new InventoryService(repository, today);
-  const inventoryController = new InventoryController(inventoryService);
+  const inventoryController = new InventoryController(
+    (businessId) => new InventoryService(repositoryFor(businessId), today),
+  );
   const router = Router();
 
   /** Historial de conteos físicos (HU-10). */
@@ -43,4 +45,6 @@ export function createInventoryRouter(
 }
 
 /** Composición de dependencias de producción. */
-export const inventoryRouter = createInventoryRouter(new InventoryRepository());
+export const inventoryRouter = createInventoryRouter(
+  (businessId) => new InventoryRepository(businessId),
+);

@@ -120,7 +120,9 @@ export function BarcodeLabel({ product, onClose, onReplace }: BarcodeLabelProps)
     const printWindow = window.open('', '_blank');
 
     if (printWindow === null) {
-      setPrintError('El navegador bloqueó la ventana de impresión. Permita las ventanas emergentes e intente de nuevo.');
+      setPrintError(
+        'El navegador bloqueó la ventana de impresión. Permita las ventanas emergentes e intente de nuevo.',
+      );
 
       return;
     }
@@ -135,15 +137,14 @@ export function BarcodeLabel({ product, onClose, onReplace }: BarcodeLabelProps)
     <Modal title={`Código de barras · ${product.name}`} onClose={onClose}>
       <div className="barcode-label">
         <p className="barcode-label__name">{product.name}</p>
-        <div
-          className="barcode-label__graphic"
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
+        <div className="barcode-label__graphic" dangerouslySetInnerHTML={{ __html: svg }} />
         <p className="barcode-label__digits">{barcode}</p>
-        <p className="muted hint">
-          Código EAN-13 interno. No es un código comercial registrado.
-        </p>
-        {printError === null ? null : <p className="form__error" role="alert">{printError}</p>}
+        <p className="muted hint">Código EAN-13 interno. No es un código comercial registrado.</p>
+        {printError === null ? null : (
+          <p className="form__error" role="alert">
+            {printError}
+          </p>
+        )}
       </div>
       <div className="form__actions modal__actions">
         <button type="button" className="button button--dark" onClick={printLabel}>

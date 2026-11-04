@@ -1,5 +1,6 @@
 import type { SuppliersRepository } from '../repositories/suppliers.repository.js';
 import type { SupplierDto, SupplierWritableFields } from '../types/suppliers.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /**
  * Doble de repositorio de proveedores (HU-21). Guarda los proveedores en
@@ -42,6 +43,8 @@ export function buildSupplier(overrides: Partial<SupplierDto> = {}): SupplierDto
 }
 
 export class FakeSuppliersRepository implements SuppliersRepository {
+  readonly businessId = TEST_BUSINESS_ID;
+
   readonly created: SupplierWritableFields[] = [];
   readonly updated: { id: string; fields: SupplierWritableFields }[] = [];
 

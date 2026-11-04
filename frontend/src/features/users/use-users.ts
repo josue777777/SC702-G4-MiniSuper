@@ -7,6 +7,7 @@ import type {
   UserListItem,
   UserWithTemporaryPassword,
 } from '../../types/auth';
+import { useBusiness } from '../business/business-context';
 import type { Notice } from '../products/use-products';
 
 interface UsersState {
@@ -34,6 +35,8 @@ export function useUsers() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
   const [reveal, setReveal] = useState<TemporaryPasswordReveal | null>(null);
+  /** Los cupos del plan cambian al crear, activar o desactivar: se vuelven a leer. */
+  const { reload: reloadBusiness } = useBusiness();
 
   const load = useCallback(async () => {
     try {
@@ -55,7 +58,7 @@ export function useUsers() {
 
       try {
         onDone(await action());
-        await load();
+        await Promise.all([load(), reloadBusiness()]);
 
         return true;
       } catch (error) {
@@ -66,7 +69,7 @@ export function useUsers() {
         setBusy(false);
       }
     },
-    [load],
+    [load, reloadBusiness],
   );
 
   const showPassword = useCallback(

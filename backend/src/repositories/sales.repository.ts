@@ -16,6 +16,7 @@ import type {
   SaleSummaryDto,
 } from '../types/sales.js';
 import { formatCents, toCents } from '../utils/money.js';
+import { nextDocumentNumber } from './document-sequence.js';
 
 type Money = { toFixed(digits: number): string };
 
@@ -179,13 +180,19 @@ function isUniqueViolation(error: unknown): boolean {
 /**
  * Capa de acceso a datos de las ventas (HU-16, HU-17, HU-18).
  *
+ * Atada a UN negocio (multi-negocio, ADR 0002): solo vende, consulta y ajusta
+ * ventas y productos de ese negocio. En el SQL directo el negocio va dentro del
+ * mismo `UPDATE`, así un id de otro negocio no descuenta nada.
+ *
  * Sin miembros privados a propósito: el service se prueba con un doble.
  */
 export class SalesRepository {
+  constructor(readonly businessId: string) {}
+
   /** Producto por código interno o código de barras, activo o no (el service decide). */
   async findProductByCode(code: string): Promise<SaleProductDto | null> {
     const row = await prisma.product.findFirst({
-      where: { OR: [{ code }, { barcode: code }] },
+      where: { businessId: this.businessId, OR: [{ code }, { barcode: code }] },
       select: productSelection,
     });
 
@@ -194,7 +201,7 @@ export class SalesRepository {
 
   async findProductsByIds(ids: string[]): Promise<SaleProductDto[]> {
     const rows = await prisma.product.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, businessId: this.businessId },
       select: productSelection,
     });
 
@@ -202,21 +209,27 @@ export class SalesRepository {
   }
 
   async findCustomerRef(id: string): Promise<CustomerRef | null> {
-    return prisma.customer.findUnique({
-      where: { id },
+    return prisma.customer.findFirst({
+      where: { id, businessId: this.businessId },
       select: { id: true, name: true, isActive: true },
     });
   }
 
   async findById(id: string): Promise<SaleRecord | null> {
-    const row = await prisma.sale.findUnique({ where: { id }, select: saleSelection });
+    const row = await prisma.sale.findFirst({
+      where: { id, businessId: this.businessId },
+      select: saleSelection,
+    });
 
     return row === null ? null : toSale(row);
   }
 
   async list(filter: SaleListFilter): Promise<SaleSummaryDto[]> {
     const rows = await prisma.sale.findMany({
-      where: filter.paymentMethod === undefined ? {} : { paymentMethod: filter.paymentMethod },
+      where: {
+        businessId: this.businessId,
+        ...(filter.paymentMethod === undefined ? {} : { paymentMethod: filter.paymentMethod }),
+      },
       orderBy: { createdAt: 'desc' },
       take: filter.limit,
       select: {
@@ -247,7 +260,7 @@ export class SalesRepository {
   async dailySummary(startAt: Date, endAt: Date): Promise<DailySalesSummaryDto> {
     const groups = await prisma.sale.groupBy({
       by: ['paymentMethod'],
-      where: { createdAt: { gte: startAt, lt: endAt } },
+      where: { businessId: this.businessId, createdAt: { gte: startAt, lt: endAt } },
       _sum: { total: true },
       _count: { _all: true },
     });
@@ -277,7 +290,9 @@ export class SalesRepository {
   async adjustSale(plan: SaleAdjustmentPlan): Promise<SaleAdjustmentOutcome> {
     return prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<{ id: string }[]>`
-        SELECT id FROM "Sale" WHERE id = ${plan.saleId}::uuid FOR UPDATE`;
+        SELECT id FROM "Sale"
+        WHERE id = ${plan.saleId}::uuid AND "businessId" = ${this.businessId}::uuid
+        FOR UPDATE`;
 
       if (locked.length === 0) {
         return { ok: false, reason: 'NOT_FOUND' };
@@ -378,7 +393,7 @@ export class SalesRepository {
         const rows = await tx.$queryRaw<{ stock: number }[]>`
           UPDATE "Product"
           SET stock = stock + ${item.quantity}, "updatedAt" = now()
-          WHERE id = ${item.productId}::uuid
+          WHERE id = ${item.productId}::uuid AND "businessId" = ${this.businessId}::uuid
           RETURNING stock`;
         const updated = rows[0];
 
@@ -435,8 +450,11 @@ export class SalesRepository {
    * - Stock: `UPDATE … WHERE stock >= cantidad` es atómico; dos ventas del
    *   último producto no pueden dejarlo en negativo (la segunda espera el
    *   bloqueo de la fila, relee el stock y no cumple la condición).
-   * - Duplicados: `idempotencyKey` es único. Si la llave ya existe, la venta
-   *   original se devuelve (`created: false`) sin descontar de nuevo.
+   * - Duplicados: `idempotencyKey` es único por negocio. Si la llave ya
+   *   existe, la venta original se devuelve (`created: false`) sin descontar
+   *   de nuevo.
+   * - Número: el consecutivo del negocio se toma en la misma transacción; si
+   *   la venta no se guarda, el número no se gasta.
    * - Las líneas se procesan ordenadas por producto para evitar interbloqueos.
    */
   async createSale(plan: CreateSalePlan): Promise<CreateSaleOutcome> {
@@ -444,6 +462,8 @@ export class SalesRepository {
       const sale = await prisma.$transaction(async (tx) => {
         const created = await tx.sale.create({
           data: {
+            businessId: this.businessId,
+            number: await nextDocumentNumber(tx, this.businessId, 'SALE'),
             paymentMethod: plan.paymentMethod,
             total: plan.total,
             cashReceived: plan.cashReceived,
@@ -457,13 +477,14 @@ export class SalesRepository {
           const rows = await tx.$queryRaw<{ stock: number; price: string; cost: string }[]>`
             UPDATE "Product"
             SET stock = stock - ${item.quantity}, "updatedAt" = now()
-            WHERE id = ${item.productId}::uuid AND "isActive" = true AND stock >= ${item.quantity}
+            WHERE id = ${item.productId}::uuid AND "businessId" = ${this.businessId}::uuid
+              AND "isActive" = true AND stock >= ${item.quantity}
             RETURNING stock, price::text AS price, cost::text AS cost`;
           const updated = rows[0];
 
           if (updated === undefined) {
-            const current = await tx.product.findUnique({
-              where: { id: item.productId },
+            const current = await tx.product.findFirst({
+              where: { id: item.productId, businessId: this.businessId },
               select: { isActive: true },
             });
 
@@ -510,8 +531,8 @@ export class SalesRepository {
 
       if (isUniqueViolation(error)) {
         // Reintento de la misma confirmación: se devuelve la venta ya registrada.
-        const existing = await prisma.sale.findUnique({
-          where: { idempotencyKey: plan.idempotencyKey },
+        const existing = await prisma.sale.findFirst({
+          where: { idempotencyKey: plan.idempotencyKey, businessId: this.businessId },
           select: saleSelection,
         });
 

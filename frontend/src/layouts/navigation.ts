@@ -11,6 +11,13 @@
  * Cada opción lleva el permiso que pide (ver `types/auth.ts`): el menú solo
  * muestra lo que el rol del usuario puede usar, y un grupo sin opciones
  * visibles no aparece. La API vuelve a exigir el permiso en cada petición.
+ *
+ * El Administrador es de la plataforma: no ve este menú sino
+ * `PLATFORM_NAVIGATION` (negocios y sus solicitudes), porque no
+ * entra a los datos de ningún negocio (ADR 0002).
+ *
+ * «Configuración» no está aquí: no es una pantalla, abre una ventana sobre la
+ * pantalla actual (ver `MainLayout`).
  */
 
 import type { Permission } from '../types/auth';
@@ -29,6 +36,8 @@ export type NavIconName =
   | 'cash'
   | 'users'
   | 'settings'
+  | 'store'
+  | 'inbox'
   | 'logout';
 
 export interface NavItem {
@@ -131,20 +140,25 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
     icon: 'reports',
     permission: 'reports.inventory',
   },
+];
+
+/** Menú del Administrador de la plataforma. */
+export const PLATFORM_NAVIGATION: NavItem[] = [
   {
-    kind: 'group',
-    id: 'settings',
-    icon: 'settings',
-    label: 'Configuración',
-    items: [
-      {
-        kind: 'link',
-        to: '/settings/users',
-        label: 'Usuarios',
-        stories: 'HU-11 … HU-15 (usuarios y roles)',
-        permission: 'settings',
-      },
-    ],
+    kind: 'link',
+    to: '/platform/businesses',
+    label: 'Negocios',
+    stories: 'Negocios, su nivel de cuenta y su Encargado',
+    icon: 'store',
+    permission: 'platform.manage',
+  },
+  {
+    kind: 'link',
+    to: '/platform/requests',
+    label: 'Solicitudes',
+    stories: 'Solicitudes de más usuarios de los Encargados',
+    icon: 'inbox',
+    permission: 'platform.manage',
   },
 ];
 
@@ -152,6 +166,10 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
 export function visibleNavigation(
   can: (permission: Permission) => boolean,
 ): (NavItem | NavGroup)[] {
+  if (can('platform.manage')) {
+    return PLATFORM_NAVIGATION;
+  }
+
   const allowed = (item: NavItem) => item.permission === undefined || can(item.permission);
 
   return NAVIGATION.flatMap((entry): (NavItem | NavGroup)[] => {

@@ -1,8 +1,11 @@
 import type { CategoriesRepository } from '../repositories/categories.repository.js';
 import type { CategoryDto, CategoryWritableFields } from '../types/categories.js';
+import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /** Doble de repositorio de categorías para los tests (sin base de datos). */
 export class FakeCategoriesRepository implements CategoriesRepository {
+  readonly businessId = TEST_BUSINESS_ID;
+
   /** Campos recibidos en cada creación, en orden. */
   readonly createdFields: CategoryWritableFields[] = [];
 
@@ -22,7 +25,9 @@ export class FakeCategoriesRepository implements CategoriesRepository {
   existsByName(name: string): Promise<boolean> {
     const wanted = name.toLowerCase();
 
-    return Promise.resolve(this.categories.some((category) => category.name.toLowerCase() === wanted));
+    return Promise.resolve(
+      this.categories.some((category) => category.name.toLowerCase() === wanted),
+    );
   }
 
   create(fields: CategoryWritableFields): Promise<CategoryDto | null> {

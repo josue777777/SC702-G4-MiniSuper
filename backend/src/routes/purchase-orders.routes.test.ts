@@ -10,12 +10,18 @@ import {
   SUPPLIER_ID,
 } from '../testing/purchase-orders.repository.fake.js';
 import { createPurchaseOrdersRouter } from './purchase-orders.routes.js';
+import { fakeSession } from '../testing/fake-session.js';
 
 /** Rutas reales de pedidos a proveedor (HU-22, HU-24) con el repositorio falso. */
 function buildApp() {
+  const repository = new FakePurchaseOrdersRepository();
   const app = express();
   app.use(express.json());
-  app.use('/api/purchase-orders', createPurchaseOrdersRouter(new FakePurchaseOrdersRepository()));
+  app.use(
+    '/api/purchase-orders',
+    fakeSession(),
+    createPurchaseOrdersRouter(() => repository),
+  );
   app.use(errorHandler);
 
   return app;

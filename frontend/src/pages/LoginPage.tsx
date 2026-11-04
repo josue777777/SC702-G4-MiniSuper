@@ -6,6 +6,7 @@ import {
   validateLoginPassword,
 } from '../features/auth/account-rules';
 import { ApiError } from '../services/api-client';
+import { usePlatform } from '../features/platform/platform-context';
 import { authService } from '../services/auth.service';
 
 interface LoginLocationState {
@@ -34,6 +35,7 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { systemName } = usePlatform();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -85,7 +87,7 @@ export function LoginPage() {
     <div className="login">
       <form className="login__card" onSubmit={(event) => void handleSubmit(event)} noValidate>
         <h1>Iniciar sesión</h1>
-        <p className="muted">Abastecedor Nuevo Amanecer · sistema de gestión</p>
+        <p className="muted">{systemName} · sistema de gestión</p>
 
         {state?.notice === undefined ? null : (
           <div className="alert alert--success" role="status">
@@ -144,7 +146,7 @@ export function LoginPage() {
         </button>
 
         <p className="muted hint">
-          ¿Olvidó su contraseña? Pídale al administrador que se la restablezca.
+          ¿Olvidó su contraseña? Pídale a quien administra su cuenta que se la restablezca.
         </p>
       </form>
     </div>

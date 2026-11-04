@@ -1,3 +1,5 @@
+import { IMAGE_TYPES, type ImageMimeType } from '../utils/image.js';
+
 /**
  * Contratos del módulo de productos (HU-01, HU-02, HU-03).
  *
@@ -70,10 +72,10 @@ export interface ProductDto {
   imageUrl: string | null;
 }
 
-/** Formatos de imagen aceptados. Sin SVG: puede llevar código (XSS). */
-export const PRODUCT_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+/** Formatos de imagen aceptados (ver `utils/image.ts`). */
+export const PRODUCT_IMAGE_TYPES = IMAGE_TYPES;
 
-export type ProductImageMimeType = (typeof PRODUCT_IMAGE_TYPES)[number];
+export type ProductImageMimeType = ImageMimeType;
 
 /** Imagen guardada de un producto (HU-01). */
 export interface ProductImage {

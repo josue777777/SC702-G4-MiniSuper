@@ -14,9 +14,16 @@ describe('CategoriesService.createCategory (HU-04)', () => {
     const repository = new FakeCategoriesRepository();
     const service = new CategoriesService(repository);
 
-    const created = await service.createCategory({ name: 'Lácteos', description: 'Leche y quesos' });
+    const created = await service.createCategory({
+      name: 'Lácteos',
+      description: 'Leche y quesos',
+    });
 
-    expect(created).toMatchObject({ name: 'Lácteos', description: 'Leche y quesos', isActive: true });
+    expect(created).toMatchObject({
+      name: 'Lácteos',
+      description: 'Leche y quesos',
+      isActive: true,
+    });
     expect(repository.createdFields).toEqual([{ name: 'Lácteos', description: 'Leche y quesos' }]);
   });
 
@@ -24,7 +31,9 @@ describe('CategoriesService.createCategory (HU-04)', () => {
     const repository = new FakeCategoriesRepository([EXISTING]);
     const service = new CategoriesService(repository);
 
-    await expect(service.createCategory({ name: 'bebidas', description: null })).rejects.toMatchObject({
+    await expect(
+      service.createCategory({ name: 'bebidas', description: null }),
+    ).rejects.toMatchObject({
       statusCode: 409,
       message: 'La categoría ya está registrada.',
     });
@@ -36,7 +45,9 @@ describe('CategoriesService.createCategory (HU-04)', () => {
     repository.simulateRaceOnCreate = true;
     const service = new CategoriesService(repository);
 
-    await expect(service.createCategory({ name: 'Granos', description: null })).rejects.toMatchObject({
+    await expect(
+      service.createCategory({ name: 'Granos', description: null }),
+    ).rejects.toMatchObject({
       statusCode: 409,
     });
   });
