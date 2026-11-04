@@ -94,6 +94,27 @@ Ejemplos ya aplicados:
 un texto se vea siempre (como «Cómo leer este reporte»), se deja con `open`:
 visible de entrada, pero se puede plegar. La historia manda sobre la guía.
 
+## Regla 5: el ancho sigue al contenido
+
+Una tabla de 3 columnas estirada a 1400 px deja el nombre lejos de su dato y
+el ojo se pierde de fila. Las listas de pocas columnas van dentro de
+`<div className="list-narrow">` (máximo 860 px, con su barra de búsqueda).
+Las de muchas columnas (Inventario, Pedidos) usan el ancho completo.
+
+## Regla 6: dos objetivos, dos pestañas
+
+Si una pantalla sirve para **hacer** algo y para **consultar** lo hecho, cada
+parte va en su pestaña (`.tabs`, con `role="tab"`). Ejemplo: Ventas tiene
+«Caja» (escáner, carrito y cobro) e «Historial del día». La pestaña de trabajo
+es la que abre siempre.
+
+## Regla 7: los documentos se abren en una ventana
+
+Un documento (pedido, comprobante, reporte imprimible) se abre en `Modal`
+(`size="wide"` si tiene tabla), con «Imprimir» y «Cerrar» abajo. Nunca se
+inserta dentro de la página: empujaría la lista y se perdería la fila desde
+donde se abrió. El botón dice qué abre: «Ver pedido», «Ver comprobante».
+
 ## Lista de revisión para una pantalla nueva
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
@@ -102,4 +123,7 @@ visible de entrada, pero se puede plegar. La historia manda sobre la guía.
 - [ ] ¿Tiene buscador (`ListSearch`) si puede tener más de 20 filas?
 - [ ] ¿Muestra el total y un mensaje cuando no hay resultados?
 - [ ] ¿Los detalles largos están plegados?
+- [ ] ¿Las tablas de pocas columnas usan `list-narrow`?
+- [ ] ¿Hacer y consultar están en pestañas separadas?
+- [ ] ¿Los documentos abren en `Modal`?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?

@@ -563,6 +563,13 @@ code {
   background: #f8fafc;
 }
 
+/* --- Listas de pocas columnas: no se estiran a todo el ancho ------------
+   Con 3 columnas en 1400 px, el nombre queda lejos de su dato y el ojo se
+   pierde de fila. La barra de búsqueda acompaña el mismo ancho. */
+.list-narrow {
+  max-width: 860px;
+}
+
 /* --- Listas: paginación y detalle desplegable (ver docs/PANTALLAS.md) ---- */
 .pagination {
   display: flex;
@@ -1792,9 +1799,19 @@ code {
   align-items: start;
 }
 
+/* El cobro queda a la vista aunque el carrito sea largo. */
+.pos__side {
+  position: sticky;
+  top: 16px;
+}
+
 @media (max-width: 960px) {
   .pos {
     grid-template-columns: 1fr;
+  }
+
+  .pos__side {
+    position: static;
   }
 }
 

@@ -176,6 +176,8 @@ test('se abre después desde el historial y un cambio de precio no altera el tic
 
   await page.goto('/sales');
   await expect(receiptDialog(page)).toHaveCount(0);
+  // El historial está en su propia pestaña, separado de la caja.
+  await page.getByRole('tab', { name: 'Historial del día' }).click();
   await page.getByRole('button', { name: /Ver comprobante de la venta/ }).click();
 
   await expect(ticket(page)).toBeVisible();
@@ -191,6 +193,7 @@ test('se abre después desde el historial y un cambio de precio no altera el tic
   await receiptDialog(page).getByRole('button', { name: 'Cerrar', exact: true }).last().click();
   await expect(receiptDialog(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/sales$/);
+  await page.getByRole('tab', { name: 'Historial del día' }).click();
   await expect(page.getByRole('table', { name: 'Historial de ventas' })).toContainText('Efectivo');
 });
 

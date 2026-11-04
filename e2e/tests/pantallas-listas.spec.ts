@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { withDb } from '../support/db';
 import { BACKEND_URL } from '../support/env';
 import { resetCatalog, seedProducts, signInAsOwner } from '../support/fixtures';
 
@@ -95,4 +96,65 @@ test('Proveedores: buscador por proveedor o producto y productos plegados', asyn
   await page.getByLabel('Buscar proveedores').fill('arroz');
   await expect(table.getByRole('row')).toHaveCount(2);
   await expect(table).toContainText('Granos Oro');
+});
+
+test('Ventas: la caja y el historial del día van en pestañas separadas', async ({ page }) => {
+  await page.goto('/sales');
+
+  // Entra a la caja: solo lo necesario para vender.
+  await expect(page.getByRole('tab', { name: 'Caja' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByLabel('Código de barras o código del producto')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Finalizar venta' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Historial de ventas' })).toHaveCount(0);
+
+  // El historial, en su pestaña.
+  await page.getByRole('tab', { name: 'Historial del día' }).click();
+  await expect(page.getByRole('region', { name: 'Historial de ventas' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Finalizar venta' })).toHaveCount(0);
+});
+
+test('Pedidos: «Ver pedido» abre el documento en una ventana sin mover la lista', async ({
+  page,
+}) => {
+  await seedProducts([
+    {
+      code: 'P001',
+      name: 'Café molido 500 g',
+      category: 'Abarrotes',
+      price: '2500.00',
+      cost: '1800.00',
+      stock: 5,
+      supplier: 'Distribuidora Central',
+    },
+  ]);
+
+  const ids = await withDb(async (client) => {
+    const result = await client.query<{ productId: string; supplierId: string }>(
+      `SELECT "productId", "supplierId" FROM "SupplierProduct" LIMIT 1`,
+    );
+
+    return result.rows[0]!;
+  });
+  const created = await page.request.post(`${BACKEND_URL}/api/purchase-orders`, {
+    data: { supplierId: ids.supplierId, items: [{ productId: ids.productId, quantity: 6 }] },
+  });
+
+  expect(created.ok()).toBe(true);
+
+  await page.goto('/orders');
+  await page.getByRole('button', { name: 'Ver pedido PED-0001' }).click();
+
+  const document = page.getByRole('dialog', { name: 'Pedido PED-0001 · Distribuidora Central' });
+
+  await expect(document.getByRole('table', { name: 'Productos del pedido' })).toContainText(
+    'Café molido 500 g',
+  );
+  await expect(document.getByRole('button', { name: /Imprimir \/ Guardar PDF/ })).toBeVisible();
+
+  // La lista sigue en su lugar, detrás de la ventana.
+  await expect(page.getByRole('table', { name: 'Historial de pedidos' })).toBeAttached();
+
+  // La «×» también se llama «Cerrar»: el botón de abajo es el último.
+  await document.getByRole('button', { name: 'Cerrar', exact: true }).last().click();
+  await expect(document).toHaveCount(0);
 });

@@ -396,6 +396,7 @@ test.describe('HU-17 — método de pago', () => {
     expect((await readSales()).map((sale) => sale.paymentMethod)).toEqual(['CASH', 'CARD']);
 
     // Filtro del historial.
+    await page.getByRole('tab', { name: 'Historial del día' }).click();
     const history = page.getByRole('table', { name: 'Historial de ventas' });
 
     await expect(history.getByRole('row')).toHaveCount(3); // encabezado + 2 ventas
