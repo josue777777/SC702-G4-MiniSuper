@@ -42,6 +42,11 @@ export async function buildReportWorkbook(report: ReportResult): Promise<Buffer>
     }
   }
 
+  // Los avisos llevan nombres de productos escritos por el usuario: se sanean igual que los filtros.
+  for (const warning of report.warnings) {
+    summary.addRow(['Aviso', sanitizeCell(warning)]);
+  }
+
   for (const notice of report.notices) {
     summary.addRow(['Nota', notice]);
   }

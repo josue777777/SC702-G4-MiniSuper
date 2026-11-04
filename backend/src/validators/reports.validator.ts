@@ -72,3 +72,14 @@ export const salesReportQuerySchema = z
 
 /** El reporte de deudas es una foto actual: no acepta filtros. */
 export const debtsReportQuerySchema = z.object({}).strict();
+
+/**
+ * Columnas que el usuario dejó activas al personalizar el reporte (HU-40):
+ * `?columns=sale,date,product`. Solo en la exportación; si no viene, se
+ * exportan todas. Que existan en ESE reporte lo valida el controlador.
+ */
+export const exportColumnsSchema = z
+  .string()
+  .regex(/^[A-Za-z]+(,[A-Za-z]+){0,29}$/, 'Columnas inválidas.')
+  .transform((value) => value.split(','))
+  .optional();

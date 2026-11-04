@@ -36,11 +36,54 @@ export const reportsService = {
     ).data;
   },
 
-  /** Descarga el MISMO reporte como Excel; el nombre lo da el servidor. */
-  export(kind: ReportKind, filter: ReportFilter): Promise<{ blob: Blob; fileName: string }> {
+  /**
+   * Descarga el MISMO reporte como Excel; el nombre lo da el servidor. Con
+   * `columns`, solo las columnas que el usuario dejó activas (HU-40).
+   */
+  export(
+    kind: ReportKind,
+    filter: ReportFilter,
+    columns?: string[],
+  ): Promise<{ blob: Blob; fileName: string }> {
+    const query = queryOf(filter);
+    const withColumns =
+      columns === undefined
+        ? query
+        : `${query}${query === '' ? '?' : '&'}columns=${encodeURIComponent(columns.join(','))}`;
+
     return apiDownload(
-      `/api/reports/commercial/${kind}/export${queryOf(filter)}`,
+      `/api/reports/commercial/${kind}/export${withColumns}`,
       `reporte-${kind}.xlsx`,
+    );
+  },
+
+  /**
+   * Excel del reporte de inventario (HU-25 / HU-40) con los mismos filtros,
+   * columnas y secciones que se ven en Reportes › Inventario.
+   */
+  exportInventory(options: {
+    categoryId: string;
+    sort: string;
+    columns: string[];
+    sections: string[];
+    expirations: string;
+    grouped: boolean;
+  }): Promise<{ blob: Blob; fileName: string }> {
+    const query = new URLSearchParams({
+      sort: options.sort,
+      columns: options.columns.join(','),
+      sections: options.sections.join(','),
+      expirations: options.expirations,
+      grouped: String(options.grouped),
+    });
+
+    if (options.categoryId !== '') {
+      query.set('categoryId', options.categoryId);
+    }
+
+    return apiDownload(
+      `/api/reports/inventory/export?${query.toString()}`,
+      'reporte-inventario.xlsx',
     );
   },
 };

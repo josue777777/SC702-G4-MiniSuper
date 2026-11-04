@@ -36,11 +36,8 @@ export function ReportFilters({
 
   if (!hasFilters(kind)) {
     return (
-      <form onSubmit={submit} className="form__error-row">
-        <p className="muted">
-          Muestra los saldos actuales de todos los clientes; no tiene filtros. Actualice para ver
-          fiados o abonos recientes.
-        </p>
+      <form onSubmit={submit} className="form__error-row report-filters card">
+        <p className="muted">Saldos actuales de todos los clientes.</p>
         <button type="submit" className="button" disabled={busy}>
           Actualizar
         </button>
@@ -49,7 +46,12 @@ export function ReportFilters({
   }
 
   return (
-    <form onSubmit={submit} noValidate aria-label="Filtros del reporte">
+    <form
+      onSubmit={submit}
+      noValidate
+      aria-label="Filtros del reporte"
+      className="report-filters card"
+    >
       <div className="form__grid">
         <Field id="report-from" label="Desde" error={errors.from}>
           <input
@@ -124,9 +126,9 @@ export function ReportFilters({
         ) : null}
       </div>
 
-      <div className="form__actions">
+      <div className="form__actions report-filters__actions">
         <button type="submit" className="button button--primary" disabled={busy}>
-          Consultar
+          Generar reporte
         </button>
       </div>
     </form>

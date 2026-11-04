@@ -283,4 +283,36 @@ describe('GET /api/reports/commercial/:kind/export', () => {
 
     expect((await request(app).get('/api/reports/commercial/sales/export')).status).toBe(400);
   });
+
+  it('HU-40: exporta solo las columnas que el usuario dejó activas, en el orden del reporte', async () => {
+    const { app, repository } = buildApp();
+
+    withSale(repository);
+
+    const file = await download(
+      app,
+      `/api/reports/commercial/sales/export?${PERIOD}&columns=net,product,sale`,
+    );
+    const data = await rows(file.body as Buffer, 'Datos');
+
+    expect(file.status).toBe(200);
+    expect(data[0]).toEqual(['Venta', 'Producto', 'Importe neto']);
+    expect(data.find((row) => row[1] === 'Café')?.[2]).toBe(2469);
+    // Los totales del resumen no cambian: describen el reporte entero.
+    expect(
+      (await rows(file.body as Buffer, 'Resumen')).find((row) => row[0] === 'Transacciones')?.[1],
+    ).toBe(1);
+  });
+
+  it('HU-40: rechaza columnas que no existen en ese reporte o con formato inválido', async () => {
+    const { app } = buildApp();
+    const base = `/api/reports/commercial/sales/export?${PERIOD}`;
+
+    const unknown = await request(app).get(`${base}&columns=sale,profit`);
+
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.error.message).toContain('profit');
+    expect((await request(app).get(`${base}&columns=`)).status).toBe(400);
+    expect((await request(app).get(`${base}&columns=sale;drop`)).status).toBe(400);
+  });
 });

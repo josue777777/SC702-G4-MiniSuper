@@ -30,6 +30,8 @@ export interface ReportTotal {
   label: string;
   value: string | number;
   money?: boolean;
+  /** El dato principal: se muestra destacado sobre el resto. */
+  primary?: true;
 }
 
 export interface ReportResult {
@@ -38,8 +40,13 @@ export interface ReportResult {
   businessName: string;
   /** Momento de la consulta (ISO 8601). */
   generatedAt: string;
-  filters: { label: string; value: string }[];
-  /** Reglas y límites para interpretar las cifras. */
+  /** `isDefault`: filtro no usado («Todas», «Sin mínimo»); la pantalla no lo repite. */
+  filters: { label: string; value: string; isDefault?: true }[];
+  /** Cómo se calcula, en pocas palabras. */
+  help: string[];
+  /** Avisos que aplican a este resultado; vacío si no hay nada que advertir. */
+  warnings: string[];
+  /** Reglas y límites técnicos completos (también van en el Excel). */
   notices: string[];
   columns: ReportColumn[];
   rows: Record<string, string | number>[];

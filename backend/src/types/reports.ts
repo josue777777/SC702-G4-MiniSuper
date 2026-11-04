@@ -31,6 +31,8 @@ export interface ReportTotal {
   label: string;
   value: string | number;
   money?: boolean;
+  /** El dato principal del reporte: la pantalla lo destaca sobre el resto. */
+  primary?: true;
 }
 
 export interface ReportResult {
@@ -39,9 +41,20 @@ export interface ReportResult {
   businessName: string;
   /** Momento de la consulta (ISO 8601). */
   generatedAt: string;
-  /** Filtros aplicados, tal como se muestran y se exportan. */
-  filters: { label: string; value: string }[];
-  /** Reglas y límites que el lector debe conocer para interpretar las cifras. */
+  /**
+   * Filtros del reporte, tal como se exportan. `isDefault` marca los que no se
+   * usaron («Todas», «Sin mínimo»): el Excel los lista todos y la pantalla
+   * muestra solo los que el usuario eligió.
+   */
+  filters: { label: string; value: string; isDefault?: true }[];
+  /** Cómo se calcula, en pocas palabras y en el lenguaje del dueño. */
+  help: string[];
+  /**
+   * Avisos que aplican a ESTE resultado (por ejemplo, productos sin costo).
+   * Vacío cuando no hay nada que advertir: así, cuando aparecen, se leen.
+   */
+  warnings: string[];
+  /** Reglas y límites técnicos completos (se exportan y se consultan a pedido). */
   notices: string[];
   columns: ReportColumn[];
   rows: Record<string, string | number>[];

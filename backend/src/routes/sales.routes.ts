@@ -21,6 +21,8 @@ export function createSalesRouter(
   router.get('/daily-summary', (req, res) => controller.dailySummary(req, res));
   /** Producto por código o código de barras (HU-16). Antes de `/:id`. */
   router.get('/lookup', (req, res) => controller.lookup(req, res));
+  /** Búsqueda manual si el lector no reconoce el código (HU-16). Antes de `/:id`. */
+  router.get('/products', (req, res) => controller.searchProducts(req, res));
   /** Historial mínimo con filtro por método de pago (HU-17). */
   router.get('/', (req, res) => controller.list(req, res));
   router.get('/:id', (req, res) => controller.get(req, res));

@@ -12,6 +12,7 @@ import { businessRouter } from './business.routes.js';
 import { categoriesRouter } from './categories.routes.js';
 import { customersRouter } from './customers.routes.js';
 import { healthRouter } from './health.routes.js';
+import { inventoryReportRouter } from './inventory-report.routes.js';
 import { inventoryRouter } from './inventory.routes.js';
 import { kardexRouter } from './kardex.routes.js';
 import { passwordRecoveryRouter } from './password-recovery.routes.js';
@@ -109,6 +110,12 @@ apiRouter.use(
   requirePermission('reports.sales'),
   reportsRouter,
 ); // HU-28, HU-29, HU-30 (los reportes de inventario, HU-25 a HU-27, usan otro permiso)
+apiRouter.use(
+  '/reports/inventory',
+  ...businessRequired,
+  requirePermission('reports.inventory'),
+  inventoryReportRouter,
+); // HU-25, HU-40: Excel del reporte de inventario
 apiRouter.use('/customers', ...businessRequired, requirePermission('customers'), customersRouter); // HU-18, HU-36
 apiRouter.use('/suppliers', ...businessRequired, requirePermission('purchasing'), suppliersRouter); // HU-21
 apiRouter.use(
