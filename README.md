@@ -163,7 +163,8 @@ docs/       Documentación técnica
 
 - [Arquitectura del sistema](docs/ARCHITECTURE.md): capas, modelo de datos y convenciones.
 - [Usuarios y roles](docs/USUARIOS-Y-ROLES.md): cómo funciona el acceso y qué hacer al programar un módulo nuevo.
-- [Guía de pantallas](docs/PANTALLAS.md): cómo organizar formularios y listas (modales, búsqueda, paginación) en cualquier pantalla nueva.
+- [Reglas del equipo](CONTRIBUTING.md): **lectura obligatoria antes de abrir un PR** (el CI lo exige). Una página con las reglas generales y enlaces a las guías.
+- [Guía de pantallas](docs/PANTALLAS.md): **leer antes de crear o cambiar una pantalla.** Formularios en modal, listas paginadas (en el servidor si crecen sin límite), buscadores, reportes con gráficos y detalle a pedido, filtros que se aplican solos y el mismo diseño de filtros y botones en todo el sistema. Al final tiene una lista de revisión.
 - [Decisiones de arquitectura](docs/adr/): registro de las decisiones técnicas.
 
 ## Equipo
