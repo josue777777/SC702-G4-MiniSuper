@@ -450,6 +450,7 @@ export function ProductsSection({
           options={options}
           initialValues={editing === null ? EMPTY_FORM_VALUES : toFormValues(editing)}
           imageUrl={editing?.imageUrl ?? null}
+          initialBarcode={editing?.barcode ?? null}
           initialMinStock={editing?.minStock ?? 0}
           initialExpirationDate={editing?.expirationDate ?? null}
           onCategoryCreated={afterCategoryCreated}

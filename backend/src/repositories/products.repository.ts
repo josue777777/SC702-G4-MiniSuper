@@ -190,6 +190,19 @@ export class ProductsRepository {
     return found !== null;
   }
 
+  /** `true` si el EAN-13 ya está asociado a otro producto. */
+  async existsByBarcode(barcode: string, exceptProductId?: string): Promise<boolean> {
+    const found = await prisma.product.findFirst({
+      where: {
+        barcode,
+        ...(exceptProductId === undefined ? {} : { id: { not: exceptProductId } }),
+      },
+      select: { id: true },
+    });
+
+    return found !== null;
+  }
+
   /**
    * Asigna el código de barras en una sola escritura. Si no se permite
    * reemplazar, la condición `barcode: null` evita que dos solicitudes lo
@@ -263,6 +276,7 @@ export class ProductsRepository {
         data: {
           businessId: this.businessId,
           code: fields.code,
+          barcode: fields.barcode ?? null,
           name: fields.name,
           categoryId: fields.categoryId,
           price: fields.price,
@@ -314,6 +328,7 @@ export class ProductsRepository {
         where: own(this.businessId, id),
         data: {
           code: fields.code,
+          ...(fields.barcode === undefined ? {} : { barcode: fields.barcode }),
           name: fields.name,
           categoryId: fields.categoryId,
           price: fields.price,

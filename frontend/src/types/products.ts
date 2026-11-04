@@ -67,6 +67,7 @@ export interface ProductListParams {
 /** Cuerpo que acepta la API al crear (HU-01) y al editar (HU-02). */
 export interface ProductPayload {
   code: string;
+  barcode?: string;
   name: string;
   categoryId: string;
   price: string;

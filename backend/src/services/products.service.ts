@@ -72,6 +72,16 @@ async function assertCodeIsAvailable(
   }
 }
 
+async function assertBarcodeIsAvailable(
+  repository: ProductsRepository,
+  barcode: string,
+  exceptProductId?: string,
+): Promise<void> {
+  if (await repository.existsByBarcode(barcode, exceptProductId)) {
+    throw HttpError.conflict('El código de barras ya está asociado a otro producto.');
+  }
+}
+
 /** Lanza `400` si la categoría no existe o está inactiva (HU-01, HU-02). */
 async function assertCategoryIsUsable(
   repository: ProductsRepository,
@@ -196,6 +206,9 @@ export class ProductsService {
    */
   async createProduct(input: CreateProductInput): Promise<ProductDto> {
     await assertCodeIsAvailable(this.repository, input.code);
+    if (input.barcode !== undefined) {
+      await assertBarcodeIsAvailable(this.repository, input.barcode);
+    }
     await assertCategoryIsUsable(this.repository, input.categoryId);
     await assertSupplierIsUsable(this.repository, input.supplierId);
 
@@ -235,6 +248,16 @@ export class ProductsService {
 
     if (input.code !== current.code) {
       await assertCodeIsAvailable(this.repository, input.code, id);
+    }
+
+    if (input.barcode !== undefined && input.barcode !== current.barcode) {
+      if (current.barcode !== null) {
+        throw HttpError.conflict(
+          'El producto ya tiene un código de barras. Use la acción de reemplazo para cambiarlo.',
+        );
+      }
+
+      await assertBarcodeIsAvailable(this.repository, input.barcode, id);
     }
 
     await assertCategoryIsUsable(this.repository, input.categoryId);
