@@ -119,11 +119,15 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
               Total original: {formatMoney(data.day.originalTotal)} · {data.day.saleCount} ventas
               registradas
             </p>
-            <p className="muted">
-              El total efectivo descuenta devoluciones y anulaciones, e incluye fiados; no equivale
-              a dinero cobrado. Los totales abarcan todo el día, sin depender del filtro ni de la
-              página.
-            </p>
+            {/* La explicación se abre a pedido: se lee una vez y después solo ocupa espacio. */}
+            <details className="disclosure">
+              <summary>ⓘ Qué incluye este total</summary>
+              <p className="muted">
+                El total efectivo descuenta devoluciones y anulaciones, e incluye fiados; no
+                equivale a dinero cobrado. Los totales abarcan todo el día, sin depender del filtro
+                ni de la página.
+              </p>
+            </details>
           </div>
           {data.sales.length === 0 ? (
             <p className="muted">

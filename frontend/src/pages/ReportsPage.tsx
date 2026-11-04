@@ -21,7 +21,12 @@ export function ReportsPage() {
         'Vencidos y próximos a vencer, distinguiendo unos de otros (HU-27).',
       ]}
     >
-      {can('reports.sales') ? <CommercialReports /> : null}
+      {can('reports.sales') ? (
+        <CommercialReports />
+      ) : (
+        // Sin reportes comerciales (Bodega): un mensaje claro en vez de una pantalla vacía.
+        <p className="card muted">Todavía no hay reportes disponibles para su rol.</p>
+      )}
     </PagePlaceholder>
   );
 }

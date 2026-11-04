@@ -446,6 +446,15 @@ export async function setPeriod(page: Page, from: string, to: string): Promise<v
   await page.getByLabel('Hasta').fill(to);
 }
 
+/**
+ * Abre la explicación del reporte y sus notas técnicas: están plegadas para no
+ * llenar la pantalla de texto, pero siguen completas a un clic.
+ */
+export async function openCalculationNotes(page: Page): Promise<void> {
+  await page.getByText('ⓘ Cómo se calcula').click();
+  await page.getByText('Notas técnicas').click();
+}
+
 /** Valor mostrado en el cuadro de total con esa etiqueta. */
 export async function tile(page: Page, label: string): Promise<string> {
   const value = page.locator('.stat-tile', { hasText: label }).locator('.stat-tile__value');

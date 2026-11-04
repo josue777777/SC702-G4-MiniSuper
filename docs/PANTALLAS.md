@@ -115,6 +115,28 @@ Un documento (pedido, comprobante, reporte imprimible) se abre en `Modal`
 inserta dentro de la página: empujaría la lista y se perdería la fila desde
 donde se abrió. El botón dice qué abre: «Ver pedido», «Ver comprobante».
 
+## Regla 8: poco texto; la ayuda a pedido; los avisos solo cuando aplican
+
+Lo que el usuario lee una vez y después solo le ocupa espacio no va abierto en
+pantalla.
+
+| Tipo de texto | Dónde va | Ejemplo |
+| --- | --- | --- |
+| Explicación de cómo se calcula algo | Plegada: `ⓘ Cómo se calcula`, en el lenguaje del usuario y en 2 o 3 frases | Reportes, «ⓘ Qué incluye este total» en Ventas |
+| Detalle técnico o límites del sistema | Dentro de esa ayuda, en «Notas técnicas», y en el Excel; nunca abierto | «LIMITACIÓN (HU-19)…» |
+| Advertencia | Visible, pero **solo si aplica a lo que se está viendo**, y diciendo qué hacer | «2 productos sin costo registrado: … Registre su costo en Inventario.» |
+| Tareas del equipo («Pendiente de implementar») | Solo en desarrollo (`PendingWork`) | Clientes, Pedidos, Reportes |
+
+Además:
+
+- **Un dato principal destacado** y el resto como detalle (Reportes: la ganancia
+  grande; ingresos, costos y conteos en una fila compacta).
+- **Solo los filtros que se usaron**: «Categoría actual: Granos», no «Precio
+  mínimo: Sin mínimo».
+- Nunca se quita información que pide un criterio de aceptación: se reordena
+  (se pliega, se resume o se muestra cuando aplica), y la prueba de la historia
+  se ajusta para abrirla.
+
 ## Lista de revisión para una pantalla nueva
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
@@ -126,4 +148,5 @@ donde se abrió. El botón dice qué abre: «Ver pedido», «Ver comprobante».
 - [ ] ¿Las tablas de pocas columnas usan `list-narrow`?
 - [ ] ¿Hacer y consultar están en pestañas separadas?
 - [ ] ¿Los documentos abren en `Modal`?
+- [ ] ¿Las explicaciones están plegadas y los avisos aparecen solo cuando aplican?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?

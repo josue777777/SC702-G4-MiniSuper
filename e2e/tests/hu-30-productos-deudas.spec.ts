@@ -13,6 +13,7 @@ import {
   consult,
   expectExportMatchesScreen,
   openAs,
+  openCalculationNotes,
   openReport,
   productIdByCode,
   readDownload,
@@ -85,6 +86,7 @@ test('ranking de productos y deudas de clientes con cifras exactas, y deja la ev
   expect(await tile(page, 'Productos distintos')).toBe('4');
   expect(await tile(page, 'Unidades netas')).toBe('17');
   expect(await tileCents(page, 'Importe neto')).toBe(1_826_900);
+  await openCalculationNotes(page);
   await expect(
     page.getByText('Los productos desactivados aparecen mientras tengan ventas'),
   ).toBeVisible();
@@ -119,6 +121,7 @@ test('ranking de productos y deudas de clientes con cifras exactas, y deja la ev
   expect(await tile(page, 'Clientes con deuda')).toBe('3');
   await expect(page.getByText('Carla Cliente')).toHaveCount(0);
   await expect(page.getByText('Cliente Ajeno')).toHaveCount(0);
+  await openCalculationNotes(page);
   await expect(page.getByText('LIMITACIÓN (HU-19)')).toBeVisible();
 
   const debtsShot = await page.screenshot({ fullPage: true });
