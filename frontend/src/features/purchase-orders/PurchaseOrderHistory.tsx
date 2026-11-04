@@ -1,3 +1,5 @@
+import { Pagination } from '../../components/Pagination';
+import { usePagination } from '../../components/use-pagination';
 import type { PurchaseOrderSummary } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import { formatDateTime } from '../inventory/inventory-count';
@@ -16,7 +18,8 @@ interface PurchaseOrderHistoryProps {
 
 /**
  * Historial de pedidos (HU-22): fecha, proveedor, productos y costo de cada
- * pedido, del más reciente al más antiguo, con filtro por proveedor.
+ * pedido, del más reciente al más antiguo, con filtro por proveedor y en
+ * páginas de 20.
  */
 export function PurchaseOrderHistory({
   orders,
@@ -26,6 +29,7 @@ export function PurchaseOrderHistory({
   onFilterChange,
   onOpen,
 }: PurchaseOrderHistoryProps) {
+  const pages = usePagination(orders, filter);
   const filterName = suppliers.find((supplier) => supplier.id === filter)?.name;
 
   return (
@@ -53,7 +57,7 @@ export function PurchaseOrderHistory({
         </p>
       ) : (
         <div className="table-wrapper">
-          <table className="table">
+          <table className="table" aria-label="Historial de pedidos">
             <thead>
               <tr>
                 <th>N.º</th>
@@ -66,7 +70,7 @@ export function PurchaseOrderHistory({
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
+              {pages.pageItems.map((order) => (
                 <tr key={order.id}>
                   <td>
                     <strong>{formatOrderNumber(order.number)}</strong>
@@ -100,6 +104,8 @@ export function PurchaseOrderHistory({
           </table>
         </div>
       )}
+
+      <Pagination {...pages} itemLabel="pedidos" onPage={pages.setPage} />
     </section>
   );
 }

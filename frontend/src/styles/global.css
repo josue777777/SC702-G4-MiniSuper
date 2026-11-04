@@ -563,6 +563,32 @@ code {
   background: #f8fafc;
 }
 
+/* --- Listas: paginación y detalle desplegable (ver docs/PANTALLAS.md) ---- */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pagination__status {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.disclosure summary {
+  cursor: pointer;
+  color: var(--color-primary);
+  font-weight: 600;
+  width: fit-content;
+}
+
+.disclosure[open] summary {
+  margin-bottom: 6px;
+}
+
 .toolbar__filter {
   display: flex;
   align-items: center;

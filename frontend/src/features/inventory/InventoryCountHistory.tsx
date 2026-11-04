@@ -1,4 +1,6 @@
 import type { InventoryCount } from '../../types/inventory';
+import { Pagination } from '../../components/Pagination';
+import { usePagination } from '../../components/use-pagination';
 import { describeDifference, formatDateTime } from './inventory-count';
 
 interface InventoryCountHistoryProps {
@@ -19,6 +21,8 @@ function differenceBadge(difference: number): string {
  * conteo confirmado no se edita, así que no hay acciones por fila.
  */
 export function InventoryCountHistory({ counts }: InventoryCountHistoryProps) {
+  const pages = usePagination(counts, null);
+
   return (
     <section className="card">
       <header className="card__header">
@@ -42,7 +46,7 @@ export function InventoryCountHistory({ counts }: InventoryCountHistoryProps) {
               </tr>
             </thead>
             <tbody>
-              {counts.map((count) => {
+              {pages.pageItems.map((count) => {
                 const difference = describeDifference(count.difference);
 
                 return (
@@ -64,6 +68,7 @@ export function InventoryCountHistory({ counts }: InventoryCountHistoryProps) {
           </table>
         </div>
       )}
+      <Pagination {...pages} itemLabel="conteos" onPage={pages.setPage} />
     </section>
   );
 }

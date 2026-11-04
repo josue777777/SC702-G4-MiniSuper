@@ -487,6 +487,7 @@ export function ProductsSection({
           headerActions={viewSelector}
           filtered={categoryFilter !== ''}
           searchTerm={searchTerm}
+          pageResetKey={`${view}/${categoryFilter}/${searchTerm}`}
           selectedId={selected?.id ?? null}
           onSelect={selectProduct}
           onOpen={(product) => {
