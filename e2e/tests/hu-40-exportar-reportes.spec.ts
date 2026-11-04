@@ -4,6 +4,7 @@ import { resetCatalog, signInAsOwner } from '../support/fixtures';
 import {
   PERIOD,
   consult,
+  openDetail,
   openReport,
   readDownload,
   readTable,
@@ -89,6 +90,11 @@ test('el reporte de inventario está en Reportes, con las mismas acciones, y se 
     'aria-selected',
     'true',
   );
+  // En pantalla: resumen y gráficos; el detalle, a pedido.
+  await expect(
+    page.getByRole('figure', { name: 'Valor del inventario por categoría' }),
+  ).toBeVisible();
+  await openDetail(page);
   await expect(page.getByRole('table', { name: 'Stock de productos' })).toBeVisible();
   await expect(
     page.getByRole('button', { name: /Descargar reporte de inventario en PDF/ }),

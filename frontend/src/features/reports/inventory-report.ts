@@ -231,6 +231,50 @@ export function summarize(products: Product[]): string {
   return `${products.length} producto(s) · ${units} unidad(es) · valor al costo ${formatMoney((cents / 100).toFixed(2))}`;
 }
 
+/** Totales del inventario para el resumen de la pantalla. */
+export function inventoryTotals(products: Product[]): {
+  count: number;
+  units: number;
+  value: string;
+} {
+  const units = products.reduce((sum, product) => sum + product.stock, 0);
+  const cents = products.reduce((sum, product) => sum + toCents(product.cost) * product.stock, 0);
+
+  return { count: products.length, units, value: (cents / 100).toFixed(2) };
+}
+
+/** Valor al costo por categoría, de mayor a menor (para el gráfico). */
+export function valueByCategory(
+  products: Product[],
+): { key: string; label: string; value: number }[] {
+  const totals = new Map<string, number>();
+
+  for (const product of products) {
+    totals.set(
+      product.categoryName,
+      (totals.get(product.categoryName) ?? 0) + (toCents(product.cost) * product.stock) / 100,
+    );
+  }
+
+  return [...totals.entries()]
+    .map(([label, value]) => ({ key: label, label, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/** Cuántos productos hay agotados, en su mínimo y con stock suficiente. */
+export function stockStatus(products: Product[]): { key: string; label: string; value: number }[] {
+  const out = products.filter((product) => product.stock === 0).length;
+  const atMinimum = products.filter(
+    (product) => product.stock > 0 && product.minStock > 0 && product.stock <= product.minStock,
+  ).length;
+
+  return [
+    { key: 'ok', label: 'Con stock suficiente', value: products.length - out - atMinimum },
+    { key: 'min', label: 'En su mínimo o debajo', value: atMinimum },
+    { key: 'out', label: 'Agotados', value: out },
+  ];
+}
+
 /** Qué parte de los vencimientos se incluye. */
 export type ExpirationFilter = 'ALL' | ExpirationAlert['status'];
 

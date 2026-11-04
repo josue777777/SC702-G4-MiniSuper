@@ -474,10 +474,27 @@ export interface ScreenTable {
   rows: string[][];
 }
 
+/**
+ * En pantalla, el reporte muestra gráficos; el detalle fila por fila está en
+ * «Ver detalle», cerrado. Lo abre si hace falta.
+ */
+export async function openDetail(page: Page): Promise<void> {
+  const summary = page.getByText(/^Ver detalle \(/);
+
+  await expect(summary).toBeVisible();
+
+  if ((await summary.locator('xpath=..').getAttribute('open')) === null) {
+    await summary.click();
+  }
+}
+
 /** Tabla del reporte tal como se ve. */
 export async function readTable(page: Page, name: string): Promise<ScreenTable> {
   const table = page.getByRole('table', { name, exact: true });
 
+  // Primero el reporte correcto (su título es el nombre de la tabla); después, su detalle.
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  await openDetail(page);
   await expect(table).toBeVisible();
 
   const text = async (selector: string) =>

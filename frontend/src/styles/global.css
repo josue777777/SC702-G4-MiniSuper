@@ -3017,3 +3017,66 @@ code {
   border-left: 4px solid #b45309;
   background: #fef3c7;
 }
+
+/* Gráficos de los reportes: una sola serie, un solo color, guías tenues. */
+.report-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.report-chart {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.report-chart figcaption {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.report-chart figcaption .muted {
+  font-size: 0.82rem;
+}
+
+.report-columns {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.report-columns__grid {
+  stroke: var(--color-border);
+  stroke-dasharray: 3 4;
+}
+
+.report-columns__base {
+  stroke: var(--color-muted);
+}
+
+.report-columns__axis {
+  fill: var(--color-muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.report-columns__bar {
+  fill: var(--color-primary);
+}
+
+.report-columns__mark:hover .report-columns__bar {
+  fill: var(--color-primary-dark);
+}
+
+.report-detail {
+  margin-top: 6px;
+}
+
+.report-detail[open] summary {
+  margin-bottom: 10px;
+}

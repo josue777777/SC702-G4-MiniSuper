@@ -6,10 +6,14 @@ import { productsService } from '../../services/products.service';
 import type { ExpirationAlert, LowStockAlert } from '../../types/inventory';
 import type { Product, ReferenceOption } from '../../types/products';
 import { formatDateTime } from '../inventory/inventory-count';
+import { formatMoney } from '../products/money';
 import { useCatalogExport } from '../products/use-catalog-export';
 import {
   EXPIRATION_FILTERS,
   groupByCategory,
+  inventoryTotals,
+  stockStatus,
+  valueByCategory,
   loadPreferences,
   REPORT_COLUMNS,
   REPORT_SORTS,
@@ -24,6 +28,7 @@ import {
 } from './inventory-report';
 import { InventoryReportDocument } from './InventoryReportDocument';
 import { ReportActions } from './ReportActions';
+import { ReportChartView } from './ReportChartView';
 import { ReportCustomizeModal } from './ReportCustomizeModal';
 import { printReport } from './report-preferences';
 
@@ -141,18 +146,19 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
     setSections((current) => ({ ...current, [section]: !current[section] }));
   }
 
-  const content = (
-    <InventoryReportDocument
-      sections={sections}
-      scope={scope}
-      columns={columns}
-      products={products}
-      groups={groups}
-      expirations={expirations}
-      expirationFilter={expirationFilter}
-      lowStock={lowStock}
-    />
-  );
+  const totals = inventoryTotals(products);
+  const documentProps = {
+    sections,
+    scope,
+    columns,
+    products,
+    groups,
+    expirations,
+    expirationFilter,
+    lowStock,
+  };
+  // El PDF lleva el reporte completo, con grupos y subtotales.
+  const content = <InventoryReportDocument {...documentProps} />;
 
   return (
     <>
@@ -310,7 +316,69 @@ export function InventoryStockReport({ initialCategoryId }: InventoryStockReport
           </p>
         ) : null}
         {nothingChosen ? <p className="muted">Marque al menos una sección.</p> : null}
-        {data.phase === 'ready' ? content : null}
+        {data.phase === 'ready' ? (
+          <>
+            {/* Primero el resumen; la lista completa sale en el PDF y el Excel. */}
+            <div className="report-totals" aria-label="Resumen del inventario">
+              <div className="stat-tile stat-tile--primary">
+                <span className="stat-tile__label">Valor del inventario (al costo)</span>
+                <strong className="stat-tile__value">{formatMoney(totals.value)}</strong>
+              </div>
+              <div className="report-totals__secondary">
+                <div className="stat-tile stat-tile--secondary">
+                  <span className="stat-tile__label">Productos activos</span>
+                  <strong className="stat-tile__value">{totals.count}</strong>
+                </div>
+                <div className="stat-tile stat-tile--secondary">
+                  <span className="stat-tile__label">Unidades en stock</span>
+                  <strong className="stat-tile__value">{totals.units}</strong>
+                </div>
+                {sections.lowStock ? (
+                  <div className="stat-tile stat-tile--secondary">
+                    <span className="stat-tile__label">En stock bajo</span>
+                    <strong className="stat-tile__value">{lowStock.length}</strong>
+                  </div>
+                ) : null}
+                {sections.expirations ? (
+                  <div className="stat-tile stat-tile--secondary">
+                    <span className="stat-tile__label">{EXPIRATION_FILTERS[expirationFilter]}</span>
+                    <strong className="stat-tile__value">{expirations.length}</strong>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            {products.length === 0 ? null : (
+              <div className="report-charts">
+                <ReportChartView
+                  chart={{
+                    id: 'inventory-value',
+                    title: 'Valor del inventario por categoría',
+                    subtitle: 'Stock × precio de compra: dónde está el dinero invertido.',
+                    form: 'bars',
+                    unit: 'money',
+                    data: valueByCategory(products),
+                  }}
+                />
+                <ReportChartView
+                  chart={{
+                    id: 'inventory-status',
+                    title: 'Estado del stock',
+                    subtitle: 'Cuántos productos activos hay en cada situación.',
+                    form: 'bars',
+                    unit: 'products',
+                    data: stockStatus(products),
+                  }}
+                />
+              </div>
+            )}
+
+            <details className="disclosure report-detail">
+              <summary>Ver detalle ({products.length} productos)</summary>
+              <InventoryReportDocument {...documentProps} paginated />
+              <p className="muted">El PDF lleva el detalle completo.</p>
+            </details>
+          </>
+        ) : null}
       </div>
 
       {customizing ? (

@@ -1,3 +1,5 @@
+import { Pagination } from '../../components/Pagination';
+import { usePagination } from '../../components/use-pagination';
 import type { ExpirationAlert, LowStockAlert } from '../../types/inventory';
 import type { Product } from '../../types/products';
 import { describeExpiration, formatDateOnly } from '../inventory/inventory-count';
@@ -20,6 +22,11 @@ interface InventoryReportDocumentProps {
   expirations: ExpirationAlert[];
   expirationFilter: ExpirationFilter;
   lowStock: LowStockAlert[];
+  /**
+   * En pantalla, de 20 en 20 (docs/PANTALLAS.md: no se muestran datos por
+   * mostrar). En el PDF, completo y con los grupos y subtotales.
+   */
+  paginated?: boolean;
 }
 
 /**
@@ -35,7 +42,19 @@ export function InventoryReportDocument({
   expirations,
   expirationFilter,
   lowStock,
+  paginated = false,
 }: InventoryReportDocumentProps) {
+  const productPages = usePagination(products, `${scope}/${products.length}`);
+  const expirationPages = usePagination(expirations, `${scope}/${expirationFilter}`);
+  const lowStockPages = usePagination(lowStock, scope);
+  // En pantalla, una lista plana paginada; los grupos con subtotales quedan para el PDF.
+  const shownGroups: ProductGroup[] = paginated
+    ? [{ key: 'page', title: null, products: productPages.pageItems }]
+    : groups;
+  const shownExpirations = paginated ? expirationPages.pageItems : expirations;
+  const shownLowStock = paginated ? lowStockPages.pageItems : lowStock;
+  const grouped = groups.some((group) => group.title !== null);
+
   return (
     <>
       {sections.products ? (
@@ -56,7 +75,7 @@ export function InventoryReportDocument({
                   ))}
                 </tr>
               </thead>
-              {groups.map((group) => (
+              {shownGroups.map((group) => (
                 <tbody key={group.key}>
                   {group.title === null ? null : (
                     <tr className="report-preview__group">
@@ -92,6 +111,16 @@ export function InventoryReportDocument({
               </tfoot>
             </table>
           )}
+          {paginated ? (
+            <>
+              <Pagination {...productPages} itemLabel="productos" onPage={productPages.setPage} />
+              {grouped ? (
+                <p className="muted">
+                  La agrupación por categoría, con subtotales, se ve en el PDF.
+                </p>
+              ) : null}
+            </>
+          ) : null}
         </section>
       ) : null}
 
@@ -112,7 +141,7 @@ export function InventoryReportDocument({
                 </tr>
               </thead>
               <tbody>
-                {expirations.map((alert) => (
+                {shownExpirations.map((alert) => (
                   <tr key={alert.productId}>
                     <td>{alert.productCode}</td>
                     <td>{alert.productName}</td>
@@ -124,6 +153,13 @@ export function InventoryReportDocument({
               </tbody>
             </table>
           )}
+          {paginated ? (
+            <Pagination
+              {...expirationPages}
+              itemLabel="productos"
+              onPage={expirationPages.setPage}
+            />
+          ) : null}
         </section>
       ) : null}
 
@@ -143,7 +179,7 @@ export function InventoryReportDocument({
                 </tr>
               </thead>
               <tbody>
-                {lowStock.map((alert) => (
+                {shownLowStock.map((alert) => (
                   <tr key={alert.productId}>
                     <td>{alert.productCode}</td>
                     <td>{alert.productName}</td>
@@ -154,6 +190,9 @@ export function InventoryReportDocument({
               </tbody>
             </table>
           )}
+          {paginated ? (
+            <Pagination {...lowStockPages} itemLabel="productos" onPage={lowStockPages.setPage} />
+          ) : null}
         </section>
       ) : null}
     </>
