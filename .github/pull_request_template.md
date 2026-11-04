@@ -39,6 +39,7 @@ lista de revisión más larga).
 - [ ] Las listas que pueden pasar de 20 filas tienen buscador, y filtra mientras se escribe (sin botón «Buscar»).
 - [ ] Los filtros se aplican solos (sin botón de consultar), muestran los errores junto al campo y no consultan con datos inválidos.
 - [ ] Filtros y botones usan los estilos compartidos (`.filter-bar`, `.toolbar__filter`, `.button`), no estilos nuevos.
+- [ ] Si cambia el diseño: la justificación está en este PR y el cambio se aplicó en **todo** el sistema (o se ajustó a lo que ya existe). No queda una parte distinta.
 - [ ] Los reportes muestran cifras y gráficos; el detalle va en «Ver detalle» y completo en el PDF y el Excel.
 - [ ] Lo secundario va plegado; los avisos aparecen solo cuando aplican.
 - [ ] No se quitó ningún criterio de aceptación: se reordenó, y la prueba E2E de la historia se ajustó.

@@ -25,6 +25,10 @@ los ejemplos están en las guías enlazadas.
 - Si algo se necesita en dos lugares, se vuelve compartido; no se copia.
 - Una pantalla que se ve distinta a las demás es un error de diseño, aunque
   funcione.
+- Un cambio de diseño se hace con una justificación escrita en el PR, y nunca
+  queda a medias: o el cambio se ajusta a lo que ya existe, o **todo** el
+  sistema se actualiza al diseño nuevo en ese mismo trabajo (y se documenta en
+  `docs/PANTALLAS.md`). Nunca queda una parte con un diseño y otra con otro.
 
 ## 3. Pantallas claras y livianas
 
