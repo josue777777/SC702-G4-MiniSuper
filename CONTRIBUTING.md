@@ -72,3 +72,13 @@ Guía completa: [`docs/ESCALABILIDAD.md`](docs/ESCALABILIDAD.md).
   `develop` pasa a `main` cuando todo está en verde.
 - Un PR se integra solo con el CI en verde y sin conflictos.
 - La descripción del PR dice qué historia toca y cómo se probó.
+
+## 7. Documentación
+
+- Todo documento está enlazado desde el README (sección «Documentación») o desde
+  estas reglas. Si nadie lo enlaza, no suma: se integra en otro o se borra.
+- Las notas de una historia (cómo se probó, qué falta) van en su issue o en su PR,
+  no en un `.md` suelto. Lo que sirve a futuro (reglas de cálculo, contratos de la
+  API) va a `docs/ARCHITECTURE.md`.
+- Un documento que ya no dice la verdad se corrige en el mismo PR que cambió el
+  código.
