@@ -622,6 +622,18 @@ este documento: así no queda desactualizado.
 * `npm run db:seed` solo crea el administrador inicial; no hay datos de ejemplo para
   desarrollo.
 
+**Orden pendiente (hacer cuando no haya ramas abiertas que toquen esos archivos)**
+
+* Ayudantes compartidos dentro de un módulo: `features/products/money.ts` (lo usan unos
+  20 archivos de otros módulos) y los formatos de fecha de
+  `features/inventory/inventory-count.ts`. Van a una carpeta común
+  (`frontend/src/utils/`), los dos juntos.
+* El backend está organizado por capas (`controllers/`, `services/`,
+  `repositories/`…): cada módulo queda repartido en seis carpetas. Pasarlo a módulos por
+  funcionalidad (`modules/products/products.routes.ts`, `.controller.ts`,
+  `.service.ts`…) es un solo PR mecánico con `git mv`, acordado con el equipo para que
+  nadie tenga ramas abiertas. `schema.prisma` sigue siendo uno solo.
+
 ## 12. Reportes comerciales (HU-28, HU-29, HU-30)
 
 API: `GET /api/reports/commercial/{sales|profits|top-products|customer-debts}` y su
