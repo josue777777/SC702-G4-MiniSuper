@@ -26,7 +26,18 @@ export const INITIAL_STOCK_REASON = 'Stock inicial';
 export const STOCK_ADJUSTMENT_REASON = 'Ajuste desde edición de producto';
 const BARCODE_GENERATION_ATTEMPTS = 5;
 
-/** Genera un EAN-13 válido para uso interno; no equivale a un código comercial GS1. */
+/**
+ * Genera un EAN-13 válido para uso interno (HU-07); no equivale a un código
+ * comercial GS1.
+ *
+ * Cálculo del dígito de control: los 12 dígitos se multiplican alternando por 1 y
+ * por 3, se suman, y el control es lo que falta para llegar a la siguiente decena.
+ *
+ * @param randomNumber Fuente de números al azar (en las pruebas se pasa una fija).
+ * @returns 13 dígitos.
+ * @example
+ * generateInternalEan13(() => 750123456789); // "7501234567893" (suma 117 → control 3)
+ */
 export function generateInternalEan13(randomNumber: (max: number) => number = randomInt): string {
   const payload = String(randomNumber(1_000_000_000_000)).padStart(12, '0');
   const sum = [...payload].reduce(
@@ -43,6 +54,13 @@ export function generateInternalEan13(randomNumber: (max: number) => number = ra
  * `quantity` es la diferencia en valor absoluto, porque en el esquema la
  * cantidad siempre es positiva y el sentido lo da `type` (`ADJUSTMENT` cubre
  * tanto un aumento como una disminución del stock).
+ *
+ * @param currentStock Stock guardado antes de la edición.
+ * @param nextStock Stock que pide el formulario.
+ * @example
+ * buildStockAdjustment(20, 18);
+ * // { type: 'ADJUSTMENT', quantity: 2, stockBefore: 20, stockAfter: 18, reason: … }
+ * buildStockAdjustment(20, 20); // null: no se guarda movimiento
  */
 export function buildStockAdjustment(
   currentStock: number,

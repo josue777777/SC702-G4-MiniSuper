@@ -26,6 +26,14 @@ export const PHYSICAL_COUNT_REASON = 'Conteo físico';
  * A diferencia de la edición de producto, se devuelve siempre un movimiento,
  * aunque el conteo coincida con el sistema (`quantity = 0`): así el historial
  * deja constancia de que el producto se contó y estaba correcto.
+ *
+ * @param systemStock Lo que dice el sistema antes del conteo.
+ * @param countedQuantity Lo que se contó en el estante.
+ * @returns El movimiento a guardar.
+ * @example
+ * buildCountAdjustment(20, 18);
+ * // { type: 'ADJUSTMENT', quantity: 2, stockBefore: 20, stockAfter: 18, reason: 'Conteo físico' }
+ * buildCountAdjustment(20, 20); // quantity 0: se contó y estaba bien
  */
 export function buildCountAdjustment(
   systemStock: number,
@@ -44,6 +52,11 @@ export function buildCountAdjustment(
  * `true` si el producto necesita reponerse (HU-08): el stock llegó al mínimo o
  * bajó de él. Un mínimo de 0 significa que el dueño no lo definió, y entonces
  * nunca hay alerta (evita alertas falsas en productos sin mínimo).
+ *
+ * @example
+ * isLowStock(5, 5);  // true  (llegó al mínimo)
+ * isLowStock(6, 5);  // false
+ * isLowStock(0, 0);  // false (sin mínimo definido)
  */
 export function isLowStock(stock: number, minStock: number): boolean {
   return minStock > 0 && stock <= minStock;
@@ -53,6 +66,13 @@ export function isLowStock(stock: number, minStock: number): boolean {
  * Clasifica un vencimiento (HU-09): vencido si la fecha ya pasó, próximo a
  * vencer si faltan menos de `EXPIRING_SOON_DAYS` días (vencer hoy cuenta como
  * próximo), o `null` si todavía falta tiempo.
+ *
+ * @param daysLeft Días entre hoy (Costa Rica) y el vencimiento; negativo si ya pasó.
+ * @example
+ * classifyExpiration(-1); // 'EXPIRED'
+ * classifyExpiration(0);  // 'EXPIRING_SOON' (vence hoy)
+ * classifyExpiration(14); // 'EXPIRING_SOON'
+ * classifyExpiration(15); // null
  */
 export function classifyExpiration(daysLeft: number): ExpirationAlertDto['status'] | null {
   if (daysLeft < 0) {

@@ -6,7 +6,7 @@
 
 ## Contexto
 
-Con la jerarquía de usuarios ([ADR 0002](0002-usuarios-jerarquia-y-plan.md)), cada quien
+Con la jerarquía de usuarios ([ADR 0002](0002-usuarios-jerarquia-y-nivel-de-cuenta.md)), cada quien
 restablece la contraseña de los que están debajo. Pero quedaba un hueco: si el Encargado
 olvida su contraseña y el Administrador no está disponible, el negocio no puede entrar.
 Y el Administrador no tiene a nadie arriba.

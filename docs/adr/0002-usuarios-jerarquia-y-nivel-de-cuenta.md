@@ -1,4 +1,4 @@
-# 2. Usuarios con jerarquía, plataforma multi-negocio y planes
+# 2. Usuarios con jerarquía, plataforma multi-negocio y niveles de cuenta
 
 - **Estado:** Aceptada (etapas 1 y 2 implementadas)
 - **Fecha:** 2026-10-28
@@ -41,7 +41,7 @@ Además, el sistema debe poder atender **varios negocios** desde una misma plata
 
 ### Multi-negocio: una base compartida, cada fila con su dueño
 
-- Tabla `Business` (datos, logo, plan y estado de cada cliente). Las tablas raíz
+- Tabla `Business` (datos, logo, nivel de cuenta y estado de cada negocio). Las tablas raíz
   (`Category`, `Product`, `Customer`, `Sale`, `Supplier`, `PurchaseOrder` y `User`)
   llevan `businessId`. Las tablas hijas (líneas de venta, movimientos…) no lo repiten:
   heredan el negocio de su padre (normalización).
@@ -60,16 +60,16 @@ Además, el sistema debe poder atender **varios negocios** desde una misma plata
 - Hay pruebas de aislamiento con PostgreSQL real (`tenant-isolation.integration.test.ts`):
   el negocio B no ve, cambia ni vende nada del negocio A.
 
-### Plan: Encargado + N
+### Nivel de cuenta: Encargado + N
 
-- Plan 0 = solo el Encargado; cada nivel suma un usuario (`maxUsers = 1 + extraUsers`).
+- Nivel 0 = solo el Encargado; cada nivel suma un usuario (`maxUsers = 1 + extraUsers`).
 - Cuentan los usuarios **activos** del negocio. Crear o reactivar uno revisa el límite
   **dentro de una transacción con la fila del negocio bloqueada** (`SELECT … FOR UPDATE`):
   dos altas simultáneas nunca lo superan (probado con 6 altas a la vez y 1 cupo libre).
-- Bajar el plan no desactiva a nadie: solo impide crear o reactivar hasta que haya cupo.
+- Bajar el nivel de cuenta no desactiva a nadie: solo impide crear o reactivar hasta que haya cupo.
 - **Solicitudes** (`PlanRequest`): el Encargado pide N usuarios más (con una nota
   opcional). Llega a la bandeja del
-  Administrador, que aprueba (el plan sube y **el Encargado crea los usuarios**) o
+  Administrador, que aprueba (el nivel de cuenta sube y **el Encargado crea los usuarios**) o
   rechaza. Un índice único parcial impide dos solicitudes pendientes del mismo negocio.
 - **Suspensión**: un negocio suspendido no puede entrar (ni con sesiones abiertas). Sus
   datos no se borran.
@@ -93,7 +93,7 @@ Además, el sistema debe poder atender **varios negocios** desde una misma plata
 | Etapa | Qué incluye | Estado |
 | --- | --- | --- |
 | **1. Un negocio, pensado para crecer** | Roles con jerarquía, apariencia por usuario, datos y logo del negocio, límite de usuarios | **Hecha** |
-| **2. Multi-negocio** | `Business` con `businessId` en las tablas; repositorios atados al negocio; claves foráneas compuestas; panel de la plataforma (negocios, planes, solicitudes, suspensión); pruebas de aislamiento | **Hecha** |
+| **2. Multi-negocio** | `Business` con `businessId` en las tablas; repositorios atados al negocio; claves foráneas compuestas; panel de la plataforma (negocios, niveles de cuenta, solicitudes, suspensión); pruebas de aislamiento | **Hecha** |
 
 La migración `20261029120000_multi_business` convierte una base de la etapa 1: crea un
 negocio con los datos de `BusinessSettings`, le asigna todos los datos y usuarios

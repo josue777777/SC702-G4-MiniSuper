@@ -42,6 +42,9 @@ Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
   detalle de reportes) se pagina en el servidor.
 - Buscadores y filtros se aplican solos, sin botón «Buscar» ni «Generar».
 - Lo secundario va plegado; los avisos aparecen solo cuando aplican.
+- Una entrada del menú se gana su lugar: si dos secciones se usan juntas y una
+  es pequeña, van como pestañas de una sola pantalla; se separan cuando una
+  crece hasta ser un mundo propio.
 - Poco texto en pantalla; la ayuda, a pedido.
 
 ## 4. Datos y seguridad
@@ -65,6 +68,17 @@ Guía completa: [`docs/ESCALABILIDAD.md`](docs/ESCALABILIDAD.md).
 - Nunca se desactiva ni se salta una prueba para que el CI pase: se arregla la
   causa.
 - Sin código muerto ni comentarios que ya no son ciertos.
+- **Todo lo que se programa queda comentado y explicado**, para que cualquiera del
+  equipo lo entienda y encuentre rápido dónde está un problema:
+  - cada archivo empieza con un comentario que dice qué hace y a qué historia
+    responde;
+  - cada función, clase o componente exportado tiene su JSDoc: qué hace, `@param` y
+    `@returns` cuando no es obvio, y `@example` con números si hace un cálculo;
+  - los comentarios explican el **porqué** (la regla, el caso borde), no repiten lo
+    que el código ya dice.
+- Cada módulo tiene su página en la [guía del código](docs/guia/README.md): qué hace,
+  flujo de información, librerías, cálculos y dónde buscar cuando algo falla. Quien
+  cambia el módulo actualiza su página en el mismo PR.
 
 ## 6. Ramas y PR
 
@@ -72,3 +86,13 @@ Guía completa: [`docs/ESCALABILIDAD.md`](docs/ESCALABILIDAD.md).
   `develop` pasa a `main` cuando todo está en verde.
 - Un PR se integra solo con el CI en verde y sin conflictos.
 - La descripción del PR dice qué historia toca y cómo se probó.
+
+## 7. Documentación
+
+- Todo documento está enlazado desde el README (sección «Documentación») o desde
+  estas reglas. Si nadie lo enlaza, no suma: se integra en otro o se borra.
+- Las notas de una historia (cómo se probó, qué falta) van en su issue o en su PR,
+  no en un `.md` suelto. Lo que sirve a futuro (reglas de cálculo, contratos de la
+  API) va a `docs/ARCHITECTURE.md`.
+- Un documento que ya no dice la verdad se corrige en el mismo PR que cambió el
+  código.

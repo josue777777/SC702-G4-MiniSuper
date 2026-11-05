@@ -1,14 +1,20 @@
 import { useMemo, useState } from 'react';
-import { ListSearch } from '../components/ListSearch';
-import { matchesSearch } from '../components/list-search';
-import { EMPTY_SUPPLIER_VALUES, toSupplierFormValues } from '../features/suppliers/supplier-form';
-import { SupplierForm } from '../features/suppliers/SupplierForm';
-import { SupplierTable } from '../features/suppliers/SupplierTable';
-import { useSuppliers } from '../features/suppliers/use-suppliers';
-import type { Supplier, SupplierPayload } from '../types/suppliers';
+import { ListSearch } from '../../components/ListSearch';
+import { matchesSearch } from '../../components/list-search';
+import type { Supplier, SupplierPayload } from '../../types/suppliers';
+import { EMPTY_SUPPLIER_VALUES, toSupplierFormValues } from './supplier-form';
+import { SupplierForm } from './SupplierForm';
+import { SupplierTable } from './SupplierTable';
+import { useSuppliers } from './use-suppliers';
 
-/** Proveedores: registrar y editar, con los productos que suministra cada uno (HU-21). */
-export function SuppliersPage() {
+/**
+ * Pestaña «Proveedores» de la pantalla Pedidos: registrar y editar proveedores,
+ * con los productos que suministra cada uno (HU-21). Vive junto a los pedidos
+ * porque se usan juntos; si crece (por ejemplo, con la comparación de costos de
+ * HU-39 y una ficha por proveedor), vuelve a tener pantalla propia
+ * (docs/PANTALLAS.md, regla 11).
+ */
+export function SuppliersSection() {
   const {
     phase,
     suppliers,
@@ -62,11 +68,6 @@ export function SuppliersPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Proveedores</h1>
-        <p>Saber a quién pedirle cada producto y a qué costo se le compra.</p>
-      </header>
-
       <div className="toolbar">
         <ListSearch
           value={search}

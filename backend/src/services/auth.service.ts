@@ -11,6 +11,7 @@ import {
 } from '../utils/session-token.js';
 import type { LoginInput } from '../validators/auth.validator.js';
 
+/** Cuánto dura una sesión: 8 horas (8 × 60 × 60 = 28 800 segundos), un turno de trabajo. */
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
 const INVALID_CREDENTIALS = 'Usuario o contraseña incorrectos.';

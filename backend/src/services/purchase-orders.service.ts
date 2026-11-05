@@ -16,7 +16,18 @@ function toCents(value: string): number {
   return Math.round(Number(value) * 100);
 }
 
-/** Total del pedido: suma de cantidad × costo, calculada en céntimos. */
+/**
+ * Total del pedido: suma de cantidad × costo, calculada en céntimos para no
+ * perder centavos con la coma flotante.
+ *
+ * @param lines Líneas con su costo acordado (texto con dos decimales).
+ * @returns El total con dos decimales, como texto.
+ * @example
+ * calculateTotal([
+ *   { quantity: 12, unitCost: '1800.00' },
+ *   { quantity: 20, unitCost: '600.00' },
+ * ]); // "33600.00"
+ */
 export function calculateTotal(lines: MoneyLine[]): string {
   const cents = lines.reduce((sum, line) => sum + toCents(line.unitCost) * line.quantity, 0);
 

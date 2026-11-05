@@ -200,6 +200,24 @@ Todos los botones son botones (`.button`), nunca un texto subrayado.
 En las pruebas E2E, `consult(page)` espera a que la barra diga «Al día»
 (`data-report-sync="done"`).
 
+## Regla 11: una subsección del menú se gana su lugar
+
+Cada entrada del menú lateral tiene que tener contenido propio suficiente. Si
+dos subsecciones comparten datos (y permiso) y una de ellas es pequeña, van
+como **pestañas de una sola pantalla**, no como dos entradas del menú.
+
+| Pregunta | Si la respuesta es sí… |
+| --- | --- |
+| ¿Se usan juntas y con el mismo permiso? | Candidatas a unirse |
+| ¿Una de las dos es solo una lista corta con su formulario? | Se unen: pestañas en una pantalla |
+| ¿Cada una tiene su propio mundo (varias tareas, historial, fichas, reportes)? | Se quedan separadas |
+
+Ejemplo aplicado: **Pedidos** tiene las pestañas «Pedidos» y «Proveedores»
+(`/orders?seccion=proveedores`; la dirección vieja `/suppliers` lleva ahí).
+Proveedores, sola, era una pantalla casi vacía. Si crece (por ejemplo, con la
+comparación de costos de HU-39 y una ficha por proveedor), vuelve a tener su
+propia entrada en el menú.
+
 ## Lista de revisión para una pantalla nueva
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
@@ -214,4 +232,5 @@ En las pruebas E2E, `consult(page)` espera a que la barra diga «Al día»
 - [ ] ¿Las explicaciones están plegadas y los avisos aparecen solo cuando aplican?
 - [ ] Si es un reporte: ¿muestra gráficos y deja el detalle a pedido y en el PDF/Excel?
 - [ ] Si tiene filtros: ¿se aplican solos, sin botón, y muestran los activos?
+- [ ] Si es una entrada nueva del menú: ¿tiene contenido propio suficiente, o va mejor como pestaña de una pantalla relacionada?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?

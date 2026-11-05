@@ -7,6 +7,7 @@ import type { Role } from '../../types/auth';
  */
 export const ROLES: Role[] = ['ADMIN', 'ENCARGADO', 'CAJERO', 'BODEGA'];
 
+/** Nombre de cada rol en la pantalla. */
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador',
   ENCARGADO: 'Encargado',
@@ -14,6 +15,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   BODEGA: 'Bodega',
 };
 
+/** Qué hace cada rol, en una frase, para ayudar a elegirlo en el formulario. */
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   ADMIN:
     'Administrador de la plataforma: crea los negocios con su Encargado y su límite de usuarios, y responde las solicitudes. No ve los datos internos de los negocios.',
@@ -36,6 +38,11 @@ export const ROLE_RECOVERY: Record<Role, 'email' | 'manager'> = {
   BODEGA: 'manager',
 };
 
+/**
+ * @param role Rol elegido en el formulario.
+ * @returns `true` si el correo es obligatorio (Administrador y Encargado).
+ * @example recoversByEmail('CAJERO') // false: el Cajero recupera con el Encargado
+ */
 export function recoversByEmail(role: Role): boolean {
   return ROLE_RECOVERY[role] === 'email';
 }

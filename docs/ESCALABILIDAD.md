@@ -17,8 +17,8 @@ Cada práctica dice cómo está **hoy** el sistema, **quién lo hace así** (pro
 exitosos actuales) y **cuándo** conviene. La única excepción a «después» son dos puntos
 marcados 🔴: no son mejoras sino defectos, y el equipo decide cuándo corregirlos.
 
-Documentos relacionados: [ADR 0002](adr/0002-usuarios-jerarquia-y-plan.md) (multi-negocio
-y planes) y [USUARIOS-Y-ROLES.md](USUARIOS-Y-ROLES.md) (cómo programar un módulo).
+Documentos relacionados: [ADR 0002](adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md) (multi-negocio
+y niveles de cuenta) y [USUARIOS-Y-ROLES.md](USUARIOS-Y-ROLES.md) (cómo programar un módulo).
 
 ---
 

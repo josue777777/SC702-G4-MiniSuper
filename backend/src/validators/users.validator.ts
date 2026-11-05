@@ -45,6 +45,7 @@ export const updateUserSchema = z
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
+/** Valida el `:id` de la URL en las rutas de un usuario (`/api/users/:id/...`). */
 export const userIdParamSchema = z.object({
   id: z.uuid({ error: 'El usuario indicado no es válido.' }),
 });

@@ -158,3 +158,47 @@ test('Pedidos: «Ver pedido» abre el documento en una ventana sin mover la list
   await document.getByRole('button', { name: 'Cerrar', exact: true }).last().click();
   await expect(document).toHaveCount(0);
 });
+
+test('Pedidos: Pedidos y Proveedores son pestañas de una sola pantalla', async ({ page }) => {
+  await seedProducts([
+    {
+      code: 'P001',
+      name: 'Café molido 500 g',
+      category: 'Abarrotes',
+      price: '2500.00',
+      cost: '1800.00',
+      stock: 5,
+      supplier: 'Distribuidora Central',
+    },
+  ]);
+
+  await page.goto('/orders');
+  const menu = page.getByRole('navigation', { name: 'Navegación principal' });
+
+  // Una sola entrada en el menú: Proveedores ya no es una pantalla aparte.
+  await expect(menu.getByRole('link', { name: /^›?\s*Pedidos$/ })).toBeVisible();
+  await expect(menu.getByRole('link', { name: /Proveedores/ })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^›?\s*Pedidos$/);
+
+  const tabs = page.getByRole('tablist', { name: 'Secciones de pedidos' });
+
+  await expect(tabs.getByRole('tab')).toHaveText(['Pedidos', 'Proveedores']);
+  await expect(tabs.getByRole('tab', { name: 'Pedidos' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: '+ Nuevo pedido' })).toBeVisible();
+
+  // La pestaña Proveedores queda en la dirección y tiene todo lo de antes.
+  await tabs.getByRole('tab', { name: 'Proveedores' }).click();
+  await expect(page).toHaveURL(/\/orders\?seccion=proveedores$/);
+  await expect(page.getByRole('table', { name: 'Proveedores' })).toContainText(
+    'Distribuidora Central',
+  );
+  await expect(page.getByRole('button', { name: '+ Nuevo proveedor' })).toBeVisible();
+
+  // La dirección vieja sigue sirviendo: lleva a la pestaña Proveedores.
+  await page.goto('/suppliers');
+  await expect(page).toHaveURL(/\/orders\?seccion=proveedores$/);
+  await expect(tabs.getByRole('tab', { name: 'Proveedores' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+});
