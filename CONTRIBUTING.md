@@ -65,6 +65,17 @@ Guía completa: [`docs/ESCALABILIDAD.md`](docs/ESCALABILIDAD.md).
 - Nunca se desactiva ni se salta una prueba para que el CI pase: se arregla la
   causa.
 - Sin código muerto ni comentarios que ya no son ciertos.
+- **Todo lo que se programa queda comentado y explicado**, para que cualquiera del
+  equipo lo entienda y encuentre rápido dónde está un problema:
+  - cada archivo empieza con un comentario que dice qué hace y a qué historia
+    responde;
+  - cada función, clase o componente exportado tiene su JSDoc: qué hace, `@param` y
+    `@returns` cuando no es obvio, y `@example` con números si hace un cálculo;
+  - los comentarios explican el **porqué** (la regla, el caso borde), no repiten lo
+    que el código ya dice.
+- Cada módulo tiene su página en la [guía del código](docs/guia/README.md): qué hace,
+  flujo de información, librerías, cálculos y dónde buscar cuando algo falla. Quien
+  cambia el módulo actualiza su página en el mismo PR.
 
 ## 6. Ramas y PR
 

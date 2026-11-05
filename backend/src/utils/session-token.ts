@@ -33,6 +33,14 @@ function sign(body: string, secret: string): Buffer {
   return createHmac('sha256', secret).update(body).digest();
 }
 
+/**
+ * Firma el token de sesión: los datos en base64url, un punto y la firma HMAC-SHA256.
+ * Sin el secreto del servidor nadie puede fabricar ni modificar un token.
+ *
+ * @param payload Usuario, versiones de contraseña y de sesión, y vencimiento.
+ * @param secret `SESSION_SECRET` del `.env`.
+ * @returns `"<datos>.<firma>"`, que viaja en la cookie httpOnly.
+ */
 export function createSessionToken(payload: SessionPayload, secret: string): string {
   const wire: WirePayload = {
     uid: payload.userId,

@@ -22,6 +22,9 @@ Lo más importante, por si solo lees esto:
 - El negocio sale siempre de la sesión; los permisos se validan en el
   servidor.
 - Nunca subas `.env`, contraseñas ni datos reales.
+- Todo lo que escribas queda comentado: JSDoc en cada archivo y en cada función
+  exportada (con `@example` si calcula algo), y la página del módulo en
+  [`docs/guia/`](docs/guia/README.md) actualizada.
 - Antes de dar algo por terminado: `npm run format:check`, `npm run lint`,
   `npm run typecheck` y las pruebas de lo que se tocó.
 - La descripción del PR debe marcar «Leí y cumplo `CONTRIBUTING.md`» (el CI
