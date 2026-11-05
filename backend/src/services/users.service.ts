@@ -30,6 +30,13 @@ export interface UserWithTemporaryPassword {
   temporaryPassword: string;
 }
 
+/**
+ * Convierte el registro de la base en lo que ve la pantalla Usuarios: nunca incluye
+ * el hash de la contraseña ni las versiones de sesión.
+ *
+ * @param user Usuario leído por el repositorio.
+ * @returns La fila de la tabla de usuarios.
+ */
 export function toListItem(user: UserRecord): UserListItemDto {
   return {
     id: user.id,

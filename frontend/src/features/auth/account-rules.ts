@@ -4,11 +4,17 @@
  * solo evita viajes al servidor y explica el error junto al campo.
  */
 
+/** Largo de la contraseña nueva: de 10 a 128 caracteres, igual que el backend. */
 export const PASSWORD_MIN_LENGTH = 10;
 export const PASSWORD_MAX_LENGTH = 128;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * @param name Lo escrito en el campo Nombre.
+ * @returns El mensaje de error, o `undefined` si está bien.
+ * @example validateName('   ') // 'Escriba su nombre.'
+ */
 export function validateName(name: string): string | undefined {
   if (name.trim() === '') {
     return 'Escriba su nombre.';
@@ -17,6 +23,11 @@ export function validateName(name: string): string | undefined {
   return name.trim().length > 80 ? 'El nombre no puede superar 80 caracteres.' : undefined;
 }
 
+/**
+ * @param email Lo escrito en el campo Correo.
+ * @returns El mensaje de error, o `undefined` si está bien.
+ * @example validateEmail('ana@correo') // 'El correo no es válido.' (falta el dominio .com)
+ */
 export function validateEmail(email: string): string | undefined {
   if (email.trim() === '') {
     return 'Escriba su correo electrónico.';
@@ -62,6 +73,13 @@ export function validateLoginPassword(password: string): string | undefined {
     : undefined;
 }
 
+/**
+ * Política de contraseñas: al menos 10 caracteres, una letra y un número.
+ *
+ * @param password Contraseña nueva.
+ * @returns El primer problema encontrado, o `undefined` si cumple.
+ * @example validateNewPassword('abcdefghij') // 'La contraseña debe incluir al menos un número.'
+ */
 export function validateNewPassword(password: string): string | undefined {
   if (password.length < PASSWORD_MIN_LENGTH) {
     return `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`;

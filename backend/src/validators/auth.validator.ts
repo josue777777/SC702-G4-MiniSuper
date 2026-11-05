@@ -7,6 +7,7 @@ export const PASSWORD_MIN_LENGTH = 10;
 /** Tope para que una contraseña enorme no sea una forma barata de agotar el CPU al hashear. */
 export const PASSWORD_MAX_LENGTH = 128;
 
+/** Nombre de la persona: obligatorio, sin espacios al inicio o al final, hasta 80 caracteres. */
 export const nameSchema = z
   .string({ error: 'El nombre es obligatorio.' })
   .trim()
