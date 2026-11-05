@@ -110,6 +110,18 @@ al dictarlos (`0/O`, `1/l/I`), mezclados con Fisher-Yates.
 El enlace lleva un token al azar que vale **30 minutos** y sirve una sola vez. En la
 base se guarda solo su huella SHA-256: quien lea la base no puede usar el enlace.
 
+### Límite de intentos (`utils/login-rate-limiter.ts`)
+
+```text
+Login                      8 intentos fallidos por IP en 15 minutos
+Pedir el correo de recuperación   3 por correo y 10 por IP en 1 hora
+```
+
+Pasado el límite por IP, el servidor responde 429 hasta que pase la ventana: así
+nadie puede probar contraseñas sin fin. El límite por correo no avisa nada (no se
+envía el correo, pero la respuesta es la misma), para no revelar que alguien lo
+pidió. Se guarda en memoria: al reiniciar el servidor vuelve a cero.
+
 ### Límite de usuarios (nivel de cuenta)
 
 ```text
@@ -131,6 +143,7 @@ rangos menores, y nadie se desactiva ni se quita el rol a sí mismo.
 | Me saca de la sesión al cambiar la contraseña | Es lo esperado: `passwordVersion` cambió |
 | Un rol ve una sección que no debería | `auth/permissions.ts` (un solo lugar) y `routes/index.ts` |
 | «Su rol no tiene acceso a esta sección» (403) | El permiso de la ruta en `routes/index.ts` |
+| «Demasiados intentos» (429) | `utils/login-rate-limiter.ts`: esperar a que pase la ventana |
 | No llega el correo de recuperación | `MAIL_TRANSPORT` en `.env` (`console`, `outbox` o `smtp`) y `utils/mailer.ts` |
 | «El nivel de cuenta permite N usuarios…» | `users.service.ts`: hay que desactivar a alguien o pedir más usuarios |
 
