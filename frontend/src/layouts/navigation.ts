@@ -108,17 +108,11 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
     label: 'Entradas',
     items: [
       {
+        // Pedidos y Proveedores en una pantalla, con dos pestañas (regla 11).
         kind: 'link',
         to: '/orders',
-        label: 'Pedidos a proveedor',
-        stories: 'HU-22 … HU-24, HU-38',
-        permission: 'purchasing',
-      },
-      {
-        kind: 'link',
-        to: '/suppliers',
-        label: 'Proveedores',
-        stories: 'HU-21, HU-39',
+        label: 'Pedidos',
+        stories: 'HU-21 … HU-24, HU-38, HU-39',
         permission: 'purchasing',
       },
     ],
