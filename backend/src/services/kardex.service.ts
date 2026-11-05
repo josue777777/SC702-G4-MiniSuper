@@ -28,6 +28,10 @@ const DEFAULT_CONCEPT: Record<KardexMovementKind, string> = {
  * tipo. Un `ADJUSTMENT` puede subir o bajar el stock, así que su sentido sale de
  * lo que realmente cambió (`stockAfter − stockBefore`); un ajuste sin cambio no
  * mueve ni entradas ni salidas.
+ *
+ * @example
+ * movementAmounts({ type: 'ENTRY', quantity: 10, … });                      // { entry: 10, exit: 0 }
+ * movementAmounts({ type: 'ADJUSTMENT', stockBefore: 20, stockAfter: 18, … }); // { entry: 0, exit: 2 }
  */
 export function movementAmounts(row: KardexMovementRow): { entry: number; exit: number } {
   if (row.type === 'ENTRY') {
