@@ -2,8 +2,8 @@
 
 Lectura obligatoria antes de abrir un PR: la plantilla pide confirmarlo y el CI
 no deja pasar un PR sin esa confirmación. Valen igual para el código escrito a
-mano o con IA (las herramientas de IA las encuentran por `AGENTS.md`,
-`CLAUDE.md` y `.github/copilot-instructions.md`). Son pocas a propósito; el detalle y
+mano o con IA (las herramientas de IA las encuentran por `AGENTS.md`, `CLAUDE.md`,
+`GEMINI.md` y `.github/copilot-instructions.md`; ver la regla 8). Son pocas a propósito; el detalle y
 los ejemplos están en las guías enlazadas.
 
 ## 1. Las historias de usuario mandan
@@ -96,3 +96,17 @@ Guía completa: [`docs/ESCALABILIDAD.md`](docs/ESCALABILIDAD.md).
   API) va a `docs/ARCHITECTURE.md`.
 - Un documento que ya no dice la verdad se corrige en el mismo PR que cambió el
   código.
+
+## 8. Las reglas llegan a todas las IA
+
+- Todos los caminos llevan a estas reglas: cada herramienta de IA que el equipo usa
+  tiene su archivo de instrucciones (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
+  `.github/copilot-instructions.md`), y cada uno enlaza a `AGENTS.md` y a este
+  documento.
+- Las reglas críticas van en un bloque de `AGENTS.md` que se copia **idéntico** en
+  los demás archivos, por si una IA lee solo el suyo.
+- Una regla nueva o cambiada se escribe aquí; si es crítica, se actualiza el bloque
+  en todos los archivos en el mismo PR. Una IA nueva en el equipo trae su archivo y
+  se agrega a `scripts/check-ai-instructions.mjs`.
+- `npm run check:ai` lo revisa y el CI no deja pasar un PR si un archivo falta, no
+  enlaza o tiene un bloque distinto.
