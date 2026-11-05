@@ -42,6 +42,9 @@ Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
   detalle de reportes) se pagina en el servidor.
 - Buscadores y filtros se aplican solos, sin botón «Buscar» ni «Generar».
 - Lo secundario va plegado; los avisos aparecen solo cuando aplican.
+- Una entrada del menú se gana su lugar: si dos secciones se usan juntas y una
+  es pequeña, van como pestañas de una sola pantalla; se separan cuando una
+  crece hasta ser un mundo propio.
 - Poco texto en pantalla; la ayuda, a pedido.
 
 ## 4. Datos y seguridad

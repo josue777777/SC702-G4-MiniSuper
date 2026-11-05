@@ -18,8 +18,13 @@ interface QuickLink {
 const LINKS: QuickLink[] = [
   { to: '/inventory', label: 'Inventario', icon: 'warehouse', permission: 'inventory.read' },
   { to: '/movimientos', label: 'Movimientos', icon: 'list', permission: 'kardex' },
-  { to: '/orders', label: 'Pedidos a proveedor', icon: 'cart', permission: 'purchasing' },
-  { to: '/suppliers', label: 'Proveedores', icon: 'truck', permission: 'purchasing' },
+  { to: '/orders', label: 'Pedidos', icon: 'cart', permission: 'purchasing' },
+  {
+    to: '/orders?seccion=proveedores',
+    label: 'Proveedores',
+    icon: 'truck',
+    permission: 'purchasing',
+  },
   { to: '/sales', label: 'Ventas', icon: 'cash', permission: 'sales' },
   { to: '/customers', label: 'Clientes y fiados', icon: 'users', permission: 'customers' },
   {
