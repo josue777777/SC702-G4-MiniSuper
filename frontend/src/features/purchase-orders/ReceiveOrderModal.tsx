@@ -116,7 +116,7 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
               value={invoiceNumber}
               maxLength={40}
               autoComplete="off"
-              autoFocus
+              data-autofocus
               onChange={(event) => setInvoiceNumber(event.target.value)}
             />
           </div>

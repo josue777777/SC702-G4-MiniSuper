@@ -268,6 +268,31 @@ los botones de arriba de la lista) siempre están activas.
 propio en la barra. Ejemplo: generar o reemplazar el código de barras se hace en
 «Modificar» › Etiquetas, donde ya se ven y descargan el código de barras y el QR.
 
+## Regla 13: el inicio muestra lo urgente, no el análisis (foco)
+
+El panel principal responde una sola pregunta: **¿qué tengo que atender hoy?**
+Muestra como mucho **tres urgencias**, de la más grave a la menos grave, cada una
+con su **acción a la mano** (ver la lista en una ventana, o resolverla sin salir:
+«Cargar al inventario»). Las demás quedan tras «Ver todo». Si no hay nada pendiente
+lo dice con un mensaje positivo («¡Está al día!»): nunca queda en blanco.
+
+| Va en el inicio | No va en el inicio (va en Reportes) |
+| --- | --- |
+| Vencidos, sin stock o en su mínimo (HU-08, HU-09) | Inventario valorizado, valor por categoría o por producto |
+| Facturas que llegaron y no se cargaron (HU-38) | Rankings, tendencias, comparaciones |
+| Pedidos que esperan mercadería | Listas largas |
+| El resumen de ventas del día (HU-37) | Cifras que no piden ninguna acción |
+
+La gravedad lleva color **y** palabra (Crítico, Atención, Aviso): el color solo no
+alcanza. Rojo es lo que bloquea la venta (vencido, sin unidades); ámbar, lo que hay
+que atender pronto.
+
+**Barra de comandos.** `Ctrl + K` (`⌘ + K` en Mac) abre desde cualquier pantalla la
+barra «Buscar o ir a…» (botón al centro de la barra superior): se escribe una tarea
+(«venta», «conteo», «cliente») o un producto y se abre con Enter, sin el ratón. Una
+tarea frecuente nueva se agrega en `features/command-bar/commands.ts`, con el mismo
+permiso que su pantalla.
+
 ## Lista de revisión para una pantalla nueva
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
@@ -285,4 +310,6 @@ propio en la barra. Ejemplo: generar o reemplazar el código de barras se hace e
 - [ ] Si es una entrada nueva del menú: ¿tiene contenido propio suficiente, o va mejor como pestaña de una pantalla relacionada?
 - [ ] Si se abre desde algo ya elegido (un producto, un pedido): ¿trabaja solo con eso, sin volver a buscarlo?
 - [ ] En la barra de acciones: ¿lo que necesita un elemento se ve apagado hasta elegirlo, y ninguna tarea está repetida en dos botones?
+- [ ] Si toca el inicio: ¿es una urgencia con su acción, o es análisis que va en Reportes?
+- [ ] Si una ventana pide escribir de inmediato: ¿el campo lleva `data-autofocus` (no `autoFocus`)?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?

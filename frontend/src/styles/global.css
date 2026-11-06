@@ -175,6 +175,34 @@ code {
   letter-spacing: 0.01em;
 }
 
+/* Barra de comandos (Ctrl + K): al centro de la barra superior */
+.topbar__command {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+  min-width: 0;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.topbar__command kbd,
+.modal kbd,
+.page-header kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .topbar__command kbd {
+    display: none;
+  }
+}
+
 /* HU-15: dueño de la sesión y «Cerrar sesión», siempre a la derecha */
 .topbar__session {
   display: flex;
@@ -2751,8 +2779,13 @@ code {
   cursor: pointer;
 }
 
-.kardex-picker__option:hover {
+.kardex-picker__option:hover,
+.kardex-picker__option--active {
   background: var(--color-row-hover);
+}
+
+.kardex-picker__option--active {
+  border-color: var(--color-primary);
 }
 
 .kardex-picker__option .badge {

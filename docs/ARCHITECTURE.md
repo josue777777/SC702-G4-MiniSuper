@@ -63,11 +63,12 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
   manejan los *datos* del producto; las *cantidades* cambian por movimientos
   (`InventoryMovement`: ventas, recepciones, conteos y los ajustes de HU-02), y el Kardex
   (HU-31) los muestra con su saldo (`stockAfter`).
-* **Panel principal** (`/`): números grandes (inventario valorizado al costo, productos
-  activos, pedidos pendientes, stock bajo y vencimientos), barras de valor por producto y
-  por categoría, accesos rápidos y las alertas de HU-08 y HU-09. Todo se calcula en el
-  frontend con datos que ya expone la API (`features/dashboard/dashboard-metrics.ts`) y se
-  actualiza cada 15 s. Las cifras de ventas llegan con HU-16 … HU-20 y HU-37.
+* **Panel principal** (`/`): «Lo urgente hoy», como mucho tres urgencias (vencidos, stock
+  bajo, facturas sin cargar, pedidos por recibir) con su acción a la mano, y el resumen de
+  ventas del día (HU-37). Se arma en el frontend con datos que ya expone la API
+  (`features/dashboard/dashboard-urgencies.ts`) y se actualiza cada 15 s. El análisis
+  (inventario valorizado, valor por categoría) está en Reportes. En todas las pantallas,
+  `Ctrl + K` abre la barra de comandos (`features/command-bar/`).
 * **Ventana de Inventario** (`/inventory`): lista general de productos con búsqueda (HU-05),
   filtro por categoría y vistas Activos / Desactivados / Todos. Un clic marca un producto y
   la barra inferior tiene las acciones de esa vista (Crear, Modificar y Desactivar en
