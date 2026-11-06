@@ -159,11 +159,14 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
 
       {labelling ? (
         <LabelPrintModal
-          initial={order.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          }))}
-          origin={`pedido ${formatOrderNumber(order.number)}`}
+          scope={{
+            kind: 'order',
+            orderNumber: formatOrderNumber(order.number),
+            items: order.items.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+            })),
+          }}
           onClose={() => setLabelling(false)}
         />
       ) : null}

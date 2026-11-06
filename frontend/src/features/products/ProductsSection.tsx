@@ -14,8 +14,7 @@ import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
 import { ProductTable } from './ProductTable';
 import { BarcodeLabel } from './BarcodeLabel';
-import { LabelPrintModal } from '../labels/LabelPrintModal';
-import type { LabelRequest } from '../../types/labels';
+import { LabelPrintModal, type LabelScope } from '../labels/LabelPrintModal';
 import { useCatalogExport } from './use-catalog-export';
 import { useProducts } from './use-products';
 
@@ -95,8 +94,8 @@ export function ProductsSection({
     null,
   );
   const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
-  /** Etiquetas a imprimir (HU-07); `null` = ventana cerrada. */
-  const [labelRequests, setLabelRequests] = useState<LabelRequest[] | null>(null);
+  /** Ventana de etiquetas (HU-07) y desde dónde se abrió; `null` = cerrada. */
+  const [labelScope, setLabelScope] = useState<LabelScope | null>(null);
   const [barcodeGeneratingId, setBarcodeGeneratingId] = useState<string | null>(null);
   const [barcodeMessage, setBarcodeMessage] = useState<string | null>(null);
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
@@ -394,17 +393,14 @@ export function ProductsSection({
             🖨 Reporte de inventario
           </button>
         ) : null}
-        {/* HU-07: etiquetas para rotular; abre con el producto seleccionado, si hay uno activo. */}
+        {/*
+          HU-07: etiquetas de VARIOS productos (buscar y poner cantidades). La de un
+          producto ya elegido se imprime desde «Ver código», que trabaja solo con él.
+        */}
         <button
           type="button"
           className="button button--tool"
-          onClick={() =>
-            setLabelRequests(
-              selected !== null && selected.isActive
-                ? [{ productId: selected.id, quantity: 1 }]
-                : [],
-            )
-          }
+          onClick={() => setLabelScope({ kind: 'catalog' })}
           disabled={phase !== 'ready'}
         >
           🏷 Etiquetas
@@ -647,13 +643,13 @@ export function ProductsSection({
           }}
           onPrintLabels={() => {
             setBarcodeProduct(null);
-            setLabelRequests([{ productId: barcodeProduct.id, quantity: 1 }]);
+            setLabelScope({ kind: 'product', productId: barcodeProduct.id });
           }}
         />
       ) : null}
 
-      {labelRequests !== null ? (
-        <LabelPrintModal initial={labelRequests} onClose={() => setLabelRequests(null)} />
+      {labelScope !== null ? (
+        <LabelPrintModal scope={labelScope} onClose={() => setLabelScope(null)} />
       ) : null}
 
       {confirmingBarcodeReplacement !== null ? (
