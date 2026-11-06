@@ -104,6 +104,17 @@ export function PurchaseOrderHistory({
                     >
                       {STATUS_LABELS[order.status]}
                     </span>
+                    {/* HU-38: entregas registradas que todavía no suben el stock. */}
+                    {order.pendingLoads === 0 ? null : (
+                      <>
+                        {' '}
+                        <span className="badge badge--muted">
+                          {order.pendingLoads === 1
+                            ? 'Carga pendiente'
+                            : `${order.pendingLoads} cargas pendientes`}
+                        </span>
+                      </>
+                    )}
                   </td>
                   <td className="table__number">
                     <button

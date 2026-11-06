@@ -3,8 +3,10 @@ import type {
   CreatePurchaseOrderPlan,
   PurchaseOrderDto,
   PurchaseOrderSummaryDto,
+  ReceiveOrderPlan,
   SupplierCatalog,
 } from '../types/purchase-orders.js';
+import { HttpError } from '../utils/http-error.js';
 import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /** Doble de repositorio de pedidos a proveedor (HU-22, HU-24), en memoria. */
@@ -34,6 +36,10 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
   readonly businessId = TEST_BUSINESS_ID;
 
   readonly createdPlans: CreatePurchaseOrderPlan[] = [];
+  /** Entregas recibidas (HU-38), con el pedido al que van. */
+  readonly receivedPlans: { orderId: string; plan: ReceiveOrderPlan }[] = [];
+  /** Motivos con que se cargaron entregas al inventario, en orden. */
+  readonly loadReasons: string[] = [];
   private readonly orders: PurchaseOrderDto[] = [];
   private sequence = 0;
 
@@ -80,7 +86,12 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
         quantity: item.quantity,
         unitCost: item.unitCost,
         subtotal: ((Math.round(Number(item.unitCost) * 100) * item.quantity) / 100).toFixed(2),
+        receivedQuantity: 0,
+        pendingQuantity: item.quantity,
       })),
+      receivedOn: null,
+      pendingLoads: 0,
+      receipts: [],
     };
     this.orders.push(order);
 
@@ -101,6 +112,8 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
           itemCount: order.itemCount,
           productNames: order.productNames,
           createdAt: order.createdAt,
+          receivedOn: order.receivedOn,
+          pendingLoads: order.pendingLoads,
         }))
         .reverse(),
     );
@@ -108,5 +121,93 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
 
   findById(id: string): Promise<PurchaseOrderDto | null> {
     return Promise.resolve(this.orders.find((order) => order.id === id) ?? null);
+  }
+
+  /** Como el real, pero sin base: suma lo recibido y crea la entrega en memoria. */
+  receive(orderId: string, plan: ReceiveOrderPlan): Promise<PurchaseOrderDto> {
+    const order = this.orderOrThrow(orderId);
+
+    if (order.receipts.some((receipt) => receipt.invoiceNumber === plan.invoiceNumber)) {
+      throw HttpError.conflict('Esa factura ya está registrada en este pedido.');
+    }
+
+    this.receivedPlans.push({ orderId, plan });
+
+    for (const item of plan.items) {
+      const line = order.items.find((candidate) => candidate.productId === item.productId);
+
+      if (line !== undefined) {
+        line.receivedQuantity += item.quantity;
+        line.pendingQuantity = Math.max(0, line.quantity - line.receivedQuantity);
+      }
+    }
+
+    order.receipts.unshift({
+      id: `99999999-0000-4000-8000-${String(this.receivedPlans.length).padStart(12, '0')}`,
+      invoiceNumber: plan.invoiceNumber,
+      receivedOn: plan.receivedOn,
+      loadedAt: plan.loadNow ? new Date().toISOString() : null,
+      createdAt: new Date().toISOString(),
+      items: plan.items.map((item) => ({
+        productId: item.productId,
+        productCode: PRODUCTS[item.productId]?.code ?? '?',
+        productName: PRODUCTS[item.productId]?.name ?? '?',
+        quantity: item.quantity,
+      })),
+    });
+
+    if (plan.loadNow) {
+      this.loadReasons.push(plan.reason);
+    }
+
+    const complete = order.items.every((line) => line.pendingQuantity === 0);
+
+    order.status = complete ? 'RECEIVED' : 'PARTIAL';
+    order.receivedOn = complete ? plan.receivedOn : null;
+    order.pendingLoads = order.receipts.filter((receipt) => receipt.loadedAt === null).length;
+
+    return Promise.resolve(order);
+  }
+
+  loadReceipt(orderId: string, receiptId: string, reason: string): Promise<PurchaseOrderDto> {
+    const order = this.orderOrThrow(orderId);
+    const receipt = order.receipts.find((candidate) => candidate.id === receiptId);
+
+    if (receipt === undefined) {
+      throw HttpError.notFound('La entrega no existe.');
+    }
+
+    if (receipt.loadedAt !== null) {
+      throw HttpError.conflict('Esta entrega ya se cargó al inventario.');
+    }
+
+    receipt.loadedAt = new Date().toISOString();
+    this.loadReasons.push(reason);
+    order.pendingLoads -= 1;
+
+    return Promise.resolve(order);
+  }
+
+  close(orderId: string): Promise<PurchaseOrderDto> {
+    const order = this.orderOrThrow(orderId);
+
+    if (order.status !== 'PARTIAL') {
+      throw HttpError.conflict('Solo se puede concluir un pedido que llegó en parte.');
+    }
+
+    order.status = 'RECEIVED';
+    order.receivedOn = order.receipts[0]?.receivedOn ?? null;
+
+    return Promise.resolve(order);
+  }
+
+  private orderOrThrow(id: string): PurchaseOrderDto {
+    const order = this.orders.find((candidate) => candidate.id === id);
+
+    if (order === undefined) {
+      throw HttpError.notFound('El pedido no existe.');
+    }
+
+    return order;
   }
 }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PurchaseOrderFields } from '../types/purchase-orders.js';
+import type { PurchaseOrderFields, ReceiveOrderFields } from '../types/purchase-orders.js';
 
 /**
  * Esquemas Zod de los pedidos a proveedor (HU-22, HU-24).
@@ -59,10 +59,69 @@ export const purchaseOrderIdParamSchema = z.object({
   id: z.uuid({ error: 'El pedido indicado no es válido.' }),
 });
 
+/** Parámetros `:id` y `:receiptId` de una entrega. */
+export const receiptParamsSchema = z.object({
+  id: z.uuid({ error: 'El pedido indicado no es válido.' }),
+  receiptId: z.uuid({ error: 'La entrega indicada no es válida.' }),
+});
+
+/**
+ * Cuerpo de `POST /api/purchase-orders/:id/receipts` (HU-38): la factura, el
+ * día real en que llegó y lo que llegó de cada producto. Que no llegue más de
+ * lo pendiente ni con fecha futura lo revisa el service, que conoce el pedido.
+ */
+export const receiveOrderSchema = z
+  .object({
+    invoiceNumber: z
+      .string({ error: 'Indique el número de factura.' })
+      .trim()
+      .min(1, 'Indique el número de factura.')
+      .max(40, 'El número de factura no puede superar 40 caracteres.'),
+    receivedOn: z.iso.date({ error: 'Indique la fecha en que llegó (AAAA-MM-DD).' }),
+    loadNow: z.boolean({ error: 'Indique si se carga ya al inventario.' }),
+    items: z
+      .array(
+        z.object({
+          productId: z.uuid({ error: 'Seleccione un producto válido.' }),
+          quantity: z
+            .number({ error: 'La cantidad debe ser un número.' })
+            .int('La cantidad debe ser un número entero.')
+            .min(0, 'La cantidad no puede ser negativa.')
+            .max(MAX_QUANTITY, `La cantidad no puede superar ${MAX_QUANTITY}.`),
+        }),
+        { error: 'Indique lo que llegó.' },
+      )
+      .min(1, 'Indique lo que llegó.'),
+  })
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+
+    value.items.forEach((item, index) => {
+      if (seen.has(item.productId)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['items', index, 'productId'],
+          message: 'El producto está repetido.',
+        });
+      }
+      seen.add(item.productId);
+    });
+
+    if (value.items.every((item) => item.quantity === 0)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items'],
+        message: 'Anote al menos un producto que haya llegado.',
+      });
+    }
+  });
+
 export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;
+export type ReceiveOrderInput = z.infer<typeof receiveOrderSchema>;
 export type ListPurchaseOrdersQuery = z.infer<typeof listPurchaseOrdersQuerySchema>;
 
 /** Comprobación en tiempo de compilación contra `types/purchase-orders.ts`. */
 type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 const _contractCheck: Exact<CreatePurchaseOrderInput, PurchaseOrderFields> = true;
+const _receiveContractCheck: Exact<ReceiveOrderInput, ReceiveOrderFields> = true;

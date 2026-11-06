@@ -7,7 +7,7 @@ import { usePurchaseOrders } from './use-purchase-orders';
 
 /**
  * Pestaña «Pedidos» de la pantalla Pedidos: armar el pedido a un proveedor, su
- * PDF y el historial (HU-22, HU-24).
+ * PDF y el historial (HU-22, HU-24), y registrar lo que llega (HU-38).
  */
 export function OrdersSection() {
   const {
@@ -24,6 +24,9 @@ export function OrdersSection() {
     createOrder,
     openOrder,
     closeOrder,
+    receiveOrder,
+    loadReceipt,
+    concludeOrder,
     dismissNotice,
   } = usePurchaseOrders();
   const [formOpen, setFormOpen] = useState(false);
@@ -78,7 +81,18 @@ export function OrdersSection() {
         />
       ) : null}
 
-      {selected === null ? null : <PurchaseOrderDetail order={selected} onClose={closeOrder} />}
+      {selected === null ? null : (
+        <PurchaseOrderDetail
+          order={selected}
+          busy={busy}
+          onClose={closeOrder}
+          onReceive={(payload) => receiveOrder(selected, payload)}
+          onLoadReceipt={(receiptId, invoiceNumber) =>
+            loadReceipt(selected, receiptId, invoiceNumber)
+          }
+          onConclude={() => concludeOrder(selected)}
+        />
+      )}
 
       {phase === 'loading' ? <p className="card muted">Cargando pedidos…</p> : null}
 

@@ -17,8 +17,14 @@ export function createPurchaseOrdersRouter(
   router.get('/', (req, res) => controller.list(req, res));
   /** Detalle de un pedido (HU-22) y datos del PDF (HU-24). */
   router.get('/:id', (req, res) => controller.getById(req, res));
-  /** Registrar pedido (HU-24). La recepción es HU-38. */
+  /** Registrar pedido (HU-24). */
   router.post('/', (req, res) => controller.create(req, res));
+  /** Registrar una entrega con su factura (HU-38). */
+  router.post('/:id/receipts', (req, res) => controller.receive(req, res));
+  /** Cargar al inventario una entrega pendiente (HU-38). */
+  router.post('/:id/receipts/:receiptId/load', (req, res) => controller.loadReceipt(req, res));
+  /** Dar por concluido un pedido que llegó en parte (HU-38). */
+  router.post('/:id/close', (req, res) => controller.close(req, res));
 
   return router;
 }
