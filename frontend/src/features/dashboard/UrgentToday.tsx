@@ -56,7 +56,11 @@ export function UrgentToday({ urgencies, onLoadReceipts }: UrgentTodayProps) {
     const action = urgency.action;
 
     return (
-      <article key={urgency.id} className="card" aria-label={urgency.title}>
+      <article
+        key={urgency.id}
+        className={`card bento__cell bento__cell--${urgency.severity}`}
+        aria-label={urgency.title}
+      >
         <header className="card__header">
           <h3>{urgency.title}</h3>
           <span className={BADGES[urgency.severity]}>{SEVERITY_LABELS[urgency.severity]}</span>
@@ -107,12 +111,15 @@ export function UrgentToday({ urgencies, onLoadReceipts }: UrgentTodayProps) {
           Revisando lo pendiente…
         </p>
       ) : urgencies.length === 0 ? (
-        <p className="card" role="status">
-          <strong>✓ ¡Está al día!</strong> No hay tareas pendientes por ahora: sin productos
-          vencidos, sin stock bajo y sin mercadería por cargar.
+        <p className="card bento__empty" role="status">
+          <span className="bento__empty-icon" aria-hidden="true">
+            ✓
+          </span>
+          <strong>¡Está al día!</strong> No hay tareas pendientes por ahora: sin productos vencidos,
+          sin stock bajo y sin mercadería por cargar.
         </p>
       ) : (
-        <div className="stat-grid">{visible.map(card)}</div>
+        <div className="stat-grid bento">{visible.map(card)}</div>
       )}
 
       {open === 'all' ? (
