@@ -235,9 +235,19 @@ o cliente: no le ofrece buscar en todo el catálogo ni elegirlo otra vez.
 
 Ejemplo aplicado: las **etiquetas** (HU-07) son un solo componente con un
 `scope` (`catalog`, `product` u `order`). «Etiquetas» de Inventario busca en el
-catálogo; «Ver código» → «Imprimir etiqueta» es solo de ese producto, sin
+catálogo; «🏷 Etiqueta» de la barra de acciones es solo del producto marcado, sin
 buscador; «Ver pedido» → «Etiquetas» trae solo lo del pedido. Un solo componente
 con modos, y no tres copias, para que la impresión se corrija en un solo lugar.
+
+**Barra de acciones de una lista.** Las acciones sobre UN elemento (Modificar,
+Desactivar, Etiqueta, Ver movimientos…) se ven **apagadas** hasta que se marca uno,
+con la pista «Seleccione un producto…». Apagadas y no ocultas: la barra no salta de
+tamaño y se sabe qué se puede hacer. Las que no dependen de un elemento («Crear»,
+los botones de arriba de la lista) siempre están activas.
+
+**Una tarea, un lugar.** Si algo ya se hace dentro de otra acción, no lleva botón
+propio en la barra. Ejemplo: generar o reemplazar el código de barras se hace en
+«Modificar» › Etiquetas, donde ya se ven y descargan el código de barras y el QR.
 
 ## Lista de revisión para una pantalla nueva
 
@@ -255,4 +265,5 @@ con modos, y no tres copias, para que la impresión se corrija en un solo lugar.
 - [ ] Si tiene filtros: ¿se aplican solos, sin botón, y muestran los activos?
 - [ ] Si es una entrada nueva del menú: ¿tiene contenido propio suficiente, o va mejor como pestaña de una pantalla relacionada?
 - [ ] Si se abre desde algo ya elegido (un producto, un pedido): ¿trabaja solo con eso, sin volver a buscarlo?
+- [ ] En la barra de acciones: ¿lo que necesita un elemento se ve apagado hasta elegirlo, y ninguna tarea está repetida en dos botones?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?
