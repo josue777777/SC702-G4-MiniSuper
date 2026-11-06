@@ -60,7 +60,9 @@ test('Clientes: lista primero, formulario en modal, buscador sin tildes y págin
   await expect(page.getByText('Ningún cliente coincide con «nadie».')).toBeVisible();
 });
 
-test('Proveedores: buscador por proveedor o producto y productos plegados', async ({ page }) => {
+test('Proveedores: buscador por proveedor o producto, y los productos en una ventana', async ({
+  page,
+}) => {
   await seedProducts([
     {
       code: 'P001',
@@ -85,12 +87,18 @@ test('Proveedores: buscador por proveedor o producto y productos plegados', asyn
   await page.goto('/suppliers');
   const table = page.getByRole('table', { name: 'Proveedores' });
 
-  // Los productos se ven al abrir el detalle, no de entrada.
+  // La celda solo dice cuántos son; la lista abre en una ventana y la fila no crece.
   const row = table.getByRole('row', { name: /Distribuidora Central/ });
 
-  await expect(row.getByText('P001 — Café molido 500 g')).toBeHidden();
-  await row.getByText('1 producto').click();
-  await expect(row.getByText('P001 — Café molido 500 g')).toBeVisible();
+  await expect(row).not.toContainText('Café molido 500 g');
+  await row.getByRole('button', { name: 'Ver los productos de Distribuidora Central' }).click();
+
+  const products = page.getByRole('dialog', { name: 'Productos de Distribuidora Central' });
+
+  await expect(products.getByRole('row', { name: /P001.*Café molido 500 g/ })).toBeVisible();
+  await expect(products.getByRole('row', { name: /P001/ })).toContainText('principal');
+  await products.getByText('Cerrar', { exact: true }).click();
+  await expect(products).toBeHidden();
 
   // Buscar por un producto que suministra encuentra al proveedor.
   await page.getByLabel('Buscar proveedores').fill('arroz');

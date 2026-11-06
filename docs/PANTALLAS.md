@@ -80,31 +80,41 @@ const visibles = lista.filter((c) => matchesSearch(busqueda, c.name, c.phone));
 - Los selectores grandes (como «Elegir un producto» en Movimientos) sugieren
   pocos y piden escribir para encontrar el resto.
 
-## Regla 4: lo secundario, plegado
+## Regla 4: lo secundario, plegado; dentro de una tabla, en una ventana
 
-Detalles largos dentro de una fila o textos de ayuda se pliegan con
+Textos de ayuda y secciones secundarias de una pantalla se pliegan con
 `<details className="disclosure">`:
 
 ```tsx
 <details className="disclosure">
-  <summary>14 productos</summary>
-  <ul>…</ul>
+  <summary>ⓘ Qué incluye este total</summary>
+  <p>…</p>
 </details>
 ```
 
 Pregunta guía: **¿el usuario necesita esto para la tarea principal de la
 pantalla, o solo si quiere ir más a fondo?** Si es lo segundo, se pliega.
 
+**Dentro de una celda de tabla no se despliega nada.** Una lista abierta dentro
+de la fila (por ejemplo, los productos de un proveedor) la estira, mueve la
+pantalla al abrirla o al guardar y no escala: un proveedor puede tener cientos
+de productos. En la celda va solo el resumen como botón («12 productos») y la
+lista se abre en una ventana (`Modal`), con su buscador y sus páginas si puede
+crecer. Si la fila ya tiene una ventana con todo el detalle («Ver pedido»), el
+resumen abre esa misma (una tarea, un lugar).
+
 Ejemplos ya aplicados:
 
 | Pantalla | Se muestra de entrada | Se abre a pedido |
 | --- | --- | --- |
-| Proveedores | «14 productos» | El detalle de cada producto y su costo |
-| Pedidos | El producto, si es uno; si son varios, «2 productos» | La lista de productos (y todo en «Ver detalle») |
+| Proveedores | Botón «14 productos» | Ventana con los productos, su costo y cuál es principal |
+| Pedidos | El producto, si es uno; si son varios, botón «2 productos» | El pedido completo («Ver pedido») |
 | Conteo físico | El formulario para contar | «Historial de conteos (4)» |
-| Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) | Si una historia de usuario pide que
-un texto se vea siempre (como «Cómo leer este reporte»), se deja con `open`:
-visible de entrada, pero se puede plegar. La historia manda sobre la guía.
+| Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) |
+
+Si una historia de usuario pide que un texto se vea siempre (como «Cómo leer
+este reporte»), se deja con `open`: visible de entrada, pero se puede plegar. La
+historia manda sobre la guía.
 
 ## Regla 5: el ancho sigue al contenido
 
@@ -246,7 +256,7 @@ con modos, y no tres copias, para que la impresión se corrija en un solo lugar.
 - [ ] ¿La lista usa `Pagination`? ¿Y si va a crecer a miles de filas, se pagina en el servidor?
 - [ ] ¿Tiene buscador (`ListSearch`) si puede tener más de 20 filas?
 - [ ] ¿Muestra el total y un mensaje cuando no hay resultados?
-- [ ] ¿Los detalles largos están plegados?
+- [ ] ¿Los detalles largos están plegados? ¿Y ninguna celda de tabla se despliega (el detalle va en una ventana)?
 - [ ] ¿Las tablas de pocas columnas usan `list-narrow`?
 - [ ] ¿Hacer y consultar están en pestañas separadas?
 - [ ] ¿Los documentos abren en `Modal`?
