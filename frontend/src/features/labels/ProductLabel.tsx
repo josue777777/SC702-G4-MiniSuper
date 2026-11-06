@@ -58,6 +58,8 @@ export function ProductLabel({ product, design, spec, business }: ProductLabelPr
         color: '#000',
         fontFamily: 'Arial, Helvetica, sans-serif',
         lineHeight: 1.15,
+        // Fijo: en la vista previa no hereda el centrado del recuadro de la pantalla.
+        textAlign: 'left',
       }}
     >
       {showHeader ? (
@@ -102,9 +104,27 @@ export function ProductLabel({ product, design, spec, business }: ProductLabelPr
           style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'stretch', gap: mm(1.2) }}
         >
           {show.barcode && product.barcode !== null ? (
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: mm(0.4),
+              }}
+            >
               <Ean13Bars barcode={product.barcode} />
-              <span style={{ fontSize: mm(2), letterSpacing: '0.08em', textAlign: 'center' }}>
+              {/* Los números primero reservan su línea; las barras usan lo que sobra. */}
+              <span
+                style={{
+                  flex: '0 0 auto',
+                  fontSize: mm(2),
+                  lineHeight: 1,
+                  letterSpacing: '0.08em',
+                  textAlign: 'center',
+                }}
+              >
                 {product.barcode}
               </span>
             </div>
@@ -144,7 +164,7 @@ function Ean13Bars({ barcode }: { barcode: string }) {
       preserveAspectRatio="none"
       role="img"
       aria-label={`Código de barras ${barcode}`}
-      style={{ flex: 1, minHeight: 0, width: '100%' }}
+      style={{ flex: '1 1 0', minHeight: 0, width: '100%' }}
     >
       <rect width={modules.length + 18} height="50" fill="#fff" />
       {[...modules].map((module, index) =>

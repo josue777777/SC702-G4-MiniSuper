@@ -10,6 +10,11 @@ Es el catálogo del negocio y el control de sus existencias:
 - **Productos** (Almacén › Inventario): registrar, editar, desactivar, volver a activar
   y borrar productos; categorías; código de barras e imagen; exportar el catálogo a
   Excel.
+- **Etiquetas** (botón «Etiquetas» de Inventario, «Ver código» y «Ver pedido»): imprimir
+  etiquetas para rotular productos, de uno o de varios a la vez, con el diseño del negocio
+  (tamaño de rollo térmico u hoja carta; logo, nombre del negocio, nombre y código del
+  producto, precio, código de barras y QR). El diseño lo define el Encargado y vale para
+  todos (HU-07).
 - **Existencias**: mínimo de stock (alerta de stock bajo), fecha de vencimiento
   (alerta de vencidos y por vencer) y conteo físico, que corrige el stock con lo que
   hay de verdad en el estante.
@@ -66,6 +71,7 @@ transacción el stock nuevo y su InventoryMovement de tipo ADJUSTMENT.
 | `GET /api/products?search=&categoryId=&activeOnly=` | Lista y búsqueda (HU-05) |
 | `PATCH /api/products/:id/deactivate` · `/activate` · `DELETE /api/products/:id` | Baja lógica, reactivar, borrar solo si no tiene historial (HU-03) |
 | `POST /api/products/:id/barcode` | Generar un EAN-13 interno (HU-07) |
+| `GET /api/business/label-design` · `PUT` | Diseño de la etiqueta del negocio: lo lee cualquiera del negocio, lo guarda el Encargado (HU-07) |
 | `PUT /api/products/:id/image` · `GET` · `DELETE` | Imagen del producto, hasta 2 MB, PNG/JPG/WEBP (HU-01) |
 | `GET /api/products/export?categoryId=` | Catálogo en Excel (HU-33) |
 | `GET /api/categories` · `POST` | Categorías (HU-04) |
@@ -81,11 +87,38 @@ pages/InventoryPage.tsx
   └─ features/products/ProductsSection.tsx   tabla, barra de acciones y modales
        ├─ use-products.ts                     carga, crea, edita, desactiva
        ├─ ProductForm.tsx / product-form.ts   el formulario y su validación
-       ├─ BarcodeLabel.tsx / barcode.ts       etiqueta con código de barras y QR
+       ├─ BarcodeLabel.tsx / barcode.ts       «Ver código»: código de barras y QR
        └─ use-catalog-export.ts               descarga del Excel
   └─ features/inventory/…                     conteo físico y alertas
 pages/KardexPage.tsx → features/kardex/        ficha del producto y sus movimientos
 ```
+
+### Imprimir etiquetas (HU-07)
+
+```text
+Entrada   LabelPrintModal.tsx: productos y cuántas etiquetas de cada uno
+          (abre con el producto elegido, o con las cantidades de un pedido)
+   │
+   ▼  use-label-data.ts carga, todo a la vez:
+   │    GET /api/products (solo activos) · GET /api/business (nombre y logo)
+   │    GET /api/business/label-design (si nunca se guardó: rollo 58 × 40 con todo)
+   ▼
+label-sizes.ts       cuántas etiquetas caben y dónde va cada una (en milímetros)
+LabelSheet.tsx       dibuja las páginas escondidas con ProductLabel.tsx
+label-print.ts       las copia a un <iframe> escondido con @page del tamaño del papel
+   ▼
+Diálogo de impresión del navegador → impresora térmica u hoja carta
+```
+
+**Por qué un `<iframe>` y no otra ventana.** Una ventana nueva la bloquea el navegador
+(«ventana emergente»), y la página de la aplicación imprimiría también el menú. El
+`<iframe>` lleva solo las etiquetas y su propio `@page` (`size: 58mm 40mm`), así cada
+etiqueta cae justo en su sticker. El logo viaja dentro como `data:` URL, porque ese
+documento no tiene la sesión.
+
+**Personalizar** (`LabelCustomizeModal.tsx`, solo el Encargado): elige el tamaño y qué
+datos lleva. Se guarda en `Business.labelDesign` para todo el negocio. El servidor no deja
+guardar una etiqueta que no identifique el producto (sin nombre, código, barras ni QR).
 
 ## 3. Librerías
 
@@ -94,7 +127,7 @@ pages/KardexPage.tsx → features/kardex/        ficha del producto y sus movimi
 | **Zod** | Que un precio `"12.345"` o un stock `-3` se rechacen con un mensaje claro antes de tocar la base |
 | **Prisma** | Las transacciones que guardan el producto y su movimiento juntos (o ninguno de los dos) |
 | **exceljs** | El archivo `.xlsx` del catálogo y del reporte de inventario, con números de verdad (no texto) |
-| **qrcode.react** | El código QR de la etiqueta; el código de barras se dibuja a mano en SVG (`barcode.ts`) |
+| **qrcode.react** | El código QR de «Ver código» y de las etiquetas; el código de barras se dibuja a mano en SVG (`barcode.ts`) |
 
 ## 4. Cálculos
 
@@ -112,6 +145,29 @@ Código:    7501234567893
 ```
 
 Así el lector detecta un código mal leído: si un dígito cambia, el control no coincide.
+
+### Etiquetas por hoja (`label-sizes.ts`)
+
+```text
+Rollo térmico     1 etiqueta por página, del tamaño del sticker (58 × 40 mm)
+Hoja carta de 30  3 columnas × 10 filas de 66,7 × 25,4 mm
+Hoja carta de 10  2 columnas × 5 filas de 101,6 × 50,8 mm
+
+Posición de una etiqueta en la hoja (slotPosition), en mm:
+  izquierda = margen izquierdo + columna × (ancho + separación)
+  arriba    = margen superior  + fila    × alto
+  Hoja de 30, etiqueta 5 (columna 2, fila 2):
+    izquierda = 4,8 + 1 × (66,7 + 3,15) = 74,65 mm
+    arriba    = 12,7 + 1 × 25,4          = 38,1 mm
+
+Hoja ya usada: «Empezar en la etiqueta» 5 → las 4 primeras quedan vacías.
+  32 etiquetas desde la 5 → hoja 1: 26 · hoja 2: 6
+```
+
+El QR guarda el código de barras si el producto lo tiene (el lector de la caja lo lee
+igual) y si no, su código interno (`qrValueOf`). El tamaño de letra se ajusta a la
+altura: en una etiqueta de 25,4 mm todo mide 25,4 ÷ 40 = 0,635 de lo que mide en una de
+40 mm.
 
 ### Ajuste de stock (`buildStockAdjustment`, `buildCountAdjustment`)
 
@@ -161,9 +217,12 @@ Estado del stock: agotado (stock 0), en su mínimo o debajo, o suficiente
 | Un producto desactivado aparece en la caja | `sales.repository.ts` (filtra `isActive`) |
 | La alerta de stock bajo no aparece | `isLowStock`: ¿el producto tiene mínimo definido? |
 | El código de barras no se lee | `barcode.ts` (`isValidEan13`) y el dígito de control |
+| La etiqueta sale corrida en la hoja de stickers | Las medidas de la hoja en `label-sizes.ts` y, al imprimir, escala «100 %» o «Tamaño real» (no «Ajustar a la página») |
+| La etiqueta sale en una hoja grande en la impresora térmica | En el diálogo de impresión elegir la impresora de etiquetas; el tamaño lo pone `@page` (`label-print.ts`) |
 | El Excel sale distinto a la pantalla | `inventory-report.service.ts` (mismo orden y filtros) y `utils/inventory-report-xlsx.ts` |
 | Un negocio ve productos de otro | El repositorio: todas las consultas filtran por `businessId` |
 
 Pruebas que cubren este módulo: `backend/src/**/products*.test.ts`,
-`inventory*.test.ts`, `kardex*.test.ts` y `e2e/tests/hu-01-21-…`, `hu-31-…`,
+`inventory*.test.ts`, `kardex*.test.ts`, `business.routes.test.ts` (diseño de etiqueta) y
+`e2e/tests/hu-01-21-…`, `hu-07-etiquetas`, `hu-31-…`,
 `hu-33-…`, `hu-40-…`.
