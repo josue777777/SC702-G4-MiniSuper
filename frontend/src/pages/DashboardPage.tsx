@@ -1,20 +1,21 @@
 import { BackendStatusCard } from '../components/BackendStatusCard';
 import { useSession } from '../features/auth/session-context';
-import { BarList } from '../features/dashboard/BarList';
-import { QuickLinks } from '../features/dashboard/QuickLinks';
-import { StatTile } from '../features/dashboard/StatTile';
+import { UrgentToday } from '../features/dashboard/UrgentToday';
 import { useDashboard } from '../features/dashboard/use-dashboard';
-import { ExpirationAlertsCard } from '../features/inventory/ExpirationAlertsCard';
-import { LowStockAlertsCard } from '../features/inventory/LowStockAlertsCard';
 import { formatMoney } from '../features/products/money';
 
 /**
- * Pantalla de inicio: resumen del negocio con datos reales (inventario,
- * pedidos y alertas), accesos rápidos y las alertas del día (HU-08, HU-09).
- * Las cifras de ventas llegan con HU-16 … HU-20 y el resumen del día con HU-37.
+ * Pantalla de inicio con «foco»: primero lo urgente del día (como mucho tres
+ * cosas, cada una con su acción a la mano), después el resumen de ventas de
+ * hoy (HU-37) y, al final, el estado del sistema. Las cifras de análisis
+ * (inventario valorizado, valor por categoría…) no van aquí: viven en
+ * Reportes, donde se filtran y se descargan (docs/PANTALLAS.md, regla 13).
+ *
+ * Las alertas de stock bajo (HU-08) y de vencimientos (HU-09) son urgencias y
+ * siguen apareciendo en el panel, sin recargar.
  */
 export function DashboardPage() {
-  const { phase, data, message, reload } = useDashboard();
+  const { phase, data, message, reload, loadReceipts } = useDashboard();
   const { can } = useSession();
   const dailySales = data?.dailySales ?? null;
   const hasSalesToday = dailySales !== null && dailySales.saleCount > 0;
@@ -23,7 +24,10 @@ export function DashboardPage() {
     <>
       <header className="page-header">
         <h1>Panel principal</h1>
-        <p>Resumen del negocio y lo que necesita atención hoy. Se actualiza solo.</p>
+        <p>
+          Lo que necesita atención hoy. Se actualiza solo. Para ir a cualquier parte, pulse{' '}
+          <kbd>Ctrl</kbd> + <kbd>K</kbd>.
+        </p>
       </header>
 
       {phase === 'failed' ? (
@@ -34,6 +38,8 @@ export function DashboardPage() {
           </button>
         </p>
       ) : null}
+
+      <UrgentToday urgencies={data?.urgencies ?? null} onLoadReceipts={loadReceipts} />
 
       {/* HU-37: solo para los roles que manejan ventas. */}
       {can('sales') ? (
@@ -81,78 +87,6 @@ export function DashboardPage() {
           )}
         </section>
       ) : null}
-
-      <div className="stat-grid">
-        <StatTile
-          label="Inventario valorizado"
-          value={data === null ? '…' : formatMoney(data.inventory.totalValue)}
-          detail={data === null ? 'Calculando…' : `${data.inventory.totalUnits} unidades al costo`}
-          to="/inventory"
-        />
-        <StatTile
-          label="Productos activos"
-          value={data === null ? '…' : String(data.inventory.activeProducts)}
-          detail="Disponibles para la venta"
-          to="/inventory"
-        />
-        {can('purchasing') ? (
-          <StatTile
-            label="Pedidos pendientes"
-            value={data?.pendingOrders == null ? '…' : formatMoney(data.pendingOrders.totalValue)}
-            detail={
-              data?.pendingOrders == null
-                ? 'Calculando…'
-                : `${data.pendingOrders.count} pedido(s) por recibir`
-            }
-            to="/orders"
-          />
-        ) : null}
-        <StatTile
-          label="Stock bajo"
-          value={data === null ? '…' : String(data.lowStockCount)}
-          detail="Productos en su mínimo"
-          to="/inventory"
-          tone={data !== null && data.lowStockCount > 0 ? 'alert' : 'neutral'}
-        />
-        <StatTile
-          label="Vencidos y por vencer"
-          value={data === null ? '…' : String(data.expiredCount + data.expiringSoonCount)}
-          detail={
-            data === null
-              ? 'Calculando…'
-              : `${data.expiredCount} vencido(s) · ${data.expiringSoonCount} en 15 días`
-          }
-          to="/inventory"
-          tone={
-            data !== null && data.expiredCount + data.expiringSoonCount > 0 ? 'alert' : 'neutral'
-          }
-        />
-      </div>
-
-      <div className="dashboard-grid">
-        <BarList
-          title="Productos con más valor en inventario"
-          subtitle="Stock × costo de los cinco primeros, y su parte del inventario total."
-          data={data?.topProducts ?? []}
-          emptyText={data === null ? 'Cargando…' : 'Todavía no hay productos con stock.'}
-        />
-        <BarList
-          title="Inventario por categoría"
-          subtitle="Valor al costo de cada categoría y su parte del total."
-          data={data?.categories ?? []}
-          emptyText={data === null ? 'Cargando…' : 'Todavía no hay productos con stock.'}
-        />
-      </div>
-
-      <QuickLinks />
-
-      <div className="dashboard-grid">
-        {/* HU-08: alertas de stock bajo. */}
-        <LowStockAlertsCard />
-
-        {/* HU-09: vencidos y próximos a vencer. */}
-        <ExpirationAlertsCard />
-      </div>
 
       <BackendStatusCard />
     </>

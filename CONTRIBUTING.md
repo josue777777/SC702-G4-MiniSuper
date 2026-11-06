@@ -44,6 +44,8 @@ Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
 - Lo secundario va plegado; los avisos aparecen solo cuando aplican. Dentro de una
   celda de tabla no se despliega nada: el resumen («12 productos») abre una ventana.
   Dentro de una ventana tampoco: lo que es otra tarea va a su lugar con un enlace.
+- El inicio muestra lo urgente (como mucho tres cosas, cada una con su acción) y
+  dice «¡Está al día!» cuando no hay nada; el análisis va en Reportes.
 - Una entrada del menú se gana su lugar: si dos secciones se usan juntas y una
   es pequeña, van como pestañas de una sola pantalla; se separan cuando una
   crece hasta ser un mundo propio.

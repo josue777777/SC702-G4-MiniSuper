@@ -12,7 +12,8 @@ en curso). Volver al [índice de la guía](README.md).
 - **Devolver o anular** una venta: devuelve las unidades al stock y deja constancia
   (HU-35).
 - **Clientes**: el cliente al que se le fía y su saldo (HU-18, HU-36).
-- **Inicio**: el resumen de ventas de hoy y los indicadores del inventario (HU-37).
+- **Inicio**: «Lo urgente hoy» (como mucho tres urgencias con su acción) y el resumen
+  de ventas de hoy (HU-37). La barra de comandos `Ctrl + K` está en todas las pantallas.
 
 **Regla de oro del módulo:** el navegador solo **propone** la venta. Precio, total,
 stock y vuelto los decide el servidor con los datos de la base.
@@ -87,7 +88,11 @@ pages/SalesPage.tsx                 pestañas «Caja» e «Historial del día»
   ├─ ReceiptModal.tsx / SaleReceipt.tsx       comprobante para imprimir
   └─ SalesHistory.tsx / SaleDetailModal.tsx / SaleAdjustmentModal.tsx
 pages/CustomersPage.tsx → features/customers/CustomersSection.tsx
-pages/DashboardPage.tsx → features/dashboard/ (use-dashboard.ts, dashboard-metrics.ts)
+pages/DashboardPage.tsx → features/dashboard/
+  ├─ use-dashboard.ts          alertas, facturas sin cargar, pedidos y ventas del día (cada 15 s)
+  ├─ dashboard-urgencies.ts    arma y ordena las urgencias (sin React)
+  └─ UrgentToday.tsx           las tres primeras, «Ver todo», «¡Está al día!» y las acciones
+layouts/MainLayout.tsx → features/command-bar/ (commands.ts, CommandBar.tsx)   Ctrl + K
 ```
 
 ## 3. Librerías
@@ -152,12 +157,18 @@ Costa Rica está en UTC−6 todo el año, así que el día va de las 06:00 UTC a
 UTC del día siguiente. Una venta a las 11:30 p. m. hora local cuenta en ese día y no
 en el siguiente.
 
-### Inicio (`dashboard-metrics.ts`)
+### Inicio (`dashboard-urgencies.ts`)
 
 ```text
-Inventario valorizado = Σ stock × costo de los productos activos
-Porcentaje de una barra = valor del producto ÷ valor total × 100, con un decimal
+Urgencias, de más grave a menos grave (a igual gravedad, en este orden):
+  Crítico   productos vencidos · sin stock (alguno en 0)
+  Atención  stock en su mínimo · facturas sin cargar (HU-38) · vencen en < 15 días
+  Aviso     pedidos que esperan mercadería
+Se ven las 3 primeras; el resto, en «Ver todo (N)».
 ```
+
+Ejemplo: 1 vencido, el café en 0 y una factura sin cargar → se ven esas tres; si
+además algo vence en 5 días, aparece «Ver todo (4)».
 
 ## 5. Dónde buscar cuando algo falla
 
