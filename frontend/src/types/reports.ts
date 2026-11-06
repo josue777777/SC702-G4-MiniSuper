@@ -6,7 +6,12 @@
  * Dinero: cadenas con dos decimales (`"1500.00"`).
  */
 
-export type ReportKind = 'sales' | 'profits' | 'top-products' | 'customer-debts';
+/**
+ * Reportes con el formato común (`ReportSummary`). `physical-counts` es el de
+ * conteos físicos (HU-10, permiso `reports.inventory`); los demás son comerciales.
+ */
+export type ReportKind =
+  'sales' | 'profits' | 'top-products' | 'customer-debts' | 'physical-counts';
 
 /** Lo que el usuario puede filtrar. Las fechas son días (`YYYY-MM-DD`) de Costa Rica. */
 export interface ReportFilter {

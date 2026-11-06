@@ -9,6 +9,8 @@ interface ProductQuickSearchProps {
   /** Nombre del campo para lectores de pantalla y pruebas. */
   label: string;
   placeholder?: string;
+  /** Id del campo, para enlazarlo con un `<label htmlFor>` visible. */
+  id?: string;
 }
 
 /** Cuántas coincidencias se muestran: suficientes para elegir, sin llenar la ventana. */
@@ -31,6 +33,7 @@ export function ProductQuickSearch({
   onPick,
   label,
   placeholder = 'Buscar por nombre, código o código de barras',
+  id,
 }: ProductQuickSearchProps) {
   const [text, setText] = useState('');
   const term = text.trim();
@@ -64,6 +67,7 @@ export function ProductQuickSearch({
   return (
     <div role="search">
       <input
+        id={id}
         type="search"
         className="kardex-picker__input"
         value={text}

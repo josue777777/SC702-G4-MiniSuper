@@ -5,6 +5,7 @@ import type { ReportFilter, ReportKind, ReportSummary } from '../../types/report
 import { saveBlob } from '../products/use-catalog-export';
 import {
   defaultDraft,
+  hasProductFilters,
   toFilter,
   validateFilters,
   type FilterDraft,
@@ -67,12 +68,20 @@ export function useCommercialReport(kind: ReportKind) {
   const shownKind = useRef<ReportKind | null>(null);
   const shownRefresh = useRef(0);
 
+  // Las categorías solo hacen falta en el reporte que filtra por producto (y
+  // piden `reports.sales`: la Bodega, que ve «Conteos», no las puede pedir).
+  const needsOptions = hasProductFilters(kind);
+
   useEffect(() => {
+    if (!needsOptions) {
+      return;
+    }
+
     reportsService
       .options()
       .then((options) => setCategories(options.categories))
       .catch(() => setCategoriesError(true));
-  }, []);
+  }, [needsOptions]);
 
   const found = validateFilters(kind, draft);
   const valid = Object.keys(found).length === 0;

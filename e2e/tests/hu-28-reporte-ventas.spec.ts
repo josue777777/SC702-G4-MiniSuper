@@ -334,8 +334,8 @@ test('solo el Encargado accede: Cajero, Bodega, la plataforma y sin sesión no',
   await expect(bodeguero.page.getByRole('heading', { name: 'Reportes comerciales' })).toHaveCount(
     0,
   );
-  // Solo su reporte de inventario (HU-25); ninguna pestaña financiera.
-  await expect(bodeguero.page.getByRole('tab')).toHaveText(['Inventario']);
+  // Solo sus reportes de inventario (HU-25 y los conteos de HU-10); ninguna pestaña financiera.
+  await expect(bodeguero.page.getByRole('tab')).toHaveText(['Inventario', 'Conteos']);
   await expect(bodeguero.page.getByRole('tab', { name: 'Ventas' })).toHaveCount(0);
   await bodeguero.context.close();
 
