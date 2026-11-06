@@ -4,6 +4,7 @@ import type { AccentColor, FontScale, Preferences } from '../../types/preference
 import { useAppearance } from '../appearance/appearance-context';
 
 const COLORS: { value: AccentColor; label: string }[] = [
+  { value: 'NEUTRO', label: 'Neutro (del sistema)' },
   { value: 'AZUL', label: 'Azul' },
   { value: 'VERDE', label: 'Verde' },
   { value: 'MORADO', label: 'Morado' },
