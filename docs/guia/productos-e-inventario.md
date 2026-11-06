@@ -116,6 +116,17 @@ Diálogo de impresión del navegador → impresora térmica u hoja carta
 etiqueta cae justo en su sticker. El logo viaja dentro como `data:` URL, porque ese
 documento no tiene la sesión.
 
+**La ventana trabaja con lo que se eligió antes** (`LabelScope` en `LabelPrintModal.tsx`):
+
+| Se abre desde | Modo | Qué muestra |
+| --- | --- | --- |
+| Botón «Etiquetas» de Inventario | `catalog` | Buscador y todo el catálogo, sin nada elegido: para varios productos |
+| «Ver código» de un producto | `product` | Solo ese producto: vista previa grande y cuántas copias |
+| «Ver pedido» | `order` | Solo los productos del pedido, con lo pedido |
+
+Si ya se eligió un producto o un pedido, no tiene sentido volver a buscarlo: la
+ventana no ofrece el catálogo.
+
 **Personalizar** (`LabelCustomizeModal.tsx`, solo el Encargado): elige el tamaño y qué
 datos lleva. Se guarda en `Business.labelDesign` para todo el negocio. El servidor no deja
 guardar una etiqueta que no identifique el producto (sin nombre, código, barras ni QR).

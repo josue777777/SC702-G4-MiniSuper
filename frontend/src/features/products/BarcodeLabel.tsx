@@ -9,7 +9,7 @@ interface BarcodeLabelProps {
   product: Product;
   onClose: () => void;
   onReplace: () => void;
-  /** Abre «Imprimir etiquetas» con este producto (HU-07). */
+  /** Abre «Imprimir etiqueta» solo de este producto (HU-07). */
   onPrintLabels: () => void;
 }
 
@@ -18,7 +18,7 @@ interface BarcodeLabelProps {
  *   - Código de barras EAN-13: el que lee el lector de la caja.
  *   - Código QR: guarda el mismo código, para leerlo con un celular.
  * Cada uno se descarga como SVG (una imagen que se agranda sin perder calidad);
- * para rotular el producto, «Imprimir etiquetas» usa el diseño del negocio.
+ * para rotular el producto, «Imprimir etiqueta» usa el diseño del negocio.
  */
 export function BarcodeLabel({ product, onClose, onReplace, onPrintLabels }: BarcodeLabelProps) {
   const qrRef = useRef<SVGSVGElement>(null);
@@ -86,7 +86,7 @@ export function BarcodeLabel({ product, onClose, onReplace, onPrintLabels }: Bar
       <p className="muted hint">Código EAN-13 interno. No es un código comercial registrado.</p>
       <div className="form__actions modal__actions">
         <button type="button" className="button button--dark" onClick={onPrintLabels}>
-          🏷 Imprimir etiquetas
+          🏷 Imprimir etiqueta
         </button>
         <button type="button" className="button" onClick={onReplace}>
           Reemplazar código

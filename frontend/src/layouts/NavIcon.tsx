@@ -19,6 +19,8 @@ const PATHS: Record<NavIconName, string[]> = {
     'M10 10v4',
     'M18 16v4',
   ],
+  /** Flecha circular «volver a como estaba» (Restablecer). */
+  reset: ['M3 12a9 9 0 1 0 3-6.7', 'M3 4v5h5'],
   // Caja (punto de venta)
   barcode: ['M3 5v14', 'M7 5v14', 'M10 5v14', 'M14 5v14', 'M17 5v14', 'M21 5v14'],
   card: ['M2 6h20v12H2z', 'M2 10h20', 'M6 15h4'],
