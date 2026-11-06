@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Modal } from '../../components/Modal';
+import { NavIcon } from '../../layouts/NavIcon';
 import { Switch } from '../../components/Switch';
 import {
   DEFAULT_REPORT_PREFERENCES,
@@ -96,16 +97,24 @@ export function ReportCustomizeModal({
       </div>
 
       <div className="form__actions customize__actions">
-        <button
-          type="button"
-          className="link-button"
-          onClick={() => {
-            setHidden(DEFAULT_REPORT_PREFERENCES.hidden);
-            setOrientation(DEFAULT_REPORT_PREFERENCES.orientation);
-          }}
+        <div
+          className="report-actions__group"
+          role="group"
+          aria-label="Volver al diseño de fábrica"
         >
-          Restablecer
-        </button>
+          <button
+            type="button"
+            className="report-actions__button"
+            title="Volver a las opciones de fábrica"
+            onClick={() => {
+              setHidden(DEFAULT_REPORT_PREFERENCES.hidden);
+              setOrientation(DEFAULT_REPORT_PREFERENCES.orientation);
+            }}
+          >
+            <NavIcon name="reset" size={18} />
+            Restablecer
+          </button>
+        </div>
         <span className="customize__spacer" />
         <button type="button" className="button" onClick={onClose}>
           Cancelar

@@ -13,8 +13,11 @@ import {
 
 /**
  * HU-07 — Etiquetas de productos: «Ver código» con código de barras y QR, e
- * «Imprimir etiquetas» de uno o varios productos con el diseño del negocio
- * (rollo térmico u hoja carta), que define el Encargado.
+ * «Imprimir etiquetas» con el diseño del negocio (rollo térmico u hoja carta),
+ * que define el Encargado. La ventana trabaja con lo que se eligió antes:
+ *   - botón «Etiquetas» (nada elegido): buscar en el catálogo, varios productos;
+ *   - «Ver código» (un producto): solo las copias de ese producto;
+ *   - «Ver pedido»: solo los productos del pedido.
  *
  * La impresión real no se puede ver en una prueba: se cuenta cuántas veces se
  * pidió imprimir y se revisan las páginas que se mandaron a la impresora (el
@@ -112,14 +115,42 @@ test('«Ver código» muestra el código de barras y el QR, y lleva a imprimir l
   await expect(codes.getByRole('button', { name: 'Descargar código QR' })).toBeVisible();
   await saveEvidence(page, 'HU-07', 'HU-07-ver-codigo-barras-y-qr.png');
 
-  await codes.getByRole('button', { name: /Imprimir etiquetas/ }).click();
+  await codes.getByRole('button', { name: '🏷 Imprimir etiqueta' }).click();
+
+  // Ya se eligió el producto: la ventana es solo de él, sin buscar en el catálogo.
+  const dialog = page.getByRole('dialog', { name: 'Imprimir etiqueta · Arroz blanco 1 kg' });
+
+  await expect(dialog.getByLabel('Cantidad de etiquetas')).toHaveValue('1');
+  await expect(dialog.getByRole('searchbox')).toHaveCount(0);
+  await expect(dialog.getByRole('table', { name: 'Productos a etiquetar' })).toHaveCount(0);
+  await expect(dialog.getByLabel('Vista previa de la etiqueta')).toContainText(BUSINESS);
+  await expect(dialog.getByLabel('Vista previa de la etiqueta')).toContainText(/1\s350,00/);
+
+  await dialog.getByLabel('Cantidad de etiquetas').fill('4');
+  await expect(dialog.getByLabel('Resumen de la impresión')).toContainText('Etiquetas4');
+  await saveEvidence(page, 'HU-07', 'HU-07-imprimir-etiqueta-de-un-producto.png');
+  await dialog.getByRole('button', { name: '🖨 Imprimir 4 etiquetas' }).click();
+
+  const frame = await printedFrame(page);
+
+  await expect(frame.locator('.product-label')).toHaveCount(4);
+  await expect(frame.locator('.product-label').last()).toContainText('Arroz blanco 1 kg');
+});
+
+test('el botón «Etiquetas» busca en todo el catálogo y abre sin nada elegido', async ({ page }) => {
+  await page.goto('/inventory');
+  // Aunque haya un producto seleccionado en la tabla, este botón es para varios.
+  await page.getByRole('row', { name: /ARR-01/ }).click();
+  await page.getByRole('button', { name: '🏷 Etiquetas' }).click();
 
   const dialog = labelsDialog(page);
 
-  await expect(dialog.getByLabel('Etiquetas de Arroz blanco 1 kg')).toHaveValue('1');
-  await expect(dialog.getByRole('button', { name: '🖨 Imprimir 1 etiqueta' })).toBeEnabled();
-  await expect(dialog.getByLabel('Vista previa de la etiqueta')).toContainText(BUSINESS);
-  await expect(dialog.getByLabel('Vista previa de la etiqueta')).toContainText(/1\s350,00/);
+  await expect(dialog.getByLabel('Etiquetas de Arroz blanco 1 kg')).toHaveValue('0');
+  await expect(dialog.getByRole('button', { name: '🖨 Imprimir 0 etiquetas' })).toBeDisabled();
+
+  await dialog.getByLabel('Buscar producto para etiquetar').fill('café');
+  await expect(dialog.getByLabel('Etiquetas de Café molido 500 g')).toBeVisible();
+  await expect(dialog.getByLabel('Etiquetas de Arroz blanco 1 kg')).toHaveCount(0);
 });
 
 test('varios productos en rollo: una página por etiqueta, con negocio, precio y códigos', async ({
@@ -250,6 +281,9 @@ test('desde un pedido: una etiqueta por unidad pedida', async ({ page }) => {
 
   await expect(dialog.getByLabel('Etiquetas de Arroz blanco 1 kg')).toHaveValue('4');
   await expect(dialog.getByLabel('Etiquetas de Café molido 500 g')).toHaveValue('2');
+  // Solo lo del pedido: el pan no se pidió y no se busca en el catálogo.
+  await expect(dialog.getByLabel('Etiquetas de Pan cuadrado')).toHaveCount(0);
+  await expect(dialog.getByRole('searchbox')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: '🖨 Imprimir 6 etiquetas' })).toBeEnabled();
 });
 

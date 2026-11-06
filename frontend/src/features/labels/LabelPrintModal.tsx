@@ -4,6 +4,7 @@ import { matchesSearch } from '../../components/list-search';
 import { Modal } from '../../components/Modal';
 import { Pagination } from '../../components/Pagination';
 import { usePagination } from '../../components/use-pagination';
+import { NavIcon } from '../../layouts/NavIcon';
 import type { LabelRequest } from '../../types/labels';
 import type { Product } from '../../types/products';
 import { useSession } from '../auth/session-context';
@@ -25,17 +26,47 @@ import {
 } from './label-sizes';
 import { useLabelData } from './use-label-data';
 
+/**
+ * Desde dónde se abrió la ventana. Lo que se elige ANTES manda: si ya se eligió
+ * un producto o un pedido, la ventana trabaja solo con eso y no ofrece buscar en
+ * todo el catálogo.
+ *   - `catalog`: botón «Etiquetas» de Inventario, sin nada elegido: buscar y
+ *     marcar cuántas etiquetas de cada producto.
+ *   - `product`: «Ver código» de UN producto: solo cuántas copias de ese.
+ *   - `order`: «Ver pedido»: solo los productos del pedido, con lo pedido.
+ */
+export type LabelScope =
+  | { kind: 'catalog' }
+  | { kind: 'product'; productId: string }
+  | { kind: 'order'; orderNumber: string; items: LabelRequest[] };
+
 interface LabelPrintModalProps {
-  /** Productos y cantidades con los que abre (el seleccionado, o las líneas de un pedido). */
-  initial: LabelRequest[];
-  /** De dónde se abrió, para el título (por ejemplo «pedido PED-0007»). */
-  origin?: string;
+  scope: LabelScope;
   onClose: () => void;
 }
 
+/** Cantidades con las que abre cada modo: una copia del producto, o lo pedido. */
+function initialQuantities(scope: LabelScope): Record<string, number> {
+  switch (scope.kind) {
+    case 'catalog':
+      return {};
+    case 'product':
+      return { [scope.productId]: 1 };
+    case 'order':
+      return Object.fromEntries(scope.items.map((item) => [item.productId, item.quantity]));
+  }
+}
+
+/** Una cantidad escrita a mano, siempre entre 0 y el tope de copias. */
+function parseQuantity(text: string): number {
+  const value = Number.parseInt(text, 10);
+
+  return Number.isFinite(value) ? Math.min(Math.max(0, value), MAX_COPIES) : 0;
+}
+
 /**
- * «Imprimir etiquetas» (HU-07): elegir productos y cuántas etiquetas de cada
- * uno, ver cómo quedan e imprimirlas con el diseño del negocio.
+ * «Imprimir etiquetas» (HU-07): ver cómo quedan e imprimirlas con el diseño del
+ * negocio. Lo que se muestra depende de `scope` (ver `LabelScope`).
  *
  * Flujo:
  *   1. `useLabelData` carga productos, negocio (nombre y logo) y el diseño.
@@ -43,13 +74,12 @@ interface LabelPrintModalProps {
  *   3. «Imprimir»: se dibujan todas las páginas escondidas (`LabelSheet`) y
  *      `printLabels` las manda a la impresora con el tamaño exacto del papel.
  */
-export function LabelPrintModal({ initial, origin, onClose }: LabelPrintModalProps) {
+export function LabelPrintModal({ scope, onClose }: LabelPrintModalProps) {
   const { can } = useSession();
   const { state, setDesign } = useLabelData();
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
-    Object.fromEntries(initial.map((request) => [request.productId, request.quantity])),
+    initialQuantities(scope),
   );
-  const [search, setSearch] = useState('');
   const [startAt, setStartAt] = useState(1);
   const [customizing, setCustomizing] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -61,24 +91,7 @@ export function LabelPrintModal({ initial, origin, onClose }: LabelPrintModalPro
   const requests: LabelRequest[] = Object.entries(quantities)
     .filter(([productId, quantity]) => quantity > 0 && byId.has(productId))
     .map(([productId, quantity]) => ({ productId, quantity }));
-  const missing = initial.filter((request) => !byId.has(request.productId)).length;
   const total = totalLabels(requests);
-
-  // Los elegidos primero, para verlos sin buscar; después el resto por código.
-  const rows = useMemo(
-    () =>
-      products
-        .filter((product) => matchesSearch(search, product.code, product.name, product.barcode))
-        .sort(
-          (a, b) =>
-            Number((quantities[b.id] ?? 0) > 0) - Number((quantities[a.id] ?? 0) > 0) ||
-            a.code.localeCompare(b.code, 'es'),
-        ),
-    // Las cantidades no reordenan mientras se escribe: solo al buscar o al abrir.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [products, search],
-  );
-  const pages = usePagination(rows, search);
 
   // Al cerrar la ventana se quita el marco de impresión escondido.
   useEffect(() => removeLabelFrame, []);
@@ -97,15 +110,20 @@ export function LabelPrintModal({ initial, origin, onClose }: LabelPrintModalPro
   }, [printing, state]);
 
   function setQuantity(productId: string, text: string): void {
-    const value = Number.parseInt(text, 10);
-    const quantity = Number.isFinite(value) ? Math.min(Math.max(0, value), MAX_COPIES) : 0;
-
-    setQuantities((current) => ({ ...current, [productId]: quantity }));
+    setQuantities((current) => ({ ...current, [productId]: parseQuantity(text) }));
   }
+
+  const single = scope.kind === 'product' ? byId.get(scope.productId) : undefined;
+  const title =
+    scope.kind === 'product'
+      ? `Imprimir etiqueta${single === undefined ? '' : ` · ${single.name}`}`
+      : scope.kind === 'order'
+        ? `Imprimir etiquetas · pedido ${scope.orderNumber}`
+        : 'Imprimir etiquetas';
 
   if (state.phase !== 'ready') {
     return (
-      <Modal title="Imprimir etiquetas" size="wide" onClose={onClose}>
+      <Modal title={title} size="wide" onClose={onClose}>
         {state.phase === 'loading' ? (
           <p className="muted" role="status">
             Cargando productos y diseño…
@@ -130,155 +148,155 @@ export function LabelPrintModal({ initial, origin, onClose }: LabelPrintModalPro
   ).length;
   const shownFields = LABEL_FIELD_ORDER.filter((field) => design.show[field]).length;
   const tooMany = total > MAX_LABELS_PER_PRINT;
+  const orderMissing =
+    scope.kind === 'order' ? scope.items.filter((item) => !byId.has(item.productId)).length : 0;
 
-  return (
-    <Modal
-      title={origin === undefined ? 'Imprimir etiquetas' : `Imprimir etiquetas · ${origin}`}
-      size="wide"
-      onClose={onClose}
-    >
-      <p className="muted">
-        Diseño del negocio: <strong>{spec.name}</strong> · {shownFields} de{' '}
-        {LABEL_FIELD_ORDER.length} datos.{' '}
-        {can('business.edit') ? (
-          <button type="button" className="link-button" onClick={() => setCustomizing(true)}>
-            Personalizar
-          </button>
-        ) : (
-          'Lo define el Encargado.'
-        )}
-      </p>
+  /** Resumen, posición inicial y avisos: igual en los tres modos. */
+  const summary = (
+    <>
+      <dl className="order-meta" aria-label="Resumen de la impresión">
+        <dt>Etiquetas</dt>
+        <dd>{total}</dd>
+        <dt>{spec.kind === 'sheet' ? 'Hojas carta' : 'Stickers del rollo'}</dt>
+        <dd>{sheets}</dd>
+      </dl>
 
-      {missing > 0 ? (
-        <p className="alert alert--warning" role="status">
-          {missing === 1
-            ? 'Un producto está desactivado y no se incluye.'
-            : `${missing} productos están desactivados y no se incluyen.`}
-        </p>
+      {spec.kind === 'sheet' ? (
+        <label className="form__field">
+          <span>Empezar en la etiqueta</span>
+          <input
+            type="number"
+            min="1"
+            max={perPage}
+            step="1"
+            inputMode="numeric"
+            value={startAt}
+            onChange={(event) => setStartAt(Number.parseInt(event.target.value, 10) || 1)}
+          />
+          <span className="hint">
+            Para aprovechar una hoja ya usada: de 1 a {perPage}, de izquierda a derecha y de arriba
+            abajo.
+          </span>
+        </label>
       ) : null}
 
-      <div className="customize">
-        <div>
-          <div className="toolbar">
-            <ListSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Buscar por nombre o código"
-              label="Buscar producto para etiquetar"
-            />
-            {total > 0 ? (
-              <button type="button" className="button" onClick={() => setQuantities({})}>
-                Quitar todas
-              </button>
-            ) : null}
+      {design.show.barcode && withoutBarcode > 0 ? (
+        <p className="hint" role="status">
+          {scope.kind === 'product'
+            ? 'Este producto no tiene código de barras: la etiqueta sale sin barras'
+            : withoutBarcode === 1
+              ? 'Un producto no tiene código de barras: su etiqueta sale sin barras'
+              : `${withoutBarcode} productos no tienen código de barras: sus etiquetas salen sin barras`}
+          {design.show.qr ? ' (el QR lleva su código).' : '.'}
+        </p>
+      ) : null}
+      {tooMany ? (
+        <p className="form__error" role="alert">
+          Son más de {MAX_LABELS_PER_PRINT} etiquetas. Imprímalas en partes.
+        </p>
+      ) : null}
+      {printError === null ? null : (
+        <p className="form__error" role="alert">
+          {printError}
+        </p>
+      )}
+    </>
+  );
+
+  return (
+    <Modal title={title} size="wide" onClose={onClose}>
+      <div className="toolbar">
+        <p className="muted" style={{ margin: 0, marginRight: 'auto' }}>
+          Diseño del negocio: <strong>{spec.name}</strong> · {shownFields} de{' '}
+          {LABEL_FIELD_ORDER.length} datos.
+          {can('business.edit') ? null : ' Lo define el Encargado.'}
+        </p>
+        {can('business.edit') ? (
+          <div className="report-actions__group" role="group" aria-label="Diseño de la etiqueta">
+            <button
+              type="button"
+              className="report-actions__button"
+              title="Elegir el tamaño y los datos de la etiqueta"
+              onClick={() => setCustomizing(true)}
+            >
+              <NavIcon name="sliders" size={18} />
+              Personalizar
+            </button>
           </div>
-          <div className="table-wrapper">
-            <table className="table" aria-label="Productos a etiquetar">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Producto</th>
-                  <th className="table__number">Precio</th>
-                  <th className="table__number">Etiquetas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pages.pageItems.map((product: Product) => (
-                  <tr key={product.id}>
-                    <td>{product.code}</td>
-                    <td>
-                      {product.name}{' '}
-                      {product.barcode === null ? (
-                        <span className="badge badge--muted">sin código de barras</span>
-                      ) : null}
-                    </td>
-                    <td className="table__number">{formatMoney(product.price)}</td>
-                    <td className="table__number">
-                      <input
-                        className="order-quantity"
-                        type="number"
-                        min="0"
-                        max={MAX_COPIES}
-                        step="1"
-                        inputMode="numeric"
-                        aria-label={`Etiquetas de ${product.name}`}
-                        value={quantities[product.id] ?? 0}
-                        onFocus={(event) => event.target.select()}
-                        onChange={(event) => setQuantity(product.id, event.target.value)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {pages.total === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="muted">
-                      Ningún producto activo coincide con la búsqueda.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
-        </div>
-
-        <div className="customize__side">
-          <LabelPreview
-            product={firstChosen ?? SAMPLE_PRODUCT}
-            design={design}
-            business={business}
-            maxWidth={300}
-          />
-          {firstChosen === undefined ? (
-            <p className="hint">Ejemplo: ponga una cantidad para ver su producto.</p>
-          ) : null}
-
-          <dl className="order-meta" aria-label="Resumen de la impresión">
-            <dt>Etiquetas</dt>
-            <dd>{total}</dd>
-            <dt>{spec.kind === 'sheet' ? 'Hojas carta' : 'Stickers del rollo'}</dt>
-            <dd>{sheets}</dd>
-          </dl>
-
-          {spec.kind === 'sheet' ? (
-            <label className="form__field">
-              <span>Empezar en la etiqueta</span>
-              <input
-                type="number"
-                min="1"
-                max={perPage}
-                step="1"
-                inputMode="numeric"
-                value={startAt}
-                onChange={(event) => setStartAt(Number.parseInt(event.target.value, 10) || 1)}
-              />
-              <span className="hint">
-                Para aprovechar una hoja ya usada: de 1 a {perPage}, de izquierda a derecha y de
-                arriba abajo.
-              </span>
-            </label>
-          ) : null}
-
-          {design.show.barcode && withoutBarcode > 0 ? (
-            <p className="hint" role="status">
-              {withoutBarcode === 1
-                ? 'Un producto no tiene código de barras: su etiqueta sale sin barras'
-                : `${withoutBarcode} productos no tienen código de barras: sus etiquetas salen sin barras`}
-              {design.show.qr ? ' (el QR lleva su código).' : '.'}
-            </p>
-          ) : null}
-          {tooMany ? (
-            <p className="form__error" role="alert">
-              Son más de {MAX_LABELS_PER_PRINT} etiquetas. Imprímalas en partes.
-            </p>
-          ) : null}
-          {printError === null ? null : (
-            <p className="form__error" role="alert">
-              {printError}
-            </p>
-          )}
-        </div>
+        ) : null}
       </div>
+
+      {scope.kind === 'product' ? (
+        single === undefined ? (
+          <p className="alert alert--warning" role="status">
+            El producto está desactivado: no se imprimen etiquetas de lo que ya no se vende.
+          </p>
+        ) : (
+          <div className="customize">
+            <LabelPreview product={single} design={design} business={business} maxWidth={440} />
+            <div className="customize__side">
+              <dl className="order-meta" aria-label="Producto">
+                <dt>Código</dt>
+                <dd>{single.code}</dd>
+                <dt>Precio de venta</dt>
+                <dd>{formatMoney(single.price)}</dd>
+              </dl>
+              <label className="form__field">
+                <span>Cantidad de etiquetas</span>
+                <input
+                  className="order-quantity"
+                  type="number"
+                  min="1"
+                  max={MAX_COPIES}
+                  step="1"
+                  inputMode="numeric"
+                  value={quantities[single.id] ?? 0}
+                  onFocus={(event) => event.target.select()}
+                  onChange={(event) => setQuantity(single.id, event.target.value)}
+                />
+                <span className="hint">Una por cada unidad que va a rotular.</span>
+              </label>
+              {summary}
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="customize">
+          <div>
+            {orderMissing > 0 ? (
+              <p className="alert alert--warning" role="status">
+                {orderMissing === 1
+                  ? 'Un producto del pedido está desactivado y no se incluye.'
+                  : `${orderMissing} productos del pedido están desactivados y no se incluyen.`}
+              </p>
+            ) : null}
+            <ProductQuantities
+              products={
+                scope.kind === 'order'
+                  ? scope.items.flatMap((item) => byId.get(item.productId) ?? [])
+                  : products
+              }
+              searchable={scope.kind === 'catalog'}
+              quantities={quantities}
+              onQuantity={setQuantity}
+              onClear={() => setQuantities({})}
+            />
+          </div>
+
+          <div className="customize__side">
+            <LabelPreview
+              product={firstChosen ?? SAMPLE_PRODUCT}
+              design={design}
+              business={business}
+              maxWidth={300}
+            />
+            {firstChosen === undefined ? (
+              <p className="hint">Ejemplo: ponga una cantidad para ver su producto.</p>
+            ) : null}
+            {summary}
+          </div>
+        </div>
+      )}
 
       <div className="form__actions modal__actions">
         <button
@@ -325,5 +343,118 @@ export function LabelPrintModal({ initial, origin, onClose }: LabelPrintModalPro
         />
       ) : null}
     </Modal>
+  );
+}
+
+interface ProductQuantitiesProps {
+  products: readonly Product[];
+  /** Con buscador solo en el catálogo; un pedido ya trae su lista corta. */
+  searchable: boolean;
+  quantities: Record<string, number>;
+  onQuantity: (productId: string, text: string) => void;
+  onClear: () => void;
+}
+
+/**
+ * Tabla de productos con cuántas etiquetas de cada uno. En el catálogo los que
+ * ya tienen cantidad van primero, para verlos sin buscar.
+ */
+function ProductQuantities({
+  products,
+  searchable,
+  quantities,
+  onQuantity,
+  onClear,
+}: ProductQuantitiesProps) {
+  const [search, setSearch] = useState('');
+  const anyChosen = Object.values(quantities).some((quantity) => quantity > 0);
+
+  const rows = useMemo(
+    () =>
+      searchable
+        ? products
+            .filter((product) => matchesSearch(search, product.code, product.name, product.barcode))
+            .sort(
+              (a, b) =>
+                Number((quantities[b.id] ?? 0) > 0) - Number((quantities[a.id] ?? 0) > 0) ||
+                a.code.localeCompare(b.code, 'es'),
+            )
+        : products,
+    // Las cantidades no reordenan mientras se escribe: solo al buscar o al abrir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [products, search, searchable],
+  );
+  const pages = usePagination(rows, search);
+
+  return (
+    <>
+      {searchable || anyChosen ? (
+        <div className="toolbar">
+          {searchable ? (
+            <ListSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Buscar por nombre o código"
+              label="Buscar producto para etiquetar"
+            />
+          ) : null}
+          {anyChosen ? (
+            <button type="button" className="button" onClick={onClear}>
+              Quitar todas
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="table-wrapper">
+        <table className="table" aria-label="Productos a etiquetar">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th className="table__number">Precio</th>
+              <th className="table__number">Etiquetas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pages.pageItems.map((product) => (
+              <tr key={product.id}>
+                <td>{product.code}</td>
+                <td>
+                  {product.name}{' '}
+                  {product.barcode === null ? (
+                    <span className="badge badge--muted">sin código de barras</span>
+                  ) : null}
+                </td>
+                <td className="table__number">{formatMoney(product.price)}</td>
+                <td className="table__number">
+                  <input
+                    className="order-quantity"
+                    type="number"
+                    min="0"
+                    max={MAX_COPIES}
+                    step="1"
+                    inputMode="numeric"
+                    aria-label={`Etiquetas de ${product.name}`}
+                    value={quantities[product.id] ?? 0}
+                    onFocus={(event) => event.target.select()}
+                    onChange={(event) => onQuantity(product.id, event.target.value)}
+                  />
+                </td>
+              </tr>
+            ))}
+            {pages.total === 0 ? (
+              <tr>
+                <td colSpan={4} className="muted">
+                  {searchable
+                    ? 'Ningún producto activo coincide con la búsqueda.'
+                    : 'No hay productos activos para etiquetar.'}
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+      <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal } from '../../components/Modal';
+import { NavIcon } from '../../layouts/NavIcon';
 import { Switch } from '../../components/Switch';
 import { ApiError } from '../../services/api-client';
 import { labelsService } from '../../services/labels.service';
@@ -127,16 +128,24 @@ export function LabelCustomizeModal({
       )}
 
       <div className="form__actions customize__actions">
-        <button
-          type="button"
-          className="link-button"
-          onClick={() => {
-            setSize(DEFAULT_LABEL_DESIGN.size);
-            setShow(DEFAULT_LABEL_DESIGN.show);
-          }}
+        <div
+          className="report-actions__group"
+          role="group"
+          aria-label="Volver al diseño de fábrica"
         >
-          Restablecer
-        </button>
+          <button
+            type="button"
+            className="report-actions__button"
+            title="Volver a las opciones de fábrica"
+            onClick={() => {
+              setSize(DEFAULT_LABEL_DESIGN.size);
+              setShow(DEFAULT_LABEL_DESIGN.show);
+            }}
+          >
+            <NavIcon name="reset" size={18} />
+            Restablecer
+          </button>
+        </div>
         <span className="customize__spacer" />
         <button type="button" className="button" onClick={onClose} disabled={saving}>
           Cancelar

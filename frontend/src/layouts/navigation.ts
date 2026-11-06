@@ -27,6 +27,7 @@ export type NavIconName =
   | 'download'
   | 'file'
   | 'sliders'
+  | 'reset'
   | 'card'
   | 'ledger'
   | 'trash'
