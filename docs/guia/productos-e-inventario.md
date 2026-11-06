@@ -68,6 +68,11 @@ El servicio calcula el ajuste (ver «Cálculos») y el repositorio guarda en una
 transacción el stock nuevo y su InventoryMovement de tipo ADJUSTMENT.
 ```
 
+En la ventana de Conteo físico el producto se **busca** (`ProductQuickSearch`: nombre,
+código o el lector con Enter; nunca una lista con todo el catálogo). El lector también
+funciona con el foco fuera de un campo (`useWedgeScanner`). El historial de conteos no
+está en la ventana: es el reporte **Reportes › Conteos** (ver [Reportes](reportes.md)).
+
 ### Otras rutas
 
 | Ruta | Para qué |

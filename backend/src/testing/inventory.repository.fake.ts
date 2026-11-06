@@ -1,4 +1,4 @@
-import type { InventoryRepository } from '../repositories/inventory.repository.js';
+import type { CountReportRow, InventoryRepository } from '../repositories/inventory.repository.js';
 import type {
   CreateInventoryCountPlan,
   InventoryCountDto,
@@ -31,6 +31,9 @@ export interface FakeCountProduct {
   isActive?: boolean;
   /** `YYYY-MM-DD` (HU-09); si se omite, el producto no vence. */
   expirationDate?: string | null;
+  /** Para el reporte de conteos; si se omiten: «Abarrotes» y ₡1 000. */
+  category?: string;
+  cost?: string;
 }
 
 /** Movimiento guardado en el doble, con su motivo para poder filtrar. */
@@ -100,6 +103,32 @@ export class FakeInventoryRepository implements InventoryRepository {
         .filter((movement) => movement.reason === reason)
         .map((movement) => movement.count)
         .reverse(),
+    );
+  }
+
+  countsInPeriod(reason: string, start: Date, end: Date): Promise<CountReportRow[]> {
+    return Promise.resolve(
+      this.movements
+        .filter((movement) => movement.reason === reason)
+        .filter((movement) => {
+          const at = new Date(movement.count.createdAt);
+
+          return at >= start && at < end;
+        })
+        .reverse()
+        .map(({ count }) => {
+          const product = this.products.find((candidate) => candidate.id === count.productId);
+
+          return {
+            createdAt: new Date(count.createdAt),
+            code: count.productCode,
+            name: count.productName,
+            category: product?.category ?? 'Abarrotes',
+            cost: product?.cost ?? '1000.00',
+            systemStock: count.systemStock,
+            countedQuantity: count.countedQuantity,
+          };
+        }),
     );
   }
 

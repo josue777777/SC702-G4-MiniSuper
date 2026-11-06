@@ -34,6 +34,7 @@ const DESCRIPTIONS: Record<ReportKind, string> = {
   profits: 'Cuánto se ganó con lo cobrado en el período.',
   'top-products': 'Los productos que más se vendieron en el período.',
   'customer-debts': 'Lo que deben hoy los clientes por ventas fiadas.',
+  'physical-counts': 'Los conteos físicos del período y lo que dejaron de diferencia.',
 };
 
 /**

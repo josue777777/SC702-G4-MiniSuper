@@ -37,6 +37,18 @@ function toSettingsDto(row: SettingsRow): ProductStockSettingsDto {
   };
 }
 
+/** Un conteo del período, con lo que necesita el reporte «Conteos». */
+export interface CountReportRow {
+  createdAt: Date;
+  code: string;
+  name: string;
+  category: string;
+  /** Costo actual del producto, con 2 decimales. */
+  cost: string;
+  systemStock: number;
+  countedQuantity: number;
+}
+
 /** Fila de movimiento tal como la devuelve `countSelection`. */
 interface CountRow {
   id: string;
@@ -136,6 +148,45 @@ export class InventoryRepository {
     });
 
     return rows.map(toInventoryCountDto);
+  }
+
+  /**
+   * Conteos físicos de un período para el reporte «Conteos» (HU-10), con lo que
+   * el reporte necesita de cada producto: categoría y costo ACTUAL (el esquema no
+   * guarda el costo del momento del conteo; el reporte lo avisa).
+   *
+   * @param reason Motivo con que se guardan los conteos (`PHYSICAL_COUNT_REASON`).
+   * @param start Inicio del período (incluido).
+   * @param end Fin del período (excluido).
+   */
+  async countsInPeriod(reason: string, start: Date, end: Date): Promise<CountReportRow[]> {
+    const rows = await prisma.inventoryMovement.findMany({
+      where: {
+        type: 'ADJUSTMENT',
+        reason,
+        createdAt: { gte: start, lt: end },
+        product: { businessId: this.businessId },
+      },
+      select: {
+        stockBefore: true,
+        stockAfter: true,
+        createdAt: true,
+        product: {
+          select: { code: true, name: true, cost: true, category: { select: { name: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rows.map((row) => ({
+      createdAt: row.createdAt,
+      code: row.product.code,
+      name: row.product.name,
+      category: row.product.category.name,
+      cost: row.product.cost.toFixed(2),
+      systemStock: row.stockBefore,
+      countedQuantity: row.stockAfter,
+    }));
   }
 
   /**

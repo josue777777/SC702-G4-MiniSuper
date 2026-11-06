@@ -11,6 +11,13 @@ import type { PageOf } from '../utils/paginate.js';
 
 export type ReportKind = 'sales' | 'profits' | 'top-products' | 'customer-debts';
 
+/**
+ * Todo reporte que usa el formato común (resumen, gráficos, detalle, PDF y Excel):
+ * los comerciales más el de conteos físicos (HU-10), que es de inventario y tiene
+ * su propia ruta y permiso (`/api/reports/counts`, `reports.inventory`).
+ */
+export type ReportResultKind = ReportKind | 'physical-counts';
+
 /** Filtros de los reportes por período. Las fechas son días (`YYYY-MM-DD`) de la zona del negocio. */
 export interface ReportFilter {
   from: string;
@@ -38,7 +45,7 @@ export interface ReportTotal {
 }
 
 export interface ReportResult {
-  kind: ReportKind;
+  kind: ReportResultKind;
   title: string;
   businessName: string;
   /** Momento de la consulta (ISO 8601). */

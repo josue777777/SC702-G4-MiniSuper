@@ -20,6 +20,9 @@ const COMMERCIAL_TABS: { id: ReportKind; label: string; stories: string }[] = [
  * - Comerciales (HU-28 … HU-30): con el permiso `reports.sales`.
  * - Inventario (HU-25, con stock bajo y vencimientos): con `reports.inventory`;
  *   es el reporte que antes se abría desde Inventario.
+ * - Conteos (HU-10): los conteos físicos del período, también con
+ *   `reports.inventory`. Antes era un historial plegado dentro de la ventana
+ *   de conteo; aquí se filtra, se resume y se descarga como los demás.
  *
  * La pestaña vive en la dirección (`?reporte=inventario&categoria=…`): así el
  * botón de Inventario abre directo el reporte de su categoría.
@@ -30,7 +33,10 @@ export function ReportsPage() {
   const tabs: { id: ReportTab; label: string; stories: string }[] = [
     ...(can('reports.sales') ? COMMERCIAL_TABS : []),
     ...(can('reports.inventory')
-      ? [{ id: 'inventario' as const, label: 'Inventario', stories: 'HU-25' }]
+      ? [
+          { id: 'inventario' as const, label: 'Inventario', stories: 'HU-25' },
+          { id: 'physical-counts' as const, label: 'Conteos', stories: 'HU-10' },
+        ]
       : []),
   ];
   const requested = params.get('reporte');
