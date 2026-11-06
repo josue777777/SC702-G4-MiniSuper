@@ -43,6 +43,7 @@ Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
 - Buscadores y filtros se aplican solos, sin botón «Buscar» ni «Generar».
 - Lo secundario va plegado; los avisos aparecen solo cuando aplican. Dentro de una
   celda de tabla no se despliega nada: el resumen («12 productos») abre una ventana.
+  Dentro de una ventana tampoco: lo que es otra tarea va a su lugar con un enlace.
 - Una entrada del menú se gana su lugar: si dos secciones se usan juntas y una
   es pequeña, van como pestañas de una sola pantalla; se separan cuando una
   crece hasta ser un mundo propio.
