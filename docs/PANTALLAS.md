@@ -218,6 +218,27 @@ Proveedores, sola, era una pantalla casi vacía. Si crece (por ejemplo, con la
 comparación de costos de HU-39 y una ficha por proveedor), vuelve a tener su
 propia entrada en el menú.
 
+## Regla 12: lo que el usuario ya eligió no se le vuelve a preguntar (contexto)
+
+Una ventana trabaja con lo que la persona eligió **antes** de abrirla. Si llegó
+desde un producto, un pedido o un cliente, la ventana es de ESE producto, pedido
+o cliente: no le ofrece buscar en todo el catálogo ni elegirlo otra vez.
+
+**Por qué:** preguntar de nuevo es ruido (más pasos para lo mismo) y es un riesgo
+(se puede elegir otro sin querer y, por ejemplo, imprimir la etiqueta equivocada).
+
+| Se abre desde | La ventana… |
+| --- | --- |
+| Un botón general de la pantalla, sin nada elegido | Ofrece buscar y elegir (uno o varios) |
+| Un elemento ya elegido (fila, ficha, documento) | Trabaja solo con ese elemento; el título dice cuál |
+| Un documento con varias líneas (un pedido, una venta) | Trabaja solo con esas líneas |
+
+Ejemplo aplicado: las **etiquetas** (HU-07) son un solo componente con un
+`scope` (`catalog`, `product` u `order`). «Etiquetas» de Inventario busca en el
+catálogo; «Ver código» → «Imprimir etiqueta» es solo de ese producto, sin
+buscador; «Ver pedido» → «Etiquetas» trae solo lo del pedido. Un solo componente
+con modos, y no tres copias, para que la impresión se corrija en un solo lugar.
+
 ## Lista de revisión para una pantalla nueva
 
 - [ ] ¿Abre mostrando la lista y no un formulario?
@@ -233,4 +254,5 @@ propia entrada en el menú.
 - [ ] Si es un reporte: ¿muestra gráficos y deja el detalle a pedido y en el PDF/Excel?
 - [ ] Si tiene filtros: ¿se aplican solos, sin botón, y muestran los activos?
 - [ ] Si es una entrada nueva del menú: ¿tiene contenido propio suficiente, o va mejor como pestaña de una pantalla relacionada?
+- [ ] Si se abre desde algo ya elegido (un producto, un pedido): ¿trabaja solo con eso, sin volver a buscarlo?
 - [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?

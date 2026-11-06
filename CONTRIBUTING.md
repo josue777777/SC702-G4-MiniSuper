@@ -45,6 +45,10 @@ Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
 - Una entrada del menú se gana su lugar: si dos secciones se usan juntas y una
   es pequeña, van como pestañas de una sola pantalla; se separan cuando una
   crece hasta ser un mundo propio.
+- Lo que el usuario ya eligió no se le vuelve a preguntar (contexto): una ventana
+  que se abre desde un producto o un pedido trabaja solo con ese producto o
+  pedido, sin buscador ni lista del catálogo. Buscar y elegir es para cuando se
+  abre sin nada elegido.
 - Poco texto en pantalla; la ayuda, a pedido.
 
 ## 4. Datos y seguridad
