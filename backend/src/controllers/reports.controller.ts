@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { businessIdOf } from '../middleware/require-auth.middleware.js';
+import type { CountsReportService } from '../services/counts-report.service.js';
 import type { ReportsService } from '../services/reports.service.js';
 import type { ReportKind, ReportResult, ReportSummary } from '../types/reports.js';
 import type { ForBusiness } from '../types/tenant.js';
@@ -34,14 +35,17 @@ import {
  * líneas. Mandarlas todas para mostrar un total y dos gráficos hacía lenta la
  * pantalla aunque nadie abriera el detalle. Ahora viajan solo cuando se piden,
  * y de a una página.
+ *
+ * `ReportEndpoints` tiene las tres respuestas comunes; cada controlador solo
+ * dice cómo se genera su reporte.
  */
-export class ReportsController {
-  constructor(private readonly serviceFor: ForBusiness<ReportsService>) {}
-
-  async options(_req: Request, res: Response): Promise<void> {
-    res.setHeader('Cache-Control', 'no-store');
-    res.json({ data: await this.serviceFor(businessIdOf(res)).options() });
-  }
+export abstract class ReportEndpoints {
+  /** Valida los filtros propios del reporte y lo genera, para el negocio de la sesión. */
+  protected abstract generate(
+    rawKind: unknown,
+    query: Request['query'],
+    res: Response,
+  ): Promise<ReportResult>;
 
   async get(req: Request, res: Response): Promise<void> {
     const report = await this.generate(req.params['kind'], req.query, res);
@@ -83,9 +87,21 @@ export class ReportsController {
     res.setHeader('Content-Disposition', `attachment; filename="reporte-${report.kind}.xlsx"`);
     res.send(content);
   }
+}
+
+/** Los cuatro reportes comerciales, con `/:kind` en la ruta. */
+export class ReportsController extends ReportEndpoints {
+  constructor(private readonly serviceFor: ForBusiness<ReportsService>) {
+    super();
+  }
+
+  async options(_req: Request, res: Response): Promise<void> {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ data: await this.serviceFor(businessIdOf(res)).options() });
+  }
 
   /** Valida los filtros propios de cada reporte y lo genera. */
-  private async generate(
+  protected async generate(
     rawKind: unknown,
     query: Request['query'],
     res: Response,
@@ -105,6 +121,21 @@ export class ReportsController {
 
         return service.customerDebts();
     }
+  }
+}
+
+/**
+ * Reporte de conteos físicos (HU-10): un solo reporte, sin `/:kind`. Mismas
+ * respuestas que los comerciales (resumen, filas, Excel) para que la pantalla
+ * los muestre igual.
+ */
+export class CountsReportController extends ReportEndpoints {
+  constructor(private readonly serviceFor: ForBusiness<CountsReportService>) {
+    super();
+  }
+
+  protected generate(_kind: unknown, query: Request['query'], res: Response) {
+    return this.serviceFor(businessIdOf(res)).report(periodReportQuerySchema.parse(query));
   }
 }
 

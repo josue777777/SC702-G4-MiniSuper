@@ -1,4 +1,9 @@
-import type { ReportChart, ReportChartDatum, ReportKind, ReportResult } from '../types/reports.js';
+import type {
+  ReportChart,
+  ReportChartDatum,
+  ReportResult,
+  ReportResultKind,
+} from '../types/reports.js';
 
 type Row = ReportResult['rows'][number];
 
@@ -62,8 +67,27 @@ export function sumByDay(rows: readonly Row[], valueKey: string): ReportChartDat
  * calculan AQUÍ, con todas las filas, para que la pantalla reciba solo los
  * puntos del gráfico (pocos) y no miles de filas que no va a dibujar.
  */
-export function chartsFor(kind: ReportKind, rows: readonly Row[]): ReportChart[] {
+export function chartsFor(kind: ReportResultKind, rows: readonly Row[]): ReportChart[] {
   switch (kind) {
+    case 'physical-counts':
+      return [
+        {
+          id: 'counts-value-by-day',
+          title: 'Diferencia por día',
+          subtitle: 'Valor al costo de lo que faltó (negativo) o sobró en los conteos de cada día.',
+          form: 'columns',
+          unit: 'money',
+          data: sumByDay(rows, 'value'),
+        },
+        {
+          id: 'counts-missing-by-category',
+          title: 'Faltantes por categoría',
+          subtitle: 'Unidades que faltaron al contar, por categoría.',
+          form: 'bars',
+          unit: 'units',
+          data: sumBy(rows, 'category', 'missing', 6),
+        },
+      ];
     case 'sales':
       return [
         {

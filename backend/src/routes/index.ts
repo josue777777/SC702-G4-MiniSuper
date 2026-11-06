@@ -10,6 +10,7 @@ import { createSameOriginGuard } from '../middleware/same-origin.middleware.js';
 import { authRouter, authService } from './auth.routes.js';
 import { businessRouter } from './business.routes.js';
 import { categoriesRouter } from './categories.routes.js';
+import { countsReportRouter } from './counts-report.routes.js';
 import { customersRouter } from './customers.routes.js';
 import { healthRouter } from './health.routes.js';
 import { inventoryReportRouter } from './inventory-report.routes.js';
@@ -116,6 +117,12 @@ apiRouter.use(
   requirePermission('reports.inventory'),
   inventoryReportRouter,
 ); // HU-25, HU-40: Excel del reporte de inventario
+apiRouter.use(
+  '/reports/counts',
+  ...businessRequired,
+  requirePermission('reports.inventory'),
+  countsReportRouter,
+); // HU-10: conteos físicos del período (Reportes › Conteos)
 apiRouter.use('/customers', ...businessRequired, requirePermission('customers'), customersRouter); // HU-18, HU-36
 apiRouter.use('/suppliers', ...businessRequired, requirePermission('purchasing'), suppliersRouter); // HU-21
 apiRouter.use(

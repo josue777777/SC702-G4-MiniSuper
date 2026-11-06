@@ -33,7 +33,15 @@ function queryOf(filter: ReportFilter, extra: Record<string, string> = {}): stri
 }
 
 /**
- * Reportes comerciales del negocio (HU-28, HU-29, HU-30). La consulta y la
+ * Dónde vive cada reporte: los comerciales cuelgan de `/commercial/:kind` y el
+ * de conteos tiene su propia ruta, porque usa otro permiso (`reports.inventory`).
+ */
+function reportPath(kind: ReportKind): string {
+  return kind === 'physical-counts' ? '/api/reports/counts' : `/api/reports/commercial/${kind}`;
+}
+
+/**
+ * Reportes del negocio (HU-28, HU-29, HU-30 y conteos de HU-10). La consulta y la
  * exportación comparten la misma ruta y los mismos filtros: el archivo es
  * exactamente el reporte que se muestra.
  */
@@ -44,9 +52,8 @@ export const reportsService = {
 
   /** El resumen: totales, avisos y gráficos, sin las filas. */
   async get(kind: ReportKind, filter: ReportFilter): Promise<ReportSummary> {
-    return (
-      await apiGet<DataResponse<ReportSummary>>(`/api/reports/commercial/${kind}${queryOf(filter)}`)
-    ).data;
+    return (await apiGet<DataResponse<ReportSummary>>(`${reportPath(kind)}${queryOf(filter)}`))
+      .data;
   },
 
   /** Una página del detalle («Ver detalle»), con los mismos filtros. */
@@ -58,18 +65,14 @@ export const reportsService = {
   ): Promise<ReportRowsPage> {
     const query = queryOf(filter, { page: String(page), pageSize: String(pageSize) });
 
-    return (
-      await apiGet<DataResponse<ReportRowsPage>>(`/api/reports/commercial/${kind}/rows${query}`)
-    ).data;
+    return (await apiGet<DataResponse<ReportRowsPage>>(`${reportPath(kind)}/rows${query}`)).data;
   },
 
   /** Todas las filas: solo para el PDF, que es el documento completo. */
   async allRows(kind: ReportKind, filter: ReportFilter): Promise<ReportRowsPage> {
     const query = queryOf(filter, { all: 'true' });
 
-    return (
-      await apiGet<DataResponse<ReportRowsPage>>(`/api/reports/commercial/${kind}/rows${query}`)
-    ).data;
+    return (await apiGet<DataResponse<ReportRowsPage>>(`${reportPath(kind)}/rows${query}`)).data;
   },
 
   /**
@@ -87,10 +90,7 @@ export const reportsService = {
         ? query
         : `${query}${query === '' ? '?' : '&'}columns=${encodeURIComponent(columns.join(','))}`;
 
-    return apiDownload(
-      `/api/reports/commercial/${kind}/export${withColumns}`,
-      `reporte-${kind}.xlsx`,
-    );
+    return apiDownload(`${reportPath(kind)}/export${withColumns}`, `reporte-${kind}.xlsx`);
   },
 
   /** Resumen del reporte de inventario: totales, gráficos y cuántas filas hay. */
