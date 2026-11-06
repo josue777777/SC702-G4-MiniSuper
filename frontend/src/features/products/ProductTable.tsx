@@ -129,7 +129,6 @@ export function ProductTable({
               </th>
               <th className="table__number">Stock</th>
               <th>Proveedor</th>
-              <th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -153,19 +152,25 @@ export function ProductTable({
                 >
                   <td>{product.code}</td>
                   <td>{product.barcode ?? '—'}</td>
-                  <td>{product.name}</td>
+                  <td>
+                    {product.name}
+                    {/*
+                      El gris de la fila ya marca lo desactivado; la etiqueta lo dice también en
+                      palabras, porque el color solo no se ve impreso ni para quien no distingue
+                      bien los colores.
+                    */}
+                    {product.isActive ? null : (
+                      <>
+                        {' '}
+                        <span className="badge badge--muted">desactivado</span>
+                      </>
+                    )}
+                  </td>
                   <td>{product.categoryName}</td>
                   <td className="table__number">{formatMoney(product.cost)}</td>
                   <td className="table__number">{formatMoney(product.price)}</td>
                   <td className="table__number">{product.stock}</td>
                   <td>{product.preferredSupplierName ?? '—'}</td>
-                  <td>
-                    {product.isActive ? (
-                      <span className="badge badge--ok">Activo</span>
-                    ) : (
-                      <span className="badge badge--muted">Inactivo</span>
-                    )}
-                  </td>
                 </tr>
               );
             })}

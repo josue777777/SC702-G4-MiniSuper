@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ListSearch } from '../../components/ListSearch';
-import { matchesSearch } from '../../components/list-search';
 import { Modal } from '../../components/Modal';
 import { Pagination } from '../../components/Pagination';
 import { usePagination } from '../../components/use-pagination';
@@ -9,6 +7,7 @@ import type { LabelRequest } from '../../types/labels';
 import type { Product } from '../../types/products';
 import { useSession } from '../auth/session-context';
 import { formatMoney } from '../products/money';
+import { ProductQuickSearch } from '../products/ProductQuickSearch';
 import { LabelCustomizeModal } from './LabelCustomizeModal';
 import { LabelPreview } from './LabelPreview';
 import { printLabels, removeLabelFrame } from './label-print';
@@ -270,15 +269,42 @@ export function LabelPrintModal({ scope, onClose }: LabelPrintModalProps) {
                   : `${orderMissing} productos del pedido están desactivados y no se incluyen.`}
               </p>
             ) : null}
+            {scope.kind === 'catalog' ? (
+              <ProductQuickSearch
+                products={products}
+                label="Agregar producto para etiquetar"
+                onPick={(product) =>
+                  setQuantities((current) => ({
+                    ...current,
+                    [product.id]: Math.min((current[product.id] ?? 0) + 1, MAX_COPIES),
+                  }))
+                }
+              />
+            ) : null}
             <ProductQuantities
               products={
                 scope.kind === 'order'
                   ? scope.items.flatMap((item) => byId.get(item.productId) ?? [])
-                  : products
+                  : // En el catálogo solo se listan los elegidos, en el orden en que se agregaron.
+                    Object.keys(quantities).flatMap((id) => byId.get(id) ?? [])
               }
-              searchable={scope.kind === 'catalog'}
               quantities={quantities}
               onQuantity={setQuantity}
+              onRemove={
+                scope.kind === 'catalog'
+                  ? (productId) =>
+                      setQuantities((current) => {
+                        const { [productId]: _removed, ...rest } = current;
+
+                        return rest;
+                      })
+                  : undefined
+              }
+              emptyText={
+                scope.kind === 'catalog'
+                  ? 'Busque un producto arriba para agregarlo. También puede usar el lector.'
+                  : 'No hay productos activos para etiquetar.'
+              }
               onClear={() => setQuantities({})}
             />
           </div>
@@ -347,62 +373,38 @@ export function LabelPrintModal({ scope, onClose }: LabelPrintModalProps) {
 }
 
 interface ProductQuantitiesProps {
+  /** Las filas a mostrar: lo elegido (catálogo) o las líneas del pedido. */
   products: readonly Product[];
-  /** Con buscador solo en el catálogo; un pedido ya trae su lista corta. */
-  searchable: boolean;
   quantities: Record<string, number>;
   onQuantity: (productId: string, text: string) => void;
+  /** «Quitar» de la lista (solo en el catálogo; un pedido trae sus líneas fijas). */
+  onRemove?: (productId: string) => void;
+  emptyText: string;
   onClear: () => void;
 }
 
 /**
- * Tabla de productos con cuántas etiquetas de cada uno. En el catálogo los que
- * ya tienen cantidad van primero, para verlos sin buscar.
+ * Tabla de productos con cuántas etiquetas de cada uno. Solo muestra lo que se
+ * va a imprimir: el catálogo completo no se lista, se busca (ProductQuickSearch).
  */
 function ProductQuantities({
   products,
-  searchable,
   quantities,
   onQuantity,
+  onRemove,
+  emptyText,
   onClear,
 }: ProductQuantitiesProps) {
-  const [search, setSearch] = useState('');
+  const pages = usePagination(products, products.length);
   const anyChosen = Object.values(quantities).some((quantity) => quantity > 0);
-
-  const rows = useMemo(
-    () =>
-      searchable
-        ? products
-            .filter((product) => matchesSearch(search, product.code, product.name, product.barcode))
-            .sort(
-              (a, b) =>
-                Number((quantities[b.id] ?? 0) > 0) - Number((quantities[a.id] ?? 0) > 0) ||
-                a.code.localeCompare(b.code, 'es'),
-            )
-        : products,
-    // Las cantidades no reordenan mientras se escribe: solo al buscar o al abrir.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [products, search, searchable],
-  );
-  const pages = usePagination(rows, search);
 
   return (
     <>
-      {searchable || anyChosen ? (
+      {anyChosen && onRemove !== undefined ? (
         <div className="toolbar">
-          {searchable ? (
-            <ListSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Buscar por nombre o código"
-              label="Buscar producto para etiquetar"
-            />
-          ) : null}
-          {anyChosen ? (
-            <button type="button" className="button" onClick={onClear}>
-              Quitar todas
-            </button>
-          ) : null}
+          <button type="button" className="button" onClick={onClear}>
+            Quitar todas
+          </button>
         </div>
       ) : null}
       <div className="table-wrapper">
@@ -413,6 +415,7 @@ function ProductQuantities({
               <th>Producto</th>
               <th className="table__number">Precio</th>
               <th className="table__number">Etiquetas</th>
+              {onRemove === undefined ? null : <th aria-label="Acciones" />}
             </tr>
           </thead>
           <tbody>
@@ -440,14 +443,24 @@ function ProductQuantities({
                     onChange={(event) => onQuantity(product.id, event.target.value)}
                   />
                 </td>
+                {onRemove === undefined ? null : (
+                  <td>
+                    <button
+                      type="button"
+                      className="button"
+                      aria-label={`Quitar ${product.name}`}
+                      onClick={() => onRemove(product.id)}
+                    >
+                      Quitar
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
             {pages.total === 0 ? (
               <tr>
-                <td colSpan={4} className="muted">
-                  {searchable
-                    ? 'Ningún producto activo coincide con la búsqueda.'
-                    : 'No hay productos activos para etiquetar.'}
+                <td colSpan={onRemove === undefined ? 4 : 5} className="muted">
+                  {emptyText}
                 </td>
               </tr>
             ) : null}

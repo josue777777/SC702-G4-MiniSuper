@@ -83,6 +83,18 @@ async function openLabels(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
+/** Agrega un producto a la lista con el buscador (el catálogo completo no se lista). */
+async function addToLabels(page: Page, text: string): Promise<void> {
+  const dialog = labelsDialog(page);
+
+  await dialog.getByLabel('Agregar producto para etiquetar').fill(text);
+  await dialog
+    .getByRole('list', { name: 'Productos encontrados' })
+    .getByRole('button')
+    .first()
+    .click();
+}
+
 /** Espera la impresión y devuelve el marco con las páginas que se mandaron a la impresora. */
 async function printedFrame(page: Page): Promise<Frame> {
   await expect
@@ -145,16 +157,20 @@ test('«Modificar» › Etiquetas muestra el código de barras y el QR, y avisa 
   await expect(form.getByRole('img', { name: 'Código de barras 7501234567893' })).toBeVisible();
   await expect(form.getByRole('button', { name: 'Descargar código QR' })).toBeVisible();
 
-  await form.getByRole('button', { name: 'Reemplazar código' }).click();
+  // Generar y reemplazar afectan a los dos códigos: el botón va debajo de ambos.
+  await form.getByRole('button', { name: 'Reemplazar códigos' }).click();
   await expect(form.getByRole('alert')).toContainText('ya no servirán');
   await saveEvidence(page, 'HU-07', 'HU-07-reemplazar-codigo-en-modificar.png');
-  await form.getByRole('button', { name: 'Sí, reemplazar código' }).click();
+  await form.getByRole('button', { name: 'Sí, reemplazar códigos' }).click();
 
   await expect(form.getByRole('img', { name: 'Código de barras 7501234567893' })).toHaveCount(0);
-  await expect(form.getByText('Se guardará al guardar el producto.')).toBeVisible();
+  await expect(form.getByText(/Se guardarán al guardar el producto/)).toBeVisible();
+  await expect(form.getByRole('button', { name: 'Generar otros' })).toBeVisible();
 });
 
-test('el botón «Etiquetas» busca en todo el catálogo y abre sin nada elegido', async ({ page }) => {
+test('el botón «Etiquetas» abre sin nada elegido y solo lista lo que se agrega', async ({
+  page,
+}) => {
   await page.goto('/inventory');
   // Aunque haya un producto seleccionado en la tabla, este botón es para varios.
   await page.getByRole('row', { name: /ARR-01/ }).click();
@@ -162,12 +178,21 @@ test('el botón «Etiquetas» busca en todo el catálogo y abre sin nada elegido
 
   const dialog = labelsDialog(page);
 
-  await expect(dialog.getByLabel('Etiquetas de Arroz blanco 1 kg')).toHaveValue('0');
+  // No se lista el catálogo entero: la tabla empieza vacía.
+  await expect(dialog.getByLabel('Etiquetas de Arroz blanco 1 kg')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: '🖨 Imprimir 0 etiquetas' })).toBeDisabled();
 
-  await dialog.getByLabel('Buscar producto para etiquetar').fill('café');
-  await expect(dialog.getByLabel('Etiquetas de Café molido 500 g')).toBeVisible();
-  await expect(dialog.getByLabel('Etiquetas de Arroz blanco 1 kg')).toHaveCount(0);
+  await addToLabels(page, 'café');
+  await expect(dialog.getByLabel('Etiquetas de Café molido 500 g')).toHaveValue('1');
+
+  // Con el código exacto y Enter (como el lector) también se agrega.
+  await dialog.getByLabel('Agregar producto para etiquetar').fill('PAN-01');
+  await dialog.getByLabel('Agregar producto para etiquetar').press('Enter');
+  await expect(dialog.getByLabel('Etiquetas de Pan cuadrado')).toHaveValue('1');
+
+  await dialog.getByRole('button', { name: 'Quitar Pan cuadrado' }).click();
+  await expect(dialog.getByLabel('Etiquetas de Pan cuadrado')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: '🖨 Imprimir 1 etiqueta' })).toBeEnabled();
 });
 
 test('varios productos en rollo: una página por etiqueta, con negocio, precio y códigos', async ({
@@ -176,6 +201,8 @@ test('varios productos en rollo: una página por etiqueta, con negocio, precio y
   await openLabels(page);
   const dialog = labelsDialog(page);
 
+  await addToLabels(page, 'ARR-01');
+  await addToLabels(page, 'pan');
   await dialog.getByLabel('Etiquetas de Arroz blanco 1 kg').fill('3');
   await dialog.getByLabel('Etiquetas de Pan cuadrado').fill('2');
 
@@ -224,6 +251,7 @@ test('el Encargado personaliza: hoja carta de 30 sin precio, y vale para todo el
   await expect(dialog).toContainText('Hoja carta · 30 por hoja');
 
   // 32 etiquetas desde la posición 5: 26 en la primera hoja y 6 en la segunda.
+  await addToLabels(page, 'ARR-01');
   await dialog.getByLabel('Etiquetas de Arroz blanco 1 kg').fill('32');
   await dialog.getByLabel('Empezar en la etiqueta').fill('5');
   await expect(dialog.getByLabel('Resumen de la impresión')).toContainText('Hojas carta2');

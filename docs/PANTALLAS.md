@@ -239,7 +239,7 @@ o cliente: no le ofrece buscar en todo el catálogo ni elegirlo otra vez.
 
 | Se abre desde | La ventana… |
 | --- | --- |
-| Un botón general de la pantalla, sin nada elegido | Ofrece buscar y elegir (uno o varios) |
+| Un botón general de la pantalla, sin nada elegido | Ofrece buscar y elegir (uno o varios); lista solo lo elegido, no el catálogo entero |
 | Un elemento ya elegido (fila, ficha, documento) | Trabaja solo con ese elemento; el título dice cuál |
 | Un documento con varias líneas (un pedido, una venta) | Trabaja solo con esas líneas |
 
