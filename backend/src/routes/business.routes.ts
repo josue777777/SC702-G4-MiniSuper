@@ -14,7 +14,7 @@ const logoBody = imageBodyParser(MAX_LOGO_BYTES, 'El logo supera el máximo de 1
  * Configuración › General del negocio de la sesión (`routes/index.ts` lo monta
  * detrás de la sesión y de `requireBusiness`):
  *   - leer: cualquier usuario del negocio;
- *   - datos y logo: `business.edit` (Encargado).
+ *   - datos, logo y diseño de etiqueta: `business.edit` (Encargado).
  */
 export function createBusinessRouter(
   repositoryFor: ForBusiness<BusinessRepository>,
@@ -31,6 +31,8 @@ export function createBusinessRouter(
   router.get('/logo', (req, res) => controller.getLogo(req, res));
   router.put('/logo', canEdit, logoBody, (req, res) => controller.setLogo(req, res));
   router.delete('/logo', canEdit, (req, res) => controller.removeLogo(req, res));
+  router.get('/label-design', (req, res) => controller.getLabelDesign(req, res));
+  router.put('/label-design', canEdit, (req, res) => controller.updateLabelDesign(req, res));
 
   return router;
 }

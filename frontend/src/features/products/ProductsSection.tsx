@@ -14,6 +14,8 @@ import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
 import { ProductTable } from './ProductTable';
 import { BarcodeLabel } from './BarcodeLabel';
+import { LabelPrintModal } from '../labels/LabelPrintModal';
+import type { LabelRequest } from '../../types/labels';
 import { useCatalogExport } from './use-catalog-export';
 import { useProducts } from './use-products';
 
@@ -93,6 +95,8 @@ export function ProductsSection({
     null,
   );
   const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
+  /** Etiquetas a imprimir (HU-07); `null` = ventana cerrada. */
+  const [labelRequests, setLabelRequests] = useState<LabelRequest[] | null>(null);
   const [barcodeGeneratingId, setBarcodeGeneratingId] = useState<string | null>(null);
   const [barcodeMessage, setBarcodeMessage] = useState<string | null>(null);
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
@@ -390,6 +394,21 @@ export function ProductsSection({
             🖨 Reporte de inventario
           </button>
         ) : null}
+        {/* HU-07: etiquetas para rotular; abre con el producto seleccionado, si hay uno activo. */}
+        <button
+          type="button"
+          className="button button--tool"
+          onClick={() =>
+            setLabelRequests(
+              selected !== null && selected.isActive
+                ? [{ productId: selected.id, quantity: 1 }]
+                : [],
+            )
+          }
+          disabled={phase !== 'ready'}
+        >
+          🏷 Etiquetas
+        </button>
         <button
           type="button"
           className="button button--tool"
@@ -626,7 +645,15 @@ export function ProductsSection({
             setBarcodeProduct(null);
             setConfirmingBarcodeReplacement(barcodeProduct);
           }}
+          onPrintLabels={() => {
+            setBarcodeProduct(null);
+            setLabelRequests([{ productId: barcodeProduct.id, quantity: 1 }]);
+          }}
         />
+      ) : null}
+
+      {labelRequests !== null ? (
+        <LabelPrintModal initial={labelRequests} onClose={() => setLabelRequests(null)} />
       ) : null}
 
       {confirmingBarcodeReplacement !== null ? (

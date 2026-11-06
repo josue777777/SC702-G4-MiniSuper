@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.js';
 import type { BusinessLogo, BusinessRecord, BusinessSettingsDto } from '../types/business.js';
 import type { ImageMimeType } from '../utils/image.js';
+import type { LabelDesign } from '../validators/label-design.validator.js';
 
 /** Todo menos los bytes del logo: esos solo se leen al pedir la imagen. */
 const selection = {
@@ -56,6 +57,28 @@ export class BusinessRepository {
         logoUpdatedAt: new Date(),
       },
       select: selection,
+    });
+  }
+
+  /**
+   * Diseño de etiqueta guardado, tal cual está en la base (`null` si nunca se
+   * guardó). Quien lo convierte en un diseño válido es el service.
+   */
+  async findLabelDesign(): Promise<unknown> {
+    const row = await prisma.business.findUniqueOrThrow({
+      where: { id: this.businessId },
+      select: { labelDesign: true },
+    });
+
+    return row.labelDesign;
+  }
+
+  /** Guarda el diseño de etiqueta del negocio (ya validado). */
+  async saveLabelDesign(design: LabelDesign): Promise<void> {
+    await prisma.business.update({
+      where: { id: this.businessId },
+      data: { labelDesign: design },
+      select: { id: true },
     });
   }
 

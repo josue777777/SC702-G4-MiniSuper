@@ -1,5 +1,6 @@
 import type { BusinessRepository } from '../repositories/business.repository.js';
 import type { BusinessLogo, BusinessRecord, BusinessSettingsDto } from '../types/business.js';
+import type { LabelDesign } from '../validators/label-design.validator.js';
 import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /** Doble del repositorio de datos del negocio (sin base de datos). */
@@ -18,6 +19,8 @@ export class FakeBusinessRepository implements BusinessRepository {
     logoUpdatedAt: null,
   };
   logo: BusinessLogo | null = null;
+  /** Lo que hay en la columna `labelDesign` (`null` = nunca se guardó). */
+  labelDesign: unknown = null;
 
   get(): Promise<BusinessRecord> {
     return Promise.resolve({ ...this.current });
@@ -38,6 +41,16 @@ export class FakeBusinessRepository implements BusinessRepository {
     this.current = { ...this.current, logoUpdatedAt: new Date('2026-10-28T12:00:00Z') };
 
     return this.get();
+  }
+
+  findLabelDesign(): Promise<unknown> {
+    return Promise.resolve(this.labelDesign);
+  }
+
+  saveLabelDesign(design: LabelDesign): Promise<void> {
+    this.labelDesign = design;
+
+    return Promise.resolve();
   }
 
   removeLogo(): Promise<BusinessRecord> {
