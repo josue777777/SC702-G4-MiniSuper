@@ -37,6 +37,35 @@ export const businessService = {
       .data;
   },
 
+  /**
+   * El logo como `data:` URL, para las etiquetas (HU-07): la impresión se arma en
+   * un documento aparte, y así la imagen ya va dentro y no depende de la sesión.
+   *
+   * @returns La imagen lista para `<img src>`, o `null` si no se pudo leer.
+   */
+  async logoDataUrl(logoUrl: string): Promise<string | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}${logoUrl}`, { credentials: 'include' });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const blob = await response.blob();
+
+      return await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      // Sin logo la etiqueta igual se imprime; no vale la pena frenar por eso.
+      return null;
+    }
+  },
+
   /** URL completa para `<img src>`. */
   logoSrc(logoUrl: string): string {
     return `${API_BASE_URL}${logoUrl}`;
