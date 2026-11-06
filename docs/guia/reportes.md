@@ -19,6 +19,15 @@ En Reportes hay cuatro pestañas comerciales, solo para el Encargado (permiso
 Cada una tiene filtros (período, categoría, precio), resumen, gráfico, detalle por
 páginas, PDF (imprimir) y Excel (HU-40).
 
+Con el permiso `reports.inventory` (Encargado y Bodega) están además
+**Inventario** (HU-25) y **Conteos** (HU-10): los conteos físicos del período, con
+lo que decía el sistema, lo que se contó, la diferencia y su valor. Conteos usa el
+mismo formato que los comerciales (`ReportResult`), así que se ve, se filtra, se
+imprime y se exporta igual; solo cambia la ruta (`/api/reports/counts`, porque el
+permiso es otro). Antes era un historial plegado dentro de la ventana de Conteo
+físico; se movió aquí porque revisar conteos pasados es otra tarea
+(docs/PANTALLAS.md, regla 4).
+
 **Regla de oro del módulo:** los reportes **no guardan nada**; leen las ventas y las
 resumen. Usan el precio y el costo **de cada venta** (los guardados en `SaleItem`),
 no los del catálogo de hoy.
@@ -47,6 +56,11 @@ Responde  { data: ReportResult }  → ReportResultView.tsx dibuja tarjetas, grá
 | `GET /api/reports/commercial/options` | Categorías para el filtro |
 | `GET /api/reports/commercial/:kind/rows?page=` | El detalle por páginas (`use-paged-rows.ts`) |
 | `GET /api/reports/commercial/:kind/export` | El Excel con los mismos filtros (`utils/reports-xlsx.ts`) |
+| `GET /api/reports/counts?from=&to=` · `/rows` · `/export` | Reporte de conteos (HU-10): `routes/counts-report.routes.ts` → `CountsReportController` → `services/counts-report.service.ts` → `InventoryRepository.countsInPeriod()` |
+
+Los dos controladores comparten `ReportEndpoints` (`controllers/reports.controller.ts`):
+resumen, filas por página y Excel se responden igual; cada uno solo dice cómo se
+genera su reporte.
 
 ### En el navegador
 

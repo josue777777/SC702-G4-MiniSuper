@@ -80,7 +80,7 @@ const visibles = lista.filter((c) => matchesSearch(busqueda, c.name, c.phone));
 - Los selectores grandes (como «Elegir un producto» en Movimientos) sugieren
   pocos y piden escribir para encontrar el resto.
 
-## Regla 4: lo secundario, plegado; dentro de una tabla, en una ventana
+## Regla 4: lo secundario, plegado; dentro de una tabla o de una ventana, nada se despliega
 
 Textos de ayuda y secciones secundarias de una pantalla se pliegan con
 `<details className="disclosure">`:
@@ -103,13 +103,22 @@ lista se abre en una ventana (`Modal`), con su buscador y sus páginas si puede
 crecer. Si la fila ya tiene una ventana con todo el detalle («Ver pedido»), el
 resumen abre esa misma (una tarea, un lugar).
 
+**Dentro de una ventana (`Modal`) tampoco se despliega nada.** La ventana
+tiene un alto fijo y está centrada: un `<details>` que se abre la estira, la
+mueve y deja lo principal (el formulario, el botón de confirmar) fuera de la
+vista. Si lo secundario es otra tarea (revisar lo que ya se hizo), va a su
+propio lugar y la ventana deja un enlace; si es una explicación corta, se
+muestra fija como texto `muted hint`. Por eso el historial de conteos ya no se
+pliega en la ventana de Conteo físico: está en Reportes › Conteos, con período,
+totales y descarga.
+
 Ejemplos ya aplicados:
 
 | Pantalla | Se muestra de entrada | Se abre a pedido |
 | --- | --- | --- |
 | Proveedores | Botón «14 productos» | Ventana con los productos, su costo y cuál es principal |
 | Pedidos | El producto, si es uno; si son varios, botón «2 productos» | El pedido completo («Ver pedido») |
-| Conteo físico | El formulario para contar | «Historial de conteos (4)» |
+| Conteo físico (ventana) | El formulario para contar | Enlace a Reportes › Conteos (el historial es otra tarea) |
 | Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) |
 
 Si una historia de usuario pide que un texto se vea siempre (como «Cómo leer
@@ -239,7 +248,7 @@ o cliente: no le ofrece buscar en todo el catálogo ni elegirlo otra vez.
 
 | Se abre desde | La ventana… |
 | --- | --- |
-| Un botón general de la pantalla, sin nada elegido | Ofrece buscar y elegir (uno o varios) |
+| Un botón general de la pantalla, sin nada elegido | Ofrece buscar y elegir (uno o varios); lista solo lo elegido, no el catálogo entero |
 | Un elemento ya elegido (fila, ficha, documento) | Trabaja solo con ese elemento; el título dice cuál |
 | Un documento con varias líneas (un pedido, una venta) | Trabaja solo con esas líneas |
 
@@ -266,7 +275,7 @@ propio en la barra. Ejemplo: generar o reemplazar el código de barras se hace e
 - [ ] ¿La lista usa `Pagination`? ¿Y si va a crecer a miles de filas, se pagina en el servidor?
 - [ ] ¿Tiene buscador (`ListSearch`) si puede tener más de 20 filas?
 - [ ] ¿Muestra el total y un mensaje cuando no hay resultados?
-- [ ] ¿Los detalles largos están plegados? ¿Y ninguna celda de tabla se despliega (el detalle va en una ventana)?
+- [ ] ¿Los detalles largos están plegados? ¿Y nada se despliega dentro de una celda de tabla ni dentro de una ventana?
 - [ ] ¿Las tablas de pocas columnas usan `list-narrow`?
 - [ ] ¿Hacer y consultar están en pestañas separadas?
 - [ ] ¿Los documentos abren en `Modal`?

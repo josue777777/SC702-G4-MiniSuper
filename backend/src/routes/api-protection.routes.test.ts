@@ -49,6 +49,8 @@ const PROTECTED: [method: 'get' | 'post' | 'put' | 'patch' | 'delete', path: str
   ['get', '/api/reports/commercial/profits'],
   ['get', '/api/reports/commercial/top-products'],
   ['get', '/api/reports/commercial/customer-debts'],
+  ['get', '/api/reports/counts'],
+  ['get', '/api/reports/counts/export'],
   ['get', '/api/suppliers'],
   ['post', '/api/suppliers'],
   ['patch', '/api/suppliers/x'],

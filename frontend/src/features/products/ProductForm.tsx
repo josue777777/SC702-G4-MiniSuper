@@ -558,14 +558,7 @@ export function ProductForm({
             <section className="label-preview" aria-labelledby="product-barcode-title">
               <h3 id="product-barcode-title">Código de barras EAN-13</h3>
               {barcode === '' ? (
-                <>
-                  <p className="muted">
-                    Genere un código para guardarlo con el producto. Se valida antes de guardarse.
-                  </p>
-                  <button type="button" className="button" onClick={createBarcode} disabled={busy}>
-                    Generar código de barras
-                  </button>
-                </>
+                <p className="muted">Todavía no tiene. Use «Generar códigos».</p>
               ) : (
                 <>
                   <svg
@@ -583,9 +576,6 @@ export function ProductForm({
                     )}
                   </svg>
                   <p className="label-preview__code">{barcode}</p>
-                  {barcode !== initialBarcode ? (
-                    <p className="muted">Se guardará al guardar el producto.</p>
-                  ) : null}
                   <button
                     type="button"
                     className="button"
@@ -593,53 +583,7 @@ export function ProductForm({
                   >
                     Descargar código de barras
                   </button>
-                  {/*
-                    HU-07: antes de reemplazar un código YA GUARDADO se advierte, porque las
-                    etiquetas impresas con el código viejo dejan de servir. Uno recién
-                    generado (aún sin guardar) se puede cambiar sin preguntar.
-                  */}
-                  {confirmingReplace ? (
-                    <>
-                      <p className="alert alert--warning" role="alert">
-                        Si lo reemplaza, el código {barcode} dejará de identificar este producto y
-                        las etiquetas impresas con él ya no servirán.
-                      </p>
-                      <div className="form__actions">
-                        <button
-                          type="button"
-                          className="button button--danger-solid"
-                          onClick={createBarcode}
-                          disabled={busy}
-                        >
-                          Sí, reemplazar código
-                        </button>
-                        <button
-                          type="button"
-                          className="button"
-                          onClick={() => setConfirmingReplace(false)}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="button"
-                      disabled={busy}
-                      onClick={() =>
-                        barcode === initialBarcode ? setConfirmingReplace(true) : createBarcode()
-                      }
-                    >
-                      {barcode === initialBarcode ? 'Reemplazar código' : 'Generar otro'}
-                    </button>
-                  )}
                 </>
-              )}
-              {barcodeError === null ? null : (
-                <p className="form__error" role="alert">
-                  {barcodeError}
-                </p>
               )}
             </section>
             <section className="label-preview" aria-labelledby="product-qr-title">
@@ -675,6 +619,73 @@ export function ProductForm({
               )}
             </section>
           </div>
+
+          {/*
+            Generar y reemplazar van al centro, debajo de los DOS códigos, porque afectan a
+            los dos: el QR guarda el mismo número que el código de barras (si no hay código
+            de barras, guarda el código del producto).
+          */}
+          <section className="label-preview" aria-label="Generar o reemplazar los códigos">
+            <p className="muted">
+              El QR lleva el mismo número que el código de barras: al generarlos o reemplazarlos,
+              cambian los dos.
+              {barcode !== '' && barcode !== initialBarcode
+                ? ' Se guardarán al guardar el producto.'
+                : ''}
+            </p>
+            {/*
+              HU-07: antes de reemplazar un código YA GUARDADO se advierte, porque las
+              etiquetas impresas con el código viejo dejan de servir. Uno recién generado
+              (aún sin guardar) se puede cambiar sin preguntar.
+            */}
+            {confirmingReplace ? (
+              <>
+                <p className="alert alert--warning" role="alert">
+                  Si los reemplaza, el código {barcode} y su QR dejarán de identificar este producto
+                  y las etiquetas impresas con ellos ya no servirán.
+                </p>
+                <div className="form__actions">
+                  <button
+                    type="button"
+                    className="button button--danger-solid"
+                    onClick={createBarcode}
+                    disabled={busy}
+                  >
+                    Sí, reemplazar códigos
+                  </button>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => setConfirmingReplace(false)}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="button button--dark"
+                disabled={busy}
+                onClick={() =>
+                  barcode !== '' && barcode === initialBarcode
+                    ? setConfirmingReplace(true)
+                    : createBarcode()
+                }
+              >
+                {barcode === ''
+                  ? 'Generar códigos'
+                  : barcode === initialBarcode
+                    ? 'Reemplazar códigos'
+                    : 'Generar otros'}
+              </button>
+            )}
+            {barcodeError === null ? null : (
+              <p className="form__error" role="alert">
+                {barcodeError}
+              </p>
+            )}
+          </section>
         </div>
 
         <div

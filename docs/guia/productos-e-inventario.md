@@ -10,9 +10,10 @@ Es el catálogo del negocio y el control de sus existencias:
 - **Productos** (Almacén › Inventario): registrar, editar, desactivar, volver a activar
   y borrar productos; categorías; código de barras e imagen; exportar el catálogo a
   Excel.
-- **Código de barras y QR** (Modificar › pestaña Etiquetas): verlos, descargarlos,
-  generar el código o reemplazarlo (con advertencia, porque las etiquetas impresas dejan
-  de servir).
+- **Código de barras y QR** (Modificar › pestaña Etiquetas): verlos y descargarlos. «Generar
+  códigos» y «Reemplazar códigos» van debajo de los dos, porque el QR lleva el mismo número
+  que el código de barras; reemplazar avisa antes, porque las etiquetas impresas dejan de
+  servir.
 - **Etiquetas** (botón «Etiquetas» de arriba, «🏷 Etiqueta» de la barra y «Ver pedido»): imprimir
   etiquetas para rotular productos, de uno o de varios a la vez, con el diseño del negocio
   (tamaño de rollo térmico u hoja carta; logo, nombre del negocio, nombre y código del
@@ -66,6 +67,11 @@ POST  /api/inventory/counts    { productId, countedQuantity: 18 } → buildCount
 El servicio calcula el ajuste (ver «Cálculos») y el repositorio guarda en una sola
 transacción el stock nuevo y su InventoryMovement de tipo ADJUSTMENT.
 ```
+
+En la ventana de Conteo físico el producto se **busca** (`ProductQuickSearch`: nombre,
+código o el lector con Enter; nunca una lista con todo el catálogo). El lector también
+funciona con el foco fuera de un campo (`useWedgeScanner`). El historial de conteos no
+está en la ventana: es el reporte **Reportes › Conteos** (ver [Reportes](reportes.md)).
 
 ### Otras rutas
 
@@ -123,7 +129,7 @@ documento no tiene la sesión.
 
 | Se abre desde | Modo | Qué muestra |
 | --- | --- | --- |
-| Botón «Etiquetas» de Inventario | `catalog` | Buscador y todo el catálogo, sin nada elegido: para varios productos |
+| Botón «Etiquetas» de Inventario | `catalog` | Empieza vacía: se agregan productos con el buscador (nombre, código o código de barras; Enter con el código exacto, como el lector) y solo se listan los elegidos |
 | «🏷 Etiqueta» de la barra (producto marcado) | `product` | Solo ese producto: vista previa grande y cuántas copias |
 | «Ver pedido» | `order` | Solo los productos del pedido, con lo pedido |
 
