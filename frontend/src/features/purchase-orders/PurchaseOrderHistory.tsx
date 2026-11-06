@@ -78,18 +78,21 @@ export function PurchaseOrderHistory({
                   <td>{formatDateTime(order.createdAt)}</td>
                   <td>{order.supplierName}</td>
                   <td>
-                    {/* Uno se ve directo; varios se pliegan, como en Proveedores. */}
+                    {/*
+                      Uno se ve directo; si son varios, solo cuántos: la lista completa ya
+                      está en «Ver pedido», así la fila no crece (regla 4 de PANTALLAS.md).
+                    */}
                     {order.productNames.length === 1 ? (
                       order.productNames[0]
                     ) : (
-                      <details className="disclosure">
-                        <summary>{order.productNames.length} productos</summary>
-                        <ul className="supplier-products">
-                          {order.productNames.map((name, index) => (
-                            <li key={`${index}-${name}`}>{name}</li>
-                          ))}
-                        </ul>
-                      </details>
+                      <button
+                        type="button"
+                        className="button"
+                        aria-label={`Ver los ${order.productNames.length} productos del pedido ${formatOrderNumber(order.number)}`}
+                        onClick={() => onOpen(order.id)}
+                      >
+                        {order.productNames.length} productos
+                      </button>
                     )}
                   </td>
                   <td className="table__number">{formatMoney(order.total)}</td>

@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { Pagination } from '../../components/Pagination';
 import { usePagination } from '../../components/use-pagination';
 import type { Supplier } from '../../types/suppliers';
-import { formatMoney } from '../products/money';
+import { SupplierProductsModal } from './SupplierProductsModal';
 
 interface SupplierTableProps {
   /** Proveedores que coinciden con la búsqueda. */
@@ -16,11 +17,14 @@ interface SupplierTableProps {
 /**
  * Listado de proveedores con su contacto y los productos que suministran (HU-21).
  *
- * En páginas de 20, y los productos de cada uno quedan plegados («12
- * productos»): se ven al abrirlos, así una fila no ocupa media pantalla.
+ * En páginas de 20. La celda de productos solo dice cuántos son («12
+ * productos»); la lista se abre en una ventana (`SupplierProductsModal`), así
+ * la fila nunca crece ni la pantalla salta al abrirla (regla 4 de PANTALLAS.md).
  */
 export function SupplierTable({ suppliers, totalCount, search, busy, onEdit }: SupplierTableProps) {
   const pages = usePagination(suppliers, search);
+  /** Proveedor cuyos productos se están viendo; `null` = ventana cerrada. */
+  const [viewing, setViewing] = useState<Supplier | null>(null);
 
   if (totalCount === 0) {
     return (
@@ -83,23 +87,15 @@ export function SupplierTable({ suppliers, totalCount, search, busy, onEdit }: S
                   {supplier.products.length === 0 ? (
                     <span className="muted">—</span>
                   ) : (
-                    <details className="disclosure">
-                      <summary>
-                        {supplier.products.length}{' '}
-                        {supplier.products.length === 1 ? 'producto' : 'productos'}
-                      </summary>
-                      <ul className="supplier-products">
-                        {supplier.products.map((product) => (
-                          <li key={product.productId}>
-                            {product.productCode} — {product.productName} ·{' '}
-                            {formatMoney(product.unitCost)}
-                            {product.isPreferred ? (
-                              <span className="badge badge--ok">principal</span>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
+                    <button
+                      type="button"
+                      className="button"
+                      aria-label={`Ver los productos de ${supplier.name}`}
+                      onClick={() => setViewing(supplier)}
+                    >
+                      {supplier.products.length}{' '}
+                      {supplier.products.length === 1 ? 'producto' : 'productos'}
+                    </button>
                   )}
                 </td>
                 <td>
@@ -119,6 +115,10 @@ export function SupplierTable({ suppliers, totalCount, search, busy, onEdit }: S
       </div>
 
       <Pagination {...pages} itemLabel="proveedores" onPage={pages.setPage} />
+
+      {viewing === null ? null : (
+        <SupplierProductsModal supplier={viewing} onClose={() => setViewing(null)} />
+      )}
     </section>
   );
 }

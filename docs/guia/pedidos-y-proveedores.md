@@ -64,7 +64,8 @@ pages/OrdersPage.tsx                     las pestañas (la elegida va en ?seccio
   │                                        «Etiquetas» (una por unidad pedida, HU-07)
   └─ features/suppliers/SuppliersSection.tsx
        ├─ use-suppliers.ts                  carga, crea y edita
-       └─ SupplierForm.tsx / SupplierTable.tsx
+       ├─ SupplierForm.tsx / SupplierTable.tsx
+       └─ SupplierProductsModal.tsx         los productos de un proveedor, en una ventana
 ```
 
 El PDF no lo genera el servidor: «Imprimir» usa el diálogo del navegador
@@ -78,7 +79,23 @@ El PDF no lo genera el servidor: «Imprimir» usa el diálogo del navegador
 | **Zod** | Que no llegue un pedido sin proveedor, sin líneas o con cantidades inválidas |
 | **Prisma** (`$transaction` + SQL del consecutivo) | Que el número `PED-xxxx` no se repita aunque dos personas guarden a la vez, y que no se gaste si el pedido falla |
 
-## 4. Cálculos
+## 4. Cálculos y reglas
+
+### Un producto, varios proveedores (`SupplierProduct`)
+
+La relación es de **muchos a muchos**: un proveedor suministra muchos productos y un
+producto puede comprarse a varios proveedores. Cada pareja es una fila de
+`SupplierProduct` con su propio **costo acordado**:
+
+```text
+Coca Cola 250 ml   IMPERIAL     ₡1 000,00   principal
+Coca Cola 250 ml   Distribuidora ₡  950,00
+@@unique([supplierId, productId]) → la misma pareja no se repite
+```
+
+Uno solo es el **principal** (`isPreferred`): el que muestra Inventario y el que se
+cambia al modificar el producto. Un pedido usa el costo acordado con el proveedor del
+pedido, no el principal. Comparar costos entre proveedores es HU-39 (pendiente).
 
 ### Total del pedido (`calculateTotal` en el servidor, `calculateOrderTotal` en la pantalla)
 
