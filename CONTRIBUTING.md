@@ -41,7 +41,8 @@ Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
 - Toda lista va paginada. Lo que crece sin límite (ventas, movimientos,
   detalle de reportes) se pagina en el servidor.
 - Buscadores y filtros se aplican solos, sin botón «Buscar» ni «Generar».
-- Lo secundario va plegado; los avisos aparecen solo cuando aplican.
+- Lo secundario va plegado; los avisos aparecen solo cuando aplican. Dentro de una
+  celda de tabla no se despliega nada: el resumen («12 productos») abre una ventana.
 - Una entrada del menú se gana su lugar: si dos secciones se usan juntas y una
   es pequeña, van como pestañas de una sola pantalla; se separan cuando una
   crece hasta ser un mundo propio.
