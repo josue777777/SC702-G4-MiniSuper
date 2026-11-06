@@ -257,12 +257,10 @@ test('doble clic sigue abriendo la edición y «Ver movimientos» pide primero e
   await page.goto('/inventory');
   await expect(page.getByRole('row', { name: /P001/ })).toBeVisible();
 
-  // Sin producto marcado: aviso claro, no navega.
-  await page.getByRole('button', { name: /Ver movimientos/ }).click();
+  // Sin producto marcado: el botón se ve apagado y la barra pide elegir uno (regla 12).
+  await expect(page.getByRole('button', { name: /Ver movimientos/ })).toBeDisabled();
   await expect(
-    page
-      .getByRole('status')
-      .filter({ hasText: 'Primero seleccione en la lista el producto a consultar.' }),
+    page.getByRole('status').filter({ hasText: 'Seleccione un producto para modificarlo' }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/inventory$/);
 

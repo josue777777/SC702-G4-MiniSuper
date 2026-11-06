@@ -12,12 +12,12 @@ import {
 } from '../support/fixtures';
 
 /**
- * HU-07 — Etiquetas de productos: «Ver código» con código de barras y QR, e
- * «Imprimir etiquetas» con el diseño del negocio (rollo térmico u hoja carta),
- * que define el Encargado. La ventana trabaja con lo que se eligió antes:
- *   - botón «Etiquetas» (nada elegido): buscar en el catálogo, varios productos;
- *   - «Ver código» (un producto): solo las copias de ese producto;
+ * HU-07 — Etiquetas de productos con el diseño del negocio (rollo térmico u hoja
+ * carta), que define el Encargado. La ventana trabaja con lo que se eligió antes:
+ *   - botón «Etiquetas» de arriba (nada elegido): buscar en el catálogo, varios;
+ *   - «🏷 Etiqueta» de la barra (un producto marcado): solo las copias de ese;
  *   - «Ver pedido»: solo los productos del pedido.
+ * El código de barras y el QR se ven, se generan y se reemplazan en «Modificar».
  *
  * La impresión real no se puede ver en una prueba: se cuenta cuántas veces se
  * pidió imprimir y se revisan las páginas que se mandaron a la impresora (el
@@ -99,23 +99,19 @@ async function printedFrame(page: Page): Promise<Frame> {
   return frame;
 }
 
-test('«Ver código» muestra el código de barras y el QR, y lleva a imprimir la etiqueta', async ({
+test('sin producto marcado las acciones se ven apagadas; con uno, «Etiqueta» es solo de él', async ({
   page,
 }) => {
   await page.goto('/inventory');
+
+  for (const action of [/Modificar/, /Desactivar/, /Etiqueta$/, /Ver movimientos/]) {
+    await expect(page.getByRole('button', { name: action })).toBeDisabled();
+  }
+  await expect(page.getByRole('button', { name: '+ Crear' })).toBeEnabled();
+
   await page.getByRole('row', { name: /ARR-01/ }).click();
-  await page.getByRole('button', { name: '▥ Ver código' }).click();
-
-  const codes = page.getByRole('dialog', { name: /Códigos · Arroz blanco 1 kg/ });
-
-  await expect(codes.getByRole('heading', { name: 'Código de barras' })).toBeVisible();
-  await expect(codes.getByRole('img', { name: 'Código de barras 7501234567893' })).toBeVisible();
-  await expect(codes.getByRole('heading', { name: 'Código QR' })).toBeVisible();
-  await expect(codes.getByRole('img', { name: 'Código QR de Arroz blanco 1 kg' })).toBeVisible();
-  await expect(codes.getByRole('button', { name: 'Descargar código QR' })).toBeVisible();
-  await saveEvidence(page, 'HU-07', 'HU-07-ver-codigo-barras-y-qr.png');
-
-  await codes.getByRole('button', { name: '🏷 Imprimir etiqueta' }).click();
+  await expect(page.getByRole('button', { name: /Modificar/ })).toBeEnabled();
+  await page.getByRole('button', { name: '🏷 Etiqueta', exact: true }).click();
 
   // Ya se eligió el producto: la ventana es solo de él, sin buscar en el catálogo.
   const dialog = page.getByRole('dialog', { name: 'Imprimir etiqueta · Arroz blanco 1 kg' });
@@ -135,6 +131,27 @@ test('«Ver código» muestra el código de barras y el QR, y lleva a imprimir l
 
   await expect(frame.locator('.product-label')).toHaveCount(4);
   await expect(frame.locator('.product-label').last()).toContainText('Arroz blanco 1 kg');
+});
+
+test('«Modificar» › Etiquetas muestra el código de barras y el QR, y avisa antes de reemplazar', async ({
+  page,
+}) => {
+  await page.goto('/inventory');
+  await page.getByRole('row', { name: /ARR-01/ }).dblclick();
+
+  const form = page.getByRole('dialog', { name: 'Modificar producto' });
+
+  await form.getByRole('tab', { name: 'Etiquetas' }).click();
+  await expect(form.getByRole('img', { name: 'Código de barras 7501234567893' })).toBeVisible();
+  await expect(form.getByRole('button', { name: 'Descargar código QR' })).toBeVisible();
+
+  await form.getByRole('button', { name: 'Reemplazar código' }).click();
+  await expect(form.getByRole('alert')).toContainText('ya no servirán');
+  await saveEvidence(page, 'HU-07', 'HU-07-reemplazar-codigo-en-modificar.png');
+  await form.getByRole('button', { name: 'Sí, reemplazar código' }).click();
+
+  await expect(form.getByRole('img', { name: 'Código de barras 7501234567893' })).toHaveCount(0);
+  await expect(form.getByText('Se guardará al guardar el producto.')).toBeVisible();
 });
 
 test('el botón «Etiquetas» busca en todo el catálogo y abre sin nada elegido', async ({ page }) => {
