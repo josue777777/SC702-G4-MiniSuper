@@ -24,6 +24,11 @@ los ejemplos están en las guías enlazadas.
   `ListSearch`, `ReportActions`, `.filter-bar`, `.toolbar__filter`, `.button`)
   y los colores de `global.css`. No se crea un estilo nuevo para algo que ya
   tiene uno.
+- **Diseño neutro** (ver «Diseño del sistema» en `docs/PANTALLAS.md`): fondos
+  grises, texto casi negro, esquinas redondeadas y el **color solo para los
+  estados** (rojo crítico, ámbar atención, verde éxito), siempre con su palabra.
+  Los colores y radios salen de los tokens de `:root` (`var(--color-…)`,
+  `var(--radius)`); nunca un color fijo nuevo en una regla.
 - Si algo se necesita en dos lugares, se vuelve compartido; no se copia.
 - Una pantalla que se ve distinta a las demás es un error de diseño, aunque
   funcione.

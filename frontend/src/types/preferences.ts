@@ -1,6 +1,6 @@
 /** Apariencia de cada usuario (Configuración › Apariencia). Refleja backend/src/types/preferences.ts. */
 
-export type AccentColor = 'AZUL' | 'VERDE' | 'MORADO' | 'NARANJA' | 'GRIS';
+export type AccentColor = 'NEUTRO' | 'AZUL' | 'VERDE' | 'MORADO' | 'NARANJA' | 'GRIS';
 export type FontScale = 'NORMAL' | 'GRANDE';
 
 export interface Preferences {
@@ -8,4 +8,4 @@ export interface Preferences {
   fontScale: FontScale;
 }
 
-export const DEFAULT_PREFERENCES: Preferences = { accentColor: 'AZUL', fontScale: 'NORMAL' };
+export const DEFAULT_PREFERENCES: Preferences = { accentColor: 'NEUTRO', fontScale: 'NORMAL' };
