@@ -12,6 +12,34 @@ Proveedores, Inventario, Pedidos, Movimientos y Reportes.
 | **Paginación y carga diferida** | No dibujar ni pedir todo de una vez | Listas de 20 en 20 (`usePagination` + `Pagination`); selectores que sugieren pocos y buscan el resto |
 | **Menos carga cognitiva** | Un objetivo claro por pantalla y buscar antes que recorrer | La pantalla es de consulta; un buscador en cada lista |
 
+## Diseño del sistema: neutro, el color es para los estados
+
+Todo el sistema usa un solo diseño, y un cambio se aplica a **todo** o a nada
+(`CONTRIBUTING.md`). El de hoy:
+
+| Qué | Cómo | Token |
+| --- | --- | --- |
+| Fondo de la página | Gris muy claro | `--color-bg` |
+| Tarjetas y ventanas | Blancas, esquinas muy redondeadas, sombra suave | `--color-surface`, `--radius-bento` |
+| Texto | Casi negro; lo secundario, gris | `--color-text`, `--color-muted` |
+| Acción principal | Botón casi negro (redondeado) | `--color-primary` |
+| Botones y campos | Esquinas redondeadas | `--radius` |
+| Títulos de pantalla | Grandes, en el color del texto (sin barra de color) | — |
+| Encabezados de tabla | Gris claro con texto gris | `--color-row-alt`, `--color-muted` |
+| **Estados** | Rojo crítico, ámbar atención, verde éxito — y siempre con su palabra | `--color-error`, `--color-warning`, `--color-ok` |
+
+Reglas:
+
+- **El color comunica estado, no decora.** Si algo es rojo, ámbar o verde es
+  porque bloquea, pide atención o salió bien. Lo demás es neutro.
+- **Solo tokens.** Una regla usa `var(--color-…)` y `var(--radius…)`; un color
+  fijo nuevo en una regla es un error (el diseño ya no se podría cambiar en un
+  solo lugar).
+- **Bloques (bento) para el inicio.** El panel se arma en bloques: el más
+  importante, más grande (`.bento`, `.bento__cell--critical/--warning`).
+- **Color personal.** En Configuración › Apariencia cada usuario puede cambiar el
+  color de la acción principal (Neutro es el del sistema). Los estados no cambian.
+
 ## Regla 1: la pantalla es de consulta, el formulario se pide
 
 - La pantalla abre mostrando la **lista**. Nunca un formulario abierto encima.
@@ -312,4 +340,4 @@ permiso que su pantalla.
 - [ ] En la barra de acciones: ¿lo que necesita un elemento se ve apagado hasta elegirlo, y ninguna tarea está repetida en dos botones?
 - [ ] Si toca el inicio: ¿es una urgencia con su acción, o es análisis que va en Reportes?
 - [ ] Si una ventana pide escribir de inmediato: ¿el campo lleva `data-autofocus` (no `autoFocus`)?
-- [ ] ¿Se mantienen los colores y estilos existentes (`global.css`)?
+- [ ] ¿Se mantienen los colores y estilos existentes (`global.css`), solo con tokens y el color reservado para los estados?

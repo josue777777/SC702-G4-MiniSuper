@@ -44,6 +44,8 @@ enum UserRole {
 /// Color principal de la interfaz que elige cada usuario. Son opciones ya
 /// probadas para que el texto siempre se lea bien sobre ellas.
 enum AccentColor {
+  /// Diseño neutro del sistema (predeterminado).
+  NEUTRO
   AZUL
   VERDE
   MORADO
@@ -163,7 +165,7 @@ model User {
 /// acceso y seguridad. Sin fila, se usan los valores por defecto.
 model UserPreferences {
   userId      String      @id @db.Uuid
-  accentColor AccentColor @default(AZUL)
+  accentColor AccentColor @default(NEUTRO)
   fontScale   FontScale   @default(NORMAL)
   updatedAt   DateTime    @updatedAt
 
