@@ -135,6 +135,8 @@ export function ProductForm({
   const [values, setValues] = useState<ProductFormValues>(initialValues);
   const [barcode, setBarcode] = useState(initialBarcode ?? '');
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
+  /** Pide confirmar antes de reemplazar un código ya guardado (HU-07). */
+  const [confirmingReplace, setConfirmingReplace] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tab, setTab] = useState<Tab>('general');
   /** Mínimo y vencimiento: se guardan con los endpoints de HU-08 y HU-09. */
@@ -307,6 +309,7 @@ export function ProductForm({
     try {
       setBarcode(generateEan13());
       setBarcodeError(null);
+      setConfirmingReplace(false);
     } catch {
       setBarcodeError('No se pudo generar el código. Use una conexión segura e intente de nuevo.');
     }
@@ -580,7 +583,7 @@ export function ProductForm({
                     )}
                   </svg>
                   <p className="label-preview__code">{barcode}</p>
-                  {initialBarcode === null ? (
+                  {barcode !== initialBarcode ? (
                     <p className="muted">Se guardará al guardar el producto.</p>
                   ) : null}
                   <button
@@ -590,6 +593,47 @@ export function ProductForm({
                   >
                     Descargar código de barras
                   </button>
+                  {/*
+                    HU-07: antes de reemplazar un código YA GUARDADO se advierte, porque las
+                    etiquetas impresas con el código viejo dejan de servir. Uno recién
+                    generado (aún sin guardar) se puede cambiar sin preguntar.
+                  */}
+                  {confirmingReplace ? (
+                    <>
+                      <p className="alert alert--warning" role="alert">
+                        Si lo reemplaza, el código {barcode} dejará de identificar este producto y
+                        las etiquetas impresas con él ya no servirán.
+                      </p>
+                      <div className="form__actions">
+                        <button
+                          type="button"
+                          className="button button--danger-solid"
+                          onClick={createBarcode}
+                          disabled={busy}
+                        >
+                          Sí, reemplazar código
+                        </button>
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => setConfirmingReplace(false)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button"
+                      disabled={busy}
+                      onClick={() =>
+                        barcode === initialBarcode ? setConfirmingReplace(true) : createBarcode()
+                      }
+                    >
+                      {barcode === initialBarcode ? 'Reemplazar código' : 'Generar otro'}
+                    </button>
+                  )}
                 </>
               )}
               {barcodeError === null ? null : (

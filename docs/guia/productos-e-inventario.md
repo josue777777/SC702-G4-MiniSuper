@@ -10,7 +10,10 @@ Es el catálogo del negocio y el control de sus existencias:
 - **Productos** (Almacén › Inventario): registrar, editar, desactivar, volver a activar
   y borrar productos; categorías; código de barras e imagen; exportar el catálogo a
   Excel.
-- **Etiquetas** (botón «Etiquetas» de Inventario, «Ver código» y «Ver pedido»): imprimir
+- **Código de barras y QR** (Modificar › pestaña Etiquetas): verlos, descargarlos,
+  generar el código o reemplazarlo (con advertencia, porque las etiquetas impresas dejan
+  de servir).
+- **Etiquetas** (botón «Etiquetas» de arriba, «🏷 Etiqueta» de la barra y «Ver pedido»): imprimir
   etiquetas para rotular productos, de uno o de varios a la vez, con el diseño del negocio
   (tamaño de rollo térmico u hoja carta; logo, nombre del negocio, nombre y código del
   producto, precio, código de barras y QR). El diseño lo define el Encargado y vale para
@@ -70,7 +73,7 @@ transacción el stock nuevo y su InventoryMovement de tipo ADJUSTMENT.
 | --- | --- |
 | `GET /api/products?search=&categoryId=&activeOnly=` | Lista y búsqueda (HU-05) |
 | `PATCH /api/products/:id/deactivate` · `/activate` · `DELETE /api/products/:id` | Baja lógica, reactivar, borrar solo si no tiene historial (HU-03) |
-| `POST /api/products/:id/barcode` | Generar un EAN-13 interno (HU-07) |
+| `POST /api/products/:id/barcode` | Generar un EAN-13 interno (HU-07). La pantalla ya no la usa (genera en el formulario y lo guarda al guardar); queda en la API con sus pruebas |
 | `GET /api/business/label-design` · `PUT` | Diseño de la etiqueta del negocio: lo lee cualquiera del negocio, lo guarda el Encargado (HU-07) |
 | `PUT /api/products/:id/image` · `GET` · `DELETE` | Imagen del producto, hasta 2 MB, PNG/JPG/WEBP (HU-01) |
 | `GET /api/products/export?categoryId=` | Catálogo en Excel (HU-33) |
@@ -87,7 +90,7 @@ pages/InventoryPage.tsx
   └─ features/products/ProductsSection.tsx   tabla, barra de acciones y modales
        ├─ use-products.ts                     carga, crea, edita, desactiva
        ├─ ProductForm.tsx / product-form.ts   el formulario y su validación
-       ├─ BarcodeLabel.tsx / barcode.ts       «Ver código»: código de barras y QR
+       ├─ barcode.ts                          dibuja el EAN-13 (formulario › Etiquetas)
        └─ use-catalog-export.ts               descarga del Excel
   └─ features/inventory/…                     conteo físico y alertas
 pages/KardexPage.tsx → features/kardex/        ficha del producto y sus movimientos
@@ -121,7 +124,7 @@ documento no tiene la sesión.
 | Se abre desde | Modo | Qué muestra |
 | --- | --- | --- |
 | Botón «Etiquetas» de Inventario | `catalog` | Buscador y todo el catálogo, sin nada elegido: para varios productos |
-| «Ver código» de un producto | `product` | Solo ese producto: vista previa grande y cuántas copias |
+| «🏷 Etiqueta» de la barra (producto marcado) | `product` | Solo ese producto: vista previa grande y cuántas copias |
 | «Ver pedido» | `order` | Solo los productos del pedido, con lo pedido |
 
 Si ya se eligió un producto o un pedido, no tiene sentido volver a buscarlo: la
@@ -138,7 +141,7 @@ guardar una etiqueta que no identifique el producto (sin nombre, código, barras
 | **Zod** | Que un precio `"12.345"` o un stock `-3` se rechacen con un mensaje claro antes de tocar la base |
 | **Prisma** | Las transacciones que guardan el producto y su movimiento juntos (o ninguno de los dos) |
 | **exceljs** | El archivo `.xlsx` del catálogo y del reporte de inventario, con números de verdad (no texto) |
-| **qrcode.react** | El código QR de «Ver código» y de las etiquetas; el código de barras se dibuja a mano en SVG (`barcode.ts`) |
+| **qrcode.react** | El código QR del formulario (pestaña Etiquetas) y de las etiquetas; el código de barras se dibuja a mano en SVG (`barcode.ts`) |
 
 ## 4. Cálculos
 

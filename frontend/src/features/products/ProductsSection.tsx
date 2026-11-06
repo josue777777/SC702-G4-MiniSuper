@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
-import { productsService } from '../../services/products.service';
 import type {
   Product,
   ProductImageChange,
@@ -13,7 +12,6 @@ import { CategoryForm } from '../categories/CategoryForm';
 import { EMPTY_FORM_VALUES, toFormValues } from './product-form';
 import { ProductForm } from './ProductForm';
 import { ProductTable } from './ProductTable';
-import { BarcodeLabel } from './BarcodeLabel';
 import { LabelPrintModal, type LabelScope } from '../labels/LabelPrintModal';
 import { useCatalogExport } from './use-catalog-export';
 import { useProducts } from './use-products';
@@ -90,14 +88,8 @@ export function ProductsSection({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [confirmingBarcodeReplacement, setConfirmingBarcodeReplacement] = useState<Product | null>(
-    null,
-  );
-  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
   /** Ventana de etiquetas (HU-07) y desde dónde se abrió; `null` = cerrada. */
   const [labelScope, setLabelScope] = useState<LabelScope | null>(null);
-  const [barcodeGeneratingId, setBarcodeGeneratingId] = useState<string | null>(null);
-  const [barcodeMessage, setBarcodeMessage] = useState<string | null>(null);
   /** Aviso de la barra inferior cuando se pide una acción sin producto marcado. */
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
 
@@ -224,6 +216,14 @@ export function ProductsSection({
     setSelectionHint(null);
   }
 
+  /**
+   * Regla de contexto (docs/PANTALLAS.md, regla 12): las acciones sobre UN producto
+   * se ven apagadas hasta que se marca uno en la lista; así se sabe que existen y la
+   * barra no salta de tamaño. «Crear» no depende de la selección.
+   */
+  const noSelection = selected === null;
+  const selectFirst = noSelection ? 'Seleccione un producto en la lista' : undefined;
+
   /** «Modificar» y «Desactivar» necesitan un producto marcado, como en la referencia. */
   function withSelection(action: (product: Product) => void, verb: string): void {
     if (selected === null) {
@@ -279,25 +279,6 @@ export function ProductsSection({
 
     if (await deactivateProduct(product.id)) {
       onProductsChanged?.();
-    }
-  }
-
-  async function generateBarcode(product: Product, replaceExisting = false): Promise<void> {
-    setBarcodeGeneratingId(product.id);
-    setBarcodeMessage(null);
-
-    try {
-      const updated = await productsService.generateBarcode(product.id, replaceExisting);
-      setBarcodeProduct(updated);
-      await reload();
-    } catch (error) {
-      setBarcodeMessage(
-        error instanceof Error
-          ? error.message
-          : 'No se pudo generar el código de barras. Intente de nuevo.',
-      );
-    } finally {
-      setBarcodeGeneratingId(null);
     }
   }
 
@@ -443,20 +424,6 @@ export function ProductsSection({
         </p>
       )}
 
-      {barcodeMessage === null ? null : (
-        <p className="alert alert--error" role="alert">
-          {barcodeMessage}
-          <button
-            type="button"
-            className="alert__close"
-            onClick={() => setBarcodeMessage(null)}
-            aria-label="Cerrar aviso de código de barras"
-          >
-            ×
-          </button>
-        </p>
-      )}
-
       {categoryFormOpen ? (
         <CategoryForm onCreated={afterCategoryCreated} onClose={() => setCategoryFormOpen(false)} />
       ) : null}
@@ -534,7 +501,8 @@ export function ProductsSection({
               type="button"
               className="action-bar__button"
               onClick={() => withSelection(requestEdit, 'modificar')}
-              disabled={busy || phase !== 'ready'}
+              disabled={busy || phase !== 'ready' || noSelection}
+              title={selectFirst}
             >
               ✎ Modificar
             </button>
@@ -555,39 +523,32 @@ export function ProductsSection({
                 setConfirmingDeactivate(true);
               }, 'desactivar')
             }
-            disabled={busy || phase !== 'ready'}
+            disabled={busy || phase !== 'ready' || noSelection}
+            title={selectFirst}
           >
             ✕ Desactivar
           </button>
         ) : null}
+        {/*
+          HU-07: la etiqueta del producto marcado (solo de él, ver LabelScope). Generar o
+          reemplazar su código de barras se hace en «Modificar» › Etiquetas.
+        */}
         {view !== 'inactive' ? (
           <button
             type="button"
             className="action-bar__button"
-            onClick={() => {
-              if (selected === null) {
-                setSelectionHint(
-                  'Primero seleccione el producto para generar su código de barras.',
-                );
-
-                return;
-              }
-
-              if (selected.barcode === null) {
-                void generateBarcode(selected);
-              } else {
-                setBarcodeProduct(selected);
-              }
-            }}
-            disabled={
-              phase !== 'ready' || (selected !== null && barcodeGeneratingId === selected.id)
+            onClick={() =>
+              withSelection(
+                (product) => setLabelScope({ kind: 'product', productId: product.id }),
+                'etiquetar',
+              )
+            }
+            disabled={phase !== 'ready' || noSelection || selected?.isActive === false}
+            title={
+              selected?.isActive === false ? 'Un producto desactivado no se rotula' : selectFirst
             }
           >
-            {selected !== null && barcodeGeneratingId === selected.id
-              ? 'Generando…'
-              : selected?.barcode === null || selected === null
-                ? '▥ Generar código'
-                : '▥ Ver código'}
+            🏷 Etiqueta
           </button>
         ) : null}
         {/* HU-31: la ficha con el historial de movimientos; también de los desactivados. */}
@@ -601,7 +562,8 @@ export function ProductsSection({
                 'consultar',
               )
             }
-            disabled={phase !== 'ready'}
+            disabled={phase !== 'ready' || noSelection}
+            title={selectFirst}
           >
             ▤ Ver movimientos
           </button>
@@ -612,7 +574,8 @@ export function ProductsSection({
               type="button"
               className="action-bar__button action-bar__button--ok"
               onClick={() => withSelection((product) => void handleActivate(product), 'activar')}
-              disabled={busy || phase !== 'ready'}
+              disabled={busy || phase !== 'ready' || noSelection}
+              title={selectFirst}
             >
               ✓ Activar
             </button>
@@ -621,7 +584,8 @@ export function ProductsSection({
               type="button"
               className="action-bar__button action-bar__button--danger"
               onClick={requestDelete}
-              disabled={busy || phase !== 'ready'}
+              disabled={busy || phase !== 'ready' || noSelection}
+              title={selectFirst}
             >
               🗑 Borrar
             </button>
@@ -629,64 +593,14 @@ export function ProductsSection({
         ) : null}
         <span className="action-bar__status" role="status">
           {selectionHint ??
-            (selected === null ? '' : `Seleccionado: ${selected.code} · ${selected.name}`)}
+            (selected === null
+              ? 'Seleccione un producto para modificarlo, etiquetarlo o ver sus movimientos.'
+              : `Seleccionado: ${selected.code} · ${selected.name}`)}
         </span>
       </div>
 
-      {barcodeProduct !== null ? (
-        <BarcodeLabel
-          product={barcodeProduct}
-          onClose={() => setBarcodeProduct(null)}
-          onReplace={() => {
-            setBarcodeProduct(null);
-            setConfirmingBarcodeReplacement(barcodeProduct);
-          }}
-          onPrintLabels={() => {
-            setBarcodeProduct(null);
-            setLabelScope({ kind: 'product', productId: barcodeProduct.id });
-          }}
-        />
-      ) : null}
-
       {labelScope !== null ? (
         <LabelPrintModal scope={labelScope} onClose={() => setLabelScope(null)} />
-      ) : null}
-
-      {confirmingBarcodeReplacement !== null ? (
-        <Modal
-          title="Reemplazar código de barras"
-          onClose={() => setConfirmingBarcodeReplacement(null)}
-        >
-          <p>
-            <strong>{confirmingBarcodeReplacement.name}</strong> ya tiene el código{' '}
-            <strong>{confirmingBarcodeReplacement.barcode}</strong>.
-          </p>
-          <p className="alert alert--warning">
-            Si lo reemplaza, el código anterior dejará de identificar este producto. Las etiquetas
-            impresas anteriormente ya no serán válidas.
-          </p>
-          <div className="form__actions modal__actions">
-            <button
-              type="button"
-              className="button button--danger-solid"
-              disabled={barcodeGeneratingId === confirmingBarcodeReplacement.id}
-              onClick={() => {
-                const product = confirmingBarcodeReplacement;
-                setConfirmingBarcodeReplacement(null);
-                void generateBarcode(product, true);
-              }}
-            >
-              Sí, reemplazar código
-            </button>
-            <button
-              type="button"
-              className="button"
-              onClick={() => setConfirmingBarcodeReplacement(null)}
-            >
-              Cancelar
-            </button>
-          </div>
-        </Modal>
       ) : null}
 
       {confirmingDelete && selected !== null ? (
