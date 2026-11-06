@@ -51,6 +51,29 @@ npm run dev            # inicia backend y frontend
 
 La aplicación queda en http://localhost:5173 y la API en http://localhost:4000/api.
 
+### Datos de prueba
+
+Para probar todo el sistema con datos realistas:
+
+```bash
+# en backend/.env:  DEMO_PASSWORD=UnaClaveDePrueba123
+npm run db:seed:demo
+```
+
+Crea el negocio **«Minisúper Demo»**: unos 500 productos en 16 categorías (con código de
+barras, mínimos y vencimientos), 12 proveedores, 40 clientes, y **un año** de ventas
+(~5 700), pedidos, devoluciones, conteos físicos y abonos a fiados. Todo cuadra como si se
+hubiera usado la aplicación: el stock de cada producto es el saldo de su último
+movimiento. Tarda unos segundos.
+
+- Entre con `demo.encargado`, `demo.cajero` o `demo.bodega` y la contraseña de
+  `DEMO_PASSWORD` (no se sube al repositorio).
+- No toca sus otros negocios; si el demo ya existe, lo rehace con fechas al día.
+- No corre en producción. Si avisa que faltan migraciones, corra antes
+  `npm run db:migrate`.
+
+El código está en `backend/src/scripts/demo/` (el generador simula el año día por día).
+
 ### Usuarios y roles
 
 No hay registro público. El **administrador inicial** se crea con `npm run db:seed`,
