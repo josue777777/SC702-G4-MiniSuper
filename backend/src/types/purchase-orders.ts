@@ -1,13 +1,18 @@
 /**
- * Contratos del módulo de pedidos a proveedor (HU-22, HU-24).
+ * Contratos del módulo de pedidos a proveedor (HU-22, HU-24) y de sus
+ * recepciones con factura (HU-38).
  *
  * El dinero viaja como cadena con dos decimales (`"1500.00"`), igual que en
  * productos y proveedores.
  */
 import type { MoneyString } from './products.js';
 
-/** Estados del pedido: los mismos literales del enum `PurchaseOrderStatus` de Prisma. */
-export type PurchaseOrderStatus = 'PENDING' | 'RECEIVED';
+/**
+ * Estados del pedido: los mismos literales del enum `PurchaseOrderStatus` de
+ * Prisma. `PARTIAL`: llegó una parte y el pedido sigue abierto; `RECEIVED`:
+ * llegó todo o se dio por concluido.
+ */
+export type PurchaseOrderStatus = 'PENDING' | 'PARTIAL' | 'RECEIVED';
 
 /** Línea de un pedido: producto, cantidad y costo al que se le compra a ese proveedor. */
 export interface PurchaseOrderItemDto {
@@ -18,6 +23,30 @@ export interface PurchaseOrderItemDto {
   unitCost: MoneyString;
   /** `quantity * unitCost`. */
   subtotal: MoneyString;
+  /** Suma de lo recibido en todas las entregas (HU-38). */
+  receivedQuantity: number;
+  /** Lo que falta por llegar: `quantity - receivedQuantity` (nunca negativo). */
+  pendingQuantity: number;
+}
+
+/** Cuánto llegó de un producto en una entrega. */
+export interface PurchaseReceiptItemDto {
+  productId: string;
+  productCode: string;
+  productName: string;
+  quantity: number;
+}
+
+/** Una entrega del proveedor con su factura (HU-38). */
+export interface PurchaseReceiptDto {
+  id: string;
+  invoiceNumber: string;
+  /** Día en que llegó la mercadería, `YYYY-MM-DD`. */
+  receivedOn: string;
+  /** Cuándo se cargó al inventario (ISO 8601); `null` = carga pendiente. */
+  loadedAt: string | null;
+  createdAt: string;
+  items: PurchaseReceiptItemDto[];
 }
 
 /** Fila del historial de pedidos (HU-22). */
@@ -34,6 +63,10 @@ export interface PurchaseOrderSummaryDto {
   productNames: string[];
   /** Fecha y hora del pedido, ISO 8601. */
   createdAt: string;
+  /** Día en que se completó o se dio por concluido (`YYYY-MM-DD`), o `null`. */
+  receivedOn: string | null;
+  /** Entregas registradas que todavía no se cargaron al inventario. */
+  pendingLoads: number;
 }
 
 /** Detalle completo de un pedido: lo que muestra el historial y lo que lleva el PDF (HU-24). */
@@ -42,6 +75,8 @@ export interface PurchaseOrderDto extends PurchaseOrderSummaryDto {
   supplierEmail: string | null;
   notes: string | null;
   items: PurchaseOrderItemDto[];
+  /** Entregas, de la más reciente a la más antigua. */
+  receipts: PurchaseReceiptDto[];
 }
 
 /** Lo que envía el formulario: el proveedor, notas y los productos con su cantidad. */
@@ -76,4 +111,26 @@ export interface CreatePurchaseOrderPlan {
   notes: string | null;
   total: MoneyString;
   items: { productId: string; quantity: number; unitCost: MoneyString }[];
+}
+
+/** Lo que envía el formulario de recepción (HU-38). */
+export interface ReceiveOrderFields {
+  invoiceNumber: string;
+  /** `YYYY-MM-DD`: el día en que llegó, no el día en que se registra. */
+  receivedOn: string;
+  /** `true`: cargar ya al inventario; `false`: dejar la carga pendiente. */
+  loadNow: boolean;
+  /** Lo que llegó de cada producto; 0 = no llegó en esta entrega. */
+  items: { productId: string; quantity: number }[];
+}
+
+/** Trabajo que el service encarga al repositorio al registrar una entrega. */
+export interface ReceiveOrderPlan {
+  invoiceNumber: string;
+  receivedOn: string;
+  loadNow: boolean;
+  /** Solo las líneas con cantidad > 0, ya comprobadas contra lo pendiente. */
+  items: { productId: string; quantity: number }[];
+  /** Motivo de los movimientos de entrada, p. ej. «Recepción PED-0007 · Factura F-12». */
+  reason: string;
 }

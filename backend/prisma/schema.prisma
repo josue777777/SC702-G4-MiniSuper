@@ -103,6 +103,9 @@ enum SaleAdjustmentType {
 /// se registra y se recibe.
 enum PurchaseOrderStatus {
   PENDING
+  /// Llegó una parte (HU-38): el pedido sigue abierto hasta recibirlo todo o
+  /// darlo por concluido.
+  PARTIAL
   RECEIVED
 }
 
@@ -327,6 +330,7 @@ model Product {
   inventoryMovements InventoryMovement[]
   saleItems          SaleItem[]
   purchaseOrderItems PurchaseOrderItem[]
+  receiptItems       PurchaseReceiptItem[]
 
   @@unique([businessId, code])
   @@unique([businessId, barcode])
@@ -348,15 +352,19 @@ model InventoryMovement {
   /// Trazabilidad opcional hacia el documento que originó el movimiento.
   saleId          String?               @db.Uuid
   purchaseOrderId String?               @db.Uuid
+  /// Recepción (factura) que cargó esta entrada (HU-38).
+  receiptId       String?               @db.Uuid
   createdAt       DateTime              @default(now())
 
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
-  sale          Sale?          @relation(fields: [saleId], references: [id], onDelete: SetNull)
-  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  product       Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sale          Sale?            @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  receipt       PurchaseReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
 
   @@index([productId, createdAt])
   @@index([saleId])
   @@index([purchaseOrderId])
+  @@index([receiptId])
 }
 
 // -----------------------------------------------------------------------------
@@ -583,6 +591,7 @@ model PurchaseOrder {
   /// Compuesta: la base impide pedirle a un proveedor de otro negocio.
   supplier           Supplier            @relation(fields: [supplierId, businessId], references: [id, businessId], onDelete: Restrict)
   items              PurchaseOrderItem[]
+  receipts           PurchaseReceipt[]
   inventoryMovements InventoryMovement[]
 
   @@unique([businessId, number])
@@ -605,6 +614,47 @@ model PurchaseOrderItem {
   product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+/// Una entrega del proveedor contra un pedido (HU-38), con su factura. Un pedido
+/// puede recibirse en varias entregas (factura #1, #2…) y cada una guarda la
+/// fecha REAL en que llegó y la cantidad real de cada producto.
+///
+/// Registrar la entrega y cargarla al inventario son dos pasos: la carga puede
+/// hacerse al registrarla o quedar pendiente (`loadedAt` nulo) hasta que alguien
+/// la confirme. Lo confirmado no se edita.
+model PurchaseReceipt {
+  id              String    @id @default(uuid()) @db.Uuid
+  purchaseOrderId String    @db.Uuid
+  /// Número de la factura del proveedor; no se repite dentro del pedido.
+  invoiceNumber   String
+  /// Día en que llegó la mercadería (no el día en que se registró).
+  receivedOn      DateTime  @db.Date
+  /// Cuándo se cargó al inventario; nulo = carga pendiente.
+  loadedAt        DateTime?
+  createdAt       DateTime  @default(now())
+
+  purchaseOrder      PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  items              PurchaseReceiptItem[]
+  inventoryMovements InventoryMovement[]
+
+  @@unique([purchaseOrderId, invoiceNumber])
+  @@index([purchaseOrderId, createdAt])
+  @@index([loadedAt])
+}
+
+/// Cuánto llegó de un producto en una entrega.
+model PurchaseReceiptItem {
+  id        String @id @default(uuid()) @db.Uuid
+  receiptId String @db.Uuid
+  productId String @db.Uuid
+  quantity  Int
+
+  receipt PurchaseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([receiptId, productId])
   @@index([productId])
 }
 

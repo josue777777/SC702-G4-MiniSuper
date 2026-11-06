@@ -1,6 +1,7 @@
 # Pedidos y proveedores
 
-Historias: HU-21, HU-22 y HU-24 (pendientes: HU-23, HU-38 y HU-39). Volver al
+Historias: HU-21, HU-22, HU-24 y la recepción de HU-38 (pendientes: HU-23, HU-39 y,
+de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
 [índice de la guía](README.md).
 
 ## 1. Qué hace
@@ -10,6 +11,12 @@ Historias: HU-21, HU-22 y HU-24 (pendientes: HU-23, HU-38 y HU-39). Volver al
 - **Pedidos**: armar un pedido a un proveedor con sus productos y cantidades, ver el
   historial filtrado por proveedor (HU-22) y abrir el documento para imprimirlo o
   guardarlo como PDF (HU-24).
+- **Entregas** (HU-38): un pedido se recibe en una o varias entregas, cada una con su
+  **factura**, el **día real** en que llegó y la cantidad real de cada producto. El
+  pedido queda «Recibido en parte» y sigue abierto hasta que llega todo o se **da por
+  concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
+  **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
+  en esa factura; el historial avisa «Carga pendiente»).
 
 En el menú es una sola entrada, **Pedidos**, con dos pestañas: «Pedidos» y
 «Proveedores» (`/orders?seccion=proveedores`). Las dos usan el permiso `purchasing`
@@ -44,12 +51,37 @@ Responde  201 { data: PurchaseOrderDto }  →  la pantalla lo agrega al historia
 **Por qué el costo lo pone el servidor.** Si lo mandara la pantalla, alguien podría
 cambiarlo en la petición. El servidor usa el costo guardado en `SupplierProduct`.
 
+### Registrar una entrega (HU-38)
+
+```text
+Entrada   ReceiveOrderModal.tsx: { invoiceNumber, receivedOn, loadNow, items: [{ productId, quantity }] }
+   ▼  POST /api/purchase-orders/:id/receipts
+services/purchase-orders.service.ts → receiveOrder()
+   │   reglas: pedido abierto; fecha no futura ni anterior al pedido; solo productos
+   │   del pedido; nunca más de lo que falta; las líneas en 0 no se guardan
+   ▼
+repositories/purchase-orders.repository.ts → receive()   (una sola transacción)
+   │   1. suma lo recibido a cada línea SOLO si nadie la cambió (si no → 409)
+   │   2. guarda PurchaseReceipt + PurchaseReceiptItem (factura única en el pedido)
+   │   3. estado: RECEIVED si llegó todo (con la fecha real), si no PARTIAL
+   │   4. si loadNow: loadReceiptStock() → stock + InventoryMovement ENTRY
+   │      con motivo «Recepción PED-0007 · Factura F-120» y la entrega enlazada
+   ▼
+Responde  201 { data: PurchaseOrderDto }  (con receipts, receivedQuantity y pendingQuantity)
+```
+
+La carga pendiente se confirma con `POST /:id/receipts/:receiptId/load`.
+`loadReceiptStock()` marca la entrega como cargada **solo si seguía pendiente**: si
+dos personas confirman a la vez, el stock se suma una vez y la otra recibe 409.
+
 ### Otras rutas
 
 | Ruta | Para qué |
 | --- | --- |
 | `GET /api/purchase-orders?supplierId=` | Historial, filtrable por proveedor (HU-22) |
-| `GET /api/purchase-orders/:id` | Un pedido con sus líneas: el documento «Ver pedido» |
+| `GET /api/purchase-orders/:id` | Un pedido con sus líneas y sus entregas: el documento «Ver pedido» |
+| `POST /api/purchase-orders/:id/receipts/:receiptId/load` | Cargar al inventario una entrega pendiente (HU-38) |
+| `POST /api/purchase-orders/:id/close` | Dar por concluido un pedido que llegó en parte (HU-38) |
 | `GET /api/suppliers` · `POST` · `PATCH /:id` | Lista, alta y edición de proveedores con sus productos (HU-21) |
 
 ### En el navegador
@@ -60,8 +92,10 @@ pages/OrdersPage.tsx                     las pestañas (la elegida va en ?seccio
   │    ├─ use-purchase-orders.ts          carga pedidos y proveedores, crea, abre
   │    ├─ PurchaseOrderForm.tsx            el formulario (purchase-order-form.ts calcula)
   │    ├─ PurchaseOrderHistory.tsx         la lista paginada y el filtro por proveedor
-  │    └─ PurchaseOrderDetail.tsx          el documento en un Modal, con «Imprimir» y
-  │                                        «Etiquetas» (una por unidad pedida, HU-07)
+  │    ├─ PurchaseOrderDetail.tsx          el documento en un Modal, con «Imprimir»,
+  │    │                                   «Etiquetas» (una por unidad pedida, HU-07) y
+  │    │                                   las entregas con «Cargar al inventario» (HU-38)
+  │    └─ ReceiveOrderModal.tsx            registrar una entrega (factura, fecha, cantidades)
   └─ features/suppliers/SuppliersSection.tsx
        ├─ use-suppliers.ts                  carga, crea y edita
        ├─ SupplierForm.tsx / SupplierTable.tsx
@@ -109,6 +143,13 @@ Total       = ₡33 600,00
 La pantalla calcula lo mismo para mostrar el total mientras se escribe, pero el que
 se guarda es el del servidor.
 
+### Lo que falta de cada línea (`pendingQuantity`)
+
+`pendingQuantity = quantity − receivedQuantity` (nunca negativo). Ejemplo: se pidieron
+10 arroces; llegan 6 con la factura F-100 → faltan 4; llegan 4 con la F-101 → falta 0
+y el pedido queda «Recibido» con la fecha de la F-101. `receivedQuantity` cuenta al
+**registrar** la entrega (llegó la mercadería); el **stock** sube al **cargarla**.
+
 ### Consecutivo del pedido (`nextDocumentNumber`)
 
 Cada negocio tiene su propio contador por tipo de documento (ventas y pedidos van
@@ -123,6 +164,10 @@ por separado). Se toma dentro de la misma transacción: atómico y sin huecos.
 | «No se puede quitar … es su proveedor principal» | `suppliers.service.ts`: primero cambie el proveedor principal en Inventario |
 | El PDF imprime toda la pantalla | `PurchaseOrderDetail.tsx` (`printing-report`) y los estilos `@media print` |
 | Un número de pedido se repite | `repositories/document-sequence.ts` |
+| «El pedido cambió mientras se registraba la entrega» | Dos personas registraron a la vez: `receive()` en el repositorio; abrir el pedido de nuevo |
+| El stock no subió después de registrar una entrega | La carga quedó pendiente: «Ver pedido» › Entregas › «Cargar al inventario» |
 
-Pruebas: `backend/src/**/purchase-orders*.test.ts`, `suppliers*.test.ts` y
+Pruebas: `backend/src/**/purchase-orders*.test.ts`,
+`repositories/purchase-receipts.integration.test.ts` (stock, Kardex y doble carga en
+PostgreSQL), `suppliers*.test.ts`, `e2e/tests/hu-38-recepcion-pedidos.spec.ts` y
 `e2e/tests/pantallas-listas.spec.ts` (pestañas de Pedidos).
