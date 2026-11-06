@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Modal } from '../../components/Modal';
 import type { PurchaseOrder } from '../../types/purchase-orders';
+import { useSession } from '../auth/session-context';
 import { formatDateTime } from '../inventory/inventory-count';
+import { LabelPrintModal } from '../labels/LabelPrintModal';
 import { formatMoney } from '../products/money';
 import { formatOrderNumber, STATUS_LABELS } from './purchase-order-form';
 
@@ -35,9 +38,14 @@ function printOrder(): void {
  *
  * Se abre en una ventana modal sobre la lista («Ver pedido»): la lista no se
  * mueve y al cerrar se vuelve a la misma fila.
+ *
+ * «Etiquetas» (HU-07) abre la impresión de etiquetas con los productos del
+ * pedido y una etiqueta por unidad, para rotular la mercadería cuando llega.
  */
 export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps) {
   const contact = [order.supplierPhone, order.supplierEmail].filter(Boolean).join(' · ');
+  const { can } = useSession();
+  const [labelling, setLabelling] = useState(false);
 
   return (
     <Modal
@@ -139,10 +147,26 @@ export function PurchaseOrderDetail({ order, onClose }: PurchaseOrderDetailProps
         <button type="button" className="button button--primary" onClick={printOrder}>
           🖨 Imprimir / Guardar PDF
         </button>
+        {can('inventory.read') ? (
+          <button type="button" className="button" onClick={() => setLabelling(true)}>
+            🏷 Etiquetas
+          </button>
+        ) : null}
         <button type="button" className="button" onClick={onClose}>
           Cerrar
         </button>
       </div>
+
+      {labelling ? (
+        <LabelPrintModal
+          initial={order.items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          }))}
+          origin={`pedido ${formatOrderNumber(order.number)}`}
+          onClose={() => setLabelling(false)}
+        />
+      ) : null}
     </Modal>
   );
 }

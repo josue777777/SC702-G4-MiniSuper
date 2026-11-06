@@ -185,6 +185,9 @@ model Business {
   logoData       Bytes?
   logoMimeType   String?
   logoUpdatedAt  DateTime?
+  /// Diseño de la etiqueta de productos (tamaño y qué datos lleva). `null` =
+  /// diseño de fábrica. Lo valida `validators/label-design.validator.ts`.
+  labelDesign    Json?
   /// Plan: el Encargado más estos usuarios adicionales (plan 0 = solo el
   /// Encargado). Solo lo cambia el Administrador, al crear el negocio o al
   /// aprobar una solicitud.

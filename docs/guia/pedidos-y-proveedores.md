@@ -60,7 +60,8 @@ pages/OrdersPage.tsx                     las pestañas (la elegida va en ?seccio
   │    ├─ use-purchase-orders.ts          carga pedidos y proveedores, crea, abre
   │    ├─ PurchaseOrderForm.tsx            el formulario (purchase-order-form.ts calcula)
   │    ├─ PurchaseOrderHistory.tsx         la lista paginada y el filtro por proveedor
-  │    └─ PurchaseOrderDetail.tsx          el documento en un Modal, con «Imprimir»
+  │    └─ PurchaseOrderDetail.tsx          el documento en un Modal, con «Imprimir» y
+  │                                        «Etiquetas» (una por unidad pedida, HU-07)
   └─ features/suppliers/SuppliersSection.tsx
        ├─ use-suppliers.ts                  carga, crea y edita
        └─ SupplierForm.tsx / SupplierTable.tsx
