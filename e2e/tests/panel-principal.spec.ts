@@ -195,3 +195,32 @@ test('el Cajero no ve urgencias ni atajos de pedidos', async ({ browser }) => {
   await expect(cajero.page.getByRole('option')).toHaveCount(0);
   await cajero.context.close();
 });
+
+test('«Ver pedidos» de la tarjeta es un botón y lleva a Pedidos', async ({ page }) => {
+  const { supplierId, rice } = await withDb(async (client) => {
+    const supplier = await client.query<{ id: string }>(
+      `SELECT id FROM "Supplier" WHERE name = 'Distribuidora Central'`,
+    );
+    const product = await client.query<{ id: string }>(
+      `SELECT id FROM "Product" WHERE code = 'ARR-01'`,
+    );
+
+    return { supplierId: supplier.rows[0]?.id ?? '', rice: product.rows[0]?.id ?? '' };
+  });
+  const order = await page.request.post(`${BACKEND_URL}/api/purchase-orders`, {
+    data: { supplierId, items: [{ productId: rice, quantity: 5 }] },
+  });
+
+  expect(order.status()).toBe(201);
+  await page.goto('/');
+
+  const card = urgentSection(page).getByRole('article', { name: '1 pedido espera mercadería' });
+  const link = card.getByRole('link', { name: 'Ver pedidos' });
+
+  await expect(link).toHaveClass(/button/);
+  // Una acción no se ve como enlace suelto: sin subrayado (docs/PANTALLAS.md).
+  await expect(link).toHaveCSS('text-decoration-line', 'none');
+  await saveEvidence(page, 'panel', 'panel-ver-pedidos.png');
+  await link.click();
+  await expect(page).toHaveURL(/\/orders/);
+});
