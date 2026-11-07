@@ -3456,6 +3456,43 @@ fieldset.filter-bar__field {
   transition: opacity 0.15s;
 }
 
+/* Factura del proveedor (HU-38): a la izquierda la factura, a la derecha lo que se anota */
+.invoice-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .invoice-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.invoice-preview {
+  position: sticky;
+  top: 60px;
+  margin: 0;
+}
+
+.invoice-preview__frame,
+.invoice-preview__image {
+  display: block;
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-row-alt);
+  object-fit: contain;
+}
+
+/* Un <label> con aspecto de botón (abre el selector de archivos) que no se puede usar ahora */
+.button--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 /* Bento: bloques del inicio, el primero (lo más grave) más grande */
 .bento {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

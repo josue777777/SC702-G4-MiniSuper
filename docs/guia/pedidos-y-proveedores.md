@@ -17,6 +17,12 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
+- **Factura del proveedor** (HU-38): al registrar la entrega se puede adjuntar el PDF
+  o la foto de la factura del proveedor; se ve al lado de las cantidades mientras se
+  anotan. Si no se adjuntó, en «Ver pedido» › Entregas cada factura tiene «📎 Adjuntar
+  factura» o «📄 Ver factura proveedor», junto a «Cargar al inventario».
+- **Historial** con filtros que se aplican solos: buscador (PED-0007, factura,
+  proveedor o producto), proveedor, estado (también «Con carga pendiente») y período.
 
 En el menú es una sola entrada, **Pedidos**, con dos pestañas: «Pedidos» y
 «Proveedores» (`/orders?seccion=proveedores`). Las dos usan el permiso `purchasing`
@@ -82,6 +88,7 @@ dos personas confirman a la vez, el stock se suma una vez y la otra recibe 409.
 | `GET /api/purchase-orders/:id` | Un pedido con sus líneas y sus entregas: el documento «Ver pedido» |
 | `POST /api/purchase-orders/:id/receipts/:receiptId/load` | Cargar al inventario una entrega pendiente (HU-38) |
 | `POST /api/purchase-orders/:id/close` | Dar por concluido un pedido que llegó en parte (HU-38) |
+| `PUT /api/purchase-orders/:id/receipts/:receiptId/invoice` · `GET` | Adjuntar (o reemplazar) y ver la factura del proveedor: PDF, PNG, JPG o WEBP hasta 5 MB; el nombre viaja en `X-File-Name`. Se revisa la firma del archivo (`utils/invoice-file.ts`) |
 | `GET /api/suppliers` · `POST` · `PATCH /:id` | Lista, alta y edición de proveedores con sus productos (HU-21) |
 
 ### En el navegador
@@ -95,7 +102,10 @@ pages/OrdersPage.tsx                     las pestañas (la elegida va en ?seccio
   │    ├─ PurchaseOrderDetail.tsx          el documento en un Modal, con «Imprimir»,
   │    │                                   «Etiquetas» (una por unidad pedida, HU-07) y
   │    │                                   las entregas con «Cargar al inventario» (HU-38)
-  │    └─ ReceiveOrderModal.tsx            registrar una entrega (factura, fecha, cantidades)
+  │    ├─ ReceiveOrderModal.tsx            registrar una entrega (factura, fecha, cantidades,
+  │    │                                   archivo de la factura con su vista previa)
+  │    ├─ InvoicePreview.tsx / invoice-file.ts   visor (PDF o imagen) y reglas del archivo
+  │    └─ order-filters.ts                 filtros del historial (estado, período, buscador)
   └─ features/suppliers/SuppliersSection.tsx
        ├─ use-suppliers.ts                  carga, crea y edita
        ├─ SupplierForm.tsx / SupplierTable.tsx
@@ -165,6 +175,8 @@ por separado). Se toma dentro de la misma transacción: atómico y sin huecos.
 | El PDF imprime toda la pantalla | `PurchaseOrderDetail.tsx` (`printing-report`) y los estilos `@media print` |
 | Un número de pedido se repite | `repositories/document-sequence.ts` |
 | «El pedido cambió mientras se registraba la entrega» | Dos personas registraron a la vez: `receive()` en el repositorio; abrir el pedido de nuevo |
+| «La mercadería no puede llegar antes de hacer el pedido» con la fecha de hoy | Se compara con el día del pedido en Costa Rica (`todayInBusinessZone`), no en UTC |
+| La factura no se ve en la ventana | Solo PDF o imagen; el visor de PDF es el del navegador (`InvoicePreview.tsx`) |
 | El stock no subió después de registrar una entrega | La carga quedó pendiente: «Ver pedido» › Entregas › «Cargar al inventario» |
 
 Pruebas: `backend/src/**/purchase-orders*.test.ts`,

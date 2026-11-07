@@ -6,6 +6,7 @@ import type {
   PurchaseOrderDto,
   PurchaseOrderStatus,
   PurchaseOrderSummaryDto,
+  ReceiptInvoiceFile,
   ReceiveOrderPlan,
   SupplierCatalog,
 } from '../types/purchase-orders.js';
@@ -24,6 +25,7 @@ const summarySelection = {
   receivedAt: true,
   supplier: { select: { id: true, name: true } },
   items: { select: { product: { select: { name: true } } }, orderBy: { product: { name: 'asc' } } },
+  receipts: { select: { invoiceNumber: true } },
   _count: { select: { receipts: { where: { loadedAt: null } } } },
 } as const;
 
@@ -60,6 +62,10 @@ const detailSelection = {
       receivedOn: true,
       loadedAt: true,
       createdAt: true,
+      // Solo los datos de la factura adjunta: los bytes se piden aparte.
+      invoiceFileName: true,
+      invoiceFileType: true,
+      invoiceFileAt: true,
       items: {
         select: {
           productId: true,
@@ -83,6 +89,7 @@ interface SummaryRow {
   receivedAt: Date | null;
   supplier: { id: string; name: string };
   items: { product: { name: string } }[];
+  receipts: { invoiceNumber: string }[];
   _count: { receipts: number };
 }
 
@@ -108,6 +115,9 @@ interface DetailRow {
     receivedOn: Date;
     loadedAt: Date | null;
     createdAt: Date;
+    invoiceFileName: string | null;
+    invoiceFileType: string | null;
+    invoiceFileAt: Date | null;
     items: { productId: string; quantity: number; product: { code: string; name: string } }[];
   }[];
   _count: { receipts: number };
@@ -126,6 +136,7 @@ function toSummaryDto(row: SummaryRow): PurchaseOrderSummaryDto {
     createdAt: row.createdAt.toISOString(),
     receivedOn: row.receivedAt === null ? null : dateToDateOnly(row.receivedAt),
     pendingLoads: row._count.receipts,
+    invoiceNumbers: row.receipts.map((receipt) => receipt.invoiceNumber),
   };
 }
 
@@ -145,12 +156,21 @@ function toDetailDto(row: DetailRow): PurchaseOrderDto {
     createdAt: row.createdAt.toISOString(),
     receivedOn: row.receivedAt === null ? null : dateToDateOnly(row.receivedAt),
     pendingLoads: row._count.receipts,
+    invoiceNumbers: row.receipts.map((receipt) => receipt.invoiceNumber),
     receipts: row.receipts.map((receipt) => ({
       id: receipt.id,
       invoiceNumber: receipt.invoiceNumber,
       receivedOn: dateToDateOnly(receipt.receivedOn),
       loadedAt: receipt.loadedAt === null ? null : receipt.loadedAt.toISOString(),
       createdAt: receipt.createdAt.toISOString(),
+      invoiceFile:
+        receipt.invoiceFileType === null || receipt.invoiceFileAt === null
+          ? null
+          : {
+              name: receipt.invoiceFileName ?? 'factura',
+              mimeType: receipt.invoiceFileType,
+              uploadedAt: receipt.invoiceFileAt.toISOString(),
+            },
       items: receipt.items.map((item) => ({
         productId: item.productId,
         productCode: item.product.code,
@@ -442,6 +462,58 @@ export class PurchaseOrdersRepository {
     }
 
     return found(await this.findById(orderId));
+  }
+
+  /**
+   * Adjunta (o reemplaza) la factura del proveedor de una entrega (HU-38). Es
+   * un documento de respaldo: se puede agregar aunque la entrega ya se cargó.
+   */
+  async setReceiptInvoice(
+    orderId: string,
+    receiptId: string,
+    file: ReceiptInvoiceFile,
+  ): Promise<PurchaseOrderDto> {
+    const saved = await prisma.purchaseReceipt.updateMany({
+      where: {
+        id: receiptId,
+        purchaseOrderId: orderId,
+        purchaseOrder: { businessId: this.businessId },
+      },
+      data: {
+        invoiceFileData: Buffer.from(file.data),
+        invoiceFileType: file.mimeType,
+        invoiceFileName: file.name,
+        invoiceFileAt: new Date(),
+      },
+    });
+
+    if (saved.count === 0) {
+      throw HttpError.notFound('La entrega no existe.');
+    }
+
+    return found(await this.findById(orderId));
+  }
+
+  /** Los bytes de la factura adjunta, o `null` si la entrega no tiene (o no existe). */
+  async findReceiptInvoice(orderId: string, receiptId: string): Promise<ReceiptInvoiceFile | null> {
+    const row = await prisma.purchaseReceipt.findFirst({
+      where: {
+        id: receiptId,
+        purchaseOrderId: orderId,
+        purchaseOrder: { businessId: this.businessId },
+      },
+      select: { invoiceFileData: true, invoiceFileType: true, invoiceFileName: true },
+    });
+
+    if (row === null || row.invoiceFileData === null || row.invoiceFileType === null) {
+      return null;
+    }
+
+    return {
+      data: new Uint8Array(row.invoiceFileData),
+      mimeType: row.invoiceFileType,
+      name: row.invoiceFileName ?? 'factura',
+    };
   }
 }
 

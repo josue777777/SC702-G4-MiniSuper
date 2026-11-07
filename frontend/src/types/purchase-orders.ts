@@ -32,6 +32,8 @@ export interface PurchaseReceipt {
   loadedAt: string | null;
   createdAt: string;
   items: { productId: string; productCode: string; productName: string; quantity: number }[];
+  /** Factura del proveedor adjunta (sin los bytes), o `null` si no tiene. */
+  invoiceFile: { name: string; mimeType: string; uploadedAt: string } | null;
 }
 
 /** Fila del historial de pedidos (HU-22). */
@@ -52,6 +54,8 @@ export interface PurchaseOrderSummary {
   receivedOn: string | null;
   /** Entregas que todavía no se cargaron al inventario. */
   pendingLoads: number;
+  /** Números de factura de sus entregas (para buscar el pedido por factura). */
+  invoiceNumbers: string[];
 }
 
 /** Detalle completo: lo que muestra el historial y lo que lleva el PDF (HU-24). */

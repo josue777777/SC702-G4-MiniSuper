@@ -1,14 +1,19 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import type { PurchaseOrder, ReceiveOrderPayload } from '../../types/purchase-orders';
 import { todayInBusinessZone } from '../reports/report-filters';
+import { INVOICE_ACCEPT, invoiceFileError } from './invoice-file';
+import { InvoicePreview } from './InvoicePreview';
 import { formatOrderNumber } from './purchase-order-form';
 
 interface ReceiveOrderModalProps {
   order: PurchaseOrder;
   busy: boolean;
-  /** Guarda la entrega; devuelve el error del servidor o `null` si se guardó. */
-  onSubmit: (payload: ReceiveOrderPayload) => Promise<string | null>;
+  /**
+   * Guarda la entrega (y, si se eligió, adjunta la factura del proveedor);
+   * devuelve el error del servidor o `null` si la entrega se guardó.
+   */
+  onSubmit: (payload: ReceiveOrderPayload, invoice: File | null) => Promise<string | null>;
   onClose: () => void;
 }
 
@@ -27,6 +32,10 @@ function parseQuantity(text: string): number | null {
  * ejemplo, cuando se terminó de revisar la mercadería). El pedido sigue
  * abierto hasta que llega todo o se da por concluido.
  *
+ * La factura del proveedor (PDF o foto) se puede adjuntar aquí mismo: se
+ * muestra al lado de las cantidades, para ir leyéndola mientras se anotan. Es
+ * opcional; también se adjunta después desde «Ver pedido» › Entregas.
+ *
  * @example faltan 10 cafés, llegan 6 con la factura F-120 → el pedido queda
  * «Recibido en parte» y faltan 4.
  */
@@ -39,6 +48,16 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
     Object.fromEntries(pending.map((item) => [item.productId, String(item.pendingQuantity)])),
   );
   const [error, setError] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  function chooseFile(event: ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0] ?? null;
+    const problem = file === null ? null : invoiceFileError(file);
+
+    setFileError(problem);
+    setInvoice(problem === null ? file : null);
+  }
 
   function validate(): string | null {
     if (invoiceNumber.trim() === '') {
@@ -77,15 +96,18 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
       return;
     }
 
-    const failed = await onSubmit({
-      invoiceNumber: invoiceNumber.trim(),
-      receivedOn,
-      loadNow,
-      items: pending.map((item) => ({
-        productId: item.productId,
-        quantity: parseQuantity(quantities[item.productId] ?? '') ?? 0,
-      })),
-    });
+    const failed = await onSubmit(
+      {
+        invoiceNumber: invoiceNumber.trim(),
+        receivedOn,
+        loadNow,
+        items: pending.map((item) => ({
+          productId: item.productId,
+          quantity: parseQuantity(quantities[item.productId] ?? '') ?? 0,
+        })),
+      },
+      invoice,
+    );
 
     if (failed === null) {
       onClose();
@@ -100,100 +122,122 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
       size="wide"
       onClose={onClose}
     >
-      <form
-        className="form"
-        noValidate
-        onSubmit={(event: FormEvent<HTMLFormElement>) => {
-          event.preventDefault();
-          void save(true);
-        }}
-      >
-        <div className="form__grid">
-          <div className="form__field">
-            <label htmlFor="receipt-invoice">N.º de factura</label>
-            <input
-              id="receipt-invoice"
-              value={invoiceNumber}
-              maxLength={40}
-              autoComplete="off"
-              data-autofocus
-              onChange={(event) => setInvoiceNumber(event.target.value)}
-            />
+      <div className={invoice === null ? undefined : 'invoice-split'}>
+        {invoice === null ? null : <InvoicePreview file={invoice} name={invoice.name} />}
+        <form
+          className="form"
+          noValidate
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            void save(true);
+          }}
+        >
+          <div className="form__grid">
+            <div className="form__field">
+              <label htmlFor="receipt-invoice">N.º de factura</label>
+              <input
+                id="receipt-invoice"
+                value={invoiceNumber}
+                maxLength={40}
+                autoComplete="off"
+                data-autofocus
+                onChange={(event) => setInvoiceNumber(event.target.value)}
+              />
+            </div>
+            <div className="form__field">
+              <label htmlFor="receipt-date">Día en que llegó</label>
+              <input
+                id="receipt-date"
+                type="date"
+                value={receivedOn}
+                max={today}
+                onChange={(event) => setReceivedOn(event.target.value)}
+              />
+            </div>
           </div>
-          <div className="form__field">
-            <label htmlFor="receipt-date">Día en que llegó</label>
-            <input
-              id="receipt-date"
-              type="date"
-              value={receivedOn}
-              max={today}
-              onChange={(event) => setReceivedOn(event.target.value)}
-            />
-          </div>
-        </div>
 
-        <div className="table-wrapper">
-          <table className="table" aria-label="Lo que llegó">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Producto</th>
-                <th className="table__number">Pedido</th>
-                <th className="table__number">Falta</th>
-                <th className="table__number">Llegó</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pending.map((item) => (
-                <tr key={item.productId}>
-                  <td>{item.productCode}</td>
-                  <td>{item.productName}</td>
-                  <td className="table__number">{item.quantity}</td>
-                  <td className="table__number">{item.pendingQuantity}</td>
-                  <td className="table__number">
-                    <input
-                      type="number"
-                      min="0"
-                      max={item.pendingQuantity}
-                      step="1"
-                      aria-label={`Llegó de ${item.productName}`}
-                      value={quantities[item.productId] ?? ''}
-                      onChange={(event) =>
-                        setQuantities((current) => ({
-                          ...current,
-                          [item.productId]: event.target.value,
-                        }))
-                      }
-                    />
-                  </td>
+          <div className="form__field">
+            <label htmlFor="receipt-file">Factura del proveedor (opcional)</label>
+            <input id="receipt-file" type="file" accept={INVOICE_ACCEPT} onChange={chooseFile} />
+            {fileError === null ? (
+              <p className="muted hint">
+                PDF o foto de la factura, hasta 5 MB. Se ve aquí al lado.
+              </p>
+            ) : (
+              <p className="form__error" role="alert">
+                {fileError}
+              </p>
+            )}
+          </div>
+
+          <div className="table-wrapper">
+            <table className="table" aria-label="Lo que llegó">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th className="table__number">Pedido</th>
+                  <th className="table__number">Falta</th>
+                  <th className="table__number">Llegó</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="muted hint">
-          Anote lo que realmente llegó; 0 si un producto no vino en esta entrega. Lo que no llegue
-          sigue pendiente en el pedido.
-        </p>
-
-        {error === null ? null : (
-          <p className="form__error" role="alert">
-            {error}
+              </thead>
+              <tbody>
+                {pending.map((item) => (
+                  <tr key={item.productId}>
+                    <td>{item.productCode}</td>
+                    <td>{item.productName}</td>
+                    <td className="table__number">{item.quantity}</td>
+                    <td className="table__number">{item.pendingQuantity}</td>
+                    <td className="table__number">
+                      <input
+                        type="number"
+                        min="0"
+                        max={item.pendingQuantity}
+                        step="1"
+                        aria-label={`Llegó de ${item.productName}`}
+                        value={quantities[item.productId] ?? ''}
+                        onChange={(event) =>
+                          setQuantities((current) => ({
+                            ...current,
+                            [item.productId]: event.target.value,
+                          }))
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted hint">
+            Anote lo que realmente llegó; 0 si un producto no vino en esta entrega. Lo que no llegue
+            sigue pendiente en el pedido.
           </p>
-        )}
 
-        <div className="form__actions">
-          <button type="submit" className="button button--primary" disabled={busy}>
-            {busy ? 'Guardando…' : 'Registrar y cargar al inventario'}
-          </button>
-          <button type="button" className="button" disabled={busy} onClick={() => void save(false)}>
-            Registrar y dejar la carga pendiente
-          </button>
-          <button type="button" className="button" onClick={onClose}>
-            Cancelar
-          </button>
-        </div>
-      </form>
+          {error === null ? null : (
+            <p className="form__error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <div className="form__actions">
+            <button type="submit" className="button button--primary" disabled={busy}>
+              {busy ? 'Guardando…' : 'Registrar y cargar al inventario'}
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              onClick={() => void save(false)}
+            >
+              Registrar y dejar la carga pendiente
+            </button>
+            <button type="button" className="button" onClick={onClose}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
     </Modal>
   );
 }
