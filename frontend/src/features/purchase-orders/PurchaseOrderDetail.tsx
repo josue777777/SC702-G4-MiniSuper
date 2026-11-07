@@ -194,14 +194,11 @@ export function PurchaseOrderDetail({
         </div>
 
         {/*
-          Constancia de recepción: solo en el papel (imprimir o PDF). El papel firmado
-          respalda la entrega; en pantalla no aporta, la entrega se registra aquí.
+          Constancia: solo en el papel (imprimir o PDF). Sin instrucciones a propósito:
+          el mismo papel sirve para enviarlo al proveedor y para la revisión al recibir.
+          En pantalla no aporta: la entrega se registra aquí.
         */}
         <div className="print-only">
-          <p className="muted hint">
-            Al recibir la mercadería, anote en «Cant. recibida» lo que realmente llegó, la fecha y
-            firme abajo.
-          </p>
           <div className="order-reception">
             {/* Quién lo generó ya se sabe: va escrito. Lo demás se llena a mano. */}
             <div>
