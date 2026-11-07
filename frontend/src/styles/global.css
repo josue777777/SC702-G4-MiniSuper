@@ -54,6 +54,39 @@ body {
   min-height: 100vh;
 }
 
+/*
+ * Enlaces dentro de un texto: del color del texto y subrayados (nunca el azul del
+ * navegador). Una ACCIÓN no es un enlace suelto: va como botón (`.button`),
+ * aunque lleve a otra pantalla o descargue un archivo.
+ */
+a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--color-primary);
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.button--primary,
+a.button--primary:hover {
+  color: #fff;
+}
+
+/* Un distintivo que lleva a otra pantalla (p. ej. «3 solicitudes») no se subraya */
+a.badge {
+  text-decoration: none;
+}
+
 code {
   background: var(--color-row-alt);
   border-radius: 4px;
@@ -3474,6 +3507,15 @@ fieldset.filter-bar__field {
   position: sticky;
   top: 60px;
   margin: 0;
+}
+
+.invoice-preview__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .invoice-preview__frame,

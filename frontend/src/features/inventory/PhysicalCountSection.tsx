@@ -66,10 +66,14 @@ export function PhysicalCountSection({ onCountRegistered }: PhysicalCountSection
         <>
           <InventoryCountForm products={products} busy={busy} onConfirm={confirmCount} />
           {can('reports.inventory') ? (
-            <p className="muted hint">
-              Los conteos ya registrados, con sus diferencias y su valor, están en{' '}
-              <Link to="/reports?reporte=physical-counts">Reportes › Conteos</Link>.
-            </p>
+            <div className="row-actions">
+              <span className="muted hint">
+                Los conteos ya registrados, con sus diferencias y su valor:
+              </span>
+              <Link className="button" to="/reports?reporte=physical-counts">
+                Ver en Reportes › Conteos
+              </Link>
+            </div>
           ) : null}
         </>
       ) : null}

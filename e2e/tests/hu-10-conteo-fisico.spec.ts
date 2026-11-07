@@ -98,7 +98,7 @@ test('se busca el producto (o se escanea), se cuenta y nada se despliega en la v
   expect(await stockOf('CAF-01')).toBe(20);
 
   // El historial es otra tarea: la ventana enlaza a Reportes › Conteos.
-  await dialog.getByRole('link', { name: 'Reportes › Conteos' }).click();
+  await dialog.getByRole('link', { name: 'Ver en Reportes › Conteos' }).click();
   await expect(page.getByRole('tab', { name: 'Conteos', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',

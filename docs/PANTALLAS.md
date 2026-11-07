@@ -35,6 +35,10 @@ Reglas:
 - **Solo tokens.** Una regla usa `var(--color-…)` y `var(--radius…)`; un color
   fijo nuevo en una regla es un error (el diseño ya no se podría cambiar en un
   solo lugar).
+- **Una acción es un botón.** «Descargar», «Ver en Reportes», «Ver pedidos»: van
+  con `.button` aunque sean un enlace (`<a>` o `<Link>`). Un enlace suelto solo
+  vive dentro de una frase, y toma el estilo del sistema (color del texto,
+  subrayado), nunca el azul del navegador.
 - **Bloques (bento) para el inicio.** El panel se arma en bloques: el más
   importante, más grande (`.bento`, `.bento__cell--critical/--warning`).
 - **Color personal.** En Configuración › Apariencia cada usuario puede cambiar el
