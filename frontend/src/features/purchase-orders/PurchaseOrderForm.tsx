@@ -3,7 +3,7 @@ import { matchesSearch } from '../../components/list-search';
 import { ListSearch } from '../../components/ListSearch';
 import { Modal } from '../../components/Modal';
 import { Pagination } from '../../components/Pagination';
-import { usePagination } from '../../components/use-pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import type { PurchaseOrderPayload } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import { formatMoney } from '../products/money';
@@ -23,9 +23,6 @@ interface PurchaseOrderFormProps {
   onCancel: () => void;
   onSubmit: (payload: PurchaseOrderPayload) => void;
 }
-
-/** Productos por página: la ventana no crece ni salta al elegir un proveedor grande. */
-export const ORDER_PRODUCTS_PAGE_SIZE = 4;
 
 /**
  * Armar un pedido a un proveedor (HU-24): se elige el proveedor, aparecen los
@@ -58,7 +55,7 @@ export function PurchaseOrderForm({
   const visible = products.filter((product) =>
     matchesSearch(search, product.productCode, product.productName),
   );
-  const pages = usePagination(visible, `${supplierId}|${search}`, ORDER_PRODUCTS_PAGE_SIZE);
+  const pages = usePagination(visible, `${supplierId}|${search}`, MODAL_PAGE_SIZE);
   const total = calculateOrderTotal(lines);
   // Una cantidad mal escrita se avisa en el momento, no hasta enviar.
   const typedSomething = Object.values(quantities).some((text) => text.trim() !== '');

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { withDb } from '../support/db';
+import { BACKEND_URL } from '../support/env';
 import { saveEvidence } from '../support/evidence';
 import { resetCatalog, seedProducts, signInAsOwner } from '../support/fixtures';
 
@@ -68,4 +69,41 @@ test('los productos del proveedor se ven de 4 en 4, con buscador, y se piden de 
     { code: 'P-01', quantity: 3 },
     { code: 'P-06', quantity: 2 },
   ]);
+});
+
+test('«N productos» del historial abre solo la lista de productos, de 4 en 4', async ({ page }) => {
+  const { supplierId, ids } = await withDb(async (client) => {
+    const supplier = await client.query<{ id: string }>(
+      `SELECT id FROM "Supplier" WHERE name = 'Distribuidora Central'`,
+    );
+    const products = await client.query<{ id: string }>(`SELECT id FROM "Product" ORDER BY code`);
+
+    return { supplierId: supplier.rows[0]?.id ?? '', ids: products.rows.map((row) => row.id) };
+  });
+  const created = await page.request.post(`${BACKEND_URL}/api/purchase-orders`, {
+    data: { supplierId, items: ids.map((productId) => ({ productId, quantity: 2 })) },
+  });
+
+  expect(created.status()).toBe(201);
+  await page.goto('/orders');
+  await page.getByRole('button', { name: 'Ver los 6 productos del pedido PED-0001' }).click();
+
+  const list = page.getByRole('dialog', { name: 'Productos del pedido PED-0001' });
+  const rows = list
+    .getByRole('table', { name: 'Productos del pedido PED-0001' })
+    .locator('tbody tr');
+
+  await expect(rows).toHaveCount(4);
+  // Solo lo que se tocó: ni datos del pedido, ni entregas, ni imprimir.
+  await expect(list.getByText('Entregas')).toHaveCount(0);
+  await expect(list.getByRole('button', { name: /Imprimir/ })).toHaveCount(0);
+  await saveEvidence(page, 'HU-24', 'productos-del-pedido.png');
+
+  await list
+    .getByRole('navigation', { name: 'Páginas de productos' })
+    .getByRole('button', { name: 'Ir a la página 2' })
+    .click();
+  await expect(rows).toHaveCount(2);
+  await list.getByText('Cerrar', { exact: true }).click();
+  await expect(list).toHaveCount(0);
 });

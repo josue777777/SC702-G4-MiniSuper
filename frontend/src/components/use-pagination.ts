@@ -3,6 +3,13 @@ import { useEffect, useState } from 'react';
 /** Filas por página en las listas de la aplicación. */
 export const DEFAULT_PAGE_SIZE = 20;
 
+/**
+ * Filas por página de una lista DENTRO de una ventana (`Modal`): pocas, para
+ * que la ventana no crezca ni se mueva al abrirla o al buscar
+ * (docs/PANTALLAS.md, regla 2).
+ */
+export const MODAL_PAGE_SIZE = 4;
+
 export interface PaginationState<T> {
   /** Solo las filas de la página actual: es lo que se dibuja. */
   pageItems: T[];

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { PurchaseOrderPayload } from '../../types/purchase-orders';
+import type { PurchaseOrderPayload, PurchaseOrderSummary } from '../../types/purchase-orders';
 import { PurchaseOrderDetail } from './PurchaseOrderDetail';
 import { PurchaseOrderForm } from './PurchaseOrderForm';
+import { OrderProductsModal } from './OrderProductsModal';
 import { PurchaseOrderHistory } from './PurchaseOrderHistory';
 import { usePurchaseOrders } from './use-purchase-orders';
 
@@ -31,6 +32,8 @@ export function OrdersSection() {
     dismissNotice,
   } = usePurchaseOrders();
   const [formOpen, setFormOpen] = useState(false);
+  /** Pedido cuyos productos se están viendo («N productos» del historial). */
+  const [productsOf, setProductsOf] = useState<PurchaseOrderSummary | null>(null);
 
   async function handleSubmit(payload: PurchaseOrderPayload): Promise<void> {
     if (await createOrder(payload)) {
@@ -103,6 +106,10 @@ export function OrdersSection() {
         />
       )}
 
+      {productsOf === null ? null : (
+        <OrderProductsModal order={productsOf} onClose={() => setProductsOf(null)} />
+      )}
+
       {phase === 'loading' ? <p className="card muted">Cargando pedidos…</p> : null}
 
       {phase === 'failed' ? (
@@ -124,6 +131,7 @@ export function OrdersSection() {
           filter={filter}
           busy={busy}
           onFilterChange={setFilter}
+          onShowProducts={setProductsOf}
           onOpen={(id) => {
             setFormOpen(false);
             void openOrder(id);

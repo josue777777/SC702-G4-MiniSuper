@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal } from '../../components/Modal';
 import { Pagination } from '../../components/Pagination';
-import { usePagination } from '../../components/use-pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { NavIcon } from '../../layouts/NavIcon';
 import type { LabelRequest } from '../../types/labels';
 import type { Product } from '../../types/products';
@@ -395,7 +395,7 @@ function ProductQuantities({
   emptyText,
   onClear,
 }: ProductQuantitiesProps) {
-  const pages = usePagination(products, products.length);
+  const pages = usePagination(products, products.length, MODAL_PAGE_SIZE);
   const anyChosen = Object.values(quantities).some((quantity) => quantity > 0);
 
   return (

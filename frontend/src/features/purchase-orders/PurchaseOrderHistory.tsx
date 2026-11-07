@@ -23,6 +23,8 @@ interface PurchaseOrderHistoryProps {
   busy: boolean;
   onFilterChange: (supplierId: string) => void;
   onOpen: (id: string) => void;
+  /** «N productos»: abre solo la lista de productos de ese pedido. */
+  onShowProducts: (order: PurchaseOrderSummary) => void;
 }
 
 /**
@@ -39,6 +41,7 @@ export function PurchaseOrderHistory({
   busy,
   onFilterChange,
   onOpen,
+  onShowProducts,
 }: PurchaseOrderHistoryProps) {
   const [filters, setFilters] = useState<OrderFilters>(EMPTY_ORDER_FILTERS);
   const visible = filterOrders(orders, filters);
@@ -161,8 +164,9 @@ export function PurchaseOrderHistory({
                   <td>{order.supplierName}</td>
                   <td>
                     {/*
-                      Uno se ve directo; si son varios, solo cuántos: la lista completa ya
-                      está en «Ver pedido», así la fila no crece (regla 4 de PANTALLAS.md).
+                      Uno se ve directo; si son varios, solo cuántos, y el botón abre SOLO
+                      esa lista (lo que se tocó), así la fila no crece (reglas 4 y 12).
+                      El pedido completo es «Ver pedido».
                     */}
                     {order.productNames.length === 1 ? (
                       order.productNames[0]
@@ -171,7 +175,7 @@ export function PurchaseOrderHistory({
                         type="button"
                         className="button"
                         aria-label={`Ver los ${order.productNames.length} productos del pedido ${formatOrderNumber(order.number)}`}
-                        onClick={() => onOpen(order.id)}
+                        onClick={() => onShowProducts(order)}
                       >
                         {order.productNames.length} productos
                       </button>

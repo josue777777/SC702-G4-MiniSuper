@@ -17,8 +17,10 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
+- **«N productos» en el historial**: abre solo la lista de productos del pedido (lo pedido y
+  lo recibido), de 4 en 4 (`OrderProductsModal.tsx`). El pedido completo es «Ver pedido».
 - **Nuevo pedido**: al elegir el proveedor, sus productos se ven de 4 en 4 con un buscador
-  (`ORDER_PRODUCTS_PAGE_SIZE` en `PurchaseOrderForm.tsx`); las cantidades escritas se
+  (`MODAL_PAGE_SIZE`, la regla de las listas en una ventana); las cantidades escritas se
   conservan al cambiar de página o de búsqueda y el total suma todo el pedido.
 - **Documento del pedido** (Imprimir / Guardar PDF): encabezado y pie con los datos del
   negocio y su logo (`features/business/BusinessDocument.tsx`), y la constancia con

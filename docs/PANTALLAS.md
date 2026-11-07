@@ -75,6 +75,12 @@ const pages = usePagination(visibles, busqueda); // 20 por página; vuelve a la 
   salta a cualquier página sin pasar por todas. Con muchas páginas se ven solo
   la primera, la última y las vecinas de la actual. No dibuja nada si todo cabe
   en una página.
+- **Dentro de una ventana, de 4 en 4** (`MODAL_PAGE_SIZE`): una lista en un
+  `Modal` (los productos de un proveedor o de un pedido, los de «Nuevo pedido»,
+  las etiquetas elegidas) va con `usePagination(lista, clave, MODAL_PAGE_SIZE)`,
+  para que la ventana no crezca ni se mueva. Si la lista puede pasar de una
+  página, lleva también su buscador. Un documento para imprimir (el pedido) va
+  completo: en el papel no hay páginas que pasar.
 
 ### En el navegador o en el servidor
 
@@ -132,8 +138,9 @@ de la fila (por ejemplo, los productos de un proveedor) la estira, mueve la
 pantalla al abrirla o al guardar y no escala: un proveedor puede tener cientos
 de productos. En la celda va solo el resumen como botón («12 productos») y la
 lista se abre en una ventana (`Modal`), con su buscador y sus páginas si puede
-crecer. Si la fila ya tiene una ventana con todo el detalle («Ver pedido»), el
-resumen abre esa misma (una tarea, un lugar).
+crecer. La ventana muestra **solo lo que se tocó** (regla 12): «2 productos» abre
+la lista de productos, no el pedido entero; para todo el detalle está «Ver
+pedido».
 
 **Dentro de una ventana (`Modal`) tampoco se despliega nada.** La ventana
 tiene un alto fijo y está centrada: un `<details>` que se abre la estira, la
@@ -149,7 +156,7 @@ Ejemplos ya aplicados:
 | Pantalla | Se muestra de entrada | Se abre a pedido |
 | --- | --- | --- |
 | Proveedores | Botón «14 productos» | Ventana con los productos, su costo y cuál es principal |
-| Pedidos | El producto, si es uno; si son varios, botón «2 productos» | El pedido completo («Ver pedido») |
+| Pedidos | El producto, si es uno; si son varios, botón «2 productos» | Ventana con solo los productos del pedido, de 4 en 4 (el pedido completo es «Ver pedido») |
 | Conteo físico (ventana) | El formulario para contar | Enlace a Reportes › Conteos (el historial es otra tarea) |
 | Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) |
 
