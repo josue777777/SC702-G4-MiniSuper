@@ -325,3 +325,23 @@ test('el historial se filtra por estado, período y búsqueda (pedido, factura o
   await expect(page.getByText('Ningún pedido cumple los filtros.')).toBeVisible();
   await saveEvidence(page, 'HU-38', 'historial-filtros.png');
 });
+
+test('cancelar el selector de archivos no cierra la ventana; Esc sí', async ({ page }) => {
+  await createOrder(page);
+  await openOrder(page);
+  await orderDialog(page).getByRole('button', { name: '📦 Registrar entrega' }).click();
+  await receiptDialog(page).getByLabel('N.º de factura').fill('F-900');
+  await receiptDialog(page)
+    .getByRole('button', { name: 'Registrar y cargar al inventario' })
+    .click();
+  await expect(receiptDialog(page)).toHaveCount(0);
+
+  // El navegador avisa «cancel» (y sube por la página) al cerrar el selector sin elegir.
+  await orderDialog(page)
+    .getByLabel('Adjuntar factura del proveedor F-900')
+    .evaluate((input) => input.dispatchEvent(new Event('cancel', { bubbles: true })));
+  await expect(orderDialog(page)).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(orderDialog(page)).toHaveCount(0);
+});
