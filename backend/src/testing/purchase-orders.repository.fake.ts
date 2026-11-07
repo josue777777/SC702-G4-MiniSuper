@@ -3,6 +3,7 @@ import type {
   CreatePurchaseOrderPlan,
   PurchaseOrderDto,
   PurchaseOrderSummaryDto,
+  ReceiptInvoiceFile,
   ReceiveOrderPlan,
   SupplierCatalog,
 } from '../types/purchase-orders.js';
@@ -91,6 +92,7 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
       })),
       receivedOn: null,
       pendingLoads: 0,
+      invoiceNumbers: [],
       receipts: [],
     };
     this.orders.push(order);
@@ -114,6 +116,7 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
           createdAt: order.createdAt,
           receivedOn: order.receivedOn,
           pendingLoads: order.pendingLoads,
+          invoiceNumbers: order.receipts.map((receipt) => receipt.invoiceNumber),
         }))
         .reverse(),
     );
@@ -154,7 +157,9 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
         productName: PRODUCTS[item.productId]?.name ?? '?',
         quantity: item.quantity,
       })),
+      invoiceFile: null,
     });
+    order.invoiceNumbers = order.receipts.map((receipt) => receipt.invoiceNumber);
 
     if (plan.loadNow) {
       this.loadReasons.push(plan.reason);
@@ -199,6 +204,37 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
     order.receivedOn = order.receipts[0]?.receivedOn ?? null;
 
     return Promise.resolve(order);
+  }
+
+  /** Facturas adjuntas, por id de la entrega. */
+  readonly invoiceFiles = new Map<string, ReceiptInvoiceFile>();
+
+  setReceiptInvoice(
+    orderId: string,
+    receiptId: string,
+    file: ReceiptInvoiceFile,
+  ): Promise<PurchaseOrderDto> {
+    const order = this.orderOrThrow(orderId);
+    const receipt = order.receipts.find((candidate) => candidate.id === receiptId);
+
+    if (receipt === undefined) {
+      throw HttpError.notFound('La entrega no existe.');
+    }
+
+    this.invoiceFiles.set(receiptId, file);
+    receipt.invoiceFile = {
+      name: file.name,
+      mimeType: file.mimeType,
+      uploadedAt: new Date().toISOString(),
+    };
+
+    return Promise.resolve(order);
+  }
+
+  findReceiptInvoice(orderId: string, receiptId: string): Promise<ReceiptInvoiceFile | null> {
+    this.orderOrThrow(orderId);
+
+    return Promise.resolve(this.invoiceFiles.get(receiptId) ?? null);
   }
 
   private orderOrThrow(id: string): PurchaseOrderDto {

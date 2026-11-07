@@ -25,6 +25,7 @@ export function OrdersSection() {
     openOrder,
     closeOrder,
     receiveOrder,
+    attachInvoice,
     loadReceipt,
     concludeOrder,
     dismissNotice,
@@ -53,8 +54,11 @@ export function OrdersSection() {
         </button>
       </div>
 
-      {/* Con el formulario abierto, el error se ve dentro de la ventana modal. */}
-      {notice === null || (formOpen && notice.kind === 'error') ? null : (
+      {/*
+        Con el formulario abierto, el error se ve dentro de su ventana; con un
+        pedido abierto, todos los avisos se ven dentro de «Ver pedido».
+      */}
+      {notice === null || selected !== null || (formOpen && notice.kind === 'error') ? null : (
         <p className={`alert alert--${notice.kind}`} role="status">
           {notice.text}
           <button
@@ -86,7 +90,12 @@ export function OrdersSection() {
           order={selected}
           busy={busy}
           onClose={closeOrder}
-          onReceive={(payload) => receiveOrder(selected, payload)}
+          notice={notice}
+          onDismissNotice={dismissNotice}
+          onReceive={(payload, invoice) => receiveOrder(selected, payload, invoice)}
+          onAttachInvoice={(receiptId, invoiceNumber, file) =>
+            attachInvoice(selected, receiptId, invoiceNumber, file)
+          }
           onLoadReceipt={(receiptId, invoiceNumber) =>
             loadReceipt(selected, receiptId, invoiceNumber)
           }

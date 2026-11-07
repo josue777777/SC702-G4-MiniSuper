@@ -4,7 +4,7 @@ import type {
   PurchaseOrderSummary,
   ReceiveOrderPayload,
 } from '../types/purchase-orders';
-import { apiGet, apiPost } from './api-client';
+import { apiDownload, apiGet, apiPost, apiRequest } from './api-client';
 
 /**
  * Service de pedidos a proveedor (HU-22, HU-24) y sus entregas (HU-38): único
@@ -57,6 +57,30 @@ export const purchaseOrdersService = {
     );
 
     return response.data;
+  },
+
+  /**
+   * HU-38: adjunta (o reemplaza) la factura del proveedor de una entrega. El
+   * cuerpo son los bytes del archivo; el nombre va en `X-File-Name`.
+   */
+  async attachInvoice(id: string, receiptId: string, file: File): Promise<PurchaseOrder> {
+    const response = await apiRequest<DataResponse<PurchaseOrder>>(
+      `/api/purchase-orders/${id}/receipts/${receiptId}/invoice`,
+      {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type, 'X-File-Name': encodeURIComponent(file.name) },
+      },
+    );
+
+    return response.data;
+  },
+
+  /** HU-38: la factura adjunta, como archivo, para verla en pantalla o descargarla. */
+  async invoiceFile(id: string, receiptId: string): Promise<Blob> {
+    return (
+      await apiDownload(`/api/purchase-orders/${id}/receipts/${receiptId}/invoice`, 'factura')
+    ).blob;
   },
 
   /** HU-38: dar por concluido un pedido que llegó en parte. */

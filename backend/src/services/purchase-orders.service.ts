@@ -4,12 +4,15 @@ import type {
   MoneyLine,
   PurchaseOrderDto,
   PurchaseOrderSummaryDto,
+  ReceiptInvoiceFile,
 } from '../types/purchase-orders.js';
-import { dateToDateOnly, todayInBusinessZone } from '../utils/dates.js';
+import { hasInvoiceSignature } from '../utils/invoice-file.js';
+import { todayInBusinessZone } from '../utils/dates.js';
 import { HttpError } from '../utils/http-error.js';
 import type {
   CreatePurchaseOrderInput,
   ListPurchaseOrdersQuery,
+  ReceiptInvoiceInput,
   ReceiveOrderInput,
 } from '../validators/purchase-orders.validator.js';
 
@@ -140,7 +143,8 @@ export class PurchaseOrdersService {
       });
     }
 
-    if (input.receivedOn < dateToDateOnly(new Date(order.createdAt))) {
+    // El día del pedido en Costa Rica: un pedido de las 8 p. m. ya es «mañana» en UTC.
+    if (input.receivedOn < todayInBusinessZone(new Date(order.createdAt))) {
       throw HttpError.badRequest('La mercadería no puede llegar antes de hacer el pedido.', {
         receivedOn: ['La mercadería no puede llegar antes de hacer el pedido.'],
       });
@@ -189,6 +193,33 @@ export class PurchaseOrdersService {
       receiptId,
       receiptReason(order.number, receipt.invoiceNumber),
     );
+  }
+
+  /**
+   * HU-38 — adjuntar la factura del proveedor a una entrega (al registrarla o
+   * después). Se rechaza un archivo cuyo contenido no es del tipo que dice ser.
+   */
+  async attachReceiptInvoice(
+    id: string,
+    receiptId: string,
+    input: ReceiptInvoiceInput,
+  ): Promise<PurchaseOrderDto> {
+    if (!hasInvoiceSignature(input.mimeType, input.data)) {
+      throw HttpError.badRequest('El archivo no es un PDF ni una imagen válida.');
+    }
+
+    return this.repository.setReceiptInvoice(id, receiptId, input);
+  }
+
+  /** HU-38 — la factura adjunta de una entrega, para verla o descargarla. */
+  async getReceiptInvoice(id: string, receiptId: string): Promise<ReceiptInvoiceFile> {
+    const file = await this.repository.findReceiptInvoice(id, receiptId);
+
+    if (file === null) {
+      throw HttpError.notFound('Esta entrega no tiene factura adjunta.');
+    }
+
+    return file;
   }
 
   /** HU-38 — dar por concluido un pedido que llegó en parte. */

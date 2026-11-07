@@ -1,19 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '../../components/Modal';
-import type { PurchaseOrder, ReceiveOrderPayload } from '../../types/purchase-orders';
+import { purchaseOrdersService } from '../../services/purchase-orders.service';
+import type {
+  PurchaseOrder,
+  PurchaseReceipt,
+  ReceiveOrderPayload,
+} from '../../types/purchase-orders';
+import type { Notice } from '../products/use-products';
 import { useSession } from '../auth/session-context';
 import { formatDateOnly, formatDateTime } from '../inventory/inventory-count';
 import { LabelPrintModal } from '../labels/LabelPrintModal';
 import { formatMoney } from '../products/money';
+import { INVOICE_ACCEPT, invoiceFileError } from './invoice-file';
+import { InvoicePreview } from './InvoicePreview';
 import { formatOrderNumber, STATUS_LABELS } from './purchase-order-form';
 import { ReceiveOrderModal } from './ReceiveOrderModal';
 
 interface PurchaseOrderDetailProps {
   order: PurchaseOrder;
   busy: boolean;
+  /** Aviso de la última acción (se ve aquí, dentro de la ventana). */
+  notice: Notice | null;
+  onDismissNotice: () => void;
   onClose: () => void;
   /** HU-38: cada acción devuelve el error del servidor, o `null` si salió bien. */
-  onReceive: (payload: ReceiveOrderPayload) => Promise<string | null>;
+  onReceive: (payload: ReceiveOrderPayload, invoice: File | null) => Promise<string | null>;
+  onAttachInvoice: (receiptId: string, invoiceNumber: string, file: File) => Promise<string | null>;
   onLoadReceipt: (receiptId: string, invoiceNumber: string) => Promise<string | null>;
   onConclude: () => Promise<string | null>;
 }
@@ -57,8 +69,11 @@ function printOrder(): void {
 export function PurchaseOrderDetail({
   order,
   busy,
+  notice,
+  onDismissNotice,
   onClose,
   onReceive,
+  onAttachInvoice,
   onLoadReceipt,
   onConclude,
 }: PurchaseOrderDetailProps) {
@@ -68,6 +83,7 @@ export function PurchaseOrderDetail({
   const [receiving, setReceiving] = useState(false);
   const [confirmingConclude, setConfirmingConclude] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<PurchaseReceipt | null>(null);
   const missing = order.items.reduce((sum, item) => sum + item.pendingQuantity, 0);
 
   async function run(action: () => Promise<string | null>): Promise<void> {
@@ -188,7 +204,7 @@ export function PurchaseOrderDetail({
                   <th>Factura</th>
                   <th>Llegó</th>
                   <th>Productos</th>
-                  <th>Inventario</th>
+                  <th>Inventario y factura</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,23 +220,46 @@ export function PurchaseOrderDetail({
                         .join(' · ')}
                     </td>
                     <td>
-                      {receipt.loadedAt === null ? (
-                        <button
-                          type="button"
-                          className="button button--primary"
-                          disabled={busy}
-                          aria-label={`Cargar al inventario la factura ${receipt.invoiceNumber}`}
-                          onClick={() =>
-                            void run(() => onLoadReceipt(receipt.id, receipt.invoiceNumber))
-                          }
-                        >
-                          Cargar al inventario
-                        </button>
-                      ) : (
-                        <span className="badge badge--ok">
-                          Cargada · {formatDateTime(receipt.loadedAt)}
-                        </span>
-                      )}
+                      <div className="row-actions">
+                        {receipt.loadedAt === null ? (
+                          <button
+                            type="button"
+                            className="button button--primary"
+                            disabled={busy}
+                            aria-label={`Cargar al inventario la factura ${receipt.invoiceNumber}`}
+                            onClick={() =>
+                              void run(() => onLoadReceipt(receipt.id, receipt.invoiceNumber))
+                            }
+                          >
+                            Cargar al inventario
+                          </button>
+                        ) : (
+                          <span className="badge badge--ok">
+                            Cargada · {formatDateTime(receipt.loadedAt)}
+                          </span>
+                        )}
+                        {receipt.invoiceFile === null ? (
+                          <AttachInvoiceButton
+                            receipt={receipt}
+                            busy={busy}
+                            onPick={(file) =>
+                              void run(() =>
+                                onAttachInvoice(receipt.id, receipt.invoiceNumber, file),
+                              )
+                            }
+                            onInvalid={setError}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="button"
+                            aria-label={`Ver factura del proveedor ${receipt.invoiceNumber}`}
+                            onClick={() => setViewing(receipt)}
+                          >
+                            📄 Ver factura proveedor
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -273,6 +312,20 @@ export function PurchaseOrderDetail({
         </p>
       )}
 
+      {notice === null ? null : (
+        <p className={`alert alert--${notice.kind}`} role="status">
+          {notice.text}
+          <button
+            type="button"
+            className="alert__close"
+            onClick={onDismissNotice}
+            aria-label="Cerrar aviso"
+          >
+            ×
+          </button>
+        </p>
+      )}
+
       <div className="form__actions">
         {order.status === 'RECEIVED' ? null : (
           <button
@@ -310,6 +363,18 @@ export function PurchaseOrderDetail({
         </button>
       </div>
 
+      {viewing === null ? null : (
+        <InvoiceViewer
+          order={order}
+          receipt={viewing}
+          busy={busy}
+          onReplace={(file) =>
+            void run(() => onAttachInvoice(viewing.id, viewing.invoiceNumber, file))
+          }
+          onClose={() => setViewing(null)}
+        />
+      )}
+
       {receiving ? (
         <ReceiveOrderModal
           order={order}
@@ -332,6 +397,133 @@ export function PurchaseOrderDetail({
           onClose={() => setLabelling(false)}
         />
       ) : null}
+    </Modal>
+  );
+}
+
+/**
+ * «Adjuntar factura» de una entrega que todavía no la tiene: abre el selector
+ * de archivos del dispositivo y adjunta el PDF o la foto elegida.
+ */
+function AttachInvoiceButton({
+  receipt,
+  busy,
+  onPick,
+  onInvalid,
+}: {
+  receipt: PurchaseReceipt;
+  busy: boolean;
+  onPick: (file: File) => void;
+  onInvalid: (message: string) => void;
+}) {
+  return (
+    <label className={busy ? 'button button--disabled' : 'button'}>
+      📎 Adjuntar factura
+      <input
+        type="file"
+        className="visually-hidden"
+        accept={INVOICE_ACCEPT}
+        disabled={busy}
+        aria-label={`Adjuntar factura del proveedor ${receipt.invoiceNumber}`}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+
+          event.target.value = '';
+
+          if (file === undefined) {
+            return;
+          }
+
+          const problem = invoiceFileError(file);
+
+          if (problem === null) {
+            onPick(file);
+          } else {
+            onInvalid(problem);
+          }
+        }}
+      />
+    </label>
+  );
+}
+
+/**
+ * La factura del proveedor de una entrega, en su propia ventana: se pide al
+ * servidor al abrirla y se muestra con el mismo visor que al registrar. Desde
+ * aquí también se reemplaza (si se adjuntó la equivocada).
+ */
+function InvoiceViewer({
+  order,
+  receipt,
+  busy,
+  onReplace,
+  onClose,
+}: {
+  order: PurchaseOrder;
+  receipt: PurchaseReceipt;
+  busy: boolean;
+  onReplace: (file: File) => void;
+  onClose: () => void;
+}) {
+  const [file, setFile] = useState<Blob | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const uploadedAt = receipt.invoiceFile?.uploadedAt;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    purchaseOrdersService
+      .invoiceFile(order.id, receipt.id)
+      .then((blob) => {
+        if (!cancelled) {
+          setFile(blob);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFailed('No se pudo abrir la factura. Intente de nuevo.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Al reemplazarla cambia la fecha: se vuelve a pedir.
+  }, [order.id, receipt.id, uploadedAt]);
+
+  return (
+    <Modal title={`Factura del proveedor · ${receipt.invoiceNumber}`} size="wide" onClose={onClose}>
+      {failed !== null ? <p className="alert alert--error">{failed}</p> : null}
+      {file === null && failed === null ? <p className="muted">Abriendo la factura…</p> : null}
+      {file === null ? null : (
+        <InvoicePreview file={file} name={receipt.invoiceFile?.name ?? 'factura'} />
+      )}
+      <div className="form__actions">
+        <label className={busy ? 'button button--disabled' : 'button'}>
+          Reemplazar archivo
+          <input
+            type="file"
+            className="visually-hidden"
+            accept={INVOICE_ACCEPT}
+            disabled={busy}
+            aria-label={`Reemplazar factura del proveedor ${receipt.invoiceNumber}`}
+            onChange={(event) => {
+              const picked = event.target.files?.[0];
+
+              event.target.value = '';
+
+              if (picked !== undefined && invoiceFileError(picked) === null) {
+                onReplace(picked);
+              } else if (picked !== undefined) {
+                setFailed(invoiceFileError(picked));
+              }
+            }}
+          />
+        </label>
+        <button type="button" className="button" onClick={onClose}>
+          Cerrar
+        </button>
+      </div>
     </Modal>
   );
 }

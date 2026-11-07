@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PurchaseOrderFields, ReceiveOrderFields } from '../types/purchase-orders.js';
+import { INVOICE_FILE_TYPES, MAX_INVOICE_FILE_BYTES } from '../utils/invoice-file.js';
 
 /**
  * Esquemas Zod de los pedidos a proveedor (HU-22, HU-24).
@@ -115,6 +116,27 @@ export const receiveOrderSchema = z
       });
     }
   });
+
+/**
+ * Factura del proveedor adjunta a una entrega (HU-38): tipo de la cabecera
+ * `Content-Type`, bytes del cuerpo y nombre de `X-File-Name`. Que los bytes sean
+ * de ese tipo lo revisa el service mirando la firma.
+ */
+export const receiptInvoiceSchema = z.object({
+  mimeType: z.enum(INVOICE_FILE_TYPES, {
+    error: 'Solo se aceptan facturas en PDF o en imagen (PNG, JPG o WEBP).',
+  }),
+  name: z.string(),
+  data: z
+    .instanceof(Uint8Array, { error: 'Adjunte el archivo de la factura.' })
+    .refine((data) => data.length > 0, 'Adjunte el archivo de la factura.')
+    .refine(
+      (data) => data.length <= MAX_INVOICE_FILE_BYTES,
+      'La factura supera el máximo de 5 MB.',
+    ),
+});
+
+export type ReceiptInvoiceInput = z.infer<typeof receiptInvoiceSchema>;
 
 export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;
 export type ReceiveOrderInput = z.infer<typeof receiveOrderSchema>;

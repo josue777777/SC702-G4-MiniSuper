@@ -156,6 +156,31 @@ describe.skipIf(!databaseName.endsWith('_test'))(
       );
     });
 
+    it('la factura adjunta se guarda y solo la ve el negocio del pedido', async () => {
+      const pdf = new Uint8Array(Buffer.from('%PDF-1.4 factura de prueba'));
+      const saved = await service.attachReceiptInvoice(ids['order'] ?? '', ids['pending'] ?? '', {
+        mimeType: 'application/pdf',
+        name: 'F-101.pdf',
+        data: pdf,
+      });
+
+      expect(saved.receipts[0]?.invoiceFile).toMatchObject({ name: 'F-101.pdf' });
+      expect(
+        (await service.getReceiptInvoice(ids['order'] ?? '', ids['pending'] ?? '')).data,
+      ).toEqual(pdf);
+
+      const other = new PurchaseOrdersRepository(B);
+
+      expect(await other.findReceiptInvoice(ids['order'] ?? '', ids['pending'] ?? '')).toBeNull();
+      await expect(
+        other.setReceiptInvoice(ids['order'] ?? '', ids['pending'] ?? '', {
+          mimeType: 'application/pdf',
+          name: 'x.pdf',
+          data: pdf,
+        }),
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
     it('otro negocio no ve ni recibe el pedido', async () => {
       const other = new PurchaseOrdersService(new PurchaseOrdersRepository(B));
 

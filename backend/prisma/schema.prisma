@@ -635,6 +635,14 @@ model PurchaseReceipt {
   receivedOn      DateTime  @db.Date
   /// Cuándo se cargó al inventario; nulo = carga pendiente.
   loadedAt        DateTime?
+  /// Factura del proveedor escaneada o en PDF (hasta 5 MB). Se puede adjuntar al
+  /// registrar la entrega o después; la lista nunca selecciona los bytes.
+  invoiceFileData Bytes?
+  /// Solo application/pdf, image/png, image/jpeg o image/webp.
+  invoiceFileType String?
+  /// Nombre del archivo como lo subió la persona (para descargarlo igual).
+  invoiceFileName String?
+  invoiceFileAt   DateTime?
   createdAt       DateTime  @default(now())
 
   purchaseOrder      PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
