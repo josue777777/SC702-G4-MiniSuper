@@ -1,5 +1,6 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Modal } from '../../components/Modal';
+import { MAX_SUGGESTIONS } from '../../components/use-pagination';
 import { ApiError } from '../../services/api-client';
 import { salesService } from '../../services/sales.service';
 import type { SaleProduct } from '../../types/sales';
@@ -69,7 +70,8 @@ export function ProductSearchModal({ initialTerm = '', onPick, onClose }: Produc
     };
   }, [wanted]);
 
-  const products = state.phase === 'ready' ? state.products : [];
+  // Como mucho 6 resultados (regla 2): para otro, se escribe más del nombre o el código.
+  const products = (state.phase === 'ready' ? state.products : []).slice(0, MAX_SUGGESTIONS);
 
   function pick(product: SaleProduct | undefined): void {
     if (product !== undefined && product.stock > 0) {

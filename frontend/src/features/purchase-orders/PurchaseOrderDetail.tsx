@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { purchaseOrdersService } from '../../services/purchase-orders.service';
 import type {
   PurchaseOrder,
@@ -8,6 +10,7 @@ import type {
 } from '../../types/purchase-orders';
 import type { Notice } from '../products/use-products';
 import { useSession } from '../auth/session-context';
+import { BusinessDocumentFooter, BusinessDocumentHeader } from '../business/BusinessDocument';
 import { formatDateOnly, formatDateTime } from '../inventory/inventory-count';
 import { LabelPrintModal } from '../labels/LabelPrintModal';
 import { formatMoney } from '../products/money';
@@ -45,9 +48,12 @@ function printOrder(): void {
 /**
  * Detalle completo de un pedido (HU-22) y documento del pedido (HU-24).
  *
- * El documento se imprime para entregarlo al proveedor: trae la cantidad
- * solicitada y una columna «Cant. recibida» en blanco, más espacio para nombre,
- * fecha y firma de quien recibe. Ese papel respalda la entrada de mercadería que
+ * En pantalla es la información del pedido: datos, productos (con lo recibido)
+ * y entregas. Al imprimirlo para el proveedor, el papel trae además la columna
+ * «Cant. recibida» en blanco (si no llegó nada), el encabezado y el pie del
+ * negocio (logo y datos de Configuración › General) y la constancia: «Generado
+ * por» con el usuario de la sesión, y fecha de recepción y firma para llenar a
+ * mano (`print-only`). Ese papel respalda la entrada de mercadería que
  * después se registra en el sistema.
  *
  * «Imprimir / Guardar PDF» abre el diálogo de impresión del navegador, que
@@ -78,12 +84,16 @@ export function PurchaseOrderDetail({
   onConclude,
 }: PurchaseOrderDetailProps) {
   const contact = [order.supplierPhone, order.supplierEmail].filter(Boolean).join(' · ');
-  const { can } = useSession();
+  const { can, user } = useSession();
   const [labelling, setLabelling] = useState(false);
   const [receiving, setReceiving] = useState(false);
   const [confirmingConclude, setConfirmingConclude] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<PurchaseReceipt | null>(null);
+  // En pantalla, de 4 en 4 (regla 2); el papel impreso lleva todos los productos.
+  const products = usePagination(order.items, order.id, MODAL_PAGE_SIZE);
+  const onPage = new Set(products.pageItems.map((item) => item.productId));
+  const receipts = usePagination(order.receipts, order.id, MODAL_PAGE_SIZE);
   const missing = order.items.reduce((sum, item) => sum + item.pendingQuantity, 0);
 
   async function run(action: () => Promise<string | null>): Promise<void> {
@@ -97,9 +107,9 @@ export function PurchaseOrderDetail({
       onClose={onClose}
     >
       <section className="print-area" aria-label="Documento del pedido">
-        <div className="print-only">
-          <h1>Pedido a proveedor {formatOrderNumber(order.number)}</h1>
-        </div>
+        <BusinessDocumentHeader title={`Pedido a proveedor ${formatOrderNumber(order.number)}`}>
+          <span>{formatDateTime(order.createdAt)}</span>
+        </BusinessDocumentHeader>
 
         <dl className="order-meta">
           <div>
@@ -137,6 +147,7 @@ export function PurchaseOrderDetail({
           )}
         </dl>
 
+        <h3 className="no-print">Productos</h3>
         <div className="table-wrapper">
           <table className="table" aria-label="Productos del pedido">
             <thead>
@@ -152,16 +163,27 @@ export function PurchaseOrderDetail({
             </thead>
             <tbody>
               {order.items.map((item) => (
-                <tr key={item.productId}>
+                <tr
+                  key={item.productId}
+                  className={onPage.has(item.productId) ? undefined : 'print-only-row'}
+                >
                   <td>{item.productCode}</td>
                   <td>{item.productName}</td>
                   <td className="table__number">{item.quantity}</td>
                   <td className="table__number">
-                    {/* Lo recibido en el sistema; en blanco, para anotarlo a mano en el papel. */}
+                    {/*
+                      Lo recibido en el sistema. Si todavía no llegó nada: en pantalla 0;
+                      en el papel impreso, una línea en blanco para anotarlo a mano.
+                    */}
                     {item.receivedQuantity > 0 ? (
                       item.receivedQuantity
                     ) : (
-                      <span className="write-in" aria-label="Para anotar a mano" />
+                      <>
+                        <span className="no-print">0</span>
+                        <span className="print-only">
+                          <span className="write-in" aria-label="Para anotar a mano" />
+                        </span>
+                      </>
                     )}
                   </td>
                   <td className="table__number">{formatMoney(item.unitCost)}</td>
@@ -179,19 +201,34 @@ export function PurchaseOrderDetail({
             </tfoot>
           </table>
         </div>
-
-        {/* Constancia de recepción: el papel firmado respalda la entrada que luego se registra. */}
-        <p className="muted hint">
-          Al recibir la mercadería, anote en «Cant. recibida» lo que realmente llegó y firme abajo.
-        </p>
-        <div className="order-reception">
-          {['Recibido por', 'Fecha de recepción', 'Firma'].map((label) => (
-            <div key={label}>
-              <span className="order-reception__line" />
-              <span className="order-reception__label">{label}</span>
-            </div>
-          ))}
+        <div className="no-print">
+          <Pagination {...products} itemLabel="productos" onPage={products.setPage} />
         </div>
+
+        {/*
+          Constancia: solo en el papel (imprimir o PDF). Sin instrucciones a propósito:
+          el mismo papel sirve para enviarlo al proveedor y para la revisión al recibir.
+          En pantalla no aporta: la entrega se registra aquí.
+        */}
+        <div className="print-only">
+          <div className="order-reception">
+            {/* Quién lo generó ya se sabe: va escrito. Lo demás se llena a mano. */}
+            <div>
+              <span className="order-reception__line order-reception__line--filled">
+                {user.name}
+              </span>
+              <span className="order-reception__label">Generado por</span>
+            </div>
+            {['Fecha de recepción', 'Firma'].map((label) => (
+              <div key={label}>
+                <span className="order-reception__line" />
+                <span className="order-reception__label">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <BusinessDocumentFooter generatedBy={user.name} />
       </section>
 
       {order.receipts.length === 0 ? null : (
@@ -208,7 +245,7 @@ export function PurchaseOrderDetail({
                 </tr>
               </thead>
               <tbody>
-                {order.receipts.map((receipt) => (
+                {receipts.pageItems.map((receipt) => (
                   <tr key={receipt.id}>
                     <td>
                       <strong>{receipt.invoiceNumber}</strong>
@@ -266,6 +303,12 @@ export function PurchaseOrderDetail({
               </tbody>
             </table>
           </div>
+          <Pagination
+            {...receipts}
+            itemLabel="entregas"
+            label="Páginas de entregas"
+            onPage={receipts.setPage}
+          />
         </section>
       )}
 

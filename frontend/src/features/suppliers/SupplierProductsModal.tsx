@@ -3,7 +3,7 @@ import { ListSearch } from '../../components/ListSearch';
 import { matchesSearch } from '../../components/list-search';
 import { Modal } from '../../components/Modal';
 import { Pagination } from '../../components/Pagination';
-import { usePagination } from '../../components/use-pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import type { Supplier } from '../../types/suppliers';
 import { formatMoney } from '../products/money';
 
@@ -12,8 +12,8 @@ interface SupplierProductsModalProps {
   onClose: () => void;
 }
 
-/** Desde cuántos productos vale la pena el buscador (con menos, se ven todos de una vez). */
-const SEARCH_FROM = 8;
+/** Con más de una página (más de 4), la lista lleva buscador (docs/PANTALLAS.md, regla 2). */
+const SEARCH_FROM = MODAL_PAGE_SIZE + 1;
 
 /**
  * Los productos que suministra UN proveedor, con su costo acordado (HU-21).
@@ -33,7 +33,7 @@ export function SupplierProductsModal({ supplier, onClose }: SupplierProductsMod
       ),
     [supplier.products, search],
   );
-  const pages = usePagination(rows, search);
+  const pages = usePagination(rows, search, MODAL_PAGE_SIZE);
 
   return (
     <Modal title={`Productos de ${supplier.name}`} size="wide" onClose={onClose}>

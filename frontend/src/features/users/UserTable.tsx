@@ -1,3 +1,5 @@
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import type { Role, UserListItem } from '../../types/auth';
 import { canManageRole, ROLE_LABELS } from './roles';
 
@@ -40,6 +42,9 @@ export function UserTable({
   onResetPassword,
   onSetActive,
 }: UserTableProps) {
+  // Vive en la ventana de Configuración: de 4 en 4 (regla 2).
+  const pages = usePagination(users, users.length, MODAL_PAGE_SIZE);
+
   return (
     <section className="card">
       <header className="card__header">
@@ -59,7 +64,7 @@ export function UserTable({
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => {
+            {pages.pageItems.map((user) => {
               const isSelf = user.id === currentUserId;
               const manageable = !isSelf && canManageRole(currentRole, user.role);
 
@@ -118,6 +123,8 @@ export function UserTable({
           </tbody>
         </table>
       </div>
+
+      <Pagination {...pages} itemLabel="usuarios" onPage={pages.setPage} />
     </section>
   );
 }

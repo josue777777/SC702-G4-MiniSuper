@@ -43,8 +43,10 @@ Guía completa: [`docs/PANTALLAS.md`](docs/PANTALLAS.md).
 
 - La pantalla abre mostrando la información; los formularios se piden con un
   botón y abren en una ventana (`Modal`).
-- Toda lista va paginada. Lo que crece sin límite (ventas, movimientos,
-  detalle de reportes) se pagina en el servidor.
+- Toda lista va paginada, con las mismas medidas en todo el sistema: 15 filas en
+  una pantalla, 4 dentro de una ventana y 6 sugerencias en un buscador
+  (`components/use-pagination.ts`). Lo que crece sin límite (ventas,
+  movimientos, detalle de reportes) se pagina en el servidor.
 - Buscadores y filtros se aplican solos, sin botón «Buscar» ni «Generar».
 - Lo secundario va plegado; los avisos aparecen solo cuando aplican. Dentro de una
   celda de tabla no se despliega nada: el resumen («12 productos») abre una ventana.

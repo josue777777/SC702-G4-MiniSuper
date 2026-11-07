@@ -2,13 +2,11 @@ import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent 
 import { useNavigate } from 'react-router-dom';
 import { matchesSearch } from '../../components/list-search';
 import { Modal } from '../../components/Modal';
+import { MAX_SUGGESTIONS } from '../../components/use-pagination';
 import { productsService } from '../../services/products.service';
 import type { Product } from '../../types/products';
 import { useSession } from '../auth/session-context';
 import { commandsFor, filterCommands, isCommandShortcut, type Command } from './commands';
-
-/** Cuántos productos se sugieren al escribir. */
-const MAX_PRODUCTS = 5;
 
 /** ¿Mac? Para mostrar ⌘ en lugar de Ctrl. */
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -84,13 +82,15 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   }, [canSearchProducts]);
 
   const term = text.trim();
+  // Como mucho 6 sugerencias (tareas primero): la ventana no crece; lo demás se
+  // encuentra escribiendo más (regla 2).
   const options: Option[] = [
     ...filterCommands(commands, text).map((command: Command) => command),
     ...(term === ''
       ? []
       : products
           .filter((product) => matchesSearch(term, product.code, product.name, product.barcode))
-          .slice(0, MAX_PRODUCTS)
+          .slice(0, MAX_SUGGESTIONS)
           .map((product) => ({
             id: `product-${product.id}`,
             label: `${product.code} · ${product.name}`,
@@ -100,7 +100,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
                 ? `/movimientos?productId=${encodeURIComponent(product.id)}`
                 : '/inventory',
           }))),
-  ];
+  ].slice(0, MAX_SUGGESTIONS);
   const current = Math.min(active, Math.max(0, options.length - 1));
 
   function go(option: Option | undefined): void {

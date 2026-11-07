@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { withDb } from '../support/db';
 import { BACKEND_URL } from '../support/env';
-import { saveEvidence } from '../support/evidence';
+import { evidencePath, saveEvidence } from '../support/evidence';
 import { resetCatalog, seedProducts, signInAsOwner, stockOf } from '../support/fixtures';
 
 /**
@@ -98,7 +98,7 @@ test('entrega parcial cargada ya, segunda con la carga pendiente y confirmada de
 
   const order = orderDialog(page);
 
-  await expect(order.getByText('Recibido en parte')).toBeVisible();
+  await expect(order.getByText('Parcial', { exact: true })).toBeVisible();
   await expect(order.getByText('Faltan 4 unidades.', { exact: false })).toBeVisible();
   expect(await stockOf('ARR-01')).toBe(46);
   expect(await stockOf('CAF-01')).toBe(22);
@@ -301,7 +301,7 @@ test('el historial se filtra por estado, período y búsqueda (pedido, factura o
 
   await expect(history.locator('tbody tr')).toHaveCount(2);
 
-  await filters.getByLabel('Estado').selectOption({ label: 'Recibidos en parte' });
+  await filters.getByLabel('Estado').selectOption({ label: 'Parciales' });
   await expect(history.locator('tbody tr')).toHaveCount(1);
   await expect(history).toContainText('PED-0001');
   await expect(page.getByText('1 de 2 pedidos')).toBeVisible();
@@ -324,4 +324,69 @@ test('el historial se filtra por estado, período y búsqueda (pedido, factura o
   await filters.getByLabel('Hasta').fill('2020-01-01');
   await expect(page.getByText('Ningún pedido cumple los filtros.')).toBeVisible();
   await saveEvidence(page, 'HU-38', 'historial-filtros.png');
+});
+
+test('cancelar el selector de archivos no cierra la ventana; Esc sí', async ({ page }) => {
+  await createOrder(page);
+  await openOrder(page);
+  await orderDialog(page).getByRole('button', { name: '📦 Registrar entrega' }).click();
+  await receiptDialog(page).getByLabel('N.º de factura').fill('F-900');
+  await receiptDialog(page)
+    .getByRole('button', { name: 'Registrar y cargar al inventario' })
+    .click();
+  await expect(receiptDialog(page)).toHaveCount(0);
+
+  // El navegador avisa «cancel» (y sube por la página) al cerrar el selector sin elegir.
+  await orderDialog(page)
+    .getByLabel('Adjuntar factura del proveedor F-900')
+    .evaluate((input) => input.dispatchEvent(new Event('cancel', { bubbles: true })));
+  await expect(orderDialog(page)).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(orderDialog(page)).toHaveCount(0);
+});
+
+test('«Ver pedido» en pantalla es información; el papel lleva el negocio, la firma y quién lo generó', async ({
+  page,
+}) => {
+  await withDb((client) =>
+    client.query(
+      `UPDATE "Business" SET "legalId" = '3-101-123456', phone = '2222-0000',
+         email = 'ventas@nuevoamanecer.example.com', address = 'San José, Costa Rica'
+       WHERE name = 'Abastecedor Nuevo Amanecer'`,
+    ),
+  );
+  await createOrder(page);
+  await openOrder(page);
+
+  const order = orderDialog(page);
+
+  await expect(order.getByRole('heading', { name: 'Productos' })).toBeVisible();
+  // La constancia y el pie (los dos dicen «Generado por») no se ven en pantalla.
+  await expect(order.locator('.order-reception')).toBeHidden();
+  await expect(order.locator('.business-document__footer')).toBeHidden();
+  // Nada llegó todavía: en pantalla «Cant. recibida» dice 0.
+  await expect(
+    order.getByRole('table', { name: 'Productos del pedido' }).locator('tbody tr').first(),
+  ).toContainText('0');
+
+  // Al imprimir (o guardar en PDF) solo queda el papel (`.print-area`).
+  await page.emulateMedia({ media: 'print' });
+  await page.evaluate(() => document.body.classList.add('printing-report'));
+
+  const paper = page.locator('.print-area');
+  const header = paper.locator('.business-document__header');
+  const footer = paper.locator('.business-document__footer');
+
+  await expect(header).toContainText('Abastecedor Nuevo Amanecer');
+  await expect(header).toContainText('Céd. 3-101-123456 · Tel. 2222-0000');
+  await expect(header).toContainText('Pedido a proveedor PED-0001');
+  await expect(paper.locator('.order-reception')).toContainText('Dueña de Prueba');
+  await expect(paper.locator('.order-reception')).toContainText('Generado por');
+  await expect(paper.locator('.order-reception')).toContainText('Firma');
+  // Sin instrucciones: el mismo papel sirve para enviarlo al proveedor y para revisar.
+  await expect(paper.getByText('Al recibir la mercadería', { exact: false })).toHaveCount(0);
+  await expect(footer).toContainText('Generado por Dueña de Prueba');
+  await expect(paper.getByText('Productos', { exact: true })).toBeHidden();
+  await page.pdf({ path: evidencePath('HU-38', 'pedido-a-proveedor.pdf'), format: 'Letter' });
 });

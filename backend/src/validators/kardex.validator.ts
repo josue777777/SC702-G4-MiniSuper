@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /** Esquemas Zod del Kardex (HU-31). Un incumplimiento responde `400` con el detalle por campo. */
 
-export const DEFAULT_MOVEMENTS_PAGE_SIZE = 25;
+export const DEFAULT_MOVEMENTS_PAGE_SIZE = 15;
 export const MAX_MOVEMENTS_PAGE_SIZE = 100;
 
 /** Tope de la página: mantiene el `skip` dentro del rango del entero de la base. */

@@ -9,7 +9,7 @@ Proveedores, Inventario, Pedidos, Movimientos y Reportes.
 | Principio | En una frase | Cómo se aplica aquí |
 | --- | --- | --- |
 | **Revelación progresiva** | Mostrar solo lo que se necesita en ese momento | Formularios en modal tras un botón; detalles plegados (`<details>`) |
-| **Paginación y carga diferida** | No dibujar ni pedir todo de una vez | Listas de 20 en 20 (`usePagination` + `Pagination`); selectores que sugieren pocos y buscan el resto |
+| **Paginación y carga diferida** | No dibujar ni pedir todo de una vez | Tablas de 15 en 15 en una pantalla y de 4 en 4 en una ventana (`usePagination` + `Pagination`); selectores que sugieren pocos y buscan el resto |
 | **Menos carga cognitiva** | Un objetivo claro por pantalla y buscar antes que recorrer | La pantalla es de consulta; un buscador en cada lista |
 
 ## Diseño del sistema: neutro, el color es para los estados
@@ -35,6 +35,10 @@ Reglas:
 - **Solo tokens.** Una regla usa `var(--color-…)` y `var(--radius…)`; un color
   fijo nuevo en una regla es un error (el diseño ya no se podría cambiar en un
   solo lugar).
+- **Una acción es un botón.** «Descargar», «Ver en Reportes», «Ver pedidos»: van
+  con `.button` aunque sean un enlace (`<a>` o `<Link>`). Un enlace suelto solo
+  vive dentro de una frase, y toma el estilo del sistema (color del texto,
+  subrayado), nunca el azul del navegador.
 - **Bloques (bento) para el inicio.** El panel se arma en bloques: el más
   importante, más grande (`.bento`, `.bento__cell--critical/--warning`).
 - **Color personal.** En Configuración › Apariencia cada usuario puede cambiar el
@@ -59,7 +63,7 @@ Reglas:
 import { Pagination } from '../../components/Pagination';
 import { usePagination } from '../../components/use-pagination';
 
-const pages = usePagination(visibles, busqueda); // 20 por página; vuelve a la 1 si cambia la búsqueda
+const pages = usePagination(visibles, busqueda); // 15 por página; vuelve a la 1 si cambia la búsqueda
 
 {pages.pageItems.map((item) => <tr key={item.id}>…</tr>)}
 <Pagination {...pages} itemLabel="clientes" onPage={pages.setPage} />
@@ -72,11 +76,27 @@ const pages = usePagination(visibles, busqueda); // 20 por página; vuelve a la 
   la primera, la última y las vecinas de la actual. No dibuja nada si todo cabe
   en una página.
 
+**Cuántas filas por página: tres medidas para todo el sistema**
+(`components/use-pagination.ts`; nunca un número suelto en una pantalla):
+
+| Dónde | Cuántas | Constante | Por qué |
+| --- | --- | --- | --- |
+| Una tabla en una pantalla (Inventario, Clientes, Proveedores, historiales, Movimientos, «Ver detalle» de los reportes) | **15** | `DEFAULT_PAGE_SIZE` | Caben en una laptop sin bajar para llegar a la paginación. Igual si la página la arma el servidor: la pantalla manda `pageSize` |
+| Una tabla o lista dentro de una ventana (`Modal`) | **4** | `MODAL_PAGE_SIZE` | La ventana no crece ni se mueve al abrirla, buscar o cambiar de página |
+| Sugerencias de un buscador mientras se escribe (productos, barra de comandos, «Buscar producto» de la caja) | **6** | `MAX_SUGGESTIONS` | Suficientes para elegir; lo demás se encuentra escribiendo más |
+
+- Si una lista puede pasar de una página, lleva también su buscador.
+- Las cantidades que se escriben en una tabla paginada (un pedido, una entrega,
+  una devolución) se guardan por producto: no se pierden al cambiar de página.
+- Un **documento para imprimir** (el pedido a proveedor) va completo en el
+  papel: en pantalla se pagina, pero las filas de las otras páginas salen al
+  imprimir (`print-only-row`).
+
 ### En el navegador o en el servidor
 
 | | En el navegador (`usePagination`) | En el servidor (`page` y `pageSize`) |
 | --- | --- | --- |
-| Qué viaja | La lista completa; se muestran 20 | Solo las 20 de la página |
+| Qué viaja | La lista completa; se muestran 15 | Solo las 15 de la página |
 | Cuándo usarlo | Listas que no crecen sin límite: clientes, proveedores, productos | Lo que crece con el tiempo: ventas, movimientos, el detalle de los reportes |
 
 Pregunta guía: **¿esta lista va a tener miles de filas en un año?** Si la
@@ -128,8 +148,9 @@ de la fila (por ejemplo, los productos de un proveedor) la estira, mueve la
 pantalla al abrirla o al guardar y no escala: un proveedor puede tener cientos
 de productos. En la celda va solo el resumen como botón («12 productos») y la
 lista se abre en una ventana (`Modal`), con su buscador y sus páginas si puede
-crecer. Si la fila ya tiene una ventana con todo el detalle («Ver pedido»), el
-resumen abre esa misma (una tarea, un lugar).
+crecer. La ventana muestra **solo lo que se tocó** (regla 12): «2 productos» abre
+la lista de productos, no el pedido entero; para todo el detalle está «Ver
+pedido».
 
 **Dentro de una ventana (`Modal`) tampoco se despliega nada.** La ventana
 tiene un alto fijo y está centrada: un `<details>` que se abre la estira, la
@@ -145,7 +166,7 @@ Ejemplos ya aplicados:
 | Pantalla | Se muestra de entrada | Se abre a pedido |
 | --- | --- | --- |
 | Proveedores | Botón «14 productos» | Ventana con los productos, su costo y cuál es principal |
-| Pedidos | El producto, si es uno; si son varios, botón «2 productos» | El pedido completo («Ver pedido») |
+| Pedidos | El producto, si es uno; si son varios, botón «2 productos» | Ventana con solo los productos del pedido, de 4 en 4 (el pedido completo es «Ver pedido») |
 | Conteo físico (ventana) | El formulario para contar | Enlace a Reportes › Conteos (el historial es otra tarea) |
 | Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) |
 
@@ -173,6 +194,14 @@ Un documento (pedido, comprobante, reporte imprimible) se abre en `Modal`
 (`size="wide"` si tiene tabla), con «Imprimir» y «Cerrar» abajo. Nunca se
 inserta dentro de la página: empujaría la lista y se perdería la fila desde
 donde se abrió. El botón dice qué abre: «Ver pedido», «Ver comprobante».
+
+**Documentos del negocio.** Lo que se imprime o se guarda en PDF para entregar a
+otros (por ejemplo, el pedido a proveedor) lleva el encabezado y el pie del
+negocio: `BusinessDocumentHeader` (logo, nombre, cédula, teléfono, correo y
+dirección de Configuración › General, más el título y la fecha del documento) y
+`BusinessDocumentFooter` (los datos del negocio y «Generado por …» con el usuario
+de la sesión). Solo salen en el papel: en pantalla la ventana muestra la
+información, no una copia del documento.
 
 ## Regla 8: poco texto; la ayuda a pedido; los avisos solo cuando aplican
 
@@ -210,7 +239,7 @@ Cómo viajan los datos de un reporte (los comerciales y el de inventario):
 
 1. **Al generarlo** llega el resumen: totales, avisos y los gráficos ya
    calculados en el servidor. **No** llegan las filas, solo cuántas son.
-2. **Al abrir «Ver detalle»** se piden las filas de a 20 (`/rows?page=`); en
+2. **Al abrir «Ver detalle»** se piden las filas de a 15 (`/rows?page=`); en
    inventario, cada sección (productos, vencimientos, stock bajo) por su lado.
    Si nadie lo abre, no se descarga ninguna.
 3. **El PDF y el Excel** son el documento completo y piden todas. Si el PDF
@@ -326,7 +355,7 @@ permiso que su pantalla.
 - [ ] ¿Abre mostrando la lista y no un formulario?
 - [ ] ¿El formulario abre en `Modal` desde un botón y se cierra solo al guardar?
 - [ ] ¿La lista usa `Pagination`? ¿Y si va a crecer a miles de filas, se pagina en el servidor?
-- [ ] ¿Tiene buscador (`ListSearch`) si puede tener más de 20 filas?
+- [ ] ¿Tiene buscador (`ListSearch`) si puede tener más de una página?
 - [ ] ¿Muestra el total y un mensaje cuando no hay resultados?
 - [ ] ¿Los detalles largos están plegados? ¿Y nada se despliega dentro de una celda de tabla ni dentro de una ventana?
 - [ ] ¿Las tablas de pocas columnas usan `list-narrow`?

@@ -201,7 +201,7 @@ test('62 ventas, medianoche CR, paginación, rendimiento y aislamiento entre neg
   await page.getByRole('tab', { name: 'Historial del día' }).click();
   const history = page.getByRole('region', { name: 'Historial de ventas' });
   const table = history.getByRole('table');
-  await expect(table.locator('tbody tr')).toHaveCount(50);
+  await expect(table.locator('tbody tr')).toHaveCount(15);
   await expect(history.getByLabel('Día del historial')).toHaveValue(date);
   const measuredAt = performance.now();
   const loaded = page.waitForResponse(
@@ -209,7 +209,7 @@ test('62 ventas, medianoche CR, paginación, rendimiento y aislamiento entre neg
   );
   await history.getByRole('button', { name: 'Actualizar historial' }).click();
   await loaded;
-  await expect(table.locator('tbody tr')).toHaveCount(50);
+  await expect(table.locator('tbody tr')).toHaveCount(15);
   const elapsed = performance.now() - measuredAt;
   expect(elapsed).toBeLessThan(2000);
   console.info(`HU-20: historial con 62 ventas cargado en ${elapsed.toFixed(0)} ms.`);
@@ -222,8 +222,12 @@ test('62 ventas, medianoche CR, paginación, rendimiento y aislamiento entre neg
   await expect(history.getByRole('status', { name: 'Totales del día' })).toContainText(
     /6\s?200,00/,
   );
-  await history.getByRole('button', { name: 'Siguiente', exact: true }).click();
-  await expect(table.locator('tbody tr')).toHaveCount(12);
+  // 62 ventas de 15 en 15 (regla 2): la última página tiene las 2 primeras del día.
+  for (let next = 2; next <= 5; next += 1) {
+    await history.getByRole('button', { name: 'Siguiente', exact: true }).click();
+    await expect(history.getByText(`Página ${next} de 5`, { exact: false })).toBeVisible();
+  }
+  await expect(table.locator('tbody tr')).toHaveCount(2);
   await expect(table.locator('tbody tr').last()).toContainText('#1');
   await expect(table.locator('tbody tr').last()).toContainText('0:00:00');
   const response = await page.request.get(

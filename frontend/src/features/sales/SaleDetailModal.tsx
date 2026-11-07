@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { formatMoney } from '../products/money';
 import { PAYMENT_LABELS } from './payment-labels';
 import { formatSaleDateTime, saleStatusLabel } from './sale-format';
 import { useReceipt } from './use-receipt';
 
+/**
+ * Detalle de una venta del historial (HU-20). Sus productos y sus ajustes van de
+ * 4 en 4 (`MODAL_PAGE_SIZE`): una venta grande no estira la ventana.
+ */
 export function SaleDetailModal({
   saleId,
   onClose,
@@ -17,6 +23,8 @@ export function SaleDetailModal({
   const [attempt, setAttempt] = useState(0);
   const state = useReceipt(saleId, attempt);
   const sale = state.phase === 'ready' ? state.sale : null;
+  const items = usePagination(sale?.items ?? [], saleId, MODAL_PAGE_SIZE);
+  const adjustments = usePagination(sale?.adjustments ?? [], saleId, MODAL_PAGE_SIZE);
 
   return (
     <Modal
@@ -53,7 +61,7 @@ export function SaleDetailModal({
                 </tr>
               </thead>
               <tbody>
-                {sale.items.map((item) => (
+                {items.pageItems.map((item) => (
                   <tr key={item.id}>
                     <td>{item.code}</td>
                     <td>{item.name}</td>
@@ -66,6 +74,7 @@ export function SaleDetailModal({
               </tbody>
             </table>
           </div>
+          <Pagination {...items} itemLabel="productos" onPage={items.setPage} />
           <p>
             Total original: <strong>{formatMoney(sale.originalTotal)}</strong> · Total efectivo:{' '}
             <strong>{formatMoney(sale.total)}</strong>
@@ -84,7 +93,7 @@ export function SaleDetailModal({
             <p>Sin ajustes.</p>
           ) : (
             <ol className="sale-adjustment-history">
-              {sale.adjustments.map((adjustment) => (
+              {adjustments.pageItems.map((adjustment) => (
                 <li key={adjustment.id}>
                   <strong>
                     {adjustment.type === 'VOID' ? 'Anulación' : 'Devolución'} ·{' '}
@@ -102,6 +111,12 @@ export function SaleDetailModal({
               ))}
             </ol>
           )}
+          <Pagination
+            {...adjustments}
+            itemLabel="ajustes"
+            label="Páginas de ajustes"
+            onPage={adjustments.setPage}
+          />
           <div className="form__actions">
             <button
               type="button"

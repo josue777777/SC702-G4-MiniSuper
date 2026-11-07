@@ -6,7 +6,7 @@ import { resetCatalog, seedProducts, signInAsOwner } from '../support/fixtures';
 /**
  * Organización de pantallas (docs/PANTALLAS.md): la pantalla abre con la
  * lista, el formulario se pide con un botón y abre en modal, y las listas
- * largas tienen buscador y páginas de 20.
+ * largas tienen buscador y páginas de 15.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
   await signInAsOwner(page);
 });
 
-test('Clientes: lista primero, formulario en modal, buscador sin tildes y páginas de 20', async ({
+test('Clientes: lista primero, formulario en modal, buscador sin tildes y páginas de 15', async ({
   page,
 }) => {
   for (let index = 1; index <= 24; index += 1) {
@@ -30,12 +30,12 @@ test('Clientes: lista primero, formulario en modal, buscador sin tildes y págin
   // Abre con la lista: el formulario no está a la vista.
   const table = page.getByRole('table', { name: 'Clientes' });
 
-  await expect(table.getByRole('row')).toHaveCount(21); // encabezado + 20
+  await expect(table.getByRole('row')).toHaveCount(16); // encabezado + 15
   await expect(page.locator('#customer-name')).toHaveCount(0);
-  await expect(page.getByText('Mostrando 1–20 de 24 clientes')).toBeVisible();
+  await expect(page.getByText('Mostrando 1–15 de 24 clientes')).toBeVisible();
 
   await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(table.getByRole('row')).toHaveCount(5); // encabezado + 4
+  await expect(table.getByRole('row')).toHaveCount(10); // encabezado + 9
   await expect(table).toContainText('Cliente 24');
 
   // Crear en el modal: valida, guarda y se cierra.

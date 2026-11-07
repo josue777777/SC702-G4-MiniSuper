@@ -1,9 +1,13 @@
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { matchesSearch } from '../../components/list-search';
+import { ListSearch } from '../../components/ListSearch';
 import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
+import { ProductQuickSearch } from '../products/ProductQuickSearch';
 import type { Product } from '../../types/products';
 import type { SupplierFormValues, SupplierPayload } from '../../types/suppliers';
 import {
-  EMPTY_PRODUCT_ROW,
   hasSupplierErrors,
   toSupplierPayload,
   validateSupplierForm,
@@ -46,6 +50,10 @@ function Field({
  * registrar solo se piden los datos de contacto, porque el producto se liga a
  * su proveedor principal desde Inventario.
  * Se abre en una ventana modal, igual que los productos y los pedidos.
+ *
+ * Productos que suministra (al editar): se agregan BUSCANDO el producto
+ * (nunca con una lista desplegable de todo el catálogo) y se ven de 4 en 4 con
+ * su buscador, para que la ventana no crezca (docs/PANTALLAS.md, reglas 2 y 3).
  */
 export function SupplierForm({
   mode,
@@ -59,6 +67,21 @@ export function SupplierForm({
 }: SupplierFormProps) {
   const [values, setValues] = useState<SupplierFormValues>(initialValues);
   const [errors, setErrors] = useState<SupplierFormErrors>({});
+  const [productSearch, setProductSearch] = useState('');
+  const byId = new Map(products.map((product) => [product.id, product]));
+  // Cada fila con su posición real en `values.products` (las páginas muestran un trozo).
+  const indexedRows = values.products
+    .map((row, index) => ({ row, index, product: byId.get(row.productId) }))
+    .filter(({ product }) =>
+      matchesSearch(productSearch, product?.code ?? '', product?.name ?? ''),
+    );
+  const pages = usePagination(
+    indexedRows,
+    `${productSearch}|${values.products.length}`,
+    MODAL_PAGE_SIZE,
+  );
+  const chosenIds = new Set(values.products.map((row) => row.productId));
+  const addable = products.filter((product) => product.isActive && !chosenIds.has(product.id));
 
   type TextField = Exclude<keyof SupplierFormValues, 'products'>;
 
@@ -66,27 +89,20 @@ export function SupplierForm({
     setValues((current) => ({ ...current, [field]: value }));
   }
 
-  function updateRow(index: number, field: 'productId' | 'unitCost', value: string): void {
+  function updateCost(index: number, value: string): void {
     setValues((current) => ({
       ...current,
-      products: current.products.map((row, i) => {
-        if (i !== index) {
-          return row;
-        }
-
-        // Al elegir un producto se sugiere su costo actual como punto de partida.
-        if (field === 'productId' && row.unitCost === '') {
-          const product = products.find((candidate) => candidate.id === value);
-          return { productId: value, unitCost: product?.cost ?? '' };
-        }
-
-        return { ...row, [field]: value };
-      }),
+      products: current.products.map((row, i) => (i === index ? { ...row, unitCost: value } : row)),
     }));
   }
 
-  function addRow(): void {
-    setValues((current) => ({ ...current, products: [...current.products, EMPTY_PRODUCT_ROW] }));
+  /** Agrega un producto arriba de la lista, con su costo actual como punto de partida. */
+  function addProduct(product: Product): void {
+    setProductSearch('');
+    setValues((current) => ({
+      ...current,
+      products: [{ productId: product.id, unitCost: product.cost }, ...current.products],
+    }));
   }
 
   function removeRow(index: number): void {
@@ -162,55 +178,83 @@ export function SupplierForm({
               El proveedor principal se elige en Inventario. Aquí se agregan los demás productos que
               este proveedor también vende, con su costo, para poder pedírselos.
             </p>
-            {values.products.map((row, index) => {
-              const locked = lockedProductIds.includes(row.productId);
+            <ProductQuickSearch
+              products={addable}
+              label="Agregar producto que suministra"
+              placeholder="Buscar un producto para agregarlo"
+              onPick={addProduct}
+            />
+            {values.products.length > MODAL_PAGE_SIZE ? (
+              <div className="toolbar">
+                <ListSearch
+                  value={productSearch}
+                  onChange={setProductSearch}
+                  placeholder="Buscar entre los que suministra"
+                  label="Buscar entre los productos del proveedor"
+                />
+              </div>
+            ) : null}
+            {values.products.length > 0 && indexedRows.length === 0 ? (
+              <p className="muted" role="status">
+                Ninguno de sus productos coincide con «{productSearch.trim()}».
+              </p>
+            ) : null}
+            {indexedRows.length === 0 ? null : (
+              <div className="table-wrapper">
+                <table className="table" aria-label="Productos que suministra">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Producto</th>
+                      <th className="table__number">Costo unitario (₡)</th>
+                      <th aria-label="Acciones" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pages.pageItems.map(({ row, index, product }) => {
+                      const locked = lockedProductIds.includes(row.productId);
+                      const name = product?.name ?? 'Producto no disponible';
 
-              return (
-                <div className="form__grid supplier-row" key={index}>
-                  <Field label="Producto" htmlFor={`supplier-product-${index}`}>
-                    <select
-                      id={`supplier-product-${index}`}
-                      value={row.productId}
-                      disabled={locked}
-                      onChange={(event) => updateRow(index, 'productId', event.target.value)}
-                    >
-                      <option value="">Seleccione…</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.code} — {product.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Costo unitario (₡)" htmlFor={`supplier-cost-${index}`}>
-                    <input
-                      id={`supplier-cost-${index}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={row.unitCost}
-                      onChange={(event) => updateRow(index, 'unitCost', event.target.value)}
-                    />
-                  </Field>
-                  <div className="form__field supplier-row__action">
-                    {locked ? (
-                      <span className="badge badge--ok" title="Se cambia desde Inventario">
-                        Proveedor principal
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="button"
-                        disabled={busy}
-                        onClick={() => removeRow(index)}
-                      >
-                        Quitar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                      return (
+                        <tr key={row.productId}>
+                          <td>{product?.code ?? '—'}</td>
+                          <td>{name}</td>
+                          <td className="table__number">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="input--money"
+                              aria-label={`Costo de ${name}`}
+                              value={row.unitCost}
+                              onChange={(event) => updateCost(index, event.target.value)}
+                            />
+                          </td>
+                          <td className="table__number">
+                            {locked ? (
+                              <span className="badge badge--ok" title="Se cambia desde Inventario">
+                                Proveedor principal
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="button"
+                                disabled={busy}
+                                aria-label={`Quitar ${name}`}
+                                onClick={() => removeRow(index)}
+                              >
+                                Quitar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
             {values.products.length === 0 ? (
               <p className="muted">Sin productos asociados.</p>
             ) : null}
@@ -224,9 +268,6 @@ export function SupplierForm({
             {errors.products === undefined ? null : (
               <p className="form__error">{errors.products}</p>
             )}
-            <button type="button" className="button" onClick={addRow} disabled={busy}>
-              + Agregar producto
-            </button>
           </>
         )}
 
