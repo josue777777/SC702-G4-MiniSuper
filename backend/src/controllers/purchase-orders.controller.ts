@@ -6,9 +6,12 @@ import {
   createPurchaseOrderSchema,
   listPurchaseOrdersQuerySchema,
   purchaseOrderIdParamSchema,
+  receiptInvoiceSchema,
   receiptParamsSchema,
   receiveOrderSchema,
 } from '../validators/purchase-orders.validator.js';
+import { declaredContentType } from '../utils/image.js';
+import { invoiceFileName } from '../utils/invoice-file.js';
 
 /** Capa de controlador de pedidos a proveedor (HU-22, HU-24) y sus entregas (HU-38). */
 export class PurchaseOrdersController {
@@ -53,6 +56,31 @@ export class PurchaseOrdersController {
     res
       .status(200)
       .json({ data: await this.serviceFor(businessIdOf(res)).loadReceipt(id, receiptId) });
+  }
+
+  /** `PUT /api/purchase-orders/:id/receipts/:receiptId/invoice` — adjuntar la factura (HU-38). */
+  async attachInvoice(req: Request, res: Response): Promise<void> {
+    const { id, receiptId } = receiptParamsSchema.parse(req.params);
+    const file = receiptInvoiceSchema.parse({
+      mimeType: declaredContentType(req),
+      name: invoiceFileName(req.headers['x-file-name']),
+      data: req.body,
+    });
+
+    res.status(200).json({
+      data: await this.serviceFor(businessIdOf(res)).attachReceiptInvoice(id, receiptId, file),
+    });
+  }
+
+  /** `GET /api/purchase-orders/:id/receipts/:receiptId/invoice` — ver la factura (HU-38). */
+  async getInvoice(req: Request, res: Response): Promise<void> {
+    const { id, receiptId } = receiptParamsSchema.parse(req.params);
+    const file = await this.serviceFor(businessIdOf(res)).getReceiptInvoice(id, receiptId);
+
+    // Es un documento del negocio: no se guarda en cachés compartidas.
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.name)}"`);
+    res.type(file.mimeType).send(Buffer.from(file.data));
   }
 
   /** `POST /api/purchase-orders/:id/close` — dar por concluido (HU-38). */

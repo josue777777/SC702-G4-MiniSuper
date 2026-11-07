@@ -1,9 +1,18 @@
+import { useState } from 'react';
 import { Pagination } from '../../components/Pagination';
 import { usePagination } from '../../components/use-pagination';
 import type { PurchaseOrderSummary } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import { formatDateTime } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
+import {
+  EMPTY_ORDER_FILTERS,
+  filterOrders,
+  hasOrderFilters,
+  STATUS_FILTER_LABELS,
+  type OrderFilters,
+  type OrderStatusFilter,
+} from './order-filters';
 import { formatOrderNumber, STATUS_LABELS } from './purchase-order-form';
 
 interface PurchaseOrderHistoryProps {
@@ -18,8 +27,10 @@ interface PurchaseOrderHistoryProps {
 
 /**
  * Historial de pedidos (HU-22): fecha, proveedor, productos y costo de cada
- * pedido, del más reciente al más antiguo, con filtro por proveedor y en
- * páginas de 20.
+ * pedido, del más reciente al más antiguo, en páginas de 20. Se filtra por
+ * proveedor (lo pide el servidor), por estado (también «con carga pendiente»,
+ * HU-38), por período y con un buscador (PED-0007, factura, proveedor o
+ * producto). Los filtros se aplican solos, al cambiarlos.
  */
 export function PurchaseOrderHistory({
   orders,
@@ -29,13 +40,39 @@ export function PurchaseOrderHistory({
   onFilterChange,
   onOpen,
 }: PurchaseOrderHistoryProps) {
-  const pages = usePagination(orders, filter);
+  const [filters, setFilters] = useState<OrderFilters>(EMPTY_ORDER_FILTERS);
+  const visible = filterOrders(orders, filters);
+  const pages = usePagination(visible, `${filter}|${JSON.stringify(filters)}`);
   const filterName = suppliers.find((supplier) => supplier.id === filter)?.name;
+  const filtered = hasOrderFilters(filters);
+
+  function set<K extends keyof OrderFilters>(key: K, value: OrderFilters[K]): void {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
 
   return (
     <section className="card">
       <header className="card__header">
         <h2>Historial de pedidos</h2>
+        {filtered ? (
+          <span className="muted" role="status">
+            {visible.length} de {orders.length} pedidos
+          </span>
+        ) : null}
+      </header>
+
+      <div className="row-actions" role="search" aria-label="Filtros del historial de pedidos">
+        <label className="toolbar__filter">
+          <span>Buscar</span>
+          <input
+            type="search"
+            value={filters.search}
+            maxLength={60}
+            placeholder="PED-0007, factura, producto…"
+            aria-label="Buscar pedido por número, factura, proveedor o producto"
+            onChange={(event) => set('search', event.target.value)}
+          />
+        </label>
         <label className="toolbar__filter">
           <span>Proveedor</span>
           <select value={filter} onChange={(event) => onFilterChange(event.target.value)}>
@@ -47,7 +84,52 @@ export function PurchaseOrderHistory({
             ))}
           </select>
         </label>
-      </header>
+        <label className="toolbar__filter">
+          <span>Estado</span>
+          <select
+            value={filters.status}
+            onChange={(event) => set('status', event.target.value as OrderStatusFilter)}
+          >
+            <option value="">Todos</option>
+            {(Object.keys(STATUS_FILTER_LABELS) as Exclude<OrderStatusFilter, ''>[]).map(
+              (status) => (
+                <option key={status} value={status}>
+                  {STATUS_FILTER_LABELS[status]}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label className="toolbar__filter">
+          <span>Desde</span>
+          <input
+            type="date"
+            value={filters.from}
+            max={filters.to === '' ? undefined : filters.to}
+            onChange={(event) => set('from', event.target.value)}
+          />
+        </label>
+        <label className="toolbar__filter">
+          <span>Hasta</span>
+          <input
+            type="date"
+            value={filters.to}
+            min={filters.from === '' ? undefined : filters.from}
+            onChange={(event) => set('to', event.target.value)}
+          />
+        </label>
+        {filtered ? (
+          <button type="button" className="button" onClick={() => setFilters(EMPTY_ORDER_FILTERS)}>
+            Limpiar filtros
+          </button>
+        ) : null}
+      </div>
+
+      {orders.length > 0 && visible.length === 0 ? (
+        <p className="muted" role="status">
+          Ningún pedido cumple los filtros.
+        </p>
+      ) : null}
 
       {orders.length === 0 ? (
         <p className="muted">
@@ -55,7 +137,7 @@ export function PurchaseOrderHistory({
             ? 'Todavía no hay pedidos registrados. Use «+ Nuevo pedido».'
             : `${filterName} no tiene pedidos registrados.`}
         </p>
-      ) : (
+      ) : visible.length === 0 ? null : (
         <div className="table-wrapper">
           <table className="table" aria-label="Historial de pedidos">
             <thead>

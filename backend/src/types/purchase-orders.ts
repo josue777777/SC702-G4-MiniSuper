@@ -47,6 +47,15 @@ export interface PurchaseReceiptDto {
   loadedAt: string | null;
   createdAt: string;
   items: PurchaseReceiptItemDto[];
+  /** La factura del proveedor adjunta (sin los bytes), o `null` si no tiene. */
+  invoiceFile: { name: string; mimeType: string; uploadedAt: string } | null;
+}
+
+/** Factura adjunta ya validada: bytes, tipo y nombre. */
+export interface ReceiptInvoiceFile {
+  data: Uint8Array;
+  mimeType: string;
+  name: string;
 }
 
 /** Fila del historial de pedidos (HU-22). */
@@ -67,6 +76,8 @@ export interface PurchaseOrderSummaryDto {
   receivedOn: string | null;
   /** Entregas registradas que todavía no se cargaron al inventario. */
   pendingLoads: number;
+  /** Números de factura de sus entregas (para buscar el pedido por factura). */
+  invoiceNumbers: string[];
 }
 
 /** Detalle completo de un pedido: lo que muestra el historial y lo que lleva el PDF (HU-24). */

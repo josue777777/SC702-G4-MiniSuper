@@ -194,3 +194,134 @@ test('no guarda una entrega sin factura, con más de lo que falta o sin nada', a
   await expect(error).toHaveText('Anote al menos un producto que haya llegado.');
   expect(await stockOf('ARR-01')).toBe(40);
 });
+
+/** Un PDF mínimo válido (la firma «%PDF-» es lo que revisa el servidor). */
+const INVOICE_PDF = {
+  name: 'Factura F-400.pdf',
+  mimeType: 'application/pdf',
+  buffer: Buffer.from(
+    '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF',
+  ),
+};
+
+/** Una foto de 1 × 1 píxel (PNG). */
+const INVOICE_PNG = {
+  name: 'factura-foto.png',
+  mimeType: 'image/png',
+  buffer: Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  ),
+};
+
+test('la factura del proveedor se adjunta al registrar la entrega y se ve al lado', async ({
+  page,
+}) => {
+  await createOrder(page);
+  await openOrder(page);
+  await orderDialog(page).getByRole('button', { name: '📦 Registrar entrega' }).click();
+
+  const receipt = receiptDialog(page);
+
+  // Un archivo que no es factura se rechaza antes de subirlo.
+  await receipt.getByLabel('Factura del proveedor (opcional)').setInputFiles({
+    name: 'notas.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('hola'),
+  });
+  await expect(receipt.getByRole('alert')).toHaveText(
+    'Adjunte un PDF o una imagen (PNG, JPG o WEBP) de la factura.',
+  );
+
+  await receipt.getByLabel('Factura del proveedor (opcional)').setInputFiles(INVOICE_PDF);
+  await expect(receipt.getByRole('figure', { name: 'Factura del proveedor' })).toBeVisible();
+  await expect(receipt.locator('iframe[title="Factura: Factura F-400.pdf"]')).toBeVisible();
+  await receipt.getByLabel('N.º de factura').fill('F-400');
+  await saveEvidence(page, 'HU-38', 'registrar-entrega-con-factura.png');
+  await receipt.getByRole('button', { name: 'Registrar y dejar la carga pendiente' }).click();
+  await expect(receipt).toHaveCount(0);
+
+  // En «Entregas»: «Ver factura proveedor» junto a «Cargar al inventario».
+  const order = orderDialog(page);
+  const row = order.getByRole('table', { name: 'Entregas del pedido' }).locator('tbody tr');
+
+  await expect(
+    row.getByRole('button', { name: 'Cargar al inventario la factura F-400' }),
+  ).toBeVisible();
+  await row.getByRole('button', { name: 'Ver factura del proveedor F-400' }).click();
+
+  const viewer = page.getByRole('dialog', { name: 'Factura del proveedor · F-400' });
+
+  await expect(viewer.locator('iframe[title="Factura: Factura F-400.pdf"]')).toBeVisible();
+  await saveEvidence(page, 'HU-38', 'ver-factura-proveedor.png');
+});
+
+test('la factura se puede adjuntar después, desde «Entregas»', async ({ page }) => {
+  await createOrder(page);
+  await openOrder(page);
+  await orderDialog(page).getByRole('button', { name: '📦 Registrar entrega' }).click();
+
+  const receipt = receiptDialog(page);
+
+  await receipt.getByLabel('N.º de factura').fill('F-500');
+  await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
+  await expect(receipt).toHaveCount(0);
+
+  const order = orderDialog(page);
+
+  await order.getByLabel('Adjuntar factura del proveedor F-500').setInputFiles(INVOICE_PNG);
+  await expect(
+    order.getByText('Factura del proveedor adjuntada a la entrega F-500.'),
+  ).toBeVisible();
+  await order.getByRole('button', { name: 'Ver factura del proveedor F-500' }).click();
+  await expect(
+    page
+      .getByRole('dialog', { name: 'Factura del proveedor · F-500' })
+      .getByRole('img', { name: 'Factura: factura-foto.png' }),
+  ).toBeVisible();
+});
+
+test('el historial se filtra por estado, período y búsqueda (pedido, factura o producto)', async ({
+  page,
+}) => {
+  await createOrder(page);
+  await createOrder(page);
+  await openOrder(page);
+  await orderDialog(page).getByRole('button', { name: '📦 Registrar entrega' }).click();
+  await receiptDialog(page).getByLabel('N.º de factura').fill('F-777');
+  await receiptDialog(page).getByLabel('Llegó de Arroz blanco 1 kg').fill('2');
+  await receiptDialog(page)
+    .getByRole('button', { name: 'Registrar y dejar la carga pendiente' })
+    .click();
+  await expect(receiptDialog(page)).toHaveCount(0);
+  await orderDialog(page).getByText('Cerrar', { exact: true }).click();
+
+  const history = page.getByRole('table', { name: 'Historial de pedidos' });
+  const filters = page.getByRole('search', { name: 'Filtros del historial de pedidos' });
+
+  await expect(history.locator('tbody tr')).toHaveCount(2);
+
+  await filters.getByLabel('Estado').selectOption({ label: 'Recibidos en parte' });
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await expect(history).toContainText('PED-0001');
+  await expect(page.getByText('1 de 2 pedidos')).toBeVisible();
+
+  await filters.getByLabel('Estado').selectOption({ label: 'Con carga pendiente' });
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+
+  await filters.getByLabel('Estado').selectOption({ label: 'Pendientes' });
+  await expect(history).toContainText('PED-0002');
+  await expect(history).not.toContainText('PED-0001');
+
+  // Buscar por la factura de una entrega.
+  await filters.getByRole('button', { name: 'Limpiar filtros' }).click();
+  await filters.getByRole('searchbox').fill('F-777');
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await expect(history).toContainText('PED-0001');
+
+  // Un período sin pedidos.
+  await filters.getByRole('button', { name: 'Limpiar filtros' }).click();
+  await filters.getByLabel('Hasta').fill('2020-01-01');
+  await expect(page.getByText('Ningún pedido cumple los filtros.')).toBeVisible();
+  await saveEvidence(page, 'HU-38', 'historial-filtros.png');
+});

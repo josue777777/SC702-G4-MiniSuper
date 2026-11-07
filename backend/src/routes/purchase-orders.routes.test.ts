@@ -228,3 +228,95 @@ describe('Entregas con factura (HU-38)', () => {
       .expect(404);
   });
 });
+
+describe('Factura del proveedor adjunta a una entrega (HU-38)', () => {
+  const PDF = Buffer.from('%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF');
+
+  async function orderWithReceipt() {
+    const repository = new FakePurchaseOrdersRepository();
+    const app = buildApp(repository);
+    const created = await request(app)
+      .post('/api/purchase-orders')
+      .send({ supplierId: SUPPLIER_ID, items: [{ productId: COFFEE_ID, quantity: 3 }] })
+      .expect(201);
+    const id = created.body.data.id as string;
+    const received = await request(app)
+      .post(`/api/purchase-orders/${id}/receipts`)
+      .send({
+        invoiceNumber: 'F-7',
+        receivedOn: '2026-10-20',
+        loadNow: false,
+        items: [{ productId: COFFEE_ID, quantity: 3 }],
+      })
+      .expect(201);
+
+    return { app, id, receiptId: received.body.data.receipts[0].id as string };
+  }
+
+  it('adjunta un PDF, lo muestra en el pedido y lo devuelve tal cual', async () => {
+    const { app, id, receiptId } = await orderWithReceipt();
+    const path = `/api/purchase-orders/${id}/receipts/${receiptId}/invoice`;
+    const saved = await request(app)
+      .put(path)
+      .set('Content-Type', 'application/pdf')
+      .set('X-File-Name', encodeURIComponent('Factura F-7.pdf'))
+      .send(PDF)
+      .expect(200);
+
+    expect(saved.body.data.receipts[0].invoiceFile).toMatchObject({
+      name: 'Factura F-7.pdf',
+      mimeType: 'application/pdf',
+    });
+
+    const file = await request(app).get(path).buffer(true).expect(200);
+
+    expect(file.headers['content-type']).toContain('application/pdf');
+    expect(file.headers['cache-control']).toBe('private, no-store');
+    expect(Buffer.from(file.body as Buffer).equals(PDF)).toBe(true);
+  });
+
+  it('rechaza lo que no es PDF ni imagen, o que dice serlo sin serlo', async () => {
+    const { app, id, receiptId } = await orderWithReceipt();
+    const path = `/api/purchase-orders/${id}/receipts/${receiptId}/invoice`;
+
+    await request(app).put(path).set('Content-Type', 'text/html').send('<script>').expect(400);
+    await request(app)
+      .put(path)
+      .set('Content-Type', 'application/pdf')
+      .send(Buffer.from('no soy un pdf'))
+      .expect(400);
+  });
+
+  it('sin factura adjunta, ver responde 404', async () => {
+    const { app, id, receiptId } = await orderWithReceipt();
+
+    await request(app).get(`/api/purchase-orders/${id}/receipts/${receiptId}/invoice`).expect(404);
+  });
+});
+
+describe('Fecha de la entrega en días de Costa Rica (HU-38)', () => {
+  it('un pedido de las 8 p. m. se puede recibir ese mismo día (aunque en UTC ya sea el siguiente)', async () => {
+    const repository = new FakePurchaseOrdersRepository();
+    const app = buildApp(repository);
+    const created = await request(app)
+      .post('/api/purchase-orders')
+      .send({ supplierId: SUPPLIER_ID, items: [{ productId: COFFEE_ID, quantity: 1 }] })
+      .expect(201);
+    const order = await repository.findById(created.body.data.id as string);
+
+    // 14 de octubre, 8 p. m. en Costa Rica = 15 de octubre, 02:00 UTC.
+    if (order !== null) {
+      order.createdAt = '2026-10-15T02:00:00.000Z';
+    }
+
+    await request(app)
+      .post(`/api/purchase-orders/${created.body.data.id as string}/receipts`)
+      .send({
+        invoiceNumber: 'F-1',
+        receivedOn: '2026-10-14',
+        loadNow: true,
+        items: [{ productId: COFFEE_ID, quantity: 1 }],
+      })
+      .expect(201);
+  });
+});
