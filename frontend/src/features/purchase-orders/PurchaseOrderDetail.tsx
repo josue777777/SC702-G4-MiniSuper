@@ -8,6 +8,7 @@ import type {
 } from '../../types/purchase-orders';
 import type { Notice } from '../products/use-products';
 import { useSession } from '../auth/session-context';
+import { BusinessDocumentFooter, BusinessDocumentHeader } from '../business/BusinessDocument';
 import { formatDateOnly, formatDateTime } from '../inventory/inventory-count';
 import { LabelPrintModal } from '../labels/LabelPrintModal';
 import { formatMoney } from '../products/money';
@@ -47,8 +48,10 @@ function printOrder(): void {
  *
  * En pantalla es la información del pedido: datos, productos (con lo recibido)
  * y entregas. Al imprimirlo para el proveedor, el papel trae además la columna
- * «Cant. recibida» en blanco (si no llegó nada) y el espacio para nombre, fecha y
- * firma de quien recibe (`print-only`). Ese papel respalda la entrada de mercadería que
+ * «Cant. recibida» en blanco (si no llegó nada), el encabezado y el pie del
+ * negocio (logo y datos de Configuración › General) y la constancia: «Generado
+ * por» con el usuario de la sesión, y fecha de recepción y firma para llenar a
+ * mano (`print-only`). Ese papel respalda la entrada de mercadería que
  * después se registra en el sistema.
  *
  * «Imprimir / Guardar PDF» abre el diálogo de impresión del navegador, que
@@ -79,7 +82,7 @@ export function PurchaseOrderDetail({
   onConclude,
 }: PurchaseOrderDetailProps) {
   const contact = [order.supplierPhone, order.supplierEmail].filter(Boolean).join(' · ');
-  const { can } = useSession();
+  const { can, user } = useSession();
   const [labelling, setLabelling] = useState(false);
   const [receiving, setReceiving] = useState(false);
   const [confirmingConclude, setConfirmingConclude] = useState(false);
@@ -98,9 +101,9 @@ export function PurchaseOrderDetail({
       onClose={onClose}
     >
       <section className="print-area" aria-label="Documento del pedido">
-        <div className="print-only">
-          <h1>Pedido a proveedor {formatOrderNumber(order.number)}</h1>
-        </div>
+        <BusinessDocumentHeader title={`Pedido a proveedor ${formatOrderNumber(order.number)}`}>
+          <span>{formatDateTime(order.createdAt)}</span>
+        </BusinessDocumentHeader>
 
         <dl className="order-meta">
           <div>
@@ -196,11 +199,18 @@ export function PurchaseOrderDetail({
         */}
         <div className="print-only">
           <p className="muted hint">
-            Al recibir la mercadería, anote en «Cant. recibida» lo que realmente llegó y firme
-            abajo.
+            Al recibir la mercadería, anote en «Cant. recibida» lo que realmente llegó, la fecha y
+            firme abajo.
           </p>
           <div className="order-reception">
-            {['Recibido por', 'Fecha de recepción', 'Firma'].map((label) => (
+            {/* Quién lo generó ya se sabe: va escrito. Lo demás se llena a mano. */}
+            <div>
+              <span className="order-reception__line order-reception__line--filled">
+                {user.name}
+              </span>
+              <span className="order-reception__label">Generado por</span>
+            </div>
+            {['Fecha de recepción', 'Firma'].map((label) => (
               <div key={label}>
                 <span className="order-reception__line" />
                 <span className="order-reception__label">{label}</span>
@@ -208,6 +218,8 @@ export function PurchaseOrderDetail({
             ))}
           </div>
         </div>
+
+        <BusinessDocumentFooter generatedBy={user.name} />
       </section>
 
       {order.receipts.length === 0 ? null : (

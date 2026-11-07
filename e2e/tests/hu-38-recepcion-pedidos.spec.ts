@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { withDb } from '../support/db';
 import { BACKEND_URL } from '../support/env';
-import { saveEvidence } from '../support/evidence';
+import { evidencePath, saveEvidence } from '../support/evidence';
 import { resetCatalog, seedProducts, signInAsOwner, stockOf } from '../support/fixtures';
 
 /**
@@ -346,28 +346,46 @@ test('cancelar el selector de archivos no cierra la ventana; Esc sí', async ({ 
   await expect(orderDialog(page)).toHaveCount(0);
 });
 
-test('«Ver pedido» en pantalla es información; la firma y las instrucciones son solo del papel', async ({
+test('«Ver pedido» en pantalla es información; el papel lleva el negocio, la firma y quién lo generó', async ({
   page,
 }) => {
+  await withDb((client) =>
+    client.query(
+      `UPDATE "Business" SET "legalId" = '3-101-123456', phone = '2222-0000',
+         email = 'ventas@nuevoamanecer.example.com', address = 'San José, Costa Rica'
+       WHERE name = 'Abastecedor Nuevo Amanecer'`,
+    ),
+  );
   await createOrder(page);
   await openOrder(page);
 
   const order = orderDialog(page);
 
   await expect(order.getByRole('heading', { name: 'Productos' })).toBeVisible();
-  await expect(order.getByText('Recibido por')).toBeHidden();
+  // La constancia y el pie (los dos dicen «Generado por») no se ven en pantalla.
+  await expect(order.locator('.order-reception')).toBeHidden();
+  await expect(order.locator('.business-document__footer')).toBeHidden();
   await expect(order.getByText('Al recibir la mercadería', { exact: false })).toBeHidden();
   // Nada llegó todavía: en pantalla «Cant. recibida» dice 0.
   await expect(
     order.getByRole('table', { name: 'Productos del pedido' }).locator('tbody tr').first(),
   ).toContainText('0');
 
-  // Al imprimir (o guardar en PDF) el papel sí trae la constancia para firmar.
+  // Al imprimir (o guardar en PDF) solo queda el papel (`.print-area`).
   await page.emulateMedia({ media: 'print' });
   await page.evaluate(() => document.body.classList.add('printing-report'));
-  // Al imprimir solo queda el papel (`.print-area`); la ventana misma se oculta.
-  const paper = page.locator('.print-area');
 
-  await expect(paper.getByText('Recibido por')).toBeVisible();
+  const paper = page.locator('.print-area');
+  const header = paper.locator('.business-document__header');
+  const footer = paper.locator('.business-document__footer');
+
+  await expect(header).toContainText('Abastecedor Nuevo Amanecer');
+  await expect(header).toContainText('Céd. 3-101-123456 · Tel. 2222-0000');
+  await expect(header).toContainText('Pedido a proveedor PED-0001');
+  await expect(paper.locator('.order-reception')).toContainText('Dueña de Prueba');
+  await expect(paper.locator('.order-reception')).toContainText('Generado por');
+  await expect(paper.locator('.order-reception')).toContainText('Firma');
+  await expect(footer).toContainText('Generado por Dueña de Prueba');
   await expect(paper.getByText('Productos', { exact: true })).toBeHidden();
+  await page.pdf({ path: evidencePath('HU-38', 'pedido-a-proveedor.pdf'), format: 'Letter' });
 });

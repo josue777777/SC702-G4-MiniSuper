@@ -17,6 +17,10 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
+- **Documento del pedido** (Imprimir / Guardar PDF): encabezado y pie con los datos del
+  negocio y su logo (`features/business/BusinessDocument.tsx`), y la constancia con
+  «Generado por» (el usuario), «Fecha de recepción» y «Firma». En pantalla, «Ver pedido»
+  muestra la información sin esa constancia.
 - **Factura del proveedor** (HU-38): al registrar la entrega se puede adjuntar el PDF
   o la foto de la factura del proveedor; se ve al lado de las cantidades mientras se
   anotan. Si no se adjuntó, en «Ver pedido» › Entregas cada factura tiene «📎 Adjuntar

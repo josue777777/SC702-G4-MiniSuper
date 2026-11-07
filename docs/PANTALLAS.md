@@ -178,6 +178,14 @@ Un documento (pedido, comprobante, reporte imprimible) se abre en `Modal`
 inserta dentro de la página: empujaría la lista y se perdería la fila desde
 donde se abrió. El botón dice qué abre: «Ver pedido», «Ver comprobante».
 
+**Documentos del negocio.** Lo que se imprime o se guarda en PDF para entregar a
+otros (por ejemplo, el pedido a proveedor) lleva el encabezado y el pie del
+negocio: `BusinessDocumentHeader` (logo, nombre, cédula, teléfono, correo y
+dirección de Configuración › General, más el título y la fecha del documento) y
+`BusinessDocumentFooter` (los datos del negocio y «Generado por …» con el usuario
+de la sesión). Solo salen en el papel: en pantalla la ventana muestra la
+información, no una copia del documento.
+
 ## Regla 8: poco texto; la ayuda a pedido; los avisos solo cuando aplican
 
 Lo que el usuario lee una vez y después solo le ocupa espacio no va abierto en
