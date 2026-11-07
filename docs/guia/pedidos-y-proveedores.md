@@ -17,6 +17,10 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
+- **Proveedores › Editar**: los productos que suministra se agregan buscándolos
+  («Agregar producto que suministra», sin lista desplegable del catálogo), se ven de 4 en 4
+  con buscador y se quitan con «Quitar» (los de proveedor principal se cambian en
+  Inventario). «N productos» de la tabla abre solo esa lista, también de 4 en 4.
 - **«N productos» en el historial**: abre solo la lista de productos del pedido (lo pedido y
   lo recibido), de 4 en 4 (`OrderProductsModal.tsx`). El pedido completo es «Ver pedido».
 - **Nuevo pedido**: al elegir el proveedor, sus productos se ven de 4 en 4 con un buscador

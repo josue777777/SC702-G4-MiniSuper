@@ -12,8 +12,8 @@ interface SupplierProductsModalProps {
   onClose: () => void;
 }
 
-/** Desde cuántos productos vale la pena el buscador (con menos, se ven todos de una vez). */
-const SEARCH_FROM = 8;
+/** Con más de una página (más de 4), la lista lleva buscador (docs/PANTALLAS.md, regla 2). */
+const SEARCH_FROM = MODAL_PAGE_SIZE + 1;
 
 /**
  * Los productos que suministra UN proveedor, con su costo acordado (HU-21).

@@ -572,6 +572,11 @@ code {
   text-align: right;
 }
 
+/* Un importe con decimales (₡1 000,00) necesita más ancho que una cantidad */
+.table input.input--money {
+  width: 120px;
+}
+
 .field label {
   font-size: 0.85rem;
   font-weight: 600;
