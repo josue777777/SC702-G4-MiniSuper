@@ -98,7 +98,7 @@ test('entrega parcial cargada ya, segunda con la carga pendiente y confirmada de
 
   const order = orderDialog(page);
 
-  await expect(order.getByText('Recibido en parte')).toBeVisible();
+  await expect(order.getByText('Parcial', { exact: true })).toBeVisible();
   await expect(order.getByText('Faltan 4 unidades.', { exact: false })).toBeVisible();
   expect(await stockOf('ARR-01')).toBe(46);
   expect(await stockOf('CAF-01')).toBe(22);
@@ -301,7 +301,7 @@ test('el historial se filtra por estado, período y búsqueda (pedido, factura o
 
   await expect(history.locator('tbody tr')).toHaveCount(2);
 
-  await filters.getByLabel('Estado').selectOption({ label: 'Recibidos en parte' });
+  await filters.getByLabel('Estado').selectOption({ label: 'Parciales' });
   await expect(history.locator('tbody tr')).toHaveCount(1);
   await expect(history).toContainText('PED-0001');
   await expect(page.getByText('1 de 2 pedidos')).toBeVisible();

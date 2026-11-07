@@ -37,7 +37,7 @@ function parseQuantity(text: string): number | null {
  * opcional; también se adjunta después desde «Ver pedido» › Entregas.
  *
  * @example faltan 10 cafés, llegan 6 con la factura F-120 → el pedido queda
- * «Recibido en parte» y faltan 4.
+ * «Parcial» y faltan 4.
  */
 export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrderModalProps) {
   const today = todayInBusinessZone();

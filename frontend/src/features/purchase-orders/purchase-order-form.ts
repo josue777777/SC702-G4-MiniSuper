@@ -30,7 +30,7 @@ export function formatOrderNumber(number: number): string {
 /** Cómo se muestra cada estado del pedido en pantalla. */
 export const STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
   PENDING: 'Pendiente',
-  PARTIAL: 'Recibido en parte',
+  PARTIAL: 'Parcial',
   RECEIVED: 'Recibido',
 };
 

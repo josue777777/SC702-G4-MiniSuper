@@ -13,7 +13,7 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   guardarlo como PDF (HU-24).
 - **Entregas** (HU-38): un pedido se recibe en una o varias entregas, cada una con su
   **factura**, el **día real** en que llegó y la cantidad real de cada producto. El
-  pedido queda «Recibido en parte» y sigue abierto hasta que llega todo o se **da por
+  pedido queda «Parcial» y sigue abierto hasta que llega todo o se **da por
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
