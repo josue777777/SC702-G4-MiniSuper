@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react';
+import { matchesSearch } from '../../components/list-search';
+import { ListSearch } from '../../components/ListSearch';
 import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import type { PurchaseOrderPayload } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import { formatMoney } from '../products/money';
@@ -25,6 +29,10 @@ interface PurchaseOrderFormProps {
  * productos que él suministra con el costo acordado (HU-21) y se escribe la
  * cantidad de cada uno. Sin productos no se puede generar el pedido.
  *
+ * Los productos se ven de 4 en 4, con buscador: un proveedor con cientos de
+ * productos no estira la ventana. Las cantidades escritas se conservan al
+ * cambiar de página o de búsqueda, y el total suma todo el pedido.
+ *
  * Se abre en una ventana modal, encima del historial, para que la pantalla de
  * atrás no distraiga mientras se arma el pedido.
  */
@@ -39,10 +47,15 @@ export function PurchaseOrderForm({
   const [quantities, setQuantities] = useState<QuantityInputs>({});
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const supplier = suppliers.find((item) => item.id === supplierId);
   const products = supplier?.products ?? [];
   const lines = buildOrderLines(products, quantities);
+  const visible = products.filter((product) =>
+    matchesSearch(search, product.productCode, product.productName),
+  );
+  const pages = usePagination(visible, `${supplierId}|${search}`, MODAL_PAGE_SIZE);
   const total = calculateOrderTotal(lines);
   // Una cantidad mal escrita se avisa en el momento, no hasta enviar.
   const typedSomething = Object.values(quantities).some((text) => text.trim() !== '');
@@ -52,6 +65,7 @@ export function PurchaseOrderForm({
     // Otro proveedor tiene otro catálogo y otros costos: se empieza de cero.
     setSupplierId(id);
     setQuantities({});
+    setSearch('');
     setError(null);
   }
 
@@ -112,60 +126,76 @@ export function PurchaseOrderForm({
             Este proveedor no tiene productos asociados. Agrégueselos en Proveedores.
           </p>
         ) : (
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Producto</th>
-                  <th className="table__number">Costo unitario</th>
-                  <th className="table__number">Cantidad</th>
-                  <th className="table__number">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product) => {
-                  const line = lines.find((item) => item.productId === product.productId);
+          <>
+            <div className="toolbar">
+              <ListSearch
+                value={search}
+                onChange={setSearch}
+                placeholder="Buscar por nombre o código"
+                label="Buscar producto del proveedor"
+              />
+            </div>
+            {visible.length === 0 ? (
+              <p className="muted" role="status">
+                Ningún producto de {supplier.name} coincide con «{search.trim()}».
+              </p>
+            ) : null}
+            <div className="table-wrapper">
+              <table className="table" aria-label="Productos del proveedor">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th className="table__number">Costo unitario</th>
+                    <th className="table__number">Cantidad</th>
+                    <th className="table__number">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pages.pageItems.map((product) => {
+                    const line = lines.find((item) => item.productId === product.productId);
 
-                  return (
-                    <tr key={product.productId}>
-                      <td>{product.productCode}</td>
-                      <td>{product.productName}</td>
-                      <td className="table__number">{formatMoney(product.unitCost)}</td>
-                      <td className="table__number">
-                        <input
-                          className="order-quantity"
-                          type="number"
-                          min="1"
-                          step="1"
-                          inputMode="numeric"
-                          aria-label={`Cantidad de ${product.productName}`}
-                          value={quantities[product.productId] ?? ''}
-                          onChange={(event) =>
-                            setQuantities((current) => ({
-                              ...current,
-                              [product.productId]: event.target.value,
-                            }))
-                          }
-                        />
-                      </td>
-                      <td className="table__number">
-                        {line === undefined ? '—' : formatMoney(line.subtotal)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th colSpan={4} className="table__number">
-                    Total ({lines.length} producto(s))
-                  </th>
-                  <th className="table__number">{formatMoney(total)}</th>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                    return (
+                      <tr key={product.productId}>
+                        <td>{product.productCode}</td>
+                        <td>{product.productName}</td>
+                        <td className="table__number">{formatMoney(product.unitCost)}</td>
+                        <td className="table__number">
+                          <input
+                            className="order-quantity"
+                            type="number"
+                            min="1"
+                            step="1"
+                            inputMode="numeric"
+                            aria-label={`Cantidad de ${product.productName}`}
+                            value={quantities[product.productId] ?? ''}
+                            onChange={(event) =>
+                              setQuantities((current) => ({
+                                ...current,
+                                [product.productId]: event.target.value,
+                              }))
+                            }
+                          />
+                        </td>
+                        <td className="table__number">
+                          {line === undefined ? '—' : formatMoney(line.subtotal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th colSpan={4} className="table__number">
+                      Total ({lines.length} producto(s))
+                    </th>
+                    <th className="table__number">{formatMoney(total)}</th>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
+          </>
         )}
 
         {(liveError ?? error ?? serverError) === null ? null : (

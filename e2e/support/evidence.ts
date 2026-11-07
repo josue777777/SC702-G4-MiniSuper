@@ -62,3 +62,15 @@ export async function saveStackedEvidence(
 
   return filePath;
 }
+
+/**
+ * Ruta (absoluta) de un archivo de evidencia que genera la prueba misma, como un
+ * PDF con `page.pdf()`. Crea la carpeta de la historia si falta.
+ */
+export function evidencePath(story: string, fileName: string): string {
+  const directory = path.join(EVIDENCE_ROOT, story);
+
+  mkdirSync(directory, { recursive: true });
+
+  return path.join(directory, fileName);
+}

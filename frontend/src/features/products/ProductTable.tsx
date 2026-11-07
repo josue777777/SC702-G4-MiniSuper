@@ -33,7 +33,7 @@ interface ProductTableProps {
  * desactivación funcionó. Con filtro de categoría o búsqueda solo llegan
  * activos. Las consultas de venta (HU-16) sí filtrarán siempre por activos.
  *
- * Se muestra en páginas de 20. Si el producto marcado queda en otra página
+ * Se muestra en páginas de 15 (`DEFAULT_PAGE_SIZE`). Si el producto marcado queda en otra página
  * (por ejemplo, uno recién creado), la tabla salta a la suya.
  */
 export function ProductTable({

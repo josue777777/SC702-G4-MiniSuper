@@ -11,6 +11,7 @@ import type {
   SaleSummary,
 } from '../types/sales';
 import { apiGet, apiPost } from './api-client';
+import { DEFAULT_PAGE_SIZE } from '../components/use-pagination';
 
 interface DataResponse<T> {
   data: T;
@@ -22,7 +23,12 @@ export const salesService = {
     page: number,
     paymentMethod?: PaymentMethod,
   ): Promise<DailySalesHistory> {
-    const query = new URLSearchParams({ date, page: String(page) });
+    // Mismo estándar de filas por página que el resto de las tablas (regla 2).
+    const query = new URLSearchParams({
+      date,
+      page: String(page),
+      pageSize: String(DEFAULT_PAGE_SIZE),
+    });
     if (paymentMethod !== undefined) query.set('paymentMethod', paymentMethod);
     return (await apiGet<DataResponse<DailySalesHistory>>(`/api/sales/daily-history?${query}`))
       .data;

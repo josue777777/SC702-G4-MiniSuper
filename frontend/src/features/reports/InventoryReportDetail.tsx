@@ -29,7 +29,7 @@ interface InventoryReportDetailProps {
 
 /**
  * «Ver detalle» del reporte de inventario: cada sección elegida (productos,
- * vencimientos, stock bajo) con sus filas pedidas al servidor de a 20, y su
+ * vencimientos, stock bajo) con sus filas pedidas al servidor de a 15, y su
  * propia paginación. Nada se pide hasta que se abre el detalle.
  *
  * Mismo patrón que los reportes comerciales (`ReportDetail`). Se monta con

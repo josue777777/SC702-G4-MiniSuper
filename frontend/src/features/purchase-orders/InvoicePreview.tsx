@@ -38,10 +38,10 @@ export function InvoicePreview({ file, name }: InvoicePreviewProps) {
       ) : (
         <img className="invoice-preview__image" src={url} alt={`Factura: ${name}`} />
       )}
-      <figcaption className="muted hint">
-        {name} ·{' '}
-        <a href={url} download={name}>
-          Descargar
+      <figcaption className="invoice-preview__caption">
+        <span className="muted">{name}</span>
+        <a className="button" href={url} download={name}>
+          ⬇ Descargar
         </a>
       </figcaption>
     </figure>

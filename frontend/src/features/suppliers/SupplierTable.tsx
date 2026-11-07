@@ -17,7 +17,7 @@ interface SupplierTableProps {
 /**
  * Listado de proveedores con su contacto y los productos que suministran (HU-21).
  *
- * En páginas de 20. La celda de productos solo dice cuántos son («12
+ * En páginas de 15 (`DEFAULT_PAGE_SIZE`). La celda de productos solo dice cuántos son («12
  * productos»); la lista se abre en una ventana (`SupplierProductsModal`), así
  * la fila nunca crece ni la pantalla salta al abrirla (regla 4 de PANTALLAS.md).
  */

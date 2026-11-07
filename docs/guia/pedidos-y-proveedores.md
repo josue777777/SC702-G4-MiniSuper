@@ -13,10 +13,23 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   guardarlo como PDF (HU-24).
 - **Entregas** (HU-38): un pedido se recibe en una o varias entregas, cada una con su
   **factura**, el **día real** en que llegó y la cantidad real de cada producto. El
-  pedido queda «Recibido en parte» y sigue abierto hasta que llega todo o se **da por
+  pedido queda «Parcial» y sigue abierto hasta que llega todo o se **da por
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
+- **Proveedores › Editar**: los productos que suministra se agregan buscándolos
+  («Agregar producto que suministra», sin lista desplegable del catálogo), se ven de 4 en 4
+  con buscador y se quitan con «Quitar» (los de proveedor principal se cambian en
+  Inventario). «N productos» de la tabla abre solo esa lista, también de 4 en 4.
+- **«N productos» en el historial**: abre solo la lista de productos del pedido (lo pedido y
+  lo recibido), de 4 en 4 (`OrderProductsModal.tsx`). El pedido completo es «Ver pedido».
+- **Nuevo pedido**: al elegir el proveedor, sus productos se ven de 4 en 4 con un buscador
+  (`MODAL_PAGE_SIZE`, la regla de las listas en una ventana); las cantidades escritas se
+  conservan al cambiar de página o de búsqueda y el total suma todo el pedido.
+- **Documento del pedido** (Imprimir / Guardar PDF): encabezado y pie con los datos del
+  negocio y su logo (`features/business/BusinessDocument.tsx`), y la constancia con
+  «Generado por» (el usuario), «Fecha de recepción» y «Firma». En pantalla, «Ver pedido»
+  muestra la información sin esa constancia.
 - **Factura del proveedor** (HU-38): al registrar la entrega se puede adjuntar el PDF
   o la foto de la factura del proveedor; se ve al lado de las cantidades mientras se
   anotan. Si no se adjuntó, en «Ver pedido» › Entregas cada factura tiene «📎 Adjuntar

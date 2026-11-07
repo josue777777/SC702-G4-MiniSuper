@@ -192,19 +192,24 @@ test('«Ver detalle» pide las filas al servidor de a una página y se navega co
   const table = page.getByRole('table', { name: REPORT, exact: true });
   const pages = page.getByRole('navigation', { name: 'Páginas de filas' });
 
-  await expect(table.locator('tbody tr')).toHaveCount(20);
+  await expect(table.locator('tbody tr')).toHaveCount(15);
   expect(rowRequests).toHaveLength(1);
   await expect(pages.getByRole('button', { name: 'Ir a la página 1' })).toHaveAttribute(
     'aria-current',
     'page',
   );
 
-  // Directo a la última página, sin pasar por la 2.
-  await pages.getByRole('button', { name: 'Ir a la página 3' }).click();
+  // Directo a la última página, sin pasar por la 2 (de 15 en 15, regla 2).
+  const last = Math.ceil(total / 15);
+  const firstOfLast = (last - 1) * 15 + 1;
+
+  await pages.getByRole('button', { name: `Ir a la página ${last}` }).click();
   await expect(
-    pages.getByText(`Mostrando 41–${total} de ${total} filas · Página 3 de 3`),
+    pages.getByText(
+      `Mostrando ${firstOfLast}–${total} de ${total} filas · Página ${last} de ${last}`,
+    ),
   ).toBeVisible();
-  await expect(table.locator('tbody tr')).toHaveCount(total - 40);
+  await expect(table.locator('tbody tr')).toHaveCount(total - (firstOfLast - 1));
   await expect(pages.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
   expect(rowRequests.some((url) => url.includes('page=2'))).toBe(false);
   await saveEvidence(page, 'HU-40', 'HU-40-detalle-paginado.png');
@@ -284,10 +289,10 @@ test('inventario: el resumen llega sin filas y cada sección se pide de a una p�
   const table = page.getByRole('table', { name: 'Stock de productos' });
   const pages = page.getByRole('navigation', { name: 'Páginas de stock de productos' });
 
-  await expect(table.locator('tbody tr')).toHaveCount(20);
+  await expect(table.locator('tbody tr')).toHaveCount(15);
   await pages.getByRole('button', { name: 'Ir a la página 2' }).click();
-  await expect(pages.getByText('Mostrando 21–28 de 28 productos · Página 2 de 2')).toBeVisible();
-  await expect(table.locator('tbody tr')).toHaveCount(8);
+  await expect(pages.getByText('Mostrando 16–28 de 28 productos · Página 2 de 2')).toBeVisible();
+  await expect(table.locator('tbody tr')).toHaveCount(13);
   // El total es de TODO el inventario, no solo de la página.
   await expect(table.locator('tfoot')).toContainText('28 producto(s)');
   expect(rowRequests.every((url) => url.includes('section=products'))).toBe(true);

@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { DEFAULT_PAGE_SIZE } from '../../components/use-pagination';
 import { kardexService } from '../../services/kardex.service';
 import { formatMovementDate, formatQuantity, formatReference } from './kardex-format';
 import { useKeyedRequest } from './use-keyed-request';
 
-/** Movimientos por página: el historial completo se recorre con «Anterior» y «Siguiente». */
-const PAGE_SIZE = 25;
+/** Movimientos por página: el mismo estándar de todas las tablas (regla 2). */
+const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 /**
  * Historial de entradas y salidas de un producto (HU-31), del más reciente al más

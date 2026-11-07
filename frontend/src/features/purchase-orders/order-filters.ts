@@ -24,7 +24,7 @@ export const EMPTY_ORDER_FILTERS: OrderFilters = { search: '', status: '', from:
 
 export const STATUS_FILTER_LABELS: Record<Exclude<OrderStatusFilter, ''>, string> = {
   PENDING: 'Pendientes',
-  PARTIAL: 'Recibidos en parte',
+  PARTIAL: 'Parciales',
   RECEIVED: 'Recibidos',
   PENDING_LOAD: 'Con carga pendiente',
 };

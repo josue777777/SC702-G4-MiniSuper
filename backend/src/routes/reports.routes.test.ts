@@ -235,16 +235,17 @@ describe('GET /api/reports/commercial/:kind/rows', () => {
   it('entrega el detalle de a una página y dice cuántas filas y páginas hay', async () => {
     const { app, repository } = buildApp();
 
-    withManySales(repository, 45);
+    withManySales(repository, 40);
 
     const first = await request(app).get(ROWS).expect(200);
     const last = await request(app).get(`${ROWS}&page=3`).expect(200);
 
     expect(first.headers['cache-control']).toBe('no-store');
-    expect(first.body.data).toMatchObject({ page: 1, pageSize: 20, total: 45, pageCount: 3 });
-    expect(first.body.data.rows).toHaveLength(20);
-    expect(last.body.data).toMatchObject({ page: 3, total: 45, pageCount: 3 });
-    expect(last.body.data.rows).toHaveLength(5);
+    // 15 por página: el estándar de las tablas (docs/PANTALLAS.md, regla 2).
+    expect(first.body.data).toMatchObject({ page: 1, pageSize: 15, total: 40, pageCount: 3 });
+    expect(first.body.data.rows).toHaveLength(15);
+    expect(last.body.data).toMatchObject({ page: 3, total: 40, pageCount: 3 });
+    expect(last.body.data.rows).toHaveLength(10);
   });
 
   it('las páginas, juntas, son exactamente el detalle completo: sin repetir ni omitir', async () => {
@@ -270,12 +271,12 @@ describe('GET /api/reports/commercial/:kind/rows', () => {
     expect((await request(app).get(ROWS).expect(200)).body.data).toEqual({
       rows: [],
       page: 1,
-      pageSize: 20,
+      pageSize: 15,
       total: 0,
       pageCount: 1,
     });
 
-    withManySales(repository, 21);
+    withManySales(repository, 16);
 
     expect((await request(app).get(`${ROWS}&page=99`).expect(200)).body.data).toMatchObject({
       page: 2,

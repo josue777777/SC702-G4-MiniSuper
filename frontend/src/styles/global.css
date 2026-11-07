@@ -54,6 +54,39 @@ body {
   min-height: 100vh;
 }
 
+/*
+ * Enlaces dentro de un texto: del color del texto y subrayados (nunca el azul del
+ * navegador). Una ACCIÓN no es un enlace suelto: va como botón (`.button`),
+ * aunque lleve a otra pantalla o descargue un archivo.
+ */
+a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--color-primary);
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.button--primary,
+a.button--primary:hover {
+  color: #fff;
+}
+
+/* Un distintivo que lleva a otra pantalla (p. ej. «3 solicitudes») no se subraya */
+a.badge {
+  text-decoration: none;
+}
+
 code {
   background: var(--color-row-alt);
   border-radius: 4px;
@@ -539,6 +572,11 @@ code {
   text-align: right;
 }
 
+/* Un importe con decimales (₡1 000,00) necesita más ancho que una cantidad */
+.table input.input--money {
+  width: 120px;
+}
+
 .field label {
   font-size: 0.85rem;
   font-weight: 600;
@@ -967,7 +1005,8 @@ code {
 }
 
 /* Reporte imprimible de vencimientos (HU-09): solo se imprime `.print-area` */
-.print-only {
+.print-only,
+tr.print-only-row {
   display: none;
 }
 
@@ -1030,6 +1069,11 @@ code {
 
   body.printing-report .no-print {
     display: none;
+  }
+
+  /* Una fila que en pantalla está en otra página igual sale en el papel */
+  body.printing-report tr.print-only-row {
+    display: table-row;
   }
 }
 
@@ -1794,6 +1838,93 @@ code {
 .order-reception__label {
   color: var(--color-muted);
   font-size: 0.8rem;
+}
+
+/* «Generado por»: el nombre va escrito sobre la línea */
+.order-reception__line--filled {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+/* Encabezado y pie de los documentos del negocio (pedido a proveedor…): solo en el papel */
+.business-document__header {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-text);
+}
+
+.business-document__brand {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.business-document__logo {
+  width: 64px;
+  height: 64px;
+}
+
+.business-document__name {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.business-document__contact {
+  display: block;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.business-document__title {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.business-document__title h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  white-space: nowrap;
+}
+
+.business-document__footer {
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+@media print {
+  body.printing-report .business-document__header,
+  body.printing-report .business-document__footer {
+    display: flex;
+  }
+
+  /* El pie va al final de CADA hoja (fijo al borde de la página impresa) */
+  body.printing-report .business-document__footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    background: #fff;
+  }
+
+  /* Para que el contenido de una hoja larga no quede debajo del pie */
+  body.printing-report .print-area:has(.business-document__footer) {
+    padding-bottom: 56px;
+  }
 }
 
 /* --- Perfil del dueño (HU-14) ---------------------------------------------- */
@@ -3474,6 +3605,15 @@ fieldset.filter-bar__field {
   position: sticky;
   top: 60px;
   margin: 0;
+}
+
+.invoice-preview__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .invoice-preview__frame,

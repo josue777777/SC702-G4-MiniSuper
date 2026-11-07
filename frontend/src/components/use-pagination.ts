@@ -1,7 +1,26 @@
 import { useEffect, useState } from 'react';
 
-/** Filas por página en las listas de la aplicación. */
-export const DEFAULT_PAGE_SIZE = 20;
+/**
+ * Filas por página de una tabla en una pantalla (Inventario, Clientes, el
+ * historial, el detalle de un reporte…), en el navegador o en el servidor: 15
+ * caben en una laptop sin tener que bajar para ver la paginación
+ * (docs/PANTALLAS.md, regla 2).
+ */
+export const DEFAULT_PAGE_SIZE = 15;
+
+/**
+ * Filas por página de una lista DENTRO de una ventana (`Modal`): pocas, para
+ * que la ventana no crezca ni se mueva al abrirla o al buscar
+ * (docs/PANTALLAS.md, regla 2).
+ */
+export const MODAL_PAGE_SIZE = 4;
+
+/**
+ * Cuántas sugerencias muestra un buscador mientras se escribe (productos, la
+ * barra de comandos): suficientes para elegir, sin estirar la ventana. Lo demás
+ * se encuentra escribiendo más.
+ */
+export const MAX_SUGGESTIONS = 6;
 
 export interface PaginationState<T> {
   /** Solo las filas de la página actual: es lo que se dibuja. */

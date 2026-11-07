@@ -85,7 +85,7 @@ export const exportColumnsSchema = z
   .optional();
 
 /** Filas por página del detalle en pantalla, si no se indica otra cosa. */
-export const DEFAULT_ROWS_PAGE_SIZE = 20;
+export const DEFAULT_ROWS_PAGE_SIZE = 15;
 
 /** Tope de filas por página: más que esto ya no es «una página». */
 export const MAX_ROWS_PAGE_SIZE = 100;
