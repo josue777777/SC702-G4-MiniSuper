@@ -24,7 +24,7 @@ interface ReportDetailProps {
  * «Ver detalle»: las filas del reporte, cerradas hasta que se piden.
  *
  * Las filas NO vienen con el reporte: al abrir el detalle se piden al servidor
- * de a 20 (`GET /api/reports/commercial/:kind/rows`). Con un año de ventas, la
+ * de a 15 (`GET /api/reports/commercial/:kind/rows`). Con un año de ventas, la
  * pantalla nunca recibe ni dibuja más que una página. Los números de página
  * permiten ir directo a la última o a una del medio.
  *

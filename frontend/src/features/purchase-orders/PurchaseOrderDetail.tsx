@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { purchaseOrdersService } from '../../services/purchase-orders.service';
 import type {
   PurchaseOrder,
@@ -88,6 +90,10 @@ export function PurchaseOrderDetail({
   const [confirmingConclude, setConfirmingConclude] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<PurchaseReceipt | null>(null);
+  // En pantalla, de 4 en 4 (regla 2); el papel impreso lleva todos los productos.
+  const products = usePagination(order.items, order.id, MODAL_PAGE_SIZE);
+  const onPage = new Set(products.pageItems.map((item) => item.productId));
+  const receipts = usePagination(order.receipts, order.id, MODAL_PAGE_SIZE);
   const missing = order.items.reduce((sum, item) => sum + item.pendingQuantity, 0);
 
   async function run(action: () => Promise<string | null>): Promise<void> {
@@ -157,7 +163,10 @@ export function PurchaseOrderDetail({
             </thead>
             <tbody>
               {order.items.map((item) => (
-                <tr key={item.productId}>
+                <tr
+                  key={item.productId}
+                  className={onPage.has(item.productId) ? undefined : 'print-only-row'}
+                >
                   <td>{item.productCode}</td>
                   <td>{item.productName}</td>
                   <td className="table__number">{item.quantity}</td>
@@ -191,6 +200,9 @@ export function PurchaseOrderDetail({
               </tr>
             </tfoot>
           </table>
+        </div>
+        <div className="no-print">
+          <Pagination {...products} itemLabel="productos" onPage={products.setPage} />
         </div>
 
         {/*
@@ -233,7 +245,7 @@ export function PurchaseOrderDetail({
                 </tr>
               </thead>
               <tbody>
-                {order.receipts.map((receipt) => (
+                {receipts.pageItems.map((receipt) => (
                   <tr key={receipt.id}>
                     <td>
                       <strong>{receipt.invoiceNumber}</strong>
@@ -291,6 +303,12 @@ export function PurchaseOrderDetail({
               </tbody>
             </table>
           </div>
+          <Pagination
+            {...receipts}
+            itemLabel="entregas"
+            label="Páginas de entregas"
+            onPage={receipts.setPage}
+          />
         </section>
       )}
 

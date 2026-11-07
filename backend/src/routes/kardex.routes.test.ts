@@ -171,7 +171,7 @@ describe('GET /api/kardex/products/:productId/movements', () => {
     expect(second.body.data.items.map((item: { id: string }) => item.id)).toEqual(['a']);
   });
 
-  it('usa 25 por página por defecto y sin movimientos devuelve una página vacía', async () => {
+  it('usa 15 por página por defecto (el estándar del sistema) y sin movimientos devuelve una página vacía', async () => {
     const { app } = buildApp();
     const response = await request(app).get(
       `/api/kardex/products/${KARDEX_EMPTY_PRODUCT_ID}/movements`,
@@ -181,7 +181,7 @@ describe('GET /api/kardex/products/:productId/movements', () => {
     expect(response.body.data).toEqual({
       items: [],
       page: 1,
-      pageSize: 25,
+      pageSize: 15,
       total: 0,
       totalPages: 0,
     });

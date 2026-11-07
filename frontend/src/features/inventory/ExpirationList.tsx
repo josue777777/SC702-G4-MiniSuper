@@ -1,3 +1,5 @@
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { useState } from 'react';
 import type { ExpirationAlert } from '../../types/inventory';
 import { describeExpiration, formatDateOnly, formatDateTime } from './inventory-count';
@@ -44,6 +46,8 @@ export function ExpirationList({
 }: ExpirationListProps) {
   const [filter, setFilter] = useState<Filter>('ALL');
   const visible = filter === 'ALL' ? alerts : alerts.filter((alert) => alert.status === filter);
+  // Se abre en una ventana desde el inicio: de 4 en 4 (regla 2).
+  const pages = usePagination(visible, filter, MODAL_PAGE_SIZE);
   const expiredCount = alerts.filter((alert) => alert.status === 'EXPIRED').length;
 
   return (
@@ -108,7 +112,7 @@ export function ExpirationList({
               </tr>
             </thead>
             <tbody>
-              {visible.map((alert) => (
+              {pages.pageItems.map((alert) => (
                 <tr key={alert.productId}>
                   <td>{alert.productCode}</td>
                   <td>{alert.productName}</td>
@@ -129,6 +133,7 @@ export function ExpirationList({
           </table>
         </div>
       )}
+      <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
     </section>
   );
 }

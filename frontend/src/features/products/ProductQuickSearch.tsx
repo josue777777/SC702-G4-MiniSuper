@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { matchesSearch, normalizeSearch } from '../../components/list-search';
+import { MAX_SUGGESTIONS } from '../../components/use-pagination';
 import type { Product } from '../../types/products';
 
 interface ProductQuickSearchProps {
@@ -12,9 +13,6 @@ interface ProductQuickSearchProps {
   /** Id del campo, para enlazarlo con un `<label htmlFor>` visible. */
   id?: string;
 }
-
-/** Cuántas coincidencias se muestran: suficientes para elegir, sin llenar la ventana. */
-const MAX_RESULTS = 6;
 
 /**
  * Buscador para elegir UN producto escribiendo su nombre, su código o su código
@@ -42,7 +40,7 @@ export function ProductQuickSearch({
       ? []
       : products
           .filter((product) => matchesSearch(term, product.code, product.name, product.barcode))
-          .slice(0, MAX_RESULTS);
+          .slice(0, MAX_SUGGESTIONS);
 
   function pick(product: Product): void {
     onPick(product);

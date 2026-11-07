@@ -1005,7 +1005,8 @@ code {
 }
 
 /* Reporte imprimible de vencimientos (HU-09): solo se imprime `.print-area` */
-.print-only {
+.print-only,
+tr.print-only-row {
   display: none;
 }
 
@@ -1068,6 +1069,11 @@ code {
 
   body.printing-report .no-print {
     display: none;
+  }
+
+  /* Una fila que en pantalla está en otra página igual sale en el papel */
+  body.printing-report tr.print-only-row {
+    display: table-row;
   }
 }
 

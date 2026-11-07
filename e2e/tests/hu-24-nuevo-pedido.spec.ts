@@ -107,3 +107,32 @@ test('«N productos» del historial abre solo la lista de productos, de 4 en 4',
   await list.getByText('Cerrar', { exact: true }).click();
   await expect(list).toHaveCount(0);
 });
+
+test('«Ver pedido»: en pantalla de 4 en 4; el papel impreso lleva todos los productos', async ({
+  page,
+}) => {
+  const { supplierId, ids } = await withDb(async (client) => {
+    const supplier = await client.query<{ id: string }>(
+      `SELECT id FROM "Supplier" WHERE name = 'Distribuidora Central'`,
+    );
+    const products = await client.query<{ id: string }>(`SELECT id FROM "Product" ORDER BY code`);
+
+    return { supplierId: supplier.rows[0]?.id ?? '', ids: products.rows.map((row) => row.id) };
+  });
+
+  await page.request.post(`${BACKEND_URL}/api/purchase-orders`, {
+    data: { supplierId, items: ids.map((productId) => ({ productId, quantity: 1 })) },
+  });
+  await page.goto('/orders');
+  await page.getByRole('button', { name: 'Ver pedido PED-0001' }).click();
+
+  const order = page.getByRole('dialog', { name: /^Pedido PED-0001/ });
+  const rows = order.getByRole('table', { name: 'Productos del pedido' }).locator('tbody tr');
+
+  await expect(rows.filter({ visible: true })).toHaveCount(4);
+  await expect(order.getByRole('navigation', { name: 'Páginas de productos' })).toBeVisible();
+
+  await page.emulateMedia({ media: 'print' });
+  await page.evaluate(() => document.body.classList.add('printing-report'));
+  await expect(page.locator('.print-area tbody tr').filter({ visible: true })).toHaveCount(6);
+});

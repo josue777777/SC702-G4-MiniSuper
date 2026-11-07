@@ -1,5 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import type { PurchaseOrder, ReceiveOrderPayload } from '../../types/purchase-orders';
 import { todayInBusinessZone } from '../reports/report-filters';
 import { INVOICE_ACCEPT, invoiceFileError } from './invoice-file';
@@ -42,6 +44,8 @@ function parseQuantity(text: string): number | null {
 export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrderModalProps) {
   const today = todayInBusinessZone();
   const pending = order.items.filter((item) => item.pendingQuantity > 0);
+  // De 4 en 4 (regla 2): lo escrito en cada producto se conserva al cambiar de página.
+  const pages = usePagination(pending, order.id, MODAL_PAGE_SIZE);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [receivedOn, setReceivedOn] = useState(today);
   const [quantities, setQuantities] = useState<Record<string, string>>(() =>
@@ -182,7 +186,7 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
                 </tr>
               </thead>
               <tbody>
-                {pending.map((item) => (
+                {pages.pageItems.map((item) => (
                   <tr key={item.productId}>
                     <td>{item.productCode}</td>
                     <td>{item.productName}</td>
@@ -209,6 +213,7 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
               </tbody>
             </table>
           </div>
+          <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
           <p className="muted hint">
             Anote lo que realmente llegó; 0 si un producto no vino en esta entrega. Lo que no llegue
             sigue pendiente en el pedido.

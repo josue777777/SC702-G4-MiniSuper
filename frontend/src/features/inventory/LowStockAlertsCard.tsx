@@ -1,3 +1,5 @@
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { Link } from 'react-router-dom';
 import { useLowStockAlerts } from './use-low-stock-alerts';
 
@@ -10,6 +12,8 @@ import { useLowStockAlerts } from './use-low-stock-alerts';
  */
 export function LowStockAlertsCard() {
   const { phase, alerts, message, reload } = useLowStockAlerts();
+  // Se abre en una ventana desde el inicio: de 4 en 4 (regla 2).
+  const pages = usePagination(alerts, alerts.length, MODAL_PAGE_SIZE);
 
   return (
     <section className="card">
@@ -47,7 +51,7 @@ export function LowStockAlertsCard() {
               </tr>
             </thead>
             <tbody>
-              {alerts.map((alert) => (
+              {pages.pageItems.map((alert) => (
                 <tr key={alert.productId}>
                   <td>{alert.productCode}</td>
                   <td>{alert.productName}</td>
@@ -60,6 +64,10 @@ export function LowStockAlertsCard() {
             </tbody>
           </table>
         </div>
+      ) : null}
+
+      {alerts.length > 0 ? (
+        <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
       ) : null}
 
       <p className="muted hint">

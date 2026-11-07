@@ -29,7 +29,7 @@ interface PurchaseOrderHistoryProps {
 
 /**
  * Historial de pedidos (HU-22): fecha, proveedor, productos y costo de cada
- * pedido, del más reciente al más antiguo, en páginas de 20. Se filtra por
+ * pedido, del más reciente al más antiguo, en páginas de 15 (`DEFAULT_PAGE_SIZE`). Se filtra por
  * proveedor (lo pide el servidor), por estado (también «con carga pendiente»,
  * HU-38), por período y con un buscador (PED-0007, factura, proveedor o
  * producto). Los filtros se aplican solos, al cambiarlos.

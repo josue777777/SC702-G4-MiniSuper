@@ -339,42 +339,39 @@ test('un historial de más de una página se recorre completo, sin repetir ni om
 }) => {
   await page.goto(`/movimientos?productId=${await productIdOf('P004')}`);
   await expect(page.getByText('60 movimientos')).toBeVisible();
-  await expect(page.getByText('Página 1 de 3')).toBeVisible();
+  await expect(page.getByText('Página 1 de 4')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Anterior' })).toBeDisabled();
 
+  // De 15 en 15 (regla 2): 4 páginas.
   const concepts: string[] = [];
   const first = await readHistory(page);
 
-  expect(first).toHaveLength(25);
+  expect(first).toHaveLength(15);
   // El más reciente primero.
   expect(first[0]?.[1]).toBe('Movimiento 60');
   // Sembrado a las 13:00 UTC: en hora de Costa Rica son las 07:00.
   expect(first[0]?.[0]).toBe('01/06/2024 07:00');
   concepts.push(...first.map((row) => row[1] ?? ''));
 
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(page.getByText('Página 2 de 3')).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Movimiento 35', exact: true })).toBeVisible();
-  const second = await readHistory(page);
+  for (const next of [2, 3, 4]) {
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    await expect(page.getByText(`Página ${next} de 4`)).toBeVisible();
 
-  expect(second).toHaveLength(25);
-  concepts.push(...second.map((row) => row[1] ?? ''));
+    const rows = await readHistory(page);
 
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(page.getByText('Página 3 de 3')).toBeVisible();
+    expect(rows).toHaveLength(15);
+    concepts.push(...rows.map((row) => row[1] ?? ''));
+  }
+
   await expect(page.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
-  const third = await readHistory(page);
-
-  expect(third).toHaveLength(10);
-  expect(third.at(-1)?.[1]).toBe('Movimiento 1');
-  concepts.push(...third.map((row) => row[1] ?? ''));
+  expect(concepts.at(-1)).toBe('Movimiento 1');
 
   // Los 60, una sola vez cada uno, del 60 al 1.
   expect(concepts).toEqual(Array.from({ length: 60 }, (_, index) => `Movimiento ${60 - index}`));
 
   // Y se puede volver atrás.
   await page.getByRole('button', { name: 'Anterior' }).click();
-  await expect(page.getByText('Página 2 de 3')).toBeVisible();
+  await expect(page.getByText('Página 3 de 4')).toBeVisible();
 });
 
 test('la ficha se ve y la pantalla responde aunque el historial tarde en llegar', async ({
