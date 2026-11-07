@@ -45,9 +45,10 @@ function printOrder(): void {
 /**
  * Detalle completo de un pedido (HU-22) y documento del pedido (HU-24).
  *
- * El documento se imprime para entregarlo al proveedor: trae la cantidad
- * solicitada y una columna «Cant. recibida» en blanco, más espacio para nombre,
- * fecha y firma de quien recibe. Ese papel respalda la entrada de mercadería que
+ * En pantalla es la información del pedido: datos, productos (con lo recibido)
+ * y entregas. Al imprimirlo para el proveedor, el papel trae además la columna
+ * «Cant. recibida» en blanco (si no llegó nada) y el espacio para nombre, fecha y
+ * firma de quien recibe (`print-only`). Ese papel respalda la entrada de mercadería que
  * después se registra en el sistema.
  *
  * «Imprimir / Guardar PDF» abre el diálogo de impresión del navegador, que
@@ -137,6 +138,7 @@ export function PurchaseOrderDetail({
           )}
         </dl>
 
+        <h3 className="no-print">Productos</h3>
         <div className="table-wrapper">
           <table className="table" aria-label="Productos del pedido">
             <thead>
@@ -157,11 +159,19 @@ export function PurchaseOrderDetail({
                   <td>{item.productName}</td>
                   <td className="table__number">{item.quantity}</td>
                   <td className="table__number">
-                    {/* Lo recibido en el sistema; en blanco, para anotarlo a mano en el papel. */}
+                    {/*
+                      Lo recibido en el sistema. Si todavía no llegó nada: en pantalla 0;
+                      en el papel impreso, una línea en blanco para anotarlo a mano.
+                    */}
                     {item.receivedQuantity > 0 ? (
                       item.receivedQuantity
                     ) : (
-                      <span className="write-in" aria-label="Para anotar a mano" />
+                      <>
+                        <span className="no-print">0</span>
+                        <span className="print-only">
+                          <span className="write-in" aria-label="Para anotar a mano" />
+                        </span>
+                      </>
                     )}
                   </td>
                   <td className="table__number">{formatMoney(item.unitCost)}</td>
@@ -180,17 +190,23 @@ export function PurchaseOrderDetail({
           </table>
         </div>
 
-        {/* Constancia de recepción: el papel firmado respalda la entrada que luego se registra. */}
-        <p className="muted hint">
-          Al recibir la mercadería, anote en «Cant. recibida» lo que realmente llegó y firme abajo.
-        </p>
-        <div className="order-reception">
-          {['Recibido por', 'Fecha de recepción', 'Firma'].map((label) => (
-            <div key={label}>
-              <span className="order-reception__line" />
-              <span className="order-reception__label">{label}</span>
-            </div>
-          ))}
+        {/*
+          Constancia de recepción: solo en el papel (imprimir o PDF). El papel firmado
+          respalda la entrega; en pantalla no aporta, la entrega se registra aquí.
+        */}
+        <div className="print-only">
+          <p className="muted hint">
+            Al recibir la mercadería, anote en «Cant. recibida» lo que realmente llegó y firme
+            abajo.
+          </p>
+          <div className="order-reception">
+            {['Recibido por', 'Fecha de recepción', 'Firma'].map((label) => (
+              <div key={label}>
+                <span className="order-reception__line" />
+                <span className="order-reception__label">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

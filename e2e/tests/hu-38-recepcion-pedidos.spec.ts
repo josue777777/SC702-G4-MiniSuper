@@ -345,3 +345,29 @@ test('cancelar el selector de archivos no cierra la ventana; Esc sí', async ({ 
   await page.keyboard.press('Escape');
   await expect(orderDialog(page)).toHaveCount(0);
 });
+
+test('«Ver pedido» en pantalla es información; la firma y las instrucciones son solo del papel', async ({
+  page,
+}) => {
+  await createOrder(page);
+  await openOrder(page);
+
+  const order = orderDialog(page);
+
+  await expect(order.getByRole('heading', { name: 'Productos' })).toBeVisible();
+  await expect(order.getByText('Recibido por')).toBeHidden();
+  await expect(order.getByText('Al recibir la mercadería', { exact: false })).toBeHidden();
+  // Nada llegó todavía: en pantalla «Cant. recibida» dice 0.
+  await expect(
+    order.getByRole('table', { name: 'Productos del pedido' }).locator('tbody tr').first(),
+  ).toContainText('0');
+
+  // Al imprimir (o guardar en PDF) el papel sí trae la constancia para firmar.
+  await page.emulateMedia({ media: 'print' });
+  await page.evaluate(() => document.body.classList.add('printing-report'));
+  // Al imprimir solo queda el papel (`.print-area`); la ventana misma se oculta.
+  const paper = page.locator('.print-area');
+
+  await expect(paper.getByText('Recibido por')).toBeVisible();
+  await expect(paper.getByText('Productos', { exact: true })).toBeHidden();
+});
