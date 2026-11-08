@@ -108,15 +108,19 @@ export function InventoryReportDetail({
                 <th>Código</th>
                 <th>Producto</th>
                 <th className="table__number">Stock</th>
+                <th>Lote</th>
+                <th className="table__number">Unidades del lote</th>
                 <th>Vence</th>
                 <th>Estado</th>
               </>
             }
             row={(alert) => (
-              <tr key={alert.productId}>
+              <tr key={`${alert.productId}-${alert.lotNumber}-${alert.expirationDate}`}>
                 <td>{alert.productCode}</td>
                 <td>{alert.productName}</td>
                 <td className="table__number">{alert.stock}</td>
+                <td>{alert.lotNumber}</td>
+                <td className="table__number">{alert.lotQuantity}</td>
                 <td>{formatDateOnly(alert.expirationDate)}</td>
                 <td>{describeExpiration(alert.daysLeft)}</td>
               </tr>
