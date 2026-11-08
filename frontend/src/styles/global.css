@@ -2982,12 +2982,71 @@ tr.print-only-row {
   font-weight: 600;
 }
 
-/* Cifra grande con su estado al lado, a la derecha («30 · Bien»). */
-.stat-tile__row {
+/* Ficha de Movimientos: cada dato en su bloque (etiqueta pequeña y el dato),
+   con el borde fino y las esquinas del sistema; ninguno manda sobre otro. */
+.kardex-sheet {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.kardex-block {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.kardex-block--wide {
+  grid-column: span 2;
+}
+
+.kardex-block__label {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.kardex-block__value {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Dato con su aviso al lado («30 · Bien») o el resumen en una línea. */
+.kardex-block__row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.kardex-block__row--together {
+  justify-content: flex-start;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .kardex-sheet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .kardex-sheet {
+    grid-template-columns: 1fr;
+  }
+
+  .kardex-block--wide {
+    grid-column: auto;
+  }
 }
 
 /* Fila «Totales» al pie del kardex. */

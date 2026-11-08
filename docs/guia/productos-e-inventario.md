@@ -34,13 +34,14 @@ Es el catálogo del negocio y el control de sus existencias:
      abre el producto). Al entrar en la caja se despliega «Recientes» (los últimos 6
      productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
      coinciden con su stock (`KardexSearch.tsx`).
-  2. **Ficha** (`ProductSheet.tsx`): tarjetas de existencias (con su estado en palabra:
-     «Bien», «Bajo», «Agotado», «Sobre el máximo»), precio y costo, y la lista de datos:
-     **Producto** (el código), **Descripción** (el nombre), código de barras, categoría,
-     unidad, proveedor principal, stock mínimo y máximo, vencimiento. Sin producto, la
-     misma ficha con «—».
+  2. **Ficha** (`ProductSheet.tsx`), cada dato en su bloque: **Producto** (el código, con
+     código de barras y categoría), **Descripción** (el nombre), unidad, proveedor
+     principal, precio, costo, **existencias** con el aviso pequeño de su estado («Bien»,
+     «Bajo», «Agotado», «Sobre el máximo»), stock mínimo y máximo, vencimiento e
+     historial («Entró +30 · Salió −12 · 9 movimientos»). Sin producto, los mismos
+     bloques con «—».
   3. **Historial de movimientos** con «Todos / Entradas / Salidas» (el filtro va al
-     servidor), «Entró N · Salió N» y la fila «Totales». Sin producto, los últimos
+     servidor), sin fila de totales: la primera línea es el saldo más reciente. Sin producto, los últimos
      movimientos de todos los productos con «Hoy: N entran · N salen»
      (`RecentMovements.tsx`).
   4. **Barra de acciones** abajo, como en Inventario. Cada acción abre su ventana:

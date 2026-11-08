@@ -37,7 +37,10 @@ Reglas:
   `.text-error`), también el 0; el concepto de una entrada en verde con «+» y el de una
   salida con «−»; el stock final en negrita; los lotes en una insignia pequeña de
   contorno; las existencias con su estado al lado («Bien», «Bajo», «Agotado»). Son los
-  tonos del panel, no colores propios de la pantalla (`FlowAmount.tsx`).
+  tonos del panel, no colores propios de la pantalla (`FlowAmount.tsx`). La ficha va en
+  bloques iguales (etiqueta pequeña y el dato, `.kardex-block`): ningún dato manda sobre
+  otro, y el historial no lleva fila de totales porque la primera línea es el saldo más
+  reciente.
 - **Solo tokens.** Una regla usa `var(--color-…)` y `var(--radius…)`; un color
   fijo nuevo en una regla es un error (el diseño ya no se podría cambiar en un
   solo lugar).

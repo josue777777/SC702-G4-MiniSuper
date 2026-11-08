@@ -192,29 +192,27 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
 
   // Producto: código, nombre, código de barras y categoría.
   // «Producto» es el código y «Descripción» el nombre.
-  await expect(cell('Producto')).toHaveText('P001');
+  // Cada dato en su bloque: «Producto» es el código (con código de barras y
+  // categoría) y «Descripción» el nombre.
+  await expect(cell('Producto')).toHaveText('P001 · 7501000000012 · Bebidas');
   await expect(cell('Descripción')).toHaveText('Café molido 500 g');
-  await expect(cell('Código de barras')).toHaveText('7501000000012');
-  await expect(cell('Categoría')).toHaveText('Bebidas');
   await expect(cell('Proveedor principal')).toHaveText('Distribuidora Central');
   await expect(cell('Unidad')).toHaveText('Unidad (UD)');
 
-  // Las cifras, en las tarjetas del sistema; existencias con su estado en palabra
-  // (mínimo 3 en las semillas: 8 está «Bien»).
-  const tile = (label: string) => sheet.locator('.stat-tile', { hasText: label });
-
-  expect(digits(await tile('Precio de venta').locator('.stat-tile__value').textContent())).toBe(
-    '150000',
-  );
-  expect(digits(await tile('Costo').locator('.stat-tile__value').textContent())).toBe('100050');
+  // Precio y costo en sus bloques, como los demás datos; existencias con el
+  // aviso pequeño de su estado (mínimo 3 en las semillas: 8 está «Bien»).
+  expect(digits(await cell('Precio de venta').textContent())).toBe('150000');
+  expect(digits(await cell('Costo').textContent())).toBe('100050');
   await expect(sheet.getByLabel('Stock actual')).toHaveText('8');
-  await expect(tile('Existencias')).toContainText('Bien');
+  await expect(cell('Existencias').locator('.badge--ok')).toHaveText('Bien');
   // Resumen de todo el historial: lo que entró y salió.
   // 20 + 1 + 3 (el conteo que subió) = 24 entran; 5 + 6 + 5 = 16 salen.
   // Con los tonos del panel: verde con «+», rojo con «−».
   const summary = page.getByLabel('Resumen del historial');
 
-  await expect(summary).toHaveText('Entró +24 · Salió −16');
+  await expect(summary).toContainText('Entró +24');
+  await expect(summary).toContainText('Salió −16');
+  await expect(summary).toContainText('6 movimientos');
   await expect(summary.locator('.text-ok')).toHaveText('+24');
   await expect(summary.locator('.text-error')).toHaveText('−16');
 
@@ -340,9 +338,7 @@ test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimie
   // hoy) y la tabla; abajo, la barra de acciones pide buscar un producto.
   const sheet = page.getByRole('region', { name: 'Ficha del producto' });
 
-  await expect(
-    sheet.locator('.stat-tile', { hasText: 'Existencias' }).locator('.stat-tile__value'),
-  ).toHaveText('—');
+  await expect(sheet.getByLabel('Stock actual')).toHaveText('—');
   await expect(
     sheet.locator('dt', { hasText: 'Producto' }).locator('xpath=following-sibling::dd'),
   ).toHaveText('—');

@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DEFAULT_PAGE_SIZE } from '../../components/use-pagination';
 import { kardexService } from '../../services/kardex.service';
-import type { KardexDirection } from '../../types/kardex';
-import { FlowAmount } from './FlowAmount';
+import type { KardexAmounts, KardexDirection } from '../../types/kardex';
 import { MovementsTable } from './MovementsTable';
 import { useKeyedRequest } from './use-keyed-request';
 
@@ -18,10 +17,10 @@ const DIRECTIONS: [KardexDirection, string][] = [
 
 interface MovementsHistoryProps {
   productId: string;
-  /** Stock actual: el saldo de la fila «Totales». */
-  stock: number;
   /** Cambia cada vez que se registra un ingreso o egreso: vuelve a pedir el historial. */
   version: number;
+  /** Entrega a la ficha el resumen de todo el historial («Entró · Salió · N movimientos»). */
+  onSummary: (summary: KardexAmounts) => void;
 }
 
 /**
@@ -30,10 +29,10 @@ interface MovementsHistoryProps {
  * ficha se ve sin esperarlo.
  *
  * «Todos / Entradas / Salidas» filtra en el servidor (un ajuste cuenta según
- * si subió o bajó el stock). La fila «Totales» suma lo filtrado y cierra con
- * el stock actual. Sin «stock anterior»: es el stock final de la línea de abajo.
+ * si subió o bajó el stock). Sin fila de totales ni «stock anterior»: la
+ * primera línea es el saldo más reciente y cada una parte de la de abajo.
  */
-export function MovementsHistory({ productId, stock, version }: MovementsHistoryProps) {
+export function MovementsHistory({ productId, version, onSummary }: MovementsHistoryProps) {
   const [position, setPosition] = useState({
     productId,
     page: 1,
@@ -58,16 +57,16 @@ export function MovementsHistory({ productId, stock, version }: MovementsHistory
 
   const loaded = history.phase === 'ready' ? history.value : null;
 
+  useEffect(() => {
+    if (loaded !== null) {
+      onSummary(loaded.summary);
+    }
+  }, [loaded, onSummary]);
+
   return (
     <section className="card" aria-label="Historial de movimientos">
       <header className="card__header">
         <h2>Historial de movimientos</h2>
-        {loaded === null ? null : (
-          <span aria-label="Resumen del historial">
-            Entró <FlowAmount value={loaded.summary.entries} direction="in" signed /> · Salió{' '}
-            <FlowAmount value={loaded.summary.exits} direction="out" signed />
-          </span>
-        )}
         <div className="segmented card__header-end" role="group" aria-label="Movimientos a mostrar">
           {DIRECTIONS.map(([id, label]) => (
             <button
@@ -114,11 +113,7 @@ export function MovementsHistory({ productId, stock, version }: MovementsHistory
 
       {loaded !== null && loaded.items.length > 0 ? (
         <>
-          <MovementsTable
-            label="Movimientos del producto"
-            items={loaded.items}
-            totals={{ amounts: loaded.totals, stock }}
-          />
+          <MovementsTable label="Movimientos del producto" items={loaded.items} />
 
           <nav className="kardex-pager" aria-label="Páginas del historial">
             <span className="muted">

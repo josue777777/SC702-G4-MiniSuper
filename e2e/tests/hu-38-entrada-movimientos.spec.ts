@@ -220,7 +220,7 @@ test('ingreso sin pedido: sin referencia o con 0 no se guarda; una compra direct
   await expect(sheet.getByLabel('Stock actual')).toHaveText('30');
 });
 
-test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salidas» lo suma', async ({
+test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salidas» lo muestra', async ({
   page,
 }) => {
   await page.goto(`/movimientos?productId=${await productId('ACE-12')}`);
@@ -264,7 +264,8 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   const table = page.getByRole('table', { name: 'Movimientos del producto' });
 
   await expect(table.locator('tbody tr')).toHaveCount(1);
-  await expect(table.locator('tfoot')).toHaveText(/Totales\s*0\s*−4\s*14/);
+  // Sin fila de totales: la primera línea ya es el saldo más reciente.
+  await expect(table.locator('tfoot')).toHaveCount(0);
   // Con los tonos del panel: la salida en rojo, el concepto con «−» y el lote al lado.
   const exitRow = table.locator('tbody tr').first();
 
@@ -298,9 +299,7 @@ test('unidad de medida y stock máximo se guardan en el producto y se ven en la 
   await expect(cell('Unidad')).toHaveText('Kilogramo (KG)');
   await expect(cell('Stock máximo')).toHaveText('30');
   // 40 con máximo 30: el estado lo dice en palabra.
-  await expect(sheet.locator('.stat-tile', { hasText: 'Existencias' })).toContainText(
-    'Sobre el máximo',
-  );
+  await expect(cell('Existencias')).toContainText('Sobre el máximo');
   await saveEvidence(page, 'HU-38', 'movimientos-ficha.png');
 });
 

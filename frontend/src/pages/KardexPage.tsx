@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
 import { EntryModal } from '../features/kardex/EntryModal';
@@ -12,7 +12,7 @@ import { ProductSheet } from '../features/kardex/ProductSheet';
 import { RecentMovements } from '../features/kardex/RecentMovements';
 import { useKeyedRequest } from '../features/kardex/use-keyed-request';
 import { kardexService } from '../services/kardex.service';
-import type { KardexProduct } from '../types/kardex';
+import type { KardexAmounts, KardexProduct } from '../types/kardex';
 
 /** Ventana abierta: ingreso o egreso de UN producto, o la carga de un pedido completo. */
 type Dialog = 'entry' | 'exit' | 'order' | null;
@@ -45,6 +45,8 @@ export function KardexPage() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Resumen del historial del producto que se ve («Entró · Salió · N movimientos»). */
+  const [summary, setSummary] = useState<{ productId: string; value: KardexAmounts } | null>(null);
   /** Ficha vuelta a leer tras un ingreso o egreso (stock nuevo), sin recargar la pantalla. */
   const [fresh, setFresh] = useState<KardexProduct | null>(null);
 
@@ -61,6 +63,11 @@ export function KardexPage() {
         : product.value;
   // Desde Pedidos › «Registrar entrega»: la carga de ese pedido ya abierta.
   const open: Dialog = orderParam !== null && dialog === null ? 'order' : dialog;
+
+  const receiveSummary = useCallback(
+    (value: KardexAmounts) => setSummary({ productId: requested, value }),
+    [requested],
+  );
 
   // El producto abierto pasa a «Recientes» del buscador (solo en este navegador).
   useEffect(() => {
@@ -147,7 +154,10 @@ export function KardexPage() {
           Cargando ficha del producto…
         </p>
       ) : (
-        <ProductSheet product={ready} />
+        <ProductSheet
+          product={ready}
+          summary={summary !== null && summary.productId === requested ? summary.value : null}
+        />
       )}
 
       {ready === null ? (
@@ -156,7 +166,7 @@ export function KardexPage() {
         )
       ) : (
         // La ficha ya se ve: el historial llega aparte y por páginas.
-        <MovementsHistory productId={ready.id} stock={ready.stock} version={version} />
+        <MovementsHistory productId={ready.id} version={version} onSummary={receiveSummary} />
       )}
 
       <div className="action-bar" role="toolbar" aria-label="Acciones de movimientos">
