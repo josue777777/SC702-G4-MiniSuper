@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
 import { EntryModal } from '../features/kardex/EntryModal';
 import { ExitModal } from '../features/kardex/ExitModal';
@@ -85,6 +85,13 @@ export function KardexPage() {
     }
   }
 
+  /** «Limpiar»: vuelve a la vista sin producto (los últimos movimientos de todos). */
+  function clear(): void {
+    setNotice(null);
+    setDialog(null);
+    setParams({});
+  }
+
   function pick(productId: string): void {
     setNotice(null);
     setDialog(null);
@@ -116,14 +123,7 @@ export function KardexPage() {
       </header>
 
       <div className="kardex-toolbar">
-        <KardexSearch onPick={pick} />
-        <span className="kardex-toolbar__links">
-          {requested === '' ? null : (
-            <Link to="/movimientos" onClick={() => setNotice(null)}>
-              Limpiar y buscar otro
-            </Link>
-          )}
-        </span>
+        <KardexSearch onPick={pick} {...(requested === '' ? {} : { onClear: clear })} />
       </div>
 
       {requested !== '' && !validId ? (

@@ -33,7 +33,9 @@ Es el catálogo del negocio y el control de sus existencias:
   1. **Buscador** arriba (código, nombre o código de barras; con el lector, código + Enter
      abre el producto). Al entrar en la caja se despliega «Recientes» (los últimos 6
      productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
-     coinciden con su stock (`KardexSearch.tsx`).
+     coinciden con su stock (`KardexSearch.tsx`). Con un producto abierto, al lado de
+     «Buscar» va «Limpiar» (el mismo botón de Inventario), que vuelve a la vista sin
+     producto.
   2. **Ficha** (`ProductSheet.tsx`), en celdas como una hoja (la etiqueta oscura a la
      izquierda, el dato a la derecha), sin encabezado propio porque el nombre ya va en
      «Descripción»; la insignia «Inactivo» solo si el producto está desactivado: **Producto** (el código, con
