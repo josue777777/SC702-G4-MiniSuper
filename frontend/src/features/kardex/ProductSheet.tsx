@@ -65,7 +65,7 @@ interface ProductSheetProps {
  * 1. **Producto**: el código, el código de barras y la categoría.
  * 2. **Unidad**, **proveedor principal** y **descripción** (el nombre).
  * 3. **Precio de venta**, **costo** y **lotes**: cuántos lotes tienen
- *    unidades y cuándo vence el próximo, con «▦ Ver lotes» (cada lote con su
+ *    unidades y cuándo vence el próximo, con la insignia «▦ N lotes» (cada lote con su
  *    fecha y unidades). Un producto que no vence dice «No vence»: una sola
  *    fecha no sirve cuando hay varios lotes.
  * 4. **Existencias** (la etiqueta en el tono de su estado y el aviso pequeño
@@ -136,10 +136,8 @@ export function ProductSheet({ product, loading = false, summary, version }: Pro
         <Cell label="Precio de venta" span={4}>
           {product === null ? dash : formatMoney(product.price)}
         </Cell>
-        <Cell label="Costo" span={4}>
-          {product === null ? dash : formatMoney(product.cost)}
-        </Cell>
-        <Cell label="Lotes" span={4}>
+        <Cell label="Costo">{product === null ? dash : formatMoney(product.cost)}</Cell>
+        <Cell label="Lotes" span={5}>
           {product === null ? (
             dash
           ) : !product.perishable ? (
@@ -151,18 +149,15 @@ export function ProductSheet({ product, loading = false, summary, version }: Pro
           ) : (
             <span className="kardex-block__row" aria-label="Resumen de lotes">
               <span>
-                {lots.length === 1 ? '1 lote' : `${lots.length} lotes`}
-                <span className="muted">
-                  {' '}
-                  · próximo {nextExpiration === null ? 'sin fecha' : formatLotDate(nextExpiration)}
-                </span>
+                Vence {nextExpiration === null ? 'sin fecha' : formatLotDate(nextExpiration)}
               </span>
               <button
                 type="button"
                 className="badge badge--button"
                 onClick={() => setShowingLots(true)}
               >
-                <span aria-hidden="true">▦ </span>Ver lotes
+                <span aria-hidden="true">▦ </span>
+                {lots.length === 1 ? '1 lote' : `${lots.length} lotes`}
               </button>
             </span>
           )}

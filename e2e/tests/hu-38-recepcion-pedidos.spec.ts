@@ -519,11 +519,11 @@ test('lotes: lo que vence pide lote y fecha, se parte en varios lotes y cada lí
   await page.goto(`/movimientos?productId=${coffeeId}`);
 
   // La ficha no muestra UNA fecha: dice cuántos lotes hay y cuándo vence el próximo,
-  // y «Ver lotes» los lista todos (el que vence antes primero).
-  await expect(page.getByLabel('Resumen de lotes')).toContainText(
-    `3 lotes · próximo ${shown(inDays(30))}`,
-  );
-  await page.getByRole('button', { name: /Ver lotes/ }).click();
+  // y la insignia «▦ 3 lotes» los lista todos (el que vence antes primero).
+  const lotSummary = page.getByLabel('Resumen de lotes');
+
+  await expect(lotSummary).toContainText(`Vence ${shown(inDays(30))}`);
+  await lotSummary.getByRole('button', { name: /3 lotes/ }).click();
 
   const stockLots = page.getByRole('dialog', { name: 'Lotes en existencia · Café molido 500 g' });
 
