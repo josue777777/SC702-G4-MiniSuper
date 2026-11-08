@@ -76,6 +76,11 @@ export const supplierIdParamSchema = z.object({
   id: z.uuid({ error: 'El proveedor indicado no es válido.' }),
 });
 
+/** Parámetro `:productId` de la comparación de costos (HU-39). */
+export const productIdParamSchema = z.object({
+  productId: z.uuid({ error: 'El producto indicado no es válido.' }),
+});
+
 /** Entrada ya validada y normalizada (registro y edición). */
 export type SupplierInput = z.infer<typeof supplierSchema>;
 

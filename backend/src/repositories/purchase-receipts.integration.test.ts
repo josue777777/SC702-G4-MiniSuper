@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { disconnectPrisma, prisma } from '../config/prisma.js';
 import { PurchaseOrdersService } from '../services/purchase-orders.service.js';
 import { KardexService } from '../services/kardex.service.js';
+import { SuppliersService } from '../services/suppliers.service.js';
+import { SuppliersRepository } from './suppliers.repository.js';
 import { KardexRepository } from './kardex.repository.js';
 import { PurchaseOrdersRepository } from './purchase-orders.repository.js';
 
@@ -501,6 +503,61 @@ describe.skipIf(!databaseName.endsWith('_test'))(
       expect(lots.find((lot) => lot.lotNumber === 'L-1')?.expirationDate).toEqual(
         day('2099-02-01'),
       );
+    });
+
+    it('HU-39: compara el costo entre proveedores activos y refleja el último costo registrado', async () => {
+      const suppliers = new SuppliersService(new SuppliersRepository(A));
+      const valle = await prisma.supplier.create({
+        data: { businessId: A, name: 'Lácteos del Valle' },
+      });
+      const closed = await prisma.supplier.create({
+        data: { businessId: A, name: 'Proveedor cerrado', isActive: false },
+      });
+
+      await prisma.supplierProduct.createMany({
+        data: [
+          { supplierId: valle.id, productId: ids['milk'] ?? '', unitCost: 600 },
+          // Un proveedor inactivo no entra en la comparación, aunque sea más barato.
+          { supplierId: closed.id, productId: ids['milk'] ?? '', unitCost: 500 },
+        ],
+      });
+
+      const before = await suppliers.compareProductCosts(ids['milk'] ?? '');
+
+      expect(
+        before.suppliers.map((item) => [item.supplierName, item.unitCost, item.difference]),
+      ).toEqual([
+        ['Lácteos del Valle', '600.00', '0.00'],
+        ['Distribuidora Central', '650.00', '50.00'],
+      ]);
+
+      // Una compra directa a Distribuidora Central a ₡580: ese es ahora su último costo.
+      await new KardexService(new KardexRepository(A)).registerEntry(
+        ids['milk'] ?? '',
+        {
+          supplierId: ids['supplier'] ?? '',
+          invoiceNumber: 'F-950',
+          documentDate: '2099-01-25',
+          quantity: 2,
+          unitCost: '580.00',
+          lots: [{ lotNumber: 'L-95', expirationDate: '2099-06-01', quantity: 2 }],
+        },
+        TODAY,
+      );
+
+      const after = await suppliers.compareProductCosts(ids['milk'] ?? '');
+
+      expect(
+        after.suppliers.map((item) => [item.supplierName, item.unitCost, item.cheapest]),
+      ).toEqual([
+        ['Distribuidora Central', '580.00', true],
+        ['Lácteos del Valle', '600.00', false],
+      ]);
+
+      // Otro negocio no ve la comparación de un producto ajeno.
+      await expect(
+        new SuppliersService(new SuppliersRepository(B)).compareProductCosts(ids['milk'] ?? ''),
+      ).rejects.toMatchObject({ statusCode: 404 });
     });
   },
 );
