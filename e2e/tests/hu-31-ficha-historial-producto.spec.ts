@@ -191,31 +191,42 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
       .locator('xpath=following-sibling::dd');
 
   // Producto: código, nombre, código de barras y categoría.
-  await expect(cell('Producto')).toHaveText('P001 Café molido 500 g· 7501000000012 · Bebidas');
-  await expect(cell('Proveedor princ\.')).toHaveText('Distribuidora Central');
+  // «Producto» es el código y «Descripción» el nombre.
+  // Cada dato en su bloque: «Producto» es el código (con código de barras y
+  // categoría) y «Descripción» el nombre.
+  await expect(cell('Producto')).toHaveText('P001 · 7501000000012 · Bebidas');
+  await expect(cell('Descripción')).toHaveText('Café molido 500 g');
+  await expect(cell('Proveedor principal')).toHaveText('Distribuidora Central');
+  await expect(cell('Unidad')).toHaveText('Unidad (UD)');
+
+  // Precio y costo en sus bloques, como los demás datos; existencias con el
+  // aviso pequeño de su estado (mínimo 3 en las semillas: 8 está «Bien»).
   expect(digits(await cell('Precio de venta').textContent())).toBe('150000');
   expect(digits(await cell('Costo').textContent())).toBe('100050');
-  await expect(cell('Unidad')).toHaveText('Unidad (UD)');
-  // Existencias con su estado en palabra (mínimo 3 en las semillas: 8 está «Bien»).
-  await expect(cell('Existencias')).toContainText('8');
-  await expect(cell('Existencias')).toContainText('Bien');
+  await expect(sheet.getByLabel('Stock actual')).toHaveText('8');
+  await expect(cell('Existencias').locator('.badge--ok')).toHaveText('Bien');
   // Resumen de todo el historial: lo que entró y salió.
   // 20 + 1 + 3 (el conteo que subió) = 24 entran; 5 + 6 + 5 = 16 salen.
-  await expect(cell('Historial')).toContainText('Entró +24');
-  await expect(cell('Historial')).toContainText('Salió −16');
-  await expect(cell('Historial')).toContainText('6 movimientos');
+  // Con los tonos del panel: verde con «+», rojo con «−».
+  const summary = page.getByLabel('Resumen del historial');
+
+  await expect(summary).toContainText('Entró +24');
+  await expect(summary).toContainText('Salió −16');
+  await expect(summary).toContainText('6 movimientos');
+  await expect(summary.locator('.text-ok')).toHaveText('+24');
+  await expect(summary.locator('.text-error')).toHaveText('−16');
 
   // Criterios 2 y 4: todo el historial, del más reciente al más antiguo, con su saldo.
   // [fecha, concepto, documento, entrada, salida, stock final, lotes]: el concepto es
   // breve y el documento es solo el número (HU-38); el stock anterior es la línea de abajo.
   // Los lotes de una línea van en un botón junto al concepto (aquí ninguna trae lotes).
   expect(await readHistory(page)).toEqual([
-    ['06/05/2024 14:20', 'Venta', '2', '—', '5', '8', '—'],
-    ['05/05/2024 11:00', 'Devolución de cliente', '1', '1', '—', '13', '—'],
-    ['04/05/2024 16:45', 'Conteo físico', '—', '—', '6', '12', '—'],
-    ['03/05/2024 09:15', 'Conteo físico', '—', '3', '—', '18', '—'],
-    ['02/05/2024 10:30', 'Venta', '1', '—', '5', '15', '—'],
-    ['01/05/2024 08:00', 'Stock inicial', '—', '20', '—', '20', '—'],
+    ['06/05/2024 14:20', 'Venta', '2', '0', '5', '8', '—'],
+    ['05/05/2024 11:00', 'Devolución de cliente', '1', '1', '0', '13', '—'],
+    ['04/05/2024 16:45', 'Conteo físico', '—', '0', '6', '12', '—'],
+    ['03/05/2024 09:15', 'Conteo físico', '—', '3', '0', '18', '—'],
+    ['02/05/2024 10:30', 'Venta', '1', '0', '5', '15', '—'],
+    ['01/05/2024 08:00', 'Stock inicial', '—', '20', '0', '20', '—'],
   ]);
   await expect(
     page.getByRole('table', { name: 'Movimientos del producto' }).getByRole('columnheader'),
@@ -257,8 +268,8 @@ test('el ajuste que baja el stock es una salida y el que lo sube es una entrada;
   const counts = rows.filter((row) => row[1] === 'Conteo físico');
 
   expect(counts.map((row) => [row[3], row[4]])).toEqual([
-    ['—', '6'],
-    ['3', '—'],
+    ['0', '6'],
+    ['3', '0'],
   ]);
   // El stock final del último movimiento es el stock actual de la ficha.
   expect(rows[0]?.[5]).toBe('8');
@@ -327,18 +338,17 @@ test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimie
   // hoy) y la tabla; abajo, la barra de acciones pide buscar un producto.
   const sheet = page.getByRole('region', { name: 'Ficha del producto' });
 
-  await expect(
-    sheet.locator('dt', { hasText: 'Existencias' }).locator('xpath=following-sibling::dd'),
-  ).toHaveText('—');
+  await expect(sheet.getByLabel('Stock actual')).toHaveText('—');
   await expect(
     sheet.locator('dt', { hasText: 'Producto' }).locator('xpath=following-sibling::dd'),
   ).toHaveText('—');
-  await expect(recent.getByLabel('Hoy')).toHaveText('Hoy: 0 entran · 0 salen · 0 movimientos');
+  await expect(recent.getByLabel('Hoy')).toHaveText('Hoy: entran 0 · salen 0 · 0 movimientos');
   const actions = page.getByRole('toolbar', { name: 'Acciones de movimientos' });
 
-  await expect(actions.getByRole('button', { name: '+ Registrar ingreso' })).toBeDisabled();
+  await expect(actions.getByRole('button', { name: '+ Ingreso' })).toBeDisabled();
+  await expect(actions.getByRole('button', { name: '📦 Carga de pedido' })).toBeEnabled();
   await expect(actions.getByRole('status')).toHaveText(
-    'Busque un producto para registrar ingresos o egresos.',
+    'Busque un producto para un ingreso o egreso; un pedido completo, en «Carga de pedido».',
   );
   await expect(table.getByRole('columnheader')).toHaveText([
     'Fecha y hora',
@@ -383,7 +393,7 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
   await expect(sheet.getByRole('heading')).toContainText('Inactivo');
   await expect(sheet).toContainText('Granos del Valle');
   expect(await readHistory(page)).toEqual([
-    ['01/04/2024 09:00', 'Stock inicial', '—', '2', '—', '2', '—'],
+    ['01/04/2024 09:00', 'Stock inicial', '—', '2', '0', '2', '—'],
   ]);
 });
 
@@ -661,7 +671,7 @@ test('una venta real aparece en el historial y consultar Movimientos no cambia s
 
   // La venta nueva es el movimiento más reciente: 8 → 6 y queda enlazada a su venta (#3).
   expect(rows).toHaveLength(7);
-  expect(rows[0]?.slice(1)).toEqual(['Venta', '3', '—', '2', '6', '—']);
+  expect(rows[0]?.slice(1)).toEqual(['Venta', '3', '0', '2', '6', '—']);
 
   // Recorrer fichas, historiales y el selector es solo lectura.
   await page.goto(`/movimientos?productId=${await productIdOf('P004')}`);
