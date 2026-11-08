@@ -264,6 +264,21 @@ significa «no definido» y nunca alerta.
 | de 0 a 14 (vencer hoy cuenta) | Próximo a vencer |
 | 15 o más | Sin alerta |
 
+**Una alerta por lote** (HU-32, `listExpiringLots` + `listExpirations`): cada lote con
+unidades y fecha se clasifica aparte, y la alerta dice el lote, su vencimiento y cuántas
+unidades le quedan.
+
+```text
+Leche: L-10 vence en 10 días (6 u.) y L-60 en 60 días (12 u.) → alerta solo L-10 (6 u.)
+Se retiran las 6 de L-10 → L-10 queda en 0 → su alerta desaparece; L-60 sigue sin alertar
+Un yogur vencido que se retira (stock 0) → no tiene lotes con unidades → no alerta
+```
+
+Lo que está «SIN LOTE» vence en la fecha que el producto tiene en Inventario (HU-09):
+el disparador `product_lots_follow_expiration` se la copia cada vez que cambia. Los lotes
+de una entrega o compra conservan la suya. En el panel, un producto con varios lotes por
+vencer cuenta una vez (`distinctProducts`); el detalle por lote está en «Ver por vencer».
+
 ### Lotes: el que vence primero sale primero (disparador `product_lots_follow_stock`)
 
 ```text

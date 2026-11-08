@@ -72,12 +72,23 @@ export interface ProductStockSettingsDto {
 /** Estado de un producto con fecha de vencimiento cercana o pasada (HU-09). */
 export type ExpirationStatus = 'EXPIRED' | 'EXPIRING_SOON';
 
-/** Producto vencido o próximo a vencer (HU-09). Se calcula, no se guarda. */
+/**
+ * Lote vencido o próximo a vencer (HU-09, HU-32). Se calcula, no se guarda.
+ * Una alerta por LOTE con unidades: si un producto tiene un lote a 10 días y
+ * otro a 60, solo el primero alerta; cuando el lote se agota (venta, egreso,
+ * conteo) su alerta desaparece aunque queden otros lotes.
+ */
 export interface ExpirationAlertDto {
   productId: string;
   productCode: string;
   productName: string;
+  /** Stock total del producto (todos sus lotes). */
   stock: number;
+  /** Número del lote que vence («SIN LOTE» para lo que entró sin lote). */
+  lotNumber: string;
+  /** Unidades que quedan de ESE lote. */
+  lotQuantity: number;
+  /** Vencimiento del lote, `YYYY-MM-DD`. */
   expirationDate: string;
   /** Días que faltan para vencer; negativo si ya venció, 0 si vence hoy. */
   daysLeft: number;
@@ -100,4 +111,16 @@ export interface CreateInventoryCountPlan {
   productId: string;
   /** Ajuste a registrar; con diferencia 0 igual se guarda, para dejar constancia del conteo. */
   movement: InventoryMovementPlan;
+}
+
+/** Lote con unidades y fecha, con su producto: lo que el repositorio entrega para las alertas. */
+export interface ExpiringLotRow {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  lotNumber: string;
+  quantity: number;
+  /** `YYYY-MM-DD`. */
+  expirationDate: string;
 }

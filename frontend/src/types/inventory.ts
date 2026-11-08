@@ -53,12 +53,20 @@ export interface ProductStockSettings {
   expirationDate: string | null;
 }
 
-/** Producto vencido o próximo a vencer (HU-09). */
+/**
+ * Lote vencido o próximo a vencer (HU-09, HU-32): una alerta por lote con
+ * unidades; un lote agotado ya no alerta.
+ */
 export interface ExpirationAlert {
   productId: string;
   productCode: string;
   productName: string;
+  /** Stock total del producto. */
   stock: number;
+  /** Número del lote («SIN LOTE» para lo que entró sin lote). */
+  lotNumber: string;
+  /** Unidades que quedan de ese lote. */
+  lotQuantity: number;
   expirationDate: string;
   /** Negativo si ya venció; 0 si vence hoy. */
   daysLeft: number;

@@ -116,6 +116,8 @@ export async function buildInventoryReportWorkbook(report: InventoryReportData):
       { header: 'Código', key: 'code', width: 14 },
       { header: 'Producto', key: 'name', width: 34 },
       { header: 'Stock', key: 'stock', width: 10 },
+      { header: 'Lote', key: 'lot', width: 16 },
+      { header: 'Unidades del lote', key: 'lotQuantity', width: 12 },
       { header: 'Vence', key: 'date', width: 14 },
       { header: 'Estado', key: 'status', width: 24 },
     ];
@@ -127,6 +129,8 @@ export async function buildInventoryReportWorkbook(report: InventoryReportData):
         code: sanitizeCell(alert.productCode),
         name: sanitizeCell(alert.productName),
         stock: alert.stock,
+        lot: sanitizeCell(alert.lotNumber),
+        lotQuantity: alert.lotQuantity,
         date: alert.expirationDate,
         status:
           alert.daysLeft < 0

@@ -177,29 +177,31 @@ export class InventoryService {
   }
 
   /**
-   * HU-09 — productos vencidos o próximos a vencer, del más urgente al menos
-   * urgente. Se calcula al consultar; no se guarda (decisión 7).
+   * HU-09 y HU-32 — lotes vencidos o próximos a vencer, del más urgente al
+   * menos urgente. Se calcula al consultar; no se guarda (decisión 7).
+   *
+   * Una alerta por LOTE con unidades: dice el lote, su vencimiento y cuántas
+   * unidades le quedan. Un lote que se agota (venta, egreso, conteo) deja de
+   * alertar solo, aunque el producto tenga otros lotes; un lote lejano de
+   * vencer no alerta aunque otro del mismo producto sí.
    */
   async listExpirations(): Promise<ExpirationAlertDto[]> {
     const today = this.today();
-    const settings = await this.repository.listProductSettings();
     const alerts: ExpirationAlertDto[] = [];
 
-    for (const product of settings) {
-      if (product.expirationDate === null) {
-        continue;
-      }
-
-      const daysLeft = daysBetween(today, product.expirationDate);
+    for (const lot of await this.repository.listExpiringLots()) {
+      const daysLeft = daysBetween(today, lot.expirationDate);
       const status = classifyExpiration(daysLeft);
 
       if (status !== null) {
         alerts.push({
-          productId: product.productId,
-          productCode: product.productCode,
-          productName: product.productName,
-          stock: product.stock,
-          expirationDate: product.expirationDate,
+          productId: lot.productId,
+          productCode: lot.productCode,
+          productName: lot.productName,
+          stock: lot.stock,
+          lotNumber: lot.lotNumber,
+          lotQuantity: lot.quantity,
+          expirationDate: lot.expirationDate,
           daysLeft,
           status,
         });

@@ -222,8 +222,12 @@ export class KardexService {
       unit: product.unit,
       description: product.description,
       perishable: product.perishable,
-      expirationDate:
-        product.expirationDate === null ? null : dateToDateOnly(product.expirationDate),
+      // El lote que vence primero manda; sin lotes con fecha, la del producto.
+      expirationDate: (() => {
+        const date = product.lots[0]?.expirationDate ?? product.expirationDate;
+
+        return date === null ? null : dateToDateOnly(date);
+      })(),
       isActive: product.isActive,
     };
   }

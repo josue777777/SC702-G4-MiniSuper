@@ -30,6 +30,8 @@ export interface KardexProductRow {
   description: string | null;
   perishable: boolean;
   expirationDate: Date | null;
+  /** El lote con unidades que vence primero (como mucho uno). */
+  lots: { expirationDate: Date | null }[];
   isActive: boolean;
   category: { name: string };
   /** Solo el proveedor principal (`isPreferred`). */
@@ -56,7 +58,10 @@ export interface KardexProductDto {
   description: string | null;
   /** ¿Vence? Si es así, un ingreso pide lote y fecha de vencimiento. */
   perishable: boolean;
-  /** `YYYY-MM-DD` o `null` si no vence. */
+  /**
+   * `YYYY-MM-DD`: el lote con unidades que vence primero (o, sin lotes con
+   * fecha, la del producto); `null` si no vence.
+   */
   expirationDate: string | null;
   isActive: boolean;
 }

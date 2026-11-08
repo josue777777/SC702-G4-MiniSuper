@@ -85,6 +85,13 @@ export class KardexRepository {
         description: true,
         perishable: true,
         expirationDate: true,
+        // El lote con unidades que vence primero: el vencimiento de la ficha.
+        lots: {
+          where: { quantity: { gt: 0 }, expirationDate: { not: null } },
+          orderBy: { expirationDate: 'asc' },
+          take: 1,
+          select: { expirationDate: true },
+        },
         isActive: true,
         category: { select: { name: true } },
         supplierProducts: {
