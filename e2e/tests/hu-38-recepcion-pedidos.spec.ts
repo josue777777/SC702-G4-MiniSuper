@@ -497,7 +497,8 @@ test('lotes: lo que vence pide lote y fecha, se parte en varios lotes y cada lí
   const history = page.getByRole('table', { name: 'Movimientos del producto' });
   const entry = history.locator('tbody tr').first();
 
-  await expect(entry.locator('td').nth(1)).toHaveText('Recepción PED-0001');
+  // Entra: «+» y el botón con sus lotes junto al concepto.
+  await expect(entry.locator('td').nth(1)).toHaveText('+Recepción PED-0001 2 lotes');
   await expect(entry.locator('td').nth(2)).toHaveText('F-300');
   await expect(entry.locator('td').nth(3)).toHaveText('4');
   await expect(entry.locator('td').nth(5)).toHaveText('22');

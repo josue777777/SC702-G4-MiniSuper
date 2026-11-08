@@ -48,6 +48,8 @@ export function buildProduct(overrides: Partial<ProductDto> = {}): ProductDto {
     minStock: 0,
     expirationDate: null,
     perishable: true,
+    unit: 'UD',
+    maxStock: 0,
     imageUrl: null,
     ...overrides,
   };
@@ -169,6 +171,8 @@ export class FakeProductsRepository implements ProductsRepository {
       cost: plan.fields.cost,
       stock: plan.fields.stock,
       perishable: plan.fields.perishable ?? true,
+      unit: plan.fields.unit ?? 'UD',
+      maxStock: plan.fields.maxStock ?? 0,
       isActive: true,
       preferredSupplierId: plan.fields.supplierId,
       preferredSupplierName:
@@ -200,6 +204,8 @@ export class FakeProductsRepository implements ProductsRepository {
       cost: plan.fields.cost,
       stock: plan.fields.stock,
       perishable: plan.fields.perishable ?? current.perishable,
+      unit: plan.fields.unit ?? current.unit,
+      maxStock: plan.fields.maxStock ?? current.maxStock,
       preferredSupplierId: plan.fields.supplierId,
       preferredSupplierName:
         this.suppliers.find((supplier) => supplier.id === plan.fields.supplierId)?.name ?? null,

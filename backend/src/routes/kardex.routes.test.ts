@@ -10,6 +10,7 @@ import {
   KARDEX_EMPTY_PRODUCT_ID,
   KARDEX_PRODUCT_ID,
   kardexMovement,
+  kardexProduct,
 } from '../testing/kardex.repository.fake.js';
 import { createKardexRouter } from './kardex.routes.js';
 
@@ -190,6 +191,8 @@ describe('GET /api/kardex/products/:productId/movements', () => {
       pageSize: 15,
       total: 0,
       totalPages: 0,
+      totals: { entries: 0, exits: 0, count: 0 },
+      summary: { entries: 0, exits: 0, count: 0 },
     });
   });
 
@@ -298,5 +301,184 @@ describe('GET /api/kardex/movements (vista general, sin producto elegido)', () =
       total: 0,
       today: { entries: 0, exits: 0, count: 0 },
     });
+  });
+});
+
+describe('Entradas / Salidas y totales del historial (HU-38)', () => {
+  it('filtra solo las entradas o solo las salidas y suma cada filtro y todo el historial', async () => {
+    const { app, repository } = buildApp();
+
+    repository.movements.set(KARDEX_PRODUCT_ID, [
+      kardexMovement({
+        id: 'a',
+        type: 'ENTRY',
+        quantity: 12,
+        stockBefore: 0,
+        stockAfter: 12,
+        at: '2026-10-01T15:00:00Z',
+      }),
+      kardexMovement({
+        id: 'b',
+        type: 'EXIT',
+        quantity: 2,
+        stockBefore: 12,
+        stockAfter: 10,
+        at: '2026-10-02T15:00:00Z',
+      }),
+      // Un conteo que bajó el stock cuenta como salida.
+      kardexMovement({
+        id: 'c',
+        type: 'ADJUSTMENT',
+        quantity: 1,
+        stockBefore: 10,
+        stockAfter: 9,
+        at: '2026-10-03T15:00:00Z',
+      }),
+    ]);
+
+    const exits = await request(app).get(`${PRODUCT}/movements?direction=exits`).expect(200);
+    const entries = await request(app).get(`${PRODUCT}/movements?direction=entries`).expect(200);
+
+    expect(exits.body.data.items.map((item: { id: string }) => item.id)).toEqual(['c', 'b']);
+    expect(exits.body.data.totals).toEqual({ entries: 0, exits: 3, count: 2 });
+    expect(exits.body.data.summary).toEqual({ entries: 12, exits: 3, count: 3 });
+    expect(entries.body.data.items.map((item: { id: string }) => item.id)).toEqual(['a']);
+    await request(app).get(`${PRODUCT}/movements?direction=todo`).expect(400);
+  });
+});
+
+describe('POST /api/kardex/products/:productId/entries (ingreso sin pedido, HU-38)', () => {
+  const SUPPLIER = '0b000000-0000-4000-8000-0000000000c1';
+  const body = (overrides: Record<string, unknown> = {}) => ({
+    supplierId: SUPPLIER,
+    invoiceNumber: '45991',
+    documentDate: '2026-11-01',
+    quantity: 12,
+    unitCost: '4850.00',
+    ...overrides,
+  });
+
+  it('el Encargado y la Bodega lo registran: compra directa con factura, costo y proveedor', async () => {
+    for (const role of ['ENCARGADO', 'BODEGA'] as const) {
+      const { app, repository } = buildApp(role);
+
+      repository.activeSuppliers.add(SUPPLIER);
+      await request(app).post(`${PRODUCT}/entries`).send(body()).expect(201);
+      expect(repository.entries[0]).toMatchObject({
+        productId: KARDEX_PRODUCT_ID,
+        // El producto del doble no vence: sin lote escrito, el lote es la factura.
+        lots: [{ lotNumber: '45991', expirationDate: null, quantity: 12 }],
+        movement: {
+          reason: 'Compra directa',
+          documentNumber: '45991',
+          unitCost: '4850.00',
+          supplierId: SUPPLIER,
+        },
+      });
+    }
+  });
+
+  it.each([
+    ['sin referencia', { invoiceNumber: '  ' }, 'invoiceNumber', 'Indique el número de factura.'],
+    ['con 0 unidades', { quantity: 0 }, 'quantity', 'La cantidad debe ser mayor que 0.'],
+    ['con unidades negativas', { quantity: -3 }, 'quantity', 'La cantidad debe ser mayor que 0.'],
+    [
+      'sin costo válido',
+      { unitCost: 'abc' },
+      'unitCost',
+      'El costo unitario debe ser un monto válido (hasta 2 decimales).',
+    ],
+  ])('no guarda la entrada %s', async (_case, overrides, field, message) => {
+    const { app, repository } = buildApp();
+
+    repository.activeSuppliers.add(SUPPLIER);
+
+    const response = await request(app)
+      .post(`${PRODUCT}/entries`)
+      .send(body(overrides))
+      .expect(400);
+
+    expect(response.body.error.details[field]).toContain(message);
+    expect(repository.entries).toHaveLength(0);
+  });
+
+  it('rechaza un proveedor inactivo o ajeno, una factura del futuro y un producto que vence sin lote', async () => {
+    const { app, repository } = buildApp();
+
+    await request(app).post(`${PRODUCT}/entries`).send(body()).expect(400);
+    repository.activeSuppliers.add(SUPPLIER);
+    await request(app)
+      .post(`${PRODUCT}/entries`)
+      .send(body({ documentDate: '2999-01-01' }))
+      .expect(400);
+    repository.products.set(KARDEX_PRODUCT_ID, kardexProduct({ perishable: true }));
+
+    const perishable = await request(app).post(`${PRODUCT}/entries`).send(body()).expect(400);
+
+    expect(perishable.body.error.message).toBe(
+      'Indique el lote y la fecha de vencimiento de Café molido 500 g.',
+    );
+    expect(repository.entries).toHaveLength(0);
+  });
+});
+
+describe('POST /api/kardex/products/:productId/exits (egreso de un lote, HU-38)', () => {
+  const LOT = '0c000000-0000-4000-8000-0000000000d1';
+  const body = (overrides: Record<string, unknown> = {}) => ({
+    concept: 'EXPIRED',
+    documentNumber: '44',
+    lotId: LOT,
+    quantity: 4,
+    detail: 'botellas vencidas retiradas de la góndola',
+    ...overrides,
+  });
+
+  it('saca las unidades del lote elegido con su concepto, documento y detalle', async () => {
+    const { app, repository } = buildApp();
+
+    repository.stockLots.set(KARDEX_PRODUCT_ID, [
+      {
+        id: LOT,
+        lotNumber: 'L-2409C',
+        expirationDate: new Date('2028-01-06T00:00:00Z'),
+        quantity: 30,
+      },
+    ]);
+    await request(app).post(`${PRODUCT}/exits`).send(body()).expect(201);
+    expect(repository.exits[0]).toEqual({
+      productId: KARDEX_PRODUCT_ID,
+      plan: {
+        lotId: LOT,
+        quantity: 4,
+        reason: 'Vencido / descartado',
+        documentNumber: '44',
+        detail: 'botellas vencidas retiradas de la góndola',
+      },
+    });
+  });
+
+  it('no deja sacar más de lo que tiene el lote, ni de un lote ajeno, ni sin documento', async () => {
+    const { app, repository } = buildApp();
+
+    repository.stockLots.set(KARDEX_PRODUCT_ID, [
+      { id: LOT, lotNumber: 'L-2409C', expirationDate: null, quantity: 3 },
+    ]);
+
+    const tooMany = await request(app).post(`${PRODUCT}/exits`).send(body()).expect(400);
+
+    expect(tooMany.body.error.message).toBe('Del lote L-2409C quedan 3: no puede salir más.');
+    await request(app)
+      .post(`${PRODUCT}/exits`)
+      .send(body({ lotId: '0c000000-0000-4000-8000-0000000000ff', quantity: 1 }))
+      .expect(400);
+    await request(app)
+      .post(`${PRODUCT}/exits`)
+      .send(body({ documentNumber: '', quantity: 1 }))
+      .expect(400);
+    await request(app)
+      .post(`${PRODUCT}/exits`)
+      .send(body({ concept: 'VENTA', quantity: 1 }))
+      .expect(400);
+    expect(repository.exits).toHaveLength(0);
   });
 });

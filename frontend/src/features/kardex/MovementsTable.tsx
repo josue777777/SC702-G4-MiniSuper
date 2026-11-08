@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { KardexMovement } from '../../types/kardex';
-import { formatMovementDate, formatQuantity } from './kardex-format';
+import type { KardexAmounts, KardexMovement } from '../../types/kardex';
+import { formatMovementDate, formatQuantity, signed } from './kardex-format';
 import { MovementLotsModal } from './MovementLotsModal';
 
 /** Producto de la línea, solo en la vista general (todos los productos). */
@@ -19,19 +19,31 @@ interface MovementsTableProps<T extends KardexMovement> {
    * general); el código es un enlace al kardex de ese producto.
    */
   productOf?: (movement: T) => MovementProduct;
+  /** Si se da, la tabla cierra con la fila «Totales» (entradas, salidas y el stock de hoy). */
+  totals?: { amounts: KardexAmounts; stock: number };
+}
+
+/** ¿El movimiento sube el stock? (Entradas y ajustes hacia arriba.) */
+function isEntry(movement: KardexMovement): boolean {
+  return movement.entry > 0;
 }
 
 /**
  * Tabla de movimientos del Kardex, la misma en la ficha de un producto y en la
  * vista general (HU-31, HU-38): fecha y hora, concepto breve, documento (solo
- * el número), entrada, salida, stock final y, si la línea entró en lotes, su
- * botón «N lotes», que los muestra en una ventana sin partir la tabla. En la
- * vista general suma el código (un enlace que abre ese producto) y el nombre.
+ * el número), entrada, salida y stock final.
+ *
+ * - Lo que entra va con «+» y en verde; lo que sale, con «−» y en rojo
+ *   (`--color-flow-in` / `--color-flow-out`): es la dirección, no una alerta.
+ * - Si la línea entró en lotes (o un egreso salió de uno), junto al concepto
+ *   va su botón «N lotes», que los muestra en una ventana sin partir la tabla.
+ * - En la vista general suma el código (enlace al producto) y el nombre.
  */
 export function MovementsTable<T extends KardexMovement>({
   label,
   items,
   productOf,
+  totals,
 }: MovementsTableProps<T>) {
   /** Línea cuyos lotes se están viendo. */
   const [showingLots, setShowingLots] = useState<KardexMovement | null>(null);
@@ -54,12 +66,12 @@ export function MovementsTable<T extends KardexMovement>({
               <th className="table__number">Entrada</th>
               <th className="table__number">Salida</th>
               <th className="table__number">Stock final</th>
-              <th>Lotes</th>
             </tr>
           </thead>
           <tbody>
             {items.map((movement) => {
               const product = productOf?.(movement);
+              const entry = isEntry(movement);
 
               return (
                 <tr key={movement.id}>
@@ -77,28 +89,44 @@ export function MovementsTable<T extends KardexMovement>({
                       <td>{product.name}</td>
                     </>
                   )}
-                  <td>{movement.concept}</td>
-                  <td>{movement.document ?? '—'}</td>
-                  <td className="table__number">{formatQuantity(movement.entry)}</td>
-                  <td className="table__number">{formatQuantity(movement.exit)}</td>
-                  <td className="table__number">{movement.stockAfter.toLocaleString('es-CR')}</td>
                   <td>
-                    {movement.lots.length === 0 ? (
-                      '—'
-                    ) : (
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={() => setShowingLots(movement)}
-                      >
-                        {movement.lots.length === 1 ? '1 lote' : `${movement.lots.length} lotes`}
-                      </button>
+                    <span className={entry ? 'flow-in' : movement.exit > 0 ? 'flow-out' : ''}>
+                      <span aria-hidden="true">{entry ? '+' : movement.exit > 0 ? '−' : ''}</span>
+                      {movement.concept}
+                    </span>
+                    {movement.lots.length === 0 ? null : (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          className="badge badge--button"
+                          onClick={() => setShowingLots(movement)}
+                        >
+                          {movement.lots.length === 1 ? '1 lote' : `${movement.lots.length} lotes`}
+                        </button>
+                      </>
                     )}
+                  </td>
+                  <td>{movement.document ?? '—'}</td>
+                  <td className="table__number flow-in">{formatQuantity(movement.entry)}</td>
+                  <td className="table__number flow-out">{formatQuantity(movement.exit)}</td>
+                  <td className="table__number">
+                    <strong>{movement.stockAfter.toLocaleString('es-CR')}</strong>
                   </td>
                 </tr>
               );
             })}
           </tbody>
+          {totals === undefined ? null : (
+            <tfoot>
+              <tr>
+                <td colSpan={3}>Totales</td>
+                <td className="table__number flow-in">{signed(totals.amounts.entries, 'in')}</td>
+                <td className="table__number flow-out">{signed(totals.amounts.exits, 'out')}</td>
+                <td className="table__number">{totals.stock.toLocaleString('es-CR')}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

@@ -21,6 +21,8 @@ import {
   type ProductImageChange,
   type ProductPayload,
   type ProductSettingsChange,
+  type UnitOfMeasure,
+  UNITS_OF_MEASURE,
 } from '../../types/products';
 import { formatMoney } from './money';
 import { ean13Modules, generateEan13 } from './barcode';
@@ -51,6 +53,9 @@ interface ProductFormProps {
   initialExpirationDate?: string | null;
   /** ¿Vence? (HU-38). En un alta, sí. */
   initialPerishable?: boolean;
+  /** Unidad de medida y stock máximo; en un alta, «Unidad» y sin máximo. */
+  initialUnit?: UnitOfMeasure;
+  initialMaxStock?: number;
   busy: boolean;
   onCancel: () => void;
   onSubmit: (
@@ -127,6 +132,8 @@ export function ProductForm({
   initialMinStock = 0,
   initialExpirationDate = null,
   initialPerishable = true,
+  initialUnit = 'UD',
+  initialMaxStock = 0,
   onCategoryCreated,
   onSupplierCreated,
   busy,
@@ -147,6 +154,8 @@ export function ProductForm({
   const [expirationDate, setExpirationDate] = useState(initialExpirationDate ?? '');
   /** «No vence» (HU-38): sus entradas solo piden lote, sin fecha. */
   const [perishable, setPerishable] = useState(initialPerishable);
+  const [unit, setUnit] = useState<UnitOfMeasure>(initialUnit);
+  const [maxStock, setMaxStock] = useState(String(initialMaxStock));
   const [settingsErrors, setSettingsErrors] = useState<{
     minStock?: string;
     expirationDate?: string;
@@ -280,7 +289,12 @@ export function ProductForm({
       settings.expirationDate = nextExpiration;
     }
 
-    const payload = { ...toPayload(values), perishable };
+    const payload = {
+      ...toPayload(values),
+      perishable,
+      unit,
+      maxStock: maxStock.trim() === '' ? 0 : Number(maxStock),
+    };
     if (barcode !== '') {
       payload.barcode = barcode;
     }
@@ -517,6 +531,29 @@ export function ProductForm({
                 value={minStock}
                 onChange={(event) => setMinStock(event.target.value)}
               />
+            </Field>
+            <Field label="Stock máximo (0 = sin máximo)" htmlFor="product-maxStock">
+              <input
+                id="product-maxStock"
+                type="number"
+                min="0"
+                step="1"
+                value={maxStock}
+                onChange={(event) => setMaxStock(event.target.value)}
+              />
+            </Field>
+            <Field label="Unidad de medida" htmlFor="product-unit">
+              <select
+                id="product-unit"
+                value={unit}
+                onChange={(event) => setUnit(event.target.value as UnitOfMeasure)}
+              >
+                {Object.entries(UNITS_OF_MEASURE).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name} ({code})
+                  </option>
+                ))}
+              </select>
             </Field>
             <fieldset className="filter-bar__field">
               <legend className="filter-bar__legend">Vencimiento</legend>

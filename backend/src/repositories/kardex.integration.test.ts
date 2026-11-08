@@ -235,6 +235,8 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
       pageSize: 25,
       total: 0,
       totalPages: 0,
+      totals: { entries: 0, exits: 0, count: 0 },
+      summary: { entries: 0, exits: 0, count: 0 },
     });
     expect(await kardex.getProduct(ids['inactive'] ?? '')).toMatchObject({
       isActive: false,
