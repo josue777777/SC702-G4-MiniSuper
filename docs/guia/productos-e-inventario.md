@@ -29,10 +29,17 @@ Es el catálogo del negocio y el control de sus existencias:
   anterior»: es el stock final de la línea de abajo. Si la línea entró en lotes, su botón
   «N lotes» los muestra en una ventana (HU-38). Más adelante se suman los conceptos de
   salida «Devolución» (a proveedor), «Traslado» y «Vencido-descartado».
-- **Movimientos sin producto elegido**: la pantalla no arranca vacía. Debajo del
-  buscador se ve lo que entró y salió hoy (tarjetas) y los últimos movimientos de todos
-  los productos, de 15 en 15, con el código como enlace al kardex de cada producto
-  (`RecentMovements.tsx`).
+- **Pantalla de Movimientos**, siempre con la misma forma:
+  1. **Buscador** arriba (código, nombre o código de barras; con el lector, código + Enter
+     abre el producto). Al entrar en la caja se despliega «Recientes» (los últimos 6
+     productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
+     coinciden con su stock (`KardexSearch.tsx`).
+  2. **Ficha** del producto; sin producto, la misma ficha con «—» (`EmptyProductSheet`).
+  3. **Movimientos**: los del producto o, sin producto, los últimos de todos los productos
+     con «Hoy: N entran · N salen · N movimientos» y el código como enlace al kardex de
+     cada uno (`RecentMovements.tsx`).
+  4. **Barra de acciones** abajo, como en Inventario: «+ Registrar ingreso» y «− Registrar
+     egreso» (se activan con la entrada desde Movimientos de HU-38).
 - **Lotes** (HU-38): cada entrada de mercadería guarda sus lotes con su fecha de
   vencimiento; el stock es la suma de los lotes. Un producto marcado **«No vence»**
   (Editar › Existencias) no pide fecha al recibirlo.

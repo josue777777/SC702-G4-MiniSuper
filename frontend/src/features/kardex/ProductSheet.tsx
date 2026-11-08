@@ -2,6 +2,42 @@ import type { KardexProduct } from '../../types/kardex';
 import { formatDateOnly } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
 
+/**
+ * Ficha vacía, mientras no se elige un producto: los mismos datos con «—»,
+ * para que la pantalla muestre desde el inicio qué se va a ver (no un hueco).
+ */
+export function EmptyProductSheet() {
+  const tiles = ['Stock actual', 'Precio de venta', 'Costo'];
+  const details = ['Código', 'Código de barras', 'Categoría', 'Proveedor principal', 'Vencimiento'];
+
+  return (
+    <section className="card kardex-sheet--empty" aria-label="Ficha del producto">
+      <header className="card__header">
+        <h2>Ningún producto elegido</h2>
+        <span className="card__header-end muted">
+          Busque un código, un nombre o escanee el código de barras
+        </span>
+      </header>
+      <div className="stat-grid" aria-label="Datos principales">
+        {tiles.map((label) => (
+          <div key={label} className="stat-tile">
+            <span className="stat-tile__label">{label}</span>
+            <strong className="stat-tile__value">—</strong>
+          </div>
+        ))}
+      </div>
+      <dl className="kardex-details">
+        {details.map((label) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>—</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 /** Ficha del producto (HU-31): lo que lo identifica, su precio, su costo, su proveedor y su stock. */
 export function ProductSheet({ product }: { product: KardexProduct }) {
   return (

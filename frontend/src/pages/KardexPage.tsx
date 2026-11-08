@@ -1,32 +1,34 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { isProductId } from '../features/kardex/kardex-format';
+import { rememberRecent } from '../features/kardex/kardex-recents';
+import { KardexSearch } from '../features/kardex/KardexSearch';
 import { MovementsHistory } from '../features/kardex/MovementsHistory';
-import { ProductPicker } from '../features/kardex/ProductPicker';
-import { ProductSheet } from '../features/kardex/ProductSheet';
+import { EmptyProductSheet, ProductSheet } from '../features/kardex/ProductSheet';
 import { RecentMovements } from '../features/kardex/RecentMovements';
 import { useKeyedRequest } from '../features/kardex/use-keyed-request';
 import { kardexService } from '../services/kardex.service';
 
 /**
- * Kardex: ficha de un producto con sus entradas y salidas (HU-31).
+ * Movimientos (kardex): ficha de un producto con sus entradas y salidas (HU-31).
  *
  * Aquí no se cambian cantidades: se consultan los movimientos que ya dejaron
- * las ventas, las devoluciones, los conteos físicos y las ediciones en la tabla
- * `InventoryMovement` (y, cuando exista HU-38, las recepciones de pedidos), que
- * guarda el stock antes y después de cada uno.
+ * las ventas, las devoluciones, los conteos, las ediciones y las entregas de
+ * pedidos (HU-38) en la tabla `InventoryMovement`.
+ *
+ * La pantalla tiene siempre la misma forma, haya o no producto elegido:
+ * 1. Arriba, el buscador (código, nombre o código de barras, con «Recientes»).
+ * 2. La ficha del producto; sin producto, la misma ficha con «—».
+ * 3. Los movimientos: los del producto o, sin producto, los últimos de todos
+ *    los productos con lo que entró y salió hoy.
+ * 4. Abajo, la barra de acciones (como en Inventario).
  *
  * El producto viaja en la dirección (`/movimientos?productId=<uuid>`): se abre desde
  * Inventario con «Ver movimientos» y se puede compartir o recargar. El id se verifica
  * antes de pedirlo al servidor.
- *
- * Sin producto elegido, la pantalla no queda vacía: debajo del buscador se ve
- * lo que entró y salió hoy y los últimos movimientos de todos los productos
- * (`RecentMovements`); tocar un código abre ese producto.
  */
 export function KardexPage() {
   const [params, setParams] = useSearchParams();
-  const [choosing, setChoosing] = useState(false);
   const requested = params.get('productId') ?? '';
   const validId = isProductId(requested);
 
@@ -35,13 +37,18 @@ export function KardexPage() {
     () => kardexService.getProduct(requested),
     'No se pudo cargar la ficha del producto.',
   );
+  const ready = product.phase === 'ready' ? product.value : null;
+
+  // El producto abierto pasa a «Recientes» del buscador (solo en este navegador).
+  useEffect(() => {
+    if (ready !== null) {
+      rememberRecent(ready);
+    }
+  }, [ready]);
 
   function pick(productId: string): void {
-    setChoosing(false);
     setParams({ productId });
   }
-
-  const showPicker = requested === '' || !validId || choosing || product.phase === 'failed';
 
   return (
     <>
@@ -50,34 +57,26 @@ export function KardexPage() {
         <p>Entradas y salidas de cada producto, con el saldo después de cada movimiento.</p>
       </header>
 
-      <p>
+      <div className="kardex-toolbar">
+        <KardexSearch onPick={pick} />
         <Link to="/inventory" className="button kardex-back">
           ← Volver a Inventario
-        </Link>{' '}
-        {requested !== '' && validId && !choosing && product.phase !== 'failed' ? (
-          <button type="button" className="button" onClick={() => setChoosing(true)}>
-            Elegir otro producto
-          </button>
-        ) : null}
-      </p>
+        </Link>
+      </div>
 
       {requested !== '' && !validId ? (
         <p className="alert alert--error" role="alert">
-          El producto indicado en la dirección no es válido. Elija uno de la lista.
+          El producto indicado en la dirección no es válido. Búsquelo arriba.
         </p>
       ) : null}
 
       {product.phase === 'failed' ? (
         <p className="alert alert--error" role="alert">
           {product.status === 404
-            ? 'El producto no existe o ya no está disponible. Elija otro de la lista.'
+            ? 'El producto no existe o ya no está disponible. Busque otro arriba.'
             : product.message}
         </p>
       ) : null}
-
-      {showPicker ? <ProductPicker onPick={pick} /> : null}
-
-      {requested === '' || !validId ? <RecentMovements /> : null}
 
       {product.phase === 'loading' ? (
         <p className="card muted" role="status">
@@ -85,13 +84,35 @@ export function KardexPage() {
         </p>
       ) : null}
 
-      {product.phase === 'ready' ? (
+      {ready === null ? (
+        product.phase === 'loading' ? null : (
+          <>
+            <EmptyProductSheet />
+            <RecentMovements />
+          </>
+        )
+      ) : (
         <>
-          <ProductSheet product={product.value} />
+          <ProductSheet product={ready} />
           {/* La ficha ya se ve: el historial llega aparte y por páginas. */}
-          <MovementsHistory productId={product.value.id} />
+          <MovementsHistory productId={ready.id} />
         </>
-      ) : null}
+      )}
+
+      {/* Registrar ingresos y egresos desde aquí es lo siguiente de HU-38. */}
+      <div className="action-bar" role="toolbar" aria-label="Acciones de movimientos">
+        <button type="button" className="action-bar__button" disabled>
+          + Registrar ingreso
+        </button>
+        <button type="button" className="action-bar__button" disabled>
+          − Registrar egreso
+        </button>
+        <span className="action-bar__status" role="status">
+          {ready === null
+            ? 'Busque un producto para registrar ingresos o egresos.'
+            : 'Pronto se registran aquí. Por ahora, las entradas se registran en Pedidos › Ver pedido.'}
+        </span>
+      </div>
     </>
   );
 }

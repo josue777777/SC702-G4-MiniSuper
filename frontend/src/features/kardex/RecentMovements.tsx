@@ -12,7 +12,7 @@ function productOf(movement: KardexRecentMovement) {
 
 /**
  * Vista general de Movimientos, mientras no se elige un producto: lo que entró
- * y salió hoy (en tarjetas) y los últimos movimientos de TODOS los productos,
+ * y salió hoy (en el encabezado) y los últimos movimientos de TODOS los productos,
  * del más reciente al más antiguo, de 15 en 15 (regla 2). Tocar el código de
  * una línea abre el kardex de ese producto. Así la pantalla nunca arranca
  * vacía y lo último que pasó en el almacén se ve de un vistazo.
@@ -30,34 +30,18 @@ export function RecentMovements() {
   return (
     <section className="card" aria-label="Movimientos recientes">
       <header className="card__header">
-        <h2>Movimientos recientes</h2>
-        <span className="card__header-end muted">De todos los productos</span>
+        <h2>Movimientos recientes · todos los productos</h2>
+        {loaded === null ? null : (
+          <span className="card__header-end kardex-today" aria-label="Hoy">
+            Hoy: <strong>{loaded.today.entries.toLocaleString('es-CR')} entran</strong> ·{' '}
+            <strong>{loaded.today.exits.toLocaleString('es-CR')} salen</strong> ·{' '}
+            <span className="muted">
+              {loaded.today.count.toLocaleString('es-CR')}{' '}
+              {loaded.today.count === 1 ? 'movimiento' : 'movimientos'}
+            </span>
+          </span>
+        )}
       </header>
-
-      {loaded === null ? null : (
-        <div className="stat-grid" aria-label="Hoy">
-          <div className="stat-tile">
-            <span className="stat-tile__label">Entró hoy</span>
-            <strong className="stat-tile__value">
-              {loaded.today.entries.toLocaleString('es-CR')}
-            </strong>
-            <span className="stat-tile__detail">unidades</span>
-          </div>
-          <div className="stat-tile">
-            <span className="stat-tile__label">Salió hoy</span>
-            <strong className="stat-tile__value">
-              {loaded.today.exits.toLocaleString('es-CR')}
-            </strong>
-            <span className="stat-tile__detail">unidades</span>
-          </div>
-          <div className="stat-tile">
-            <span className="stat-tile__label">Movimientos hoy</span>
-            <strong className="stat-tile__value">
-              {loaded.today.count.toLocaleString('es-CR')}
-            </strong>
-          </div>
-        </div>
-      )}
 
       {recent.phase === 'loading' ? (
         <p className="muted" role="status">
