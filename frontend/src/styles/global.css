@@ -26,12 +26,6 @@
   --color-row-selected: #e4e4e7;
   --color-ok: #15803d;
   --color-ok-bg: #dcfce7;
-  /* Dirección de un movimiento de inventario (no es una alerta): solo como
-     color de TEXTO y siempre con su signo, «+12» entra y «−2» sale. Las
-     alertas van en insignias con fondo y palabra («Bajo», «Agotado»), así el
-     ojo no las confunde (docs/PANTALLAS.md, «Entradas y salidas»). */
-  --color-flow-in: var(--color-ok);
-  --color-flow-out: var(--color-error);
   --color-warning: #b45309;
   --color-warning-bg: #fef3c7;
   --color-error: #b91c1c;
@@ -1261,6 +1255,11 @@ tr.print-only-row {
 
 .text-error {
   color: var(--color-error);
+}
+
+/* Su par: el verde de los estados «bien» (el mismo del panel). */
+.text-ok {
+  color: var(--color-ok);
 }
 
 /* Filas que se marcan con un clic */
@@ -2959,109 +2958,93 @@ tr.print-only-row {
   margin-left: 8px;
 }
 
-/* Entra / sale: color de texto con signo (ver --color-flow-in / -out). */
-.flow-in {
-  color: var(--color-flow-in);
-  font-weight: 600;
-}
-
-.flow-out {
-  color: var(--color-flow-out);
-  font-weight: 600;
-}
-
-/* Guardar un ingreso o un egreso: el botón lleva el color de su dirección. */
-.button--in,
-.button--out {
-  border-color: transparent;
-  color: #fff;
-}
-
-.button--in {
-  background: var(--color-flow-in);
-}
-
-.button--out {
-  background: var(--color-flow-out);
-}
-
-/* «N lotes» junto al concepto: una insignia que se puede tocar. */
+/* «▦ N lotes» junto al concepto: una insignia pequeña, de contorno, que se
+   puede tocar; toma el tono de la línea (verde si entró, neutra si salió). */
 .badge--button {
+  margin-left: 8px;
+  padding: 1px 8px;
   border: 1px solid currentColor;
   background: transparent;
-  color: var(--color-text);
+  color: var(--color-muted);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
-/* Ficha del kardex: etiqueta oscura y valor claro, en celdas, como una hoja.
-   Se acomoda sola: en pantalla angosta cada dato va en su propia fila. */
-.kardex-sheet {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 6px;
-  margin: 0 0 16px;
+.badge--button.text-ok {
+  color: var(--color-ok);
 }
 
-.kardex-sheet__cell {
+/* El concepto de una entrada: en el verde del panel, con su «+». */
+.kardex-concept--in {
+  color: var(--color-ok);
+  font-weight: 600;
+}
+
+/* Ficha de Movimientos: cada dato en su bloque (etiqueta pequeña y el dato),
+   con el borde fino y las esquinas del sistema; ninguno manda sobre otro. */
+.kardex-sheet {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  min-height: 44px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
   margin: 0;
-  overflow: hidden;
+}
+
+.kardex-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
 }
 
-.kardex-sheet__cell--wide {
+.kardex-block--wide {
   grid-column: span 2;
 }
 
-.kardex-sheet__cell--full {
-  grid-column: 1 / -1;
-}
-
-.kardex-sheet__cell dt {
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  background: var(--color-sidebar);
-  color: #fff;
-  font-size: 0.8rem;
+.kardex-block__label {
+  color: var(--color-muted);
+  font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.kardex-sheet__cell dd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.kardex-block__value {
   margin: 0;
-  padding: 8px 12px;
+  overflow-wrap: anywhere;
 }
 
-.kardex-sheet__cell--summary {
+/* Dato con su aviso al lado («30 · Bien») o el resumen en una línea. */
+.kardex-block__row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 12px;
 }
 
-.kardex-sheet__big {
-  font-size: 1.25rem;
-  font-weight: 700;
+.kardex-block__row--together {
+  justify-content: flex-start;
+  gap: 18px;
 }
 
-.kardex-sheet--empty dd {
-  color: var(--color-muted);
+@media (max-width: 900px) {
+  .kardex-sheet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-@media (max-width: 640px) {
-  .kardex-sheet__cell--wide {
+@media (max-width: 520px) {
+  .kardex-sheet {
+    grid-template-columns: 1fr;
+  }
+
+  .kardex-block--wide {
     grid-column: auto;
   }
 }
@@ -3070,51 +3053,6 @@ tr.print-only-row {
 .table tfoot td {
   border-top: 2px solid var(--color-text);
   font-weight: 700;
-}
-
-/* Panel de ingreso o egreso, debajo de la barra de acciones (no es una
-   ventana: queda a la vista junto al kardex mientras se llena). */
-.kardex-panel {
-  margin: 0 0 16px;
-  overflow: hidden;
-  border: 2px solid var(--color-flow-in);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-}
-
-.kardex-panel--out {
-  border-color: var(--color-flow-out);
-}
-
-.kardex-panel__title {
-  margin: 0;
-  padding: 10px 14px;
-  background: var(--color-flow-in);
-  color: #fff;
-  font-size: 0.95rem;
-}
-
-.kardex-panel--out .kardex-panel__title {
-  background: var(--color-flow-out);
-}
-
-.kardex-panel__body {
-  padding: 14px;
-}
-
-.kardex-panel__footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.kardex-panel__figures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
 }
 
 /* Movimientos: buscador arriba, siempre a la vista, con su lista desplegable

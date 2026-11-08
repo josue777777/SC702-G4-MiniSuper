@@ -1,51 +1,52 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
-import { EntryPanel } from '../features/kardex/EntryPanel';
-import { ExitPanel } from '../features/kardex/ExitPanel';
+import { EntryModal } from '../features/kardex/EntryModal';
+import { ExitModal } from '../features/kardex/ExitModal';
 import { isProductId } from '../features/kardex/kardex-format';
 import { rememberRecent } from '../features/kardex/kardex-recents';
 import { KardexSearch } from '../features/kardex/KardexSearch';
 import { MovementsHistory } from '../features/kardex/MovementsHistory';
+import { OrderLoadModal } from '../features/kardex/OrderLoadModal';
 import { ProductSheet } from '../features/kardex/ProductSheet';
 import { RecentMovements } from '../features/kardex/RecentMovements';
 import { useKeyedRequest } from '../features/kardex/use-keyed-request';
 import { kardexService } from '../services/kardex.service';
 import type { KardexAmounts, KardexProduct } from '../types/kardex';
 
-/** Panel abierto bajo la barra de acciones. */
-type Panel = 'entry' | 'exit' | null;
+/** Ventana abierta: ingreso o egreso de UN producto, o la carga de un pedido completo. */
+type Dialog = 'entry' | 'exit' | 'order' | null;
 
 /**
- * Movimientos · Kardex (HU-31, HU-38). Siempre con la misma forma:
+ * Movimientos (HU-31, HU-38): entradas y salidas del inventario. Siempre con
+ * la misma forma, con las piezas del resto del sistema:
  *
- * 1. Arriba, el buscador (código, nombre o código de barras, con «Recientes»).
- * 2. La ficha del producto en celdas; sin producto, la misma ficha con «—».
- * 3. El kardex del producto (Todos / Entradas / Salidas, con «Totales») o,
- *    sin producto, los últimos movimientos de todos los productos.
- * 4. La barra de acciones: «+ Registrar ingreso» (con o sin pedido) y
- *    «− Registrar egreso» (salidas que no son ventas). Cada uno abre su panel
- *    debajo, a la vista junto al kardex. Las ventas salen solas desde la caja.
+ * 1. Encabezado y, arriba, el buscador (código, nombre o código de barras,
+ *    con «Recientes»).
+ * 2. La ficha del producto; sin producto, la misma ficha con «—».
+ * 3. Su historial (Todos / Entradas / Salidas, con «Totales») o, sin
+ *    producto, los últimos movimientos de todos los productos.
+ * 4. La barra de acciones, como en Inventario. Cada acción abre su ventana:
+ *    - «+ Ingreso»: UN producto sin pedido (compra directa);
+ *    - «− Egreso»: UN producto, una salida que no es venta, de un lote;
+ *    - «📦 Carga de pedido»: un pedido completo, todos sus productos a la
+ *      vez. Pedidos › «Registrar entrega» llega aquí con el pedido ya
+ *      elegido (`/movimientos?pedido=<id>`).
  *
- * Los permisos los vuelve a revisar el servidor: el ingreso pide `purchasing`
- * (como recibir un pedido) y el egreso `inventory.write`.
- *
- * El producto viaja en la dirección (`/movimientos?productId=<uuid>`): se abre desde
- * Inventario con «Ver movimientos» y se puede compartir o recargar.
+ * Los permisos los vuelve a revisar el servidor: el ingreso y la carga de
+ * pedido piden `purchasing`; el egreso, `inventory.write`.
  */
 export function KardexPage() {
   const { can } = useSession();
   const [params, setParams] = useSearchParams();
   const requested = params.get('productId') ?? '';
+  const orderParam = params.get('pedido');
   const validId = isProductId(requested);
-  const [panel, setPanel] = useState<{ productId: string; open: Panel }>({
-    productId: requested,
-    open: null,
-  });
+  const [dialog, setDialog] = useState<Dialog>(null);
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Resumen del historial del producto que se ve («Entró · Salió · N movimientos»). */
   const [summary, setSummary] = useState<{ productId: string; value: KardexAmounts } | null>(null);
-
   /** Ficha vuelta a leer tras un ingreso o egreso (stock nuevo), sin recargar la pantalla. */
   const [fresh, setFresh] = useState<KardexProduct | null>(null);
 
@@ -60,8 +61,13 @@ export function KardexPage() {
       : fresh !== null && fresh.id === product.value.id
         ? fresh
         : product.value;
-  // Al cambiar de producto se cierra el panel sin escribir estado en un efecto.
-  const open = panel.productId === requested ? panel.open : null;
+  // Desde Pedidos › «Registrar entrega»: la carga de ese pedido ya abierta.
+  const open: Dialog = orderParam !== null && dialog === null ? 'order' : dialog;
+
+  const receiveSummary = useCallback(
+    (value: KardexAmounts) => setSummary({ productId: requested, value }),
+    [requested],
+  );
 
   // El producto abierto pasa a «Recientes» del buscador (solo en este navegador).
   useEffect(() => {
@@ -70,30 +76,33 @@ export function KardexPage() {
     }
   }, [ready]);
 
-  const receiveSummary = useCallback(
-    (value: KardexAmounts) => setSummary({ productId: requested, value }),
-    [requested],
-  );
+  /** Cierra la ventana; si venía de Pedidos, quita el pedido de la dirección. */
+  function close(): void {
+    setDialog(null);
+
+    if (orderParam !== null) {
+      setParams(requested === '' ? {} : { productId: requested });
+    }
+  }
 
   function pick(productId: string): void {
     setNotice(null);
+    setDialog(null);
     setParams({ productId });
-  }
-
-  function toggle(next: Exclude<Panel, null>): void {
-    setNotice(null);
-    setPanel({ productId: requested, open: open === next ? null : next });
   }
 
   function saved(message: string): void {
     setNotice(message);
-    setPanel({ productId: requested, open: null });
+    close();
     setVersion((current) => current + 1);
-    // El stock cambió: se vuelve a leer la ficha (si falla, queda la anterior).
-    kardexService
-      .getProduct(requested)
-      .then(setFresh)
-      .catch(() => undefined);
+
+    if (validId) {
+      // El stock cambió: se vuelve a leer la ficha (si falla, queda la anterior).
+      kardexService
+        .getProduct(requested)
+        .then(setFresh)
+        .catch(() => undefined);
+    }
   }
 
   const canEnter = ready !== null && can('purchasing');
@@ -102,8 +111,8 @@ export function KardexPage() {
   return (
     <>
       <header className="page-header">
-        <h1>Movimientos · Kardex</h1>
-        <p>Entradas y salidas de cada producto, con el saldo después de cada movimiento.</p>
+        <h1>Movimientos</h1>
+        <p>Entradas y salidas del inventario, con el saldo después de cada una.</p>
       </header>
 
       <div className="kardex-toolbar">
@@ -111,7 +120,7 @@ export function KardexPage() {
         <span className="kardex-toolbar__links">
           {requested === '' ? null : (
             <Link to="/movimientos" onClick={() => setNotice(null)}>
-              ← Limpiar y buscar otro
+              Limpiar y buscar otro
             </Link>
           )}
           <Link to="/inventory" className="button kardex-back">
@@ -153,49 +162,50 @@ export function KardexPage() {
 
       {ready === null ? (
         product.phase === 'loading' ? null : (
-          <RecentMovements />
+          <RecentMovements key={version} />
         )
       ) : (
         // La ficha ya se ve: el historial llega aparte y por páginas.
-        <MovementsHistory
-          productId={ready.id}
-          stock={ready.stock}
-          version={version}
-          onSummary={receiveSummary}
-        />
+        <MovementsHistory productId={ready.id} version={version} onSummary={receiveSummary} />
       )}
 
       <div className="action-bar" role="toolbar" aria-label="Acciones de movimientos">
         <button
           type="button"
-          className="action-bar__button action-bar__button--ok"
+          className="action-bar__button"
           disabled={!canEnter}
-          aria-pressed={open === 'entry'}
-          onClick={() => toggle('entry')}
+          onClick={() => setDialog('entry')}
         >
-          + Registrar ingreso
+          + Ingreso
         </button>
         <button
           type="button"
-          className="action-bar__button action-bar__button--danger"
+          className="action-bar__button"
           disabled={!canExit}
-          aria-pressed={open === 'exit'}
-          onClick={() => toggle('exit')}
+          onClick={() => setDialog('exit')}
         >
-          − Registrar egreso
+          − Egreso
         </button>
+        {can('purchasing') ? (
+          <button type="button" className="action-bar__button" onClick={() => setDialog('order')}>
+            📦 Carga de pedido
+          </button>
+        ) : null}
         <span className="action-bar__status" role="status">
           {ready === null
-            ? 'Busque un producto para registrar ingresos o egresos.'
+            ? 'Busque un producto para un ingreso o egreso; un pedido completo, en «Carga de pedido».'
             : 'Las ventas salen solas desde la caja.'}
         </span>
       </div>
 
       {ready !== null && open === 'entry' ? (
-        <EntryPanel key={`entry-${ready.id}`} product={ready} onSaved={saved} />
+        <EntryModal product={ready} onSaved={saved} onClose={close} />
       ) : null}
       {ready !== null && open === 'exit' ? (
-        <ExitPanel key={`exit-${ready.id}`} product={ready} version={version} onSaved={saved} />
+        <ExitModal product={ready} version={version} onSaved={saved} onClose={close} />
+      ) : null}
+      {open === 'order' ? (
+        <OrderLoadModal orderId={orderParam} onDone={saved} onClose={close} />
       ) : null}
     </>
   );

@@ -19,11 +19,6 @@ export function formatMovementDate(iso: string): string {
   return `${parts['day']}/${parts['month']}/${parts['year']} ${parts['hour']}:${parts['minute']}`;
 }
 
-/** Cantidad de una columna de entradas o salidas: vacía (`—`) cuando no aplica. */
-export function formatQuantity(value: number): string {
-  return value === 0 ? '—' : value.toLocaleString('es-CR');
-}
-
 /**
  * Fecha de vencimiento de un lote, `DD/MM/AAAA`, o «No vence».
  *
@@ -74,28 +69,4 @@ export function stockStatus(product: {
   }
 
   return { label: 'Bien', tone: 'ok' };
-}
-
-/**
- * Cantidad con signo: «+12» si entra, «−2» si sale (el signo es el menos
- * tipográfico, como se lee en papel).
- *
- * @example signed(12, 'in');  // "+12"
- * @example signed(2, 'out');  // "−2"
- */
-export function signed(value: number, direction: 'in' | 'out'): string {
-  return `${direction === 'in' ? '+' : '−'}${value.toLocaleString('es-CR')}`;
-}
-
-/**
- * Número de pedido escrito → consecutivo, o `null` si no lo parece.
- *
- * @example orderNumberOf('PED-0421'); // 421
- * @example orderNumberOf('421');      // 421
- * @example orderNumberOf('abc');      // null
- */
-export function orderNumberOf(text: string): number | null {
-  const match = /^\s*(?:PED-?)?0*(\d{1,7})\s*$/i.exec(text);
-
-  return match?.[1] === undefined ? null : Number(match[1]);
 }
