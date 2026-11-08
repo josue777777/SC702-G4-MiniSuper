@@ -42,6 +42,8 @@ interface MovementInput {
   reason?: string | null;
   sale?: { id: string; number: number } | null;
   purchaseOrder?: { id: string; number: number } | null;
+  receipt?: { invoiceNumber: string } | null;
+  lots?: KardexMovementRow['lots'];
 }
 
 export function kardexMovement(input: MovementInput): KardexMovementRow {
@@ -55,6 +57,8 @@ export function kardexMovement(input: MovementInput): KardexMovementRow {
     createdAt: new Date(input.at),
     sale: input.sale ?? null,
     purchaseOrder: input.purchaseOrder ?? null,
+    receipt: input.receipt ?? null,
+    lots: input.lots ?? [],
   };
 }
 

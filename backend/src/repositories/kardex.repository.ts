@@ -91,6 +91,11 @@ export class KardexRepository {
           createdAt: true,
           sale: { select: { id: true, number: true } },
           purchaseOrder: { select: { id: true, number: true } },
+          receipt: { select: { invoiceNumber: true } },
+          lots: {
+            select: { lotNumber: true, expirationDate: true, receivedQuantity: true },
+            orderBy: [{ expirationDate: 'asc' }, { lotNumber: 'asc' }],
+          },
         },
       }),
       prisma.inventoryMovement.count({ where }),

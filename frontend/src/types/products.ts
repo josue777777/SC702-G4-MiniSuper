@@ -28,6 +28,8 @@ export interface Product {
   minStock: number;
   /** Fecha de vencimiento `YYYY-MM-DD` (HU-09), o `null` si no vence. */
   expirationDate: string | null;
+  /** ¿Vence? `false` = «No vence»: sus entradas no piden fecha de vencimiento (HU-38). */
+  perishable: boolean;
   /** Ruta de la imagen en la API (HU-01), o `null` si no tiene. */
   imageUrl: string | null;
 }
@@ -75,6 +77,8 @@ export interface ProductPayload {
   /** El stock viaja como número; el backend exige un entero ≥ 0. */
   stock: number;
   supplierId: string;
+  /** ¿Vence? (HU-38). Si vence, cada entrada pide lote y fecha de vencimiento. */
+  perishable?: boolean;
 }
 
 /**

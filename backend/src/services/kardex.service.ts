@@ -9,6 +9,7 @@ import type {
   KardexProductOption,
 } from '../types/kardex.js';
 import { dateToDateOnly } from '../utils/dates.js';
+import { formatOrderNumber } from './purchase-orders.service.js';
 import { HttpError } from '../utils/http-error.js';
 
 /** Productos que ofrece el selector: suficiente para elegir y acota la respuesta. */
@@ -47,10 +48,63 @@ export function movementAmounts(row: KardexMovementRow): { entry: number; exit: 
   return { entry: Math.max(change, 0), exit: Math.max(-change, 0) };
 }
 
-function toMovementDto(row: KardexMovementRow): KardexMovementDto {
+/**
+ * Concepto breve del movimiento, para leer el Kardex de un vistazo. El detalle
+ * (motivo de la devolución, factura) queda en «Documento» o en la venta.
+ *
+ * - Entrada de un pedido: «Recepción PED-0408».
+ * - Venta: «Venta»; su anulación o devolución: «Anulación de venta» o
+ *   «Devolución de cliente».
+ * - Lo demás (conteo, ajuste, stock inicial): el motivo tal como se registró.
+ *
+ * Más adelante se suman «Devolución» a proveedor, «Traslado» y
+ * «Vencido-descartado», que hoy ningún módulo registra.
+ *
+ * @example
+ * movementConcept({ type: 'ENTRY', purchaseOrder: { number: 408 }, … }); // "Recepción PED-0408"
+ * movementConcept({ type: 'EXIT', sale: { number: 12 }, reason: 'Venta #12', … }); // "Venta"
+ */
+export function movementConcept(row: KardexMovementRow): string {
   const reason = row.reason?.trim() ?? '';
-  // Hoy las recepciones de pedidos (HU-38) todavía no registran movimientos; cuando lo
-  // hagan con `purchaseOrderId`, aparecen aquí sin cambios.
+
+  if (row.purchaseOrder !== null) {
+    return `Recepción ${formatOrderNumber(row.purchaseOrder.number)}`;
+  }
+
+  if (row.sale !== null) {
+    if (row.type === 'EXIT') {
+      return 'Venta';
+    }
+
+    return reason.startsWith('Anulación') ? 'Anulación de venta' : 'Devolución de cliente';
+  }
+
+  return reason === '' ? DEFAULT_CONCEPT[row.type] : reason;
+}
+
+/**
+ * Solo el número del documento que originó el movimiento: la factura del
+ * proveedor si la hay (es lo que manda el proveedor), si no el pedido, o el
+ * número de la venta.
+ *
+ * @example
+ * movementDocument({ receipt: { invoiceNumber: 'na-o1' }, … }); // "na-o1"
+ * movementDocument({ sale: { number: 408 }, … });               // "408"
+ * movementDocument({ reason: 'Conteo físico', … });            // null
+ */
+export function movementDocument(row: KardexMovementRow): string | null {
+  if (row.receipt !== null) {
+    return row.receipt.invoiceNumber;
+  }
+
+  if (row.purchaseOrder !== null) {
+    return formatOrderNumber(row.purchaseOrder.number);
+  }
+
+  return row.sale === null ? null : String(row.sale.number);
+}
+
+function toMovementDto(row: KardexMovementRow): KardexMovementDto {
   const reference =
     row.sale !== null
       ? { type: 'SALE' as const, id: row.sale.id, number: row.sale.number }
@@ -66,11 +120,17 @@ function toMovementDto(row: KardexMovementRow): KardexMovementDto {
     id: row.id,
     createdAt: row.createdAt.toISOString(),
     type: row.type,
-    concept: reason === '' ? DEFAULT_CONCEPT[row.type] : reason,
+    concept: movementConcept(row),
+    document: movementDocument(row),
     ...movementAmounts(row),
     stockBefore: row.stockBefore,
     stockAfter: row.stockAfter,
     reference,
+    lots: row.lots.map((lot) => ({
+      lotNumber: lot.lotNumber,
+      expirationDate: lot.expirationDate === null ? null : dateToDateOnly(lot.expirationDate),
+      quantity: lot.receivedQuantity,
+    })),
   };
 }
 

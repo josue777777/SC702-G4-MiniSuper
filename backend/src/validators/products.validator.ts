@@ -110,6 +110,7 @@ export const createProductSchema = z.object({
   cost: moneySchema('El costo'),
   stock: stockSchema,
   supplierId: supplierIdSchema,
+  perishable: z.boolean({ error: 'Indique si el producto vence.' }).optional(),
 });
 
 /**

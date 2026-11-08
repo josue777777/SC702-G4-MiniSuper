@@ -30,6 +30,7 @@ interface ProductRow {
   isActive: boolean;
   minStock: number;
   expirationDate: Date | null;
+  perishable: boolean;
   imageMimeType: string | null;
   imageUpdatedAt: Date | null;
   category: { id: string; name: string };
@@ -52,6 +53,7 @@ const productSelection = {
   isActive: true,
   minStock: true,
   expirationDate: true,
+  perishable: true,
   // Solo los datos de la imagen, nunca sus bytes: el listado sigue liviano.
   imageMimeType: true,
   imageUpdatedAt: true,
@@ -83,6 +85,7 @@ function toProductDto(row: ProductRow): ProductDto {
     preferredSupplierName: preferredSupplier?.supplier.name ?? null,
     minStock: row.minStock,
     expirationDate: row.expirationDate === null ? null : dateToDateOnly(row.expirationDate),
+    perishable: row.perishable,
     imageUrl:
       row.imageMimeType === null || row.imageUpdatedAt === null
         ? null
@@ -282,6 +285,7 @@ export class ProductsRepository {
           price: fields.price,
           cost: fields.cost,
           stock: fields.stock,
+          perishable: fields.perishable ?? true,
         },
         select: { id: true },
       });
@@ -334,6 +338,7 @@ export class ProductsRepository {
           price: fields.price,
           cost: fields.cost,
           stock: fields.stock,
+          ...(fields.perishable === undefined ? {} : { perishable: fields.perishable }),
         },
       });
 

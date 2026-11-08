@@ -22,14 +22,29 @@ Es el catálogo del negocio y el control de sus existencias:
 - **Existencias**: mínimo de stock (alerta de stock bajo), fecha de vencimiento
   (alerta de vencidos y por vencer) y conteo físico, que corrige el stock con lo que
   hay de verdad en el estante.
-- **Movimientos** (Almacén › Movimientos): el historial de cada producto, con cada
-  entrada, salida o ajuste y el saldo después de cada uno (kardex).
+- **Movimientos** (Almacén › Movimientos): el historial de cada producto (kardex). Columnas:
+  fecha y hora, **concepto** breve («Recepción PED-0408», «Venta», «Devolución de
+  cliente», «Conteo físico»), **documento** (solo el número: la factura del proveedor en
+  una entrada, la venta en una salida), entrada, salida y **stock final**. No hay «stock
+  anterior»: es el stock final de la línea de abajo. Si la línea entró en lotes, su botón
+  «N lotes» los muestra en una ventana (HU-38). Más adelante se suman los conceptos de
+  salida «Devolución» (a proveedor), «Traslado» y «Vencido-descartado».
+- **Lotes** (HU-38): cada entrada de mercadería guarda sus lotes con su fecha de
+  vencimiento; el stock es la suma de los lotes. Un producto marcado **«No vence»**
+  (Editar › Existencias) no pide fecha al recibirlo.
 - **Reporte de inventario** (Reportes › Inventario): totales, gráficos y el detalle por
   páginas, con PDF y Excel.
 
 **Regla de oro del módulo:** el stock nunca cambia «porque sí». Cada cambio deja un
 `InventoryMovement` (cuánto había, cuánto se movió, cuánto quedó) en la misma
 transacción. Por eso Movimientos siempre cuadra con el stock.
+
+**Y los lotes siempre cuadran con el stock:** un disparador de PostgreSQL
+(`product_lots_follow_stock`, migración `20261110120000_lotes_vencimiento`) se ejecuta
+cada vez que cambia `Product.stock`. Si el stock baja (venta, conteo, edición), descuenta
+del lote que vence primero; si sube sin lote (devolución, conteo, stock inicial), lo
+guarda en el lote «SIN LOTE» con la fecha del producto. Ningún módulo tiene que acordarse
+de los lotes.
 
 ## 2. Flujo de información
 
@@ -213,6 +228,26 @@ significa «no definido» y nunca alerta.
 | de 0 a 14 (vencer hoy cuenta) | Próximo a vencer |
 | 15 o más | Sin alerta |
 
+### Lotes: el que vence primero sale primero (disparador `product_lots_follow_stock`)
+
+```text
+Lotes de la leche: L-3 vence 20/01 (5), L-1 vence 01/02 (6), L-2 vence 01/03 (4) → stock 15
+Se venden 7: salen 5 de L-3 y 2 de L-1 → L-3 0, L-1 4, L-2 4 → stock 8 = 0 + 4 + 4
+Se devuelve 1 (sin lote): «SIN LOTE» 1 → stock 9 = 0 + 4 + 4 + 1
+```
+
+Los lotes que no vencen se descuentan al final. La fecha del producto (alertas de
+HU-09) pasa a ser la del lote que vence primero al cargar una entrega.
+
+### Concepto y documento del kardex (`movementConcept`, `movementDocument`)
+
+| Movimiento | Concepto | Documento |
+| --- | --- | --- |
+| Entrada de un pedido | Recepción PED-0408 | la factura: `na-o1` |
+| Venta | Venta | el número de venta: `408` |
+| Anulación o devolución de una venta | Anulación de venta / Devolución de cliente | el número de venta |
+| Conteo, ajuste, stock inicial | el motivo registrado | — |
+
 ### Entradas y salidas del kardex (`movementAmounts`)
 
 `ENTRY` suma, `EXIT` resta y un `ADJUSTMENT` cuenta como entrada o salida según si el
@@ -234,6 +269,8 @@ Estado del stock: agotado (stock 0), en su mínimo o debajo, o suficiente
 | El formulario no deja guardar un precio o un código | `validators/products.validator.ts` y `frontend/.../product-form.ts` |
 | «Ya existe un producto con ese código» | `products.service.ts` (`assertCodeIsAvailable`) |
 | El stock no cuadra con Movimientos | Busque quién cambió `stock` sin movimiento: solo los repositorios lo cambian |
+| Los lotes no suman el stock | El disparador `product_lots_follow_stock` (migración de lotes): ¿se aplicaron las migraciones? |
+| Aparece un lote «SIN LOTE» | Es lo que subió sin lote (stock inicial, devolución, conteo) o lo que había antes de los lotes |
 | Un producto desactivado aparece en la caja | `sales.repository.ts` (filtra `isActive`) |
 | La alerta de stock bajo no aparece | `isLowStock`: ¿el producto tiene mínimo definido? |
 | El código de barras no se lee | `barcode.ts` (`isValidEan13`) y el dígito de control |

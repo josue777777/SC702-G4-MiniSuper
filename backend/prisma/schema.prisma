@@ -310,8 +310,13 @@ model Product {
   stock          Int       @default(0)
   /// Mínimo que dispara la alerta de stock bajo (HU-08).
   minStock       Int       @default(0)
-  /// Solo aplica a productos perecederos (HU-09).
+  /// Solo aplica a productos perecederos (HU-09). Al cargar lotes con fecha
+  /// (HU-38) pasa a ser la fecha del lote que vence primero.
   expirationDate DateTime?
+  /// ¿Vence? Si es `true`, cada entrada pide lote Y fecha de vencimiento; si
+  /// es `false` («No vence»: detergente, ollas) solo el lote, y si no se
+  /// escribe, el lote es el número de factura (HU-38).
+  perishable     Boolean   @default(true)
   /// Desactivar en lugar de eliminar: conserva el historial de ventas (HU-03).
   isActive       Boolean   @default(true)
   categoryId     String    @db.Uuid
@@ -333,6 +338,7 @@ model Product {
   saleItems          SaleItem[]
   purchaseOrderItems PurchaseOrderItem[]
   receiptItems       PurchaseReceiptItem[]
+  lots               ProductLot[]
 
   @@unique([businessId, code])
   @@unique([businessId, barcode])
@@ -362,6 +368,8 @@ model InventoryMovement {
   sale          Sale?            @relation(fields: [saleId], references: [id], onDelete: SetNull)
   purchaseOrder PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   receipt       PurchaseReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  /// Lotes que entraron con este movimiento (HU-38); se ven por línea en el Kardex.
+  lots          ProductLot[]
 
   @@index([productId, createdAt])
   @@index([saleId])
@@ -661,11 +669,57 @@ model PurchaseReceiptItem {
   productId String @db.Uuid
   quantity  Int
 
-  receipt PurchaseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  product Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  receipt PurchaseReceipt         @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  product Product                 @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// Cómo vino partido en lotes; la suma de los lotes es `quantity`.
+  lots    PurchaseReceiptItemLot[]
 
   @@unique([receiptId, productId])
   @@index([productId])
+}
+
+/// Un lote de lo que llegó de un producto en una entrega (HU-38): su número,
+/// su fecha de vencimiento (nula si el producto no vence) y cuántas unidades.
+/// Se guarda al registrar la entrega y pasa a `ProductLot` al cargarla.
+model PurchaseReceiptItemLot {
+  id             String    @id @default(uuid()) @db.Uuid
+  receiptItemId  String    @db.Uuid
+  lotNumber      String
+  expirationDate DateTime? @db.Date
+  quantity       Int
+
+  receiptItem PurchaseReceiptItem @relation(fields: [receiptItemId], references: [id], onDelete: Cascade)
+
+  @@unique([receiptItemId, lotNumber])
+}
+
+/// Lote en inventario (HU-38, HU-32): cuántas unidades quedan de cada lote y
+/// cuándo vence. Un lote nuevo NUNCA reemplaza la fecha de los anteriores.
+///
+/// La base mantiene siempre `Product.stock` = suma de `quantity` de sus lotes:
+/// un disparador (migración `20261110120000_lotes_vencimiento`) descuenta del
+/// lote que vence primero cuando el stock baja (venta, conteo, edición) y
+/// guarda como «SIN LOTE» lo que sube sin lote (devolución, conteo). Así
+/// ningún módulo tiene que acordarse de los lotes para no descuadrarlos.
+model ProductLot {
+  id               String    @id @default(uuid()) @db.Uuid
+  productId        String    @db.Uuid
+  lotNumber        String
+  /// Nula si el producto no vence.
+  expirationDate   DateTime? @db.Date
+  /// Unidades que quedan; nunca negativo (CHECK en la migración).
+  quantity         Int
+  /// Unidades con que entró el lote.
+  receivedQuantity Int
+  /// Entrada del Kardex que trajo el lote (nula en los lotes «SIN LOTE»).
+  entryMovementId  String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+
+  product       Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  entryMovement InventoryMovement? @relation(fields: [entryMovementId], references: [id], onDelete: SetNull)
+
+  @@index([productId, expirationDate])
+  @@index([entryMovementId])
 }
 
 /// Registro de seguridad de las cuentas (HU-13): a quién se le cambió o

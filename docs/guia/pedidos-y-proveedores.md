@@ -17,6 +17,12 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
+- **Lotes con vencimiento** (HU-38): en «Registrar entrega» cada producto lleva su
+  **lote** y, si vence, su **fecha de vencimiento**, en la misma fila. Si llegó en
+  varios lotes, «Partir en lotes» abre una ventana solo para ese producto (lote,
+  vence, unidades; de 4 en 4) y la fila resume «N lotes», la suma y el que vence
+  primero. Un producto marcado **«No vence»** (Inventario › Editar › Existencias) no
+  pide fecha y, si no se escribe el lote, su lote es el número de factura.
 - **Proveedores › Editar**: los productos que suministra se agregan buscándolos
   («Agregar producto que suministra», sin lista desplegable del catálogo), se ven de 4 en 4
   con buscador y se quitan con «Quitar» (los de proveedor principal se cambian en
@@ -73,18 +79,25 @@ cambiarlo en la petición. El servidor usa el costo guardado en `SupplierProduct
 ### Registrar una entrega (HU-38)
 
 ```text
-Entrada   ReceiveOrderModal.tsx: { invoiceNumber, receivedOn, loadNow, items: [{ productId, quantity }] }
+Entrada   ReceiveOrderModal.tsx: { invoiceNumber, receivedOn, loadNow,
+            items: [{ productId, quantity, lots: [{ lotNumber, expirationDate, quantity }] }] }
    ▼  POST /api/purchase-orders/:id/receipts
 services/purchase-orders.service.ts → receiveOrder()
    │   reglas: pedido abierto; fecha no futura ni anterior al pedido; solo productos
-   │   del pedido; nunca más de lo que falta; las líneas en 0 no se guardan
+   │   del pedido; nunca más de lo que falta; las líneas en 0 no se guardan;
+   │   resolveReceiptLots(): lotes que suman lo que llegó, sin repetir; si vence,
+   │   lote y fecha en cada uno (no vencido el día que llegó); si no vence, sin
+   │   fecha y, sin lote escrito, el lote es la factura
    ▼
 repositories/purchase-orders.repository.ts → receive()   (una sola transacción)
    │   1. suma lo recibido a cada línea SOLO si nadie la cambió (si no → 409)
-   │   2. guarda PurchaseReceipt + PurchaseReceiptItem (factura única en el pedido)
+   │   2. guarda PurchaseReceipt + PurchaseReceiptItem + PurchaseReceiptItemLot
+   │      (factura única en el pedido)
    │   3. estado: RECEIVED si llegó todo (con la fecha real), si no PARTIAL
-   │   4. si loadNow: loadReceiptStock() → stock + InventoryMovement ENTRY
-   │      con motivo «Recepción PED-0007 · Factura F-120» y la entrega enlazada
+   │   4. si loadNow: loadReceiptStock() → por producto: crea sus ProductLot,
+   │      sube el stock, crea la InventoryMovement ENTRY (motivo «Recepción
+   │      PED-0007 · Factura F-120», la entrega enlazada) y liga los lotes a esa
+   │      entrada; la fecha del producto pasa a ser la del lote que vence primero
    ▼
 Responde  201 { data: PurchaseOrderDto }  (con receipts, receivedQuantity y pendingQuantity)
 ```
@@ -116,7 +129,8 @@ pages/OrdersPage.tsx                     las pestañas (la elegida va en ?seccio
   │    │                                   «Etiquetas» (una por unidad pedida, HU-07) y
   │    │                                   las entregas con «Cargar al inventario» (HU-38)
   │    ├─ ReceiveOrderModal.tsx            registrar una entrega (factura, fecha, cantidades,
-  │    │                                   archivo de la factura con su vista previa)
+  │    │                                   lote y vencimiento, archivo con su vista previa)
+  │    ├─ ReceiptLotsModal.tsx / receipt-lots.ts   «Partir en lotes» y sus reglas
   │    ├─ InvoicePreview.tsx / invoice-file.ts   visor (PDF o imagen) y reglas del archivo
   │    └─ order-filters.ts                 filtros del historial (estado, período, buscador)
   └─ features/suppliers/SuppliersSection.tsx
@@ -173,6 +187,14 @@ se guarda es el del servidor.
 y el pedido queda «Recibido» con la fecha de la F-101. `receivedQuantity` cuenta al
 **registrar** la entrega (llegó la mercadería); el **stock** sube al **cargarla**.
 
+### Lotes de una entrega (`resolveReceiptLots` en el servidor, `lotsError` en la pantalla)
+
+Los lotes de un producto suman exactamente lo que llegó. Ejemplo: llegan 10 leches en
+dos lotes, L-1 (vence 01/12) con 6 y L-2 (vence 15/12) con 4 → se guardan los dos, cada
+uno con su fecha. Un lote nuevo **nunca** cambia la fecha de los que ya había: el stock
+total es la suma de todos los lotes (`ProductLot`). Un detergente que «No vence», sin lote
+escrito, entra en el lote «F-120» (la factura) y sin fecha.
+
 ### Consecutivo del pedido (`nextDocumentNumber`)
 
 Cada negocio tiene su propio contador por tipo de documento (ventas y pedidos van
@@ -191,6 +213,8 @@ por separado). Se toma dentro de la misma transacción: atómico y sin huecos.
 | «La mercadería no puede llegar antes de hacer el pedido» con la fecha de hoy | Se compara con el día del pedido en Costa Rica (`todayInBusinessZone`), no en UTC |
 | La factura no se ve en la ventana | Solo PDF o imagen; el visor de PDF es el del navegador (`InvoicePreview.tsx`) |
 | El stock no subió después de registrar una entrega | La carga quedó pendiente: «Ver pedido» › Entregas › «Cargar al inventario» |
+| «Indique el lote y la fecha de vencimiento de …» | El producto vence: escriba lote y fecha, o márquelo «No vence» en Inventario › Editar |
+| «Los lotes de … suman X, pero llegaron Y» | En «Partir en lotes» la suma debe ser igual a lo que llegó |
 
 Pruebas: `backend/src/**/purchase-orders*.test.ts`,
 `repositories/purchase-receipts.integration.test.ts` (stock, Kardex y doble carga en

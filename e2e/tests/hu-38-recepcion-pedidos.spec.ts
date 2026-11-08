@@ -390,3 +390,128 @@ test('«Ver pedido» en pantalla es información; el papel lleva el negocio, la 
   await expect(paper.getByText('Productos', { exact: true })).toBeHidden();
   await page.pdf({ path: evidencePath('HU-38', 'pedido-a-proveedor.pdf'), format: 'Letter' });
 });
+
+/** Día de hoy en Costa Rica más `days` días, `YYYY-MM-DD`. */
+function inDays(days: number): string {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Costa_Rica' });
+  const date = new Date(`${today}T12:00:00Z`);
+
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
+}
+
+/** `YYYY-MM-DD` → `DD/MM/AAAA`, como lo muestra la pantalla. */
+function shown(date: string): string {
+  return date.split('-').reverse().join('/');
+}
+
+test('lotes: lo que vence pide lote y fecha, se parte en varios lotes y cada línea del Kardex los muestra', async ({
+  page,
+}) => {
+  // El café vence; el arroz «No vence».
+  await withDb((client) =>
+    client.query(
+      `UPDATE "Product" SET perishable = (code = 'CAF-01') WHERE code IN ('ARR-01', 'CAF-01')`,
+    ),
+  );
+  await createOrder(page);
+  await openOrder(page);
+  await orderDialog(page).getByRole('button', { name: '📦 Registrar entrega' }).click();
+
+  const receipt = receiptDialog(page);
+  const rows = receipt.getByRole('table', { name: 'Lo que llegó' });
+  const rice = rows.getByRole('row', { name: /ARR-01/ });
+  const coffee = rows.getByRole('row', { name: /CAF-01/ });
+
+  await receipt.getByLabel('N.º de factura').fill('F-300');
+  // Lo que no vence no pide fecha y, sin lote escrito, el lote es la factura.
+  await expect(rice).toContainText('No vence');
+  await expect(receipt.getByLabel('Lote de Arroz blanco 1 kg')).toHaveAttribute(
+    'placeholder',
+    'N.º de factura',
+  );
+  await expect(coffee.getByLabel('Vence el lote de Café molido 500 g')).toBeVisible();
+
+  // Sin lote ni fecha, lo que vence no se guarda.
+  await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
+  await expect(receipt.getByRole('alert')).toHaveText(
+    'Indique el número de lote de Café molido 500 g.',
+  );
+
+  // Los 4 cafés llegaron en dos lotes con fechas distintas.
+  await coffee.getByRole('button', { name: 'Partir en lotes' }).click();
+
+  const lots = page.getByRole('dialog', { name: 'Lotes · Café molido 500 g' });
+
+  await lots.getByLabel('Lote 1', { exact: true }).fill('L-A');
+  await lots.getByLabel('Vence el lote 1').fill(inDays(60));
+  await lots.getByLabel('Unidades del lote 1').fill('3');
+  await lots.getByRole('button', { name: '+ Agregar lote' }).click();
+  // El lote nuevo va arriba con lo que falta para cuadrar.
+  await expect(lots.getByLabel('Unidades del lote 1')).toHaveValue('1');
+  await lots.getByLabel('Lote 1', { exact: true }).fill('L-B');
+  await lots.getByLabel('Vence el lote 1').fill(inDays(30));
+  await expect(lots.getByRole('status')).toHaveText('Suman 4 de 4 que faltan.');
+  await saveEvidence(page, 'HU-38', 'partir-en-lotes.png');
+  await lots.getByRole('button', { name: 'Listo' }).click();
+  await expect(lots).toHaveCount(0);
+
+  // La fila resume: 2 lotes, suma 4 y el que vence primero.
+  await expect(coffee.getByRole('button', { name: '2 lotes' })).toBeVisible();
+  await expect(coffee.getByLabel('Llegó de Café molido 500 g')).toHaveText('4');
+  await expect(coffee).toContainText(shown(inDays(30)));
+  await saveEvidence(page, 'HU-38', 'registrar-entrega-con-lotes.png');
+  await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
+  await expect(receipt).toHaveCount(0);
+  expect(await stockOf('CAF-01')).toBe(22);
+
+  // El stock es la suma de los lotes; lo que ya había quedó «SIN LOTE».
+  const saved = await withDb(async (client) => {
+    const result = await client.query<{ lotNumber: string; quantity: number }>(
+      `SELECT l."lotNumber", l.quantity FROM "ProductLot" l JOIN "Product" p ON p.id = l."productId"
+        WHERE p.code = 'CAF-01' ORDER BY l."expirationDate" NULLS LAST`,
+    );
+
+    return result.rows;
+  });
+
+  expect(saved).toEqual([
+    { lotNumber: 'L-B', quantity: 1 },
+    { lotNumber: 'L-A', quantity: 3 },
+    { lotNumber: 'SIN LOTE', quantity: 18 },
+  ]);
+
+  // Kardex: la entrada dice de qué pedido viene, el documento es la factura y
+  // sus lotes se ven en una ventana desde la misma línea.
+  const coffeeId = await withDb(async (client) => {
+    const result = await client.query<{ id: string }>(
+      `SELECT id FROM "Product" WHERE code = 'CAF-01'`,
+    );
+
+    return result.rows[0]?.id ?? '';
+  });
+
+  await page.goto(`/movimientos?productId=${coffeeId}`);
+
+  const history = page.getByRole('table', { name: 'Movimientos del producto' });
+  const entry = history.locator('tbody tr').first();
+
+  await expect(entry.locator('td').nth(1)).toHaveText('Recepción PED-0001');
+  await expect(entry.locator('td').nth(2)).toHaveText('F-300');
+  await expect(entry.locator('td').nth(3)).toHaveText('4');
+  await expect(entry.locator('td').nth(5)).toHaveText('22');
+  await entry.getByRole('button', { name: '2 lotes' }).click();
+
+  const lineLots = page.getByRole('dialog', { name: 'Lotes · Recepción PED-0001' });
+
+  await expect(lineLots.getByRole('table', { name: 'Lotes del movimiento' })).toBeVisible();
+  await expect(lineLots.locator('tbody tr')).toHaveCount(2);
+  await expect(lineLots.locator('tbody tr').nth(0)).toHaveText(
+    new RegExp(`L-B\\s*${shown(inDays(30))}\\s*1`),
+  );
+  await expect(lineLots.locator('tbody tr').nth(1)).toHaveText(
+    new RegExp(`L-A\\s*${shown(inDays(60))}\\s*3`),
+  );
+  await saveEvidence(page, 'HU-38', 'kardex-lotes-por-linea.png');
+});

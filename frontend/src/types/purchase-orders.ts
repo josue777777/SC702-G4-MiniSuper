@@ -20,6 +20,15 @@ export interface PurchaseOrderItem {
   receivedQuantity: number;
   /** Lo que falta por llegar. */
   pendingQuantity: number;
+  /** ¿Vence? Si es `true`, al recibirlo se pide lote y fecha de vencimiento (HU-38). */
+  perishable: boolean;
+}
+
+/** Un lote de lo que llegó (HU-38). `expirationDate`: `YYYY-MM-DD` o `null` si no vence. */
+export interface ReceiptLot {
+  lotNumber: string;
+  expirationDate: string | null;
+  quantity: number;
 }
 
 /** Una entrega del proveedor con su factura (HU-38). */
@@ -31,7 +40,14 @@ export interface PurchaseReceipt {
   /** Cuándo se cargó al inventario; `null` = carga pendiente. */
   loadedAt: string | null;
   createdAt: string;
-  items: { productId: string; productCode: string; productName: string; quantity: number }[];
+  items: {
+    productId: string;
+    productCode: string;
+    productName: string;
+    quantity: number;
+    /** Cómo vino partido en lotes (HU-38). */
+    lots: ReceiptLot[];
+  }[];
   /** Factura del proveedor adjunta (sin los bytes), o `null` si no tiene. */
   invoiceFile: { name: string; mimeType: string; uploadedAt: string } | null;
 }
@@ -82,6 +98,10 @@ export interface ReceiveOrderPayload {
   receivedOn: string;
   /** `true`: cargar ya al inventario; `false`: dejar la carga pendiente. */
   loadNow: boolean;
-  /** Lo que llegó de cada producto; 0 = no vino en esta entrega. */
-  items: { productId: string; quantity: number }[];
+  /**
+   * Lo que llegó de cada producto; 0 = no vino en esta entrega. `lots`: cómo
+   * vino partido (suman `quantity`); un producto que no vence puede omitirlos
+   * y el lote es la factura.
+   */
+  items: { productId: string; quantity: number; lots?: ReceiptLot[] }[];
 }

@@ -99,6 +99,9 @@ Guía completa: [`docs/ESCALABILIDAD.md`](docs/ESCALABILIDAD.md).
 
 - Se trabaja en una rama desde `develop` y se abre el PR hacia `develop`;
   `develop` pasa a `main` cuando todo está en verde.
+- La rama lleva el nombre de lo que se trabaja: una historia de usuario,
+  `feat/hu-XX-descripcion-corta` (por ejemplo `feat/hu-38-lotes-vencimiento`);
+  ajustes que no son de una historia, `chore/ajustes-varios-descripcion`.
 - Un PR se integra solo con el CI en verde y sin conflictos.
 - La descripción del PR dice qué historia toca y cómo se probó.
 

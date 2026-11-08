@@ -65,6 +65,8 @@ export interface ProductDto {
   minStock: number;
   /** Fecha de vencimiento `YYYY-MM-DD` (HU-09), o `null` si no vence. */
   expirationDate: string | null;
+  /** ¿Vence? `false` = «No vence»: sus entradas no piden fecha (HU-38). */
+  perishable: boolean;
   /**
    * URL de la imagen (HU-01), o `null` si no tiene. Lleva `?v=` con la fecha del
    * cambio para que el navegador no muestre una imagen vieja de su caché.
@@ -125,6 +127,11 @@ export interface ProductWritableFields {
   cost: MoneyString;
   stock: number;
   supplierId: string;
+  /**
+   * ¿Vence? (HU-38). Si se omite: al crear, vence; al editar, queda como estaba.
+   * Si vence, cada entrada de mercadería pide lote y fecha de vencimiento.
+   */
+  perishable?: boolean | undefined;
 }
 
 /** Trabajo que el service encarga al repositorio al crear un producto. */

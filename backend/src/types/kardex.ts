@@ -67,6 +67,18 @@ export interface KardexMovementRow {
   createdAt: Date;
   sale: { id: string; number: number } | null;
   purchaseOrder: { id: string; number: number } | null;
+  /** Entrega (factura) que cargó la entrada (HU-38). */
+  receipt: { invoiceNumber: string } | null;
+  /** Lotes que entraron con este movimiento (HU-38). */
+  lots: { lotNumber: string; expirationDate: Date | null; receivedQuantity: number }[];
+}
+
+/** Un lote que entró con un movimiento: número, vencimiento y cuántas unidades. */
+export interface KardexLotDto {
+  lotNumber: string;
+  /** `YYYY-MM-DD`, o `null` si el producto no vence. */
+  expirationDate: string | null;
+  quantity: number;
 }
 
 /** Documento que originó el movimiento. Solo su número: nada de importes ni clientes. */
@@ -81,8 +93,16 @@ export interface KardexMovementDto {
   /** Fecha y hora (ISO 8601). */
   createdAt: string;
   type: KardexMovementKind;
-  /** Motivo registrado o, si no hay, una descripción según el tipo. */
+  /**
+   * Descripción breve: «Recepción PED-0408», «Venta», «Devolución de cliente»,
+   * «Conteo físico»… (`movementConcept`).
+   */
   concept: string;
+  /**
+   * Solo el número del documento: la factura del proveedor en una entrada
+   * (`na-o1`) o el número de venta en una salida (`408`); `null` si no hay.
+   */
+  document: string | null;
   /** Unidades que entran (0 si el movimiento no es una entrada). */
   entry: number;
   /** Unidades que salen (0 si el movimiento no es una salida). */
@@ -90,6 +110,8 @@ export interface KardexMovementDto {
   stockBefore: number;
   stockAfter: number;
   reference: KardexReference | null;
+  /** Lotes con que entró (HU-38); vacío si el movimiento no trajo lotes. */
+  lots: KardexLotDto[];
 }
 
 export interface KardexMovementPage {
