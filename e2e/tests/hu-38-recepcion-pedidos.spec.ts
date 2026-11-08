@@ -518,6 +518,27 @@ test('lotes: lo que vence pide lote y fecha, se parte en varios lotes y cada lí
 
   await page.goto(`/movimientos?productId=${coffeeId}`);
 
+  // La ficha no muestra UNA fecha: dice cuántos lotes hay y cuándo vence el próximo,
+  // y «Ver lotes» los lista todos (el que vence antes primero).
+  await expect(page.getByLabel('Resumen de lotes')).toContainText(
+    `3 lotes · próximo ${shown(inDays(30))}`,
+  );
+  await page.getByRole('button', { name: /Ver lotes/ }).click();
+
+  const stockLots = page.getByRole('dialog', { name: 'Lotes en existencia · Café molido 500 g' });
+
+  await expect(stockLots.getByRole('table', { name: 'Lotes del producto' })).toBeVisible();
+  await expect(stockLots.locator('tbody tr').nth(0)).toHaveText(
+    new RegExp(`L-B\\s*${shown(inDays(30))}\\s*1`),
+  );
+  await expect(stockLots.locator('tbody tr').nth(1)).toHaveText(
+    new RegExp(`L-A\\s*${shown(inDays(60))}\\s*3`),
+  );
+  await expect(stockLots.locator('tbody tr').nth(2)).toHaveText(/SIN LOTE\s*Sin fecha\s*18/);
+  await saveEvidence(page, 'HU-38', 'ficha-lotes-en-existencia.png');
+  await stockLots.getByRole('button', { name: /Cerrar/ }).click();
+  await expect(stockLots).toHaveCount(0);
+
   const history = page.getByRole('table', { name: 'Movimientos del producto' });
   const entry = history.locator('tbody tr').first();
 

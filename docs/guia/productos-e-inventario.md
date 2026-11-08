@@ -39,8 +39,10 @@ Es el catálogo del negocio y el control de sus existencias:
      «Descripción»; la insignia «Inactivo» solo si el producto está desactivado: **Producto** (el código, con
      código de barras y categoría), **Descripción** (el nombre), unidad, proveedor
      principal, precio, costo, **existencias** con el aviso pequeño de su estado («Bien»,
-     «Bajo», «Agotado», «Sobre el máximo»), stock mínimo y máximo, vencimiento e
-     historial («Entró +30 · Salió −12 · 9 movs.»). Sin producto, o mientras llega, las
+     «Bajo», «Agotado», «Sobre el máximo»), stock mínimo y máximo, **lotes** (cuántos tienen
+     unidades y cuándo vence el próximo, con «▦ Ver lotes», `ProductLotsModal.tsx`; un
+     producto puede tener varias fechas, por eso no se muestra una sola; lo que no vence
+     dice «No vence») e historial («Entró +30 · Salió −12 · 9 movs.»). Sin producto, o mientras llega, las
      mismas celdas con «—»: la pantalla no cambia de forma.
   3. **Historial de movimientos** con «Todos / Entradas / Salidas» (el filtro va al
      servidor) y la fila «Totales» al pie (lo filtrado, en todas las páginas, y el stock

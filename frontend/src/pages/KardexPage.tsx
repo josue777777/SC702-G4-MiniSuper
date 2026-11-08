@@ -151,6 +151,7 @@ export function KardexPage() {
       <ProductSheet
         product={ready}
         loading={product.phase === 'loading' && ready === null}
+        version={version}
         summary={summary !== null && summary.productId === requested ? summary.value : null}
       />
 
