@@ -34,16 +34,19 @@ Es el catálogo del negocio y el control de sus existencias:
      abre el producto). Al entrar en la caja se despliega «Recientes» (los últimos 6
      productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
      coinciden con su stock (`KardexSearch.tsx`).
-  2. **Ficha** (`ProductSheet.tsx`), cada dato en su bloque: **Producto** (el código, con
+  2. **Ficha** (`ProductSheet.tsx`), en celdas como una hoja (la etiqueta oscura a la
+     izquierda, el dato a la derecha): **Producto** (el código, con
      código de barras y categoría), **Descripción** (el nombre), unidad, proveedor
      principal, precio, costo, **existencias** con el aviso pequeño de su estado («Bien»,
      «Bajo», «Agotado», «Sobre el máximo»), stock mínimo y máximo, vencimiento e
-     historial («Entró +30 · Salió −12 · 9 movimientos»). Sin producto, los mismos
-     bloques con «—».
+     historial («Entró +30 · Salió −12 · 9 movs.»). Sin producto, o mientras llega, las
+     mismas celdas con «—»: la pantalla no cambia de forma.
   3. **Historial de movimientos** con «Todos / Entradas / Salidas» (el filtro va al
-     servidor), sin fila de totales: la primera línea es el saldo más reciente. Sin producto, los últimos
-     movimientos de todos los productos con «Hoy: N entran · N salen»
-     (`RecentMovements.tsx`).
+     servidor) y la fila «Totales» al pie (lo filtrado, en todas las páginas, y el stock
+     de hoy). Sin producto, los últimos movimientos de todos los productos con «Hoy: N
+     entran · N salen» (`RecentMovements.tsx`). Las dos tablas ocupan siempre el alto de
+     una página de 15, con la paginación siempre en su lugar (`MovementsPager.tsx`);
+     mientras llega otra página se ve la anterior atenuada, así nada salta.
   4. **Barra de acciones** abajo, como en Inventario. Cada acción abre su ventana:
      «+ Ingreso» (`EntryModal.tsx`), «− Egreso» (`ExitModal.tsx`) y «📦 Carga de pedido»
      (`OrderLoadModal.tsx`). Las ventas salen solas desde la caja.

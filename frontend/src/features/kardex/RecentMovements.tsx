@@ -3,6 +3,7 @@ import { DEFAULT_PAGE_SIZE } from '../../components/use-pagination';
 import { kardexService } from '../../services/kardex.service';
 import type { KardexRecentMovement } from '../../types/kardex';
 import { FlowAmount } from './FlowAmount';
+import { MovementsPager } from './MovementsPager';
 import { MovementsTable } from './MovementsTable';
 import { useKeyedRequest } from './use-keyed-request';
 
@@ -16,7 +17,9 @@ function productOf(movement: KardexRecentMovement) {
  * y salió hoy (en el encabezado) y los últimos movimientos de TODOS los productos,
  * del más reciente al más antiguo, de 15 en 15 (regla 2). Tocar el código de
  * una línea abre el kardex de ese producto. Así la pantalla nunca arranca
- * vacía y lo último que pasó en el almacén se ve de un vistazo.
+ * vacía y lo último que pasó en el almacén se ve de un vistazo. Como el
+ * historial de un producto, ocupa siempre el espacio de una página y la
+ * paginación no cambia de lugar.
  */
 export function RecentMovements() {
   const [position, setPosition] = useState({ page: 1, attempt: 0 });
@@ -27,78 +30,66 @@ export function RecentMovements() {
     'No se pudieron cargar los movimientos recientes.',
   );
   const loaded = recent.phase === 'ready' ? recent.value : null;
+  // Mientras llega otra página, se sigue viendo la anterior (atenuada): la tabla no salta.
+  const shown = loaded ?? (recent.phase === 'loading' ? (recent.previous?.value ?? null) : null);
+  const busy = recent.phase === 'loading';
 
   return (
-    <section className="card" aria-label="Movimientos recientes">
+    <section className="card" aria-label="Movimientos recientes" aria-busy={busy}>
       <header className="card__header">
         <h2>Movimientos recientes · todos los productos</h2>
-        {loaded === null ? null : (
+        {shown === null ? null : (
           <span className="card__header-end kardex-today" aria-label="Hoy">
-            Hoy: entran <FlowAmount value={loaded.today.entries} direction="in" signed /> · salen{' '}
-            <FlowAmount value={loaded.today.exits} direction="out" signed /> ·{' '}
+            Hoy: entran <FlowAmount value={shown.today.entries} direction="in" signed /> · salen{' '}
+            <FlowAmount value={shown.today.exits} direction="out" signed /> ·{' '}
             <span className="muted">
-              {loaded.today.count.toLocaleString('es-CR')}{' '}
-              {loaded.today.count === 1 ? 'movimiento' : 'movimientos'}
+              {shown.today.count.toLocaleString('es-CR')}{' '}
+              {shown.today.count === 1 ? 'movimiento' : 'movimientos'}
             </span>
           </span>
         )}
       </header>
 
-      {recent.phase === 'loading' ? (
-        <p className="muted" role="status">
-          Cargando movimientos recientes…
-        </p>
-      ) : null}
-
-      {recent.phase === 'failed' ? (
-        <div className="alert alert--error" role="alert">
-          <span>{recent.message}</span>
-          <button
-            type="button"
-            className="button"
-            onClick={() => setPosition({ page, attempt: attempt + 1 })}
-          >
-            Reintentar
-          </button>
-        </div>
-      ) : null}
-
-      {loaded !== null && loaded.total === 0 ? (
-        <p className="muted" role="status">
-          Todavía no hay movimientos. Aparecen aquí con la primera venta, entrada o conteo.
-        </p>
-      ) : null}
-
-      {loaded !== null && loaded.items.length > 0 ? (
-        <>
+      <div
+        className={
+          busy && shown !== null ? 'kardex-history kardex-history--busy' : 'kardex-history'
+        }
+      >
+        {recent.phase === 'failed' ? (
+          <div className="alert alert--error" role="alert">
+            <span>{recent.message}</span>
+            <button
+              type="button"
+              className="button"
+              onClick={() => setPosition({ page, attempt: attempt + 1 })}
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : shown === null ? (
+          <p className="muted" role="status">
+            Cargando movimientos recientes…
+          </p>
+        ) : shown.total === 0 ? (
+          <p className="muted" role="status">
+            Todavía no hay movimientos. Aparecen aquí con la primera venta, entrada o conteo.
+          </p>
+        ) : (
           <MovementsTable
             label="Movimientos recientes de todos los productos"
-            items={loaded.items}
+            items={shown.items}
             productOf={productOf}
           />
-          <nav className="kardex-pager" aria-label="Páginas de movimientos recientes">
-            <span className="muted">
-              Página {loaded.page} de {loaded.totalPages}
-            </span>
-            <button
-              type="button"
-              className="button"
-              disabled={loaded.page <= 1}
-              onClick={() => setPosition({ page: loaded.page - 1, attempt })}
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              className="button"
-              disabled={loaded.page >= loaded.totalPages}
-              onClick={() => setPosition({ page: loaded.page + 1, attempt })}
-            >
-              Siguiente
-            </button>
-          </nav>
-        </>
-      ) : null}
+        )}
+      </div>
+
+      <MovementsPager
+        label="Páginas de movimientos recientes"
+        page={shown === null ? null : shown.page}
+        totalPages={shown?.totalPages ?? 1}
+        total={shown?.total ?? null}
+        onPage={(next) => setPosition({ page: next, attempt })}
+      />
     </section>
   );
 }

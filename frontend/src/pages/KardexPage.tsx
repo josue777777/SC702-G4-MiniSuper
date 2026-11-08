@@ -149,24 +149,23 @@ export function KardexPage() {
         </p>
       )}
 
-      {product.phase === 'loading' && ready === null ? (
-        <p className="card muted" role="status">
-          Cargando ficha del producto…
-        </p>
-      ) : (
-        <ProductSheet
-          product={ready}
-          summary={summary !== null && summary.productId === requested ? summary.value : null}
-        />
-      )}
+      {/* La ficha y el historial están siempre en su lugar: mientras llega el
+          producto se ven con «—» (sin un aviso que empuje la pantalla). */}
+      <ProductSheet
+        product={ready}
+        loading={product.phase === 'loading' && ready === null}
+        summary={summary !== null && summary.productId === requested ? summary.value : null}
+      />
 
-      {ready === null ? (
-        product.phase === 'loading' ? null : (
-          <RecentMovements key={version} />
-        )
+      {validId && product.phase !== 'failed' ? (
+        <MovementsHistory
+          productId={requested}
+          stock={ready === null ? null : ready.stock}
+          version={version}
+          onSummary={receiveSummary}
+        />
       ) : (
-        // La ficha ya se ve: el historial llega aparte y por páginas.
-        <MovementsHistory productId={ready.id} version={version} onSummary={receiveSummary} />
+        <RecentMovements key={version} />
       )}
 
       <div className="action-bar" role="toolbar" aria-label="Acciones de movimientos">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { KardexMovement } from '../../types/kardex';
+import type { KardexAmounts, KardexMovement } from '../../types/kardex';
 import { FlowAmount } from './FlowAmount';
 import { formatMovementDate } from './kardex-format';
 import { MovementLotsModal } from './MovementLotsModal';
@@ -20,6 +20,11 @@ interface MovementsTableProps<T extends KardexMovement> {
    * general); el código es un enlace al kardex de ese producto.
    */
   productOf?: (movement: T) => MovementProduct;
+  /**
+   * Si se da, la tabla cierra con la fila «Totales»: lo que entró y salió (con
+   * el filtro aplicado, en todas las páginas) y el stock de hoy.
+   */
+  totals?: { amounts: KardexAmounts; stock: number };
 }
 
 /**
@@ -39,6 +44,7 @@ export function MovementsTable<T extends KardexMovement>({
   label,
   items,
   productOf,
+  totals,
 }: MovementsTableProps<T>) {
   /** Línea cuyos lotes se están viendo. */
   const [showingLots, setShowingLots] = useState<KardexMovement | null>(null);
@@ -124,6 +130,22 @@ export function MovementsTable<T extends KardexMovement>({
               );
             })}
           </tbody>
+          {totals === undefined ? null : (
+            <tfoot>
+              <tr>
+                <td colSpan={3}>Totales</td>
+                <td className="table__number">
+                  <FlowAmount value={totals.amounts.entries} direction="in" signed />
+                </td>
+                <td className="table__number">
+                  <FlowAmount value={totals.amounts.exits} direction="out" signed />
+                </td>
+                <td className="table__number">
+                  <strong>{totals.stock.toLocaleString('es-CR')}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

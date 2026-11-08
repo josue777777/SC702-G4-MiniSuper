@@ -2982,46 +2982,78 @@ tr.print-only-row {
   font-weight: 600;
 }
 
-/* Ficha de Movimientos: cada dato en su bloque (etiqueta pequeña y el dato),
-   con el borde fino y las esquinas del sistema; ninguno manda sobre otro. */
+/* Ficha de Movimientos: cada dato en su celda, con la etiqueta a la izquierda
+   en el oscuro del sistema (el de la barra lateral, la barra de acciones y los
+   títulos de ventana) y el dato a la derecha, en filas compactas de 12
+   columnas. La etiqueta de «Existencias» toma el tono de su estado (verde
+   «Bien», ámbar «Bajo», rojo «Agotado»), siempre con la palabra al lado. */
 .kardex-sheet {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 6px;
   margin: 0;
 }
 
 .kardex-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(96px, 34%) 1fr;
+  grid-column: span 3;
   min-width: 0;
-  padding: 10px 14px;
+  min-height: 44px;
+  overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
 }
 
-.kardex-block--wide {
-  grid-column: span 2;
+.kardex-block--span-4 {
+  grid-column: span 4;
+}
+
+.kardex-block--span-5 {
+  grid-column: span 5;
+}
+
+.kardex-block--full {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(96px, 12%) 1fr;
 }
 
 .kardex-block__label {
-  color: var(--color-muted);
-  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-sidebar);
+  color: #fff;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+}
+
+.kardex-block__label--ok {
+  background: var(--color-ok);
+}
+
+.kardex-block__label--warning {
+  background: var(--color-warning);
+}
+
+.kardex-block__label--error {
+  background: var(--color-error);
 }
 
 .kardex-block__value {
+  display: flex;
+  align-items: center;
+  min-width: 0;
   margin: 0;
+  padding: 8px 12px;
   overflow-wrap: anywhere;
 }
 
 /* Dato con su aviso al lado («30 · Bien») o el resumen en una línea. */
 .kardex-block__row {
   display: flex;
+  flex: 1;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
@@ -3029,23 +3061,22 @@ tr.print-only-row {
 }
 
 .kardex-block__row--together {
-  justify-content: flex-start;
-  gap: 18px;
+  gap: 14px;
 }
 
 @media (max-width: 900px) {
-  .kardex-sheet {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .kardex-block,
+  .kardex-block--span-4,
+  .kardex-block--span-5 {
+    grid-column: span 6;
   }
 }
 
 @media (max-width: 520px) {
-  .kardex-sheet {
-    grid-template-columns: 1fr;
-  }
-
-  .kardex-block--wide {
-    grid-column: auto;
+  .kardex-block,
+  .kardex-block--span-4,
+  .kardex-block--span-5 {
+    grid-column: 1 / -1;
   }
 }
 
@@ -3172,6 +3203,20 @@ tr.print-only-row {
 /* «Hoy: 24 entran · 13 salen · 6 movimientos» en el encabezado de la tabla. */
 .kardex-today {
   font-size: 0.9rem;
+}
+
+/* La tabla del historial ocupa siempre el alto de una página completa (15
+   líneas, el encabezado y «Totales»): cambiar de página, de filtro o de
+   producto no mueve lo de abajo. Mientras llega lo nuevo, lo anterior se ve
+   atenuado en vez de un «Cargando…» que empuja todo. */
+.kardex-history {
+  min-height: 630px;
+  transition: opacity 120ms ease;
+}
+
+.kardex-history--busy {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .kardex-pager {

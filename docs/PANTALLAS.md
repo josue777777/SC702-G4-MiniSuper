@@ -38,9 +38,16 @@ Reglas:
   salida con «−»; el stock final en negrita; los lotes en una insignia pequeña de
   contorno; las existencias con su estado al lado («Bien», «Bajo», «Agotado»). Son los
   tonos del panel, no colores propios de la pantalla (`FlowAmount.tsx`). La ficha va en
-  bloques iguales (etiqueta pequeña y el dato, `.kardex-block`): ningún dato manda sobre
-  otro, y el historial no lleva fila de totales porque la primera línea es el saldo más
-  reciente.
+  celdas iguales, como una hoja (`.kardex-block`): la etiqueta a la izquierda en el oscuro
+  del sistema (`--color-sidebar`, el mismo del menú) y el dato a la derecha; ningún dato
+  manda sobre otro y solo la etiqueta «Existencias» toma el tono de su estado. El
+  encabezado de las tablas sigue gris claro, como en todo el sistema. El historial cierra
+  con la fila «Totales» (lo filtrado, en todas las páginas, y el stock de hoy).
+- **Una tabla con páginas no salta.** Ocupa siempre el alto de una página completa, la
+  paginación está siempre en el mismo lugar (apagada, «Página — de —», mientras no hay
+  datos) y, mientras llega otra página o filtro, se ve la anterior atenuada en vez de un
+  «Cargando…» que empuja todo (`.kardex-history`, `MovementsPager.tsx`). Lo mismo con o
+  sin producto elegido y mientras llega la ficha (las celdas con «—»).
 - **Solo tokens.** Una regla usa `var(--color-…)` y `var(--radius…)`; un color
   fijo nuevo en una regla es un error (el diseño ya no se podría cambiar en un
   solo lugar).

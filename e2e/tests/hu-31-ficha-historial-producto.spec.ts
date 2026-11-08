@@ -212,7 +212,7 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
 
   await expect(summary).toContainText('Entró +24');
   await expect(summary).toContainText('Salió −16');
-  await expect(summary).toContainText('6 movimientos');
+  await expect(summary).toContainText('6 movs.');
   await expect(summary.locator('.text-ok')).toHaveText('+24');
   await expect(summary.locator('.text-error')).toHaveText('−16');
 
@@ -231,6 +231,10 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
   await expect(
     page.getByRole('table', { name: 'Movimientos del producto' }).getByRole('columnheader'),
   ).toHaveText(['Fecha y hora', 'Concepto', 'Documento', 'Entrada', 'Salida', 'Stock final']);
+  // Al pie, «Totales»: lo que entró y salió (con el filtro, en todas las páginas) y el stock de hoy.
+  const totals = page.getByRole('table', { name: 'Movimientos del producto' }).locator('tfoot td');
+
+  await expect(totals).toHaveText(['Totales', '+24', '−16', '8']);
   await expect(
     page.getByRole('navigation', { name: 'Páginas del historial' }).getByText('6 movimientos'),
   ).toBeVisible();
@@ -514,6 +518,11 @@ test('la ficha se ve y la pantalla responde aunque el historial tarde en llegar'
   // Criterio 5: la ficha ya está, el historial se anuncia como «cargando» y la página responde.
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Cargando historial…' })).toBeVisible();
+  // La paginación ya está en su lugar (apagada), para que nada salte al llegar los datos.
+  const pager = page.getByRole('navigation', { name: 'Páginas del historial' });
+
+  await expect(pager).toContainText('Página — de —');
+  await expect(pager.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
   await page
     .getByRole('combobox', { name: 'Buscar producto por código, nombre o código de barras' })
     .click();
