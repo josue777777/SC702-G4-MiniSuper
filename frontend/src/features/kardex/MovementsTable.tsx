@@ -29,8 +29,10 @@ interface MovementsTableProps<T extends KardexMovement> {
  * vista general (HU-31, HU-38): fecha y hora, concepto breve, documento (solo
  * el número), entrada, salida y stock final.
  *
- * - Entrada y salida van en su columna, con las insignias de tono suave del
- *   panel y su signo (`FlowAmount`): ningún color propio de esta pantalla.
+ * - Con los tonos del panel (`--color-ok`, `--color-error`), nunca colores
+ *   propios: la cifra que entra en verde y la que sale en rojo (también el 0);
+ *   el concepto de una entrada en verde con «+», el de una salida con «−»; el
+ *   stock final en negrita; los lotes en una insignia pequeña de contorno.
  * - Si la línea entró en lotes (o un egreso salió de uno), junto al concepto
  *   va su botón «N lotes», que los muestra en una ventana sin partir la tabla.
  * - En la vista general suma el código (enlace al producto) y el nombre.
@@ -85,15 +87,27 @@ export function MovementsTable<T extends KardexMovement>({
                     </>
                   )}
                   <td>
-                    {movement.concept}
+                    {movement.entry > 0 ? (
+                      <span className="kardex-concept--in">+{movement.concept}</span>
+                    ) : (
+                      <span>
+                        {movement.exit > 0 ? '−' : ''}
+                        {movement.concept}
+                      </span>
+                    )}
                     {movement.lots.length === 0 ? null : (
                       <>
                         {' '}
                         <button
                           type="button"
-                          className="badge badge--button"
+                          className={
+                            movement.entry > 0
+                              ? 'badge badge--button text-ok'
+                              : 'badge badge--button'
+                          }
                           onClick={() => setShowingLots(movement)}
                         >
+                          <span aria-hidden="true">▦ </span>
                           {movement.lots.length === 1 ? '1 lote' : `${movement.lots.length} lotes`}
                         </button>
                       </>
@@ -106,7 +120,9 @@ export function MovementsTable<T extends KardexMovement>({
                   <td className="table__number">
                     <FlowAmount value={movement.exit} direction="out" />
                   </td>
-                  <td className="table__number">{movement.stockAfter.toLocaleString('es-CR')}</td>
+                  <td className="table__number">
+                    <strong>{movement.stockAfter.toLocaleString('es-CR')}</strong>
+                  </td>
                 </tr>
               );
             })}
@@ -116,10 +132,10 @@ export function MovementsTable<T extends KardexMovement>({
               <tr>
                 <td colSpan={3}>Totales</td>
                 <td className="table__number">
-                  <FlowAmount value={totals.amounts.entries} direction="in" />
+                  <FlowAmount value={totals.amounts.entries} direction="in" signed />
                 </td>
                 <td className="table__number">
-                  <FlowAmount value={totals.amounts.exits} direction="out" />
+                  <FlowAmount value={totals.amounts.exits} direction="out" signed />
                 </td>
                 <td className="table__number">{totals.stock.toLocaleString('es-CR')}</td>
               </tr>

@@ -64,8 +64,8 @@ export function MovementsHistory({ productId, stock, version }: MovementsHistory
         <h2>Historial de movimientos</h2>
         {loaded === null ? null : (
           <span aria-label="Resumen del historial">
-            Entró <FlowAmount value={loaded.summary.entries} direction="in" /> · Salió{' '}
-            <FlowAmount value={loaded.summary.exits} direction="out" />
+            Entró <FlowAmount value={loaded.summary.entries} direction="in" signed /> · Salió{' '}
+            <FlowAmount value={loaded.summary.exits} direction="out" signed />
           </span>
         )}
         <div className="segmented card__header-end" role="group" aria-label="Movimientos a mostrar">

@@ -86,14 +86,15 @@ export function ProductSheet({ product }: { product: KardexProduct | null }) {
       <div className="stat-grid" aria-label="Datos principales">
         <div className="stat-tile">
           <span className="stat-tile__label">Existencias</span>
-          <strong className="stat-tile__value" aria-label="Stock actual">
-            {product === null ? '—' : product.stock.toLocaleString('es-CR')}
-          </strong>
-          {status === null ? null : (
-            <span className="stat-tile__detail">
+          {/* La cifra y, a su derecha, el aviso pequeño de su estado. */}
+          <span className="stat-tile__row">
+            <strong className="stat-tile__value" aria-label="Stock actual">
+              {product === null ? '—' : product.stock.toLocaleString('es-CR')}
+            </strong>
+            {status === null ? null : (
               <span className={`badge badge--${status.tone}`}>{status.label}</span>
-            </span>
-          )}
+            )}
+          </span>
         </div>
         <div className="stat-tile">
           <span className="stat-tile__label">Precio de venta</span>

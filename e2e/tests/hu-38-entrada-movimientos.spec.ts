@@ -209,7 +209,7 @@ test('ingreso sin pedido: sin referencia o con 0 no se guarda; una compra direct
     'Compra directa',
     '45991',
     '12',
-    '—',
+    '0',
     '30',
     '2 lotes',
   ]);
@@ -249,7 +249,7 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   expect((await readHistory(page))[0]?.slice(1)).toEqual([
     'Vencido / descartado',
     '44',
-    '—',
+    '0',
     '4',
     '14',
     '1 lote',
@@ -264,9 +264,12 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   const table = page.getByRole('table', { name: 'Movimientos del producto' });
 
   await expect(table.locator('tbody tr')).toHaveCount(1);
-  await expect(table.locator('tfoot')).toHaveText(/Totales\s*—\s*−4\s*14/);
-  // La salida, en la insignia roja suave del panel con su signo.
-  await expect(table.locator('tbody tr').first().locator('.badge--error')).toHaveText('−4');
+  await expect(table.locator('tfoot')).toHaveText(/Totales\s*0\s*−4\s*14/);
+  // Con los tonos del panel: la salida en rojo, el concepto con «−» y el lote al lado.
+  const exitRow = table.locator('tbody tr').first();
+
+  await expect(exitRow.locator('td').nth(4).locator('.text-error')).toHaveText('4');
+  await expect(exitRow.locator('td').nth(1)).toContainText('−Vencido / descartado');
   await saveEvidence(page, 'HU-38', 'movimientos-filtro-salidas.png');
 });
 

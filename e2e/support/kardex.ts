@@ -218,8 +218,16 @@ export async function readHistory(page: Page): Promise<string[][]> {
     (await table.locator('tbody tr').all()).map(async (row) => {
       const cells = (await row.locator('td').allTextContents()).map((cell) => cell.trim());
       const lots = row.locator('td').nth(1).getByRole('button');
-      const lotsText = (await lots.count()) === 0 ? '—' : ((await lots.textContent()) ?? '').trim();
-      const concept = (cells[1] ?? '').replace(lotsText === '—' ? '' : lotsText, '').trim();
+      const lotsText =
+        (await lots.count()) === 0
+          ? '—'
+          : ((await lots.textContent()) ?? '').replace('▦', '').trim();
+      // El concepto lleva su signo (+ entra, − sale) y el botón «▦ N lotes» al lado.
+      const concept = (cells[1] ?? '')
+        .replace(lotsText === '—' ? '' : lotsText, '')
+        .replace('▦', '')
+        .trim()
+        .replace(/^[+−]/, '');
 
       return [
         cells[0] ?? '',

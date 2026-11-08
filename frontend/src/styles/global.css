@@ -1257,6 +1257,11 @@ tr.print-only-row {
   color: var(--color-error);
 }
 
+/* Su par: el verde de los estados «bien» (el mismo del panel). */
+.text-ok {
+  color: var(--color-ok);
+}
+
 /* Filas que se marcan con un clic */
 .table__row--selectable {
   cursor: pointer;
@@ -2953,14 +2958,36 @@ tr.print-only-row {
   margin-left: 8px;
 }
 
-/* «N lotes» junto al concepto: una insignia que se puede tocar. */
+/* «▦ N lotes» junto al concepto: una insignia pequeña, de contorno, que se
+   puede tocar; toma el tono de la línea (verde si entró, neutra si salió). */
 .badge--button {
+  margin-left: 8px;
+  padding: 1px 8px;
   border: 1px solid currentColor;
   background: transparent;
-  color: var(--color-text);
+  color: var(--color-muted);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
+}
+
+.badge--button.text-ok {
+  color: var(--color-ok);
+}
+
+/* El concepto de una entrada: en el verde del panel, con su «+». */
+.kardex-concept--in {
+  color: var(--color-ok);
+  font-weight: 600;
+}
+
+/* Cifra grande con su estado al lado, a la derecha («30 · Bien»). */
+.stat-tile__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 /* Fila «Totales» al pie del kardex. */

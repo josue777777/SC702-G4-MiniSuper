@@ -34,8 +34,8 @@ export function RecentMovements() {
         <h2>Movimientos recientes · todos los productos</h2>
         {loaded === null ? null : (
           <span className="card__header-end kardex-today" aria-label="Hoy">
-            Hoy: entran <FlowAmount value={loaded.today.entries} direction="in" /> · salen{' '}
-            <FlowAmount value={loaded.today.exits} direction="out" /> ·{' '}
+            Hoy: entran <FlowAmount value={loaded.today.entries} direction="in" signed /> · salen{' '}
+            <FlowAmount value={loaded.today.exits} direction="out" signed /> ·{' '}
             <span className="muted">
               {loaded.today.count.toLocaleString('es-CR')}{' '}
               {loaded.today.count === 1 ? 'movimiento' : 'movimientos'}

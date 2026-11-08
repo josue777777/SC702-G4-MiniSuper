@@ -522,11 +522,12 @@ test('lotes: lo que vence pide lote y fecha, se parte en varios lotes y cada lí
   const entry = history.locator('tbody tr').first();
 
   // El botón con sus lotes va junto al concepto.
-  await expect(entry.locator('td').nth(1)).toHaveText('Recepción PED-0001 2 lotes');
+  // Entrada: el concepto en verde con «+» y la insignia «▦ 2 lotes» al lado.
+  await expect(entry.locator('td').nth(1)).toHaveText('+Recepción PED-0001 ▦ 2 lotes');
   await expect(entry.locator('td').nth(2)).toHaveText('F-300');
-  await expect(entry.locator('td').nth(3)).toHaveText('+4');
+  await expect(entry.locator('td').nth(3)).toHaveText('4');
   await expect(entry.locator('td').nth(5)).toHaveText('22');
-  await entry.getByRole('button', { name: '2 lotes' }).click();
+  await entry.getByRole('button', { name: /2 lotes/ }).click();
 
   const lineLots = page.getByRole('dialog', { name: 'Lotes · Recepción PED-0001' });
 
