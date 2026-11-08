@@ -432,6 +432,15 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
       (await kardex.searchProducts('p003')).map((option) => [option.code, option.isActive]),
     ).toEqual([['P003', false]]);
     expect((await kardex.searchProducts('no-existe')).length).toBe(0);
+
+    // Con el lector: el código de barras completo encuentra el producto, con su stock.
+    await prisma.product.update({
+      where: { id: ids['coffee'] },
+      data: { barcode: '7501000000012' },
+    });
+    expect(
+      (await kardex.searchProducts('7501000000012')).map((option) => [option.code, option.stock]),
+    ).toEqual([['P001', 6]]);
   });
 
   it('consultar el Kardex NO modifica stock ni crea movimientos', async () => {

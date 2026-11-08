@@ -212,7 +212,9 @@ describe('GET /api/kardex/products (selector)', () => {
   it('lista los productos que devuelve el repositorio y valida la búsqueda', async () => {
     const { app, repository } = buildApp();
 
-    repository.options = [{ id: KARDEX_PRODUCT_ID, code: 'P001', name: 'Café', isActive: false }];
+    repository.options = [
+      { id: KARDEX_PRODUCT_ID, code: 'P001', name: 'Café', isActive: false, stock: 4 },
+    ];
 
     const response = await request(app).get('/api/kardex/products?search=%20caf%C3%A9%20');
 

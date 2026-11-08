@@ -54,6 +54,8 @@ export interface KardexProductOption {
   code: string;
   name: string;
   isActive: boolean;
+  /** Stock actual: se ve en la lista del buscador. */
+  stock: number;
 }
 
 /** Movimiento tal como lo lee el repositorio. */

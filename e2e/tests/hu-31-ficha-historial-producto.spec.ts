@@ -300,10 +300,14 @@ test('doble clic sigue abriendo la edición y «Ver movimientos» pide primero e
 test('un producto sin movimientos muestra su ficha y el mensaje de que no hay historial', async ({
   page,
 }) => {
-  // Sin producto en la dirección: aparece el selector, con búsqueda.
+  // Sin producto en la dirección: el buscador de arriba y la ficha vacía, con «—».
   await page.goto('/movimientos');
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
-  await page.getByLabel('Buscar producto por nombre o código').fill('arroz');
+  await expect(page.getByRole('region', { name: 'Ficha del producto' })).toContainText(
+    'Ningún producto elegido',
+  );
+  await page
+    .getByRole('combobox', { name: 'Buscar producto por código, nombre o código de barras' })
+    .fill('arroz');
   await page.getByRole('button', { name: /P002 · Arroz 1 kg/ }).click();
 
   await expect(page).toHaveURL(/\/movimientos\?productId=/);
@@ -323,9 +327,21 @@ test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimie
   const recent = page.getByRole('region', { name: 'Movimientos recientes' });
   const table = recent.getByRole('table', { name: 'Movimientos recientes de todos los productos' });
 
-  // La pantalla no arranca vacía: el resumen de hoy (nada se movió hoy) y la tabla.
-  await expect(recent.locator('.stat-tile', { hasText: 'Entró hoy' })).toContainText('0');
-  await expect(recent.locator('.stat-tile', { hasText: 'Movimientos hoy' })).toContainText('0');
+  // La pantalla no arranca vacía: la ficha con «—», el resumen de hoy (nada se movió
+  // hoy) y la tabla; abajo, la barra de acciones pide buscar un producto.
+  const sheet = page.getByRole('region', { name: 'Ficha del producto' });
+
+  await expect(sheet.locator('.stat-tile', { hasText: 'Stock actual' })).toContainText('—');
+  await expect(
+    sheet.locator('dt', { hasText: 'Categoría' }).locator('xpath=following-sibling::dd'),
+  ).toHaveText('—');
+  await expect(recent.getByLabel('Hoy')).toHaveText('Hoy: 0 entran · 0 salen · 0 movimientos');
+  const actions = page.getByRole('toolbar', { name: 'Acciones de movimientos' });
+
+  await expect(actions.getByRole('button', { name: '+ Registrar ingreso' })).toBeDisabled();
+  await expect(actions.getByRole('status')).toHaveText(
+    'Busque un producto para registrar ingresos o egresos.',
+  );
   await expect(table.getByRole('columnheader')).toHaveText([
     'Fecha y hora',
     'Código',
@@ -374,14 +390,57 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
   ]);
 });
 
+test('el buscador abre con el lector (código de barras + Enter) y recuerda los recientes', async ({
+  page,
+}) => {
+  await page.goto('/movimientos');
+
+  const search = page.getByRole('combobox', {
+    name: 'Buscar producto por código, nombre o código de barras',
+  });
+
+  // Sin nada abierto todavía, la lista invita a buscar.
+  await search.click();
+  await expect(page.getByText('Aquí aparecen los productos que abra.')).toBeVisible();
+
+  // El lector escribe el código de barras y Enter: un solo producto, se abre.
+  await search.fill('7501000000012');
+  await search.press('Enter');
+  await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
+
+  // Con texto, la lista muestra el stock de cada producto.
+  await search.fill('gaseosa');
+  await expect(page.getByRole('listbox', { name: 'Productos encontrados' })).toContainText(
+    '60 en stock',
+  );
+  await page.getByRole('button', { name: /P004 · Gaseosa 2 L/ }).click();
+  await expect(page.getByRole('region', { name: 'Ficha de Gaseosa 2 L' })).toBeVisible();
+
+  // «Recientes»: el último abierto primero; con ↓ y Enter se vuelve al café.
+  await search.click();
+
+  const recents = page.getByRole('listbox', { name: 'Productos recientes' });
+
+  await expect(recents.getByRole('option')).toHaveCount(2);
+  await expect(recents.getByRole('option').first()).toContainText('P004');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await saveEvidence(page, 'HU-31', 'movimientos-buscador-recientes.png');
+  await search.press('ArrowDown');
+  await search.press('ArrowDown');
+  await search.press('Enter');
+  await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
+});
+
 test('el selector encuentra productos desactivados y permite cambiar de producto', async ({
   page,
 }) => {
   await page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Elegir otro producto' }).click();
-  await page.getByLabel('Buscar producto por nombre o código').fill('descontinuado');
+  // El buscador sigue arriba: se cambia de producto sin volver atrás.
+  await page
+    .getByRole('combobox', { name: 'Buscar producto por código, nombre o código de barras' })
+    .fill('descontinuado');
   await expect(page.getByRole('button', { name: /P003 · Producto descontinuado/ })).toContainText(
     'Inactivo',
   );
@@ -446,8 +505,10 @@ test('la ficha se ve y la pantalla responde aunque el historial tarde en llegar'
   // Criterio 5: la ficha ya está, el historial se anuncia como «cargando» y la página responde.
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Cargando historial…' })).toBeVisible();
-  await page.getByRole('button', { name: 'Elegir otro producto' }).click();
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
+  await page
+    .getByRole('combobox', { name: 'Buscar producto por código, nombre o código de barras' })
+    .click();
+  await expect(page.getByRole('listbox', { name: 'Productos recientes' })).toBeVisible();
 
   // Al llegar, el historial completo aparece.
   await expect(page.getByRole('table', { name: 'Movimientos del producto' })).toBeVisible({
@@ -466,14 +527,14 @@ test('direcciones inválidas o de otro negocio muestran un error claro sin revel
   await expect(page.getByRole('alert')).toContainText(
     'El producto indicado en la dirección no es válido.',
   );
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ficha del producto' })).toBeVisible();
 
   // Id válido que no existe.
   await page.goto(`/movimientos?productId=${randomUUID()}`);
   await expect(page.getByRole('alert')).toContainText(
     'El producto no existe o ya no está disponible.',
   );
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ficha del producto' })).toBeVisible();
 
   // Producto de OTRO negocio: igual que si no existiera.
   await page.goto(`/movimientos?productId=${foreignId}`);
@@ -484,7 +545,9 @@ test('direcciones inválidas o de otro negocio muestran un error claro sin revel
   await expect(page.getByText('Historial secreto ajeno')).toHaveCount(0);
 
   // Ni el selector ofrece productos de otro negocio.
-  await page.getByLabel('Buscar producto por nombre o código').fill('ajeno');
+  await page
+    .getByRole('combobox', { name: 'Buscar producto por código, nombre o código de barras' })
+    .fill('ajeno');
   await expect(page.getByText('Ningún producto coincide con «ajeno».')).toBeVisible();
 
   // La API responde lo mismo para la ficha y para el historial.

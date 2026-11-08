@@ -29,6 +29,8 @@ export interface KardexProductOption {
   code: string;
   name: string;
   isActive: boolean;
+  /** Stock actual: se ve en la lista del buscador. */
+  stock: number;
 }
 
 export interface KardexReference {

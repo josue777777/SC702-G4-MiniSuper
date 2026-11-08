@@ -64,7 +64,7 @@ export class KardexRepository {
 
   /**
    * Productos para elegir en el selector, por nombre o código sin distinguir
-   * mayúsculas. Incluye los desactivados: conservan su historial.
+   * mayúsculas, o por el código de barras exacto (lector). Incluye los desactivados: conservan su historial.
    */
   async searchProducts(term: string, limit: number): Promise<KardexProductOption[]> {
     return prisma.product.findMany({
@@ -76,12 +76,14 @@ export class KardexRepository {
               OR: [
                 { name: { contains: term, mode: 'insensitive' } },
                 { code: { contains: term, mode: 'insensitive' } },
+                // Con el lector: el código de barras completo.
+                { barcode: term },
               ],
             }),
       },
       orderBy: [{ name: 'asc' }, { code: 'asc' }],
       take: limit,
-      select: { id: true, code: true, name: true, isActive: true },
+      select: { id: true, code: true, name: true, isActive: true, stock: true },
     });
   }
 
