@@ -123,9 +123,6 @@ export function KardexPage() {
               Limpiar y buscar otro
             </Link>
           )}
-          <Link to="/inventory" className="button kardex-back">
-            ← Volver a Inventario
-          </Link>
         </span>
       </div>
 

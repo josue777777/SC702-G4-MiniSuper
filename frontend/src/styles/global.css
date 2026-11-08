@@ -3227,12 +3227,6 @@ tr.print-only-row {
   margin-top: 12px;
 }
 
-.kardex-back {
-  display: inline-block;
-  color: inherit;
-  text-decoration: none;
-}
-
 /* --- Reportes comerciales (HU-28, HU-29, HU-30) ------------------------- */
 .report-result {
   margin-top: 18px;

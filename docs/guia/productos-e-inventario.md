@@ -35,7 +35,8 @@ Es el catálogo del negocio y el control de sus existencias:
      productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
      coinciden con su stock (`KardexSearch.tsx`).
   2. **Ficha** (`ProductSheet.tsx`), en celdas como una hoja (la etiqueta oscura a la
-     izquierda, el dato a la derecha): **Producto** (el código, con
+     izquierda, el dato a la derecha), sin encabezado propio porque el nombre ya va en
+     «Descripción»; la insignia «Inactivo» solo si el producto está desactivado: **Producto** (el código, con
      código de barras y categoría), **Descripción** (el nombre), unidad, proveedor
      principal, precio, costo, **existencias** con el aviso pequeño de su estado («Bien»,
      «Bajo», «Agotado», «Sobre el máximo»), stock mínimo y máximo, vencimiento e

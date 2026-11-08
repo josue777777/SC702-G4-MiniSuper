@@ -43,7 +43,7 @@ function Cell({
 
 interface ProductSheetProps {
   product: KardexProduct | null;
-  /** El producto está llegando: las mismas celdas con «—», sin «Ningún producto elegido». */
+  /** El producto está llegando: las mismas celdas con «—» y «Cargando producto…». */
   loading?: boolean;
   /** Resumen de todo el historial; `null` mientras llega. */
   summary: KardexAmounts | null;
@@ -53,6 +53,10 @@ interface ProductSheetProps {
  * Ficha del producto en Movimientos (HU-31), en celdas: la etiqueta a la
  * izquierda en el oscuro del sistema y el dato a la derecha, en filas
  * compactas (como una hoja):
+ *
+ * Sin encabezado propio: el nombre ya está en «Descripción». La celda
+ * «Producto» lleva la insignia «Inactivo» solo si el producto está desactivado
+ * (lo normal, activo, no se marca).
  *
  * 1. **Producto**: el código, el código de barras y la categoría.
  * 2. **Unidad**, **proveedor principal** y **descripción** (el nombre).
@@ -74,32 +78,16 @@ export function ProductSheet({ product, loading = false, summary }: ProductSheet
       className="card"
       aria-label={product === null ? 'Ficha del producto' : `Ficha de ${product.name}`}
     >
-      <header className="card__header">
-        {product === null && loading ? (
-          <h2 className="muted" role="status">
-            Cargando producto…
-          </h2>
-        ) : product === null ? (
-          <>
-            <h2>Ningún producto elegido</h2>
-            <span className="card__header-end muted">
-              Busque un código, un nombre o escanee el código de barras
-            </span>
-          </>
-        ) : (
-          <h2>
-            {product.name}{' '}
-            <span className={`badge ${product.isActive ? 'badge--ok' : 'badge--muted'}`}>
-              {product.isActive ? 'Activo' : 'Inactivo'}
-            </span>
-          </h2>
-        )}
-      </header>
-
       <dl className="kardex-sheet">
         <Cell label="Producto" span="full">
           {product === null ? (
-            dash
+            loading ? (
+              <span className="muted" role="status">
+                Cargando producto…
+              </span>
+            ) : (
+              dash
+            )
           ) : (
             <span>
               <strong>{product.code}</strong>
@@ -107,6 +95,12 @@ export function ProductSheet({ product, loading = false, summary }: ProductSheet
                 {' '}
                 · {product.barcode ?? 'Sin código de barras'} · {product.categoryName}
               </span>
+              {product.isActive ? null : (
+                <>
+                  {' '}
+                  <span className="badge badge--muted">Inactivo</span>
+                </>
+              )}
             </span>
           )}
         </Cell>
