@@ -144,8 +144,13 @@ describe('Entregas con factura (HU-38)', () => {
       .expect(201);
 
     expect(second.body.data).toMatchObject({ status: 'RECEIVED', receivedOn: '2026-10-20' });
+    // Un producto que no vence y sin lote escrito: el lote es la factura (HU-38).
     expect(repository.receivedPlans[1]?.plan.items).toEqual([
-      { productId: COFFEE_ID, quantity: 4 },
+      {
+        productId: COFFEE_ID,
+        quantity: 4,
+        lots: [{ lotNumber: 'F-2', expirationDate: null, quantity: 4 }],
+      },
     ]);
     expect(repository.loadReasons).toEqual([
       'Recepción PED-0001 · Factura F-1',

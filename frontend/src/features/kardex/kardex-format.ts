@@ -1,5 +1,3 @@
-import type { KardexReference } from '../../types/kardex';
-
 const BUSINESS_TIME_ZONE = 'America/Costa_Rica';
 
 const dateTime = new Intl.DateTimeFormat('en-GB', {
@@ -26,13 +24,14 @@ export function formatQuantity(value: number): string {
   return value === 0 ? '—' : value.toLocaleString('es-CR');
 }
 
-/** Documento que originó el movimiento: `Venta #12`, `Pedido #7`. */
-export function formatReference(reference: KardexReference | null): string {
-  if (reference === null) {
-    return '—';
-  }
-
-  return `${reference.type === 'SALE' ? 'Venta' : 'Pedido'} #${reference.number}`;
+/**
+ * Fecha de vencimiento de un lote, `DD/MM/AAAA`, o «No vence».
+ *
+ * @example formatLotDate('2026-12-01'); // "01/12/2026"
+ * @example formatLotDate(null);         // "No vence"
+ */
+export function formatLotDate(date: string | null): string {
+  return date === null ? 'No vence' : date.split('-').reverse().join('/');
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

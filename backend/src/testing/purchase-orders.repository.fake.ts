@@ -89,6 +89,8 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
         subtotal: ((Math.round(Number(item.unitCost) * 100) * item.quantity) / 100).toFixed(2),
         receivedQuantity: 0,
         pendingQuantity: item.quantity,
+        // Los productos del doble no vencen: sus entregas no piden lote (HU-38).
+        perishable: false,
       })),
       receivedOn: null,
       pendingLoads: 0,
@@ -156,6 +158,7 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
         productCode: PRODUCTS[item.productId]?.code ?? '?',
         productName: PRODUCTS[item.productId]?.name ?? '?',
         quantity: item.quantity,
+        lots: item.lots,
       })),
       invoiceFile: null,
     });

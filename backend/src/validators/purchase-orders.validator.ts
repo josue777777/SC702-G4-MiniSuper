@@ -11,6 +11,8 @@ import { INVOICE_FILE_TYPES, MAX_INVOICE_FILE_BYTES } from '../utils/invoice-fil
 
 /** Tope por línea: el mismo que el stock, para no desbordar la columna `Int`. */
 const MAX_QUANTITY = 1_000_000;
+/** Lotes de un mismo producto en una entrega: acota el cuerpo de la petición. */
+const MAX_LOTS = 20;
 
 const itemSchema = z.object({
   productId: z.uuid({ error: 'Seleccione un producto válido.' }),
@@ -89,6 +91,25 @@ export const receiveOrderSchema = z
             .int('La cantidad debe ser un número entero.')
             .min(0, 'La cantidad no puede ser negativa.')
             .max(MAX_QUANTITY, `La cantidad no puede superar ${MAX_QUANTITY}.`),
+          lots: z
+            .array(
+              z.object({
+                lotNumber: z
+                  .string({ error: 'Indique el número de lote.' })
+                  .trim()
+                  .max(40, 'El número de lote no puede superar 40 caracteres.'),
+                expirationDate: z.iso
+                  .date({ error: 'Indique la fecha de vencimiento (AAAA-MM-DD).' })
+                  .nullable(),
+                quantity: z
+                  .number({ error: 'La cantidad del lote debe ser un número.' })
+                  .int('La cantidad del lote debe ser un número entero.')
+                  .min(1, 'Cada lote debe tener al menos 1 unidad.')
+                  .max(MAX_QUANTITY, `La cantidad no puede superar ${MAX_QUANTITY}.`),
+              }),
+            )
+            .max(MAX_LOTS, `Un producto no puede venir en más de ${MAX_LOTS} lotes.`)
+            .optional(),
         }),
         { error: 'Indique lo que llegó.' },
       )

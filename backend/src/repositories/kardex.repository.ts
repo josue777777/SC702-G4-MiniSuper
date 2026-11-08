@@ -1,5 +1,29 @@
 import { prisma } from '../config/prisma.js';
-import type { KardexMovementRow, KardexProductOption, KardexProductRow } from '../types/kardex.js';
+import type {
+  KardexAmountRow,
+  KardexMovementRow,
+  KardexProductOption,
+  KardexProductRow,
+  KardexRecentMovementRow,
+} from '../types/kardex.js';
+
+/** Columnas de un movimiento en el historial: las mismas en la ficha y en la vista general. */
+const movementSelection = {
+  id: true,
+  type: true,
+  quantity: true,
+  stockBefore: true,
+  stockAfter: true,
+  reason: true,
+  createdAt: true,
+  sale: { select: { id: true, number: true } },
+  purchaseOrder: { select: { id: true, number: true } },
+  receipt: { select: { invoiceNumber: true } },
+  lots: {
+    select: { lotNumber: true, expirationDate: true, receivedQuantity: true },
+    orderBy: [{ expirationDate: 'asc' as const }, { lotNumber: 'asc' as const }],
+  },
+};
 
 /**
  * Capa de acceso a datos del Kardex (HU-31). Solo LEE: ninguna operación de
@@ -81,21 +105,42 @@ export class KardexRepository {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take,
-        select: {
-          id: true,
-          type: true,
-          quantity: true,
-          stockBefore: true,
-          stockAfter: true,
-          reason: true,
-          createdAt: true,
-          sale: { select: { id: true, number: true } },
-          purchaseOrder: { select: { id: true, number: true } },
-        },
+        select: movementSelection,
       }),
       prisma.inventoryMovement.count({ where }),
     ]);
 
     return { rows, total };
+  }
+
+  /**
+   * Vista general: una página de los movimientos de TODOS los productos del
+   * negocio, del más reciente al más antiguo (con el mismo desempate por id).
+   */
+  async listRecentMovements(
+    skip: number,
+    take: number,
+  ): Promise<{ rows: KardexRecentMovementRow[]; total: number }> {
+    const where = { product: { businessId: this.businessId } };
+    const [rows, total] = await prisma.$transaction([
+      prisma.inventoryMovement.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip,
+        take,
+        select: { ...movementSelection, product: { select: { id: true, code: true, name: true } } },
+      }),
+      prisma.inventoryMovement.count({ where }),
+    ]);
+
+    return { rows, total };
+  }
+
+  /** Movimientos del negocio en `[start, end)`, con lo justo para sumar entradas y salidas. */
+  async listAmountsBetween(start: Date, end: Date): Promise<KardexAmountRow[]> {
+    return prisma.inventoryMovement.findMany({
+      where: { product: { businessId: this.businessId }, createdAt: { gte: start, lt: end } },
+      select: { type: true, quantity: true, stockBefore: true, stockAfter: true },
+    });
   }
 }

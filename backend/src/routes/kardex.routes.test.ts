@@ -50,13 +50,19 @@ describe('permisos', () => {
       expect((await request(app).get(PRODUCT)).status).toBe(200);
       expect((await request(app).get(`${PRODUCT}/movements`)).status).toBe(200);
       expect((await request(app).get('/api/kardex/products')).status).toBe(200);
+      expect((await request(app).get('/api/kardex/movements')).status).toBe(200);
     },
   );
 
   it.each(['CAJERO', 'ADMIN'] as const)('el rol %s recibe 403 en todas las rutas', async (role) => {
     const { app, requestedBusinesses } = buildApp(role);
 
-    for (const path of [PRODUCT, `${PRODUCT}/movements`, '/api/kardex/products']) {
+    for (const path of [
+      PRODUCT,
+      `${PRODUCT}/movements`,
+      '/api/kardex/products',
+      '/api/kardex/movements',
+    ]) {
       expect((await request(app).get(path)).status, `${role} ${path}`).toBe(403);
     }
 
@@ -217,5 +223,78 @@ describe('GET /api/kardex/products (selector)', () => {
       400,
     );
     expect((await request(app).get('/api/kardex/products?limit=500')).status).toBe(400);
+  });
+});
+
+describe('GET /api/kardex/movements (vista general, sin producto elegido)', () => {
+  it('lista los movimientos de todos los productos, del más reciente, con el resumen de hoy', async () => {
+    const { app, repository, requestedBusinesses } = buildApp();
+    const now = Date.now();
+    const minutesAgo = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
+
+    repository.movements.set(KARDEX_PRODUCT_ID, [
+      kardexMovement({
+        id: 'a',
+        type: 'ENTRY',
+        quantity: 24,
+        stockBefore: 0,
+        stockAfter: 24,
+        at: minutesAgo(2),
+        reason: 'Recepción PED-0415 · Factura 45902',
+        purchaseOrder: { id: 'po', number: 415 },
+        receipt: { invoiceNumber: '45902' },
+      }),
+      // Hace más de dos días: no cuenta en el resumen de hoy.
+      kardexMovement({
+        id: 'old',
+        type: 'ENTRY',
+        quantity: 5,
+        stockBefore: 0,
+        stockAfter: 5,
+        at: '2020-01-01T15:00:00Z',
+        reason: 'Stock inicial',
+      }),
+    ]);
+    repository.movements.set(KARDEX_EMPTY_PRODUCT_ID, [
+      kardexMovement({
+        id: 'b',
+        type: 'EXIT',
+        quantity: 13,
+        stockBefore: 20,
+        stockAfter: 7,
+        at: minutesAgo(1),
+        reason: 'Venta #5402',
+        sale: { id: 'sale', number: 5402 },
+      }),
+    ]);
+
+    const response = await request(app).get('/api/kardex/movements').expect(200);
+    const page = response.body.data;
+
+    expect(page.items.map((item: { id: string }) => item.id)).toEqual(['b', 'a', 'old']);
+    expect(page.items[0]).toMatchObject({
+      concept: 'Venta',
+      document: '5402',
+      exit: 13,
+      stockAfter: 7,
+      product: { id: KARDEX_EMPTY_PRODUCT_ID, code: 'P002', name: 'Arroz 1 kg' },
+    });
+    expect(page.items[1]).toMatchObject({ concept: 'Recepción PED-0415', document: '45902' });
+    expect(page.today).toEqual({ entries: 24, exits: 13, count: 2 });
+    expect(page.total).toBe(3);
+    // El negocio sale de la sesión.
+    expect(requestedBusinesses).toEqual([TEST_BUSINESS_ID]);
+  });
+
+  it('sin movimientos devuelve la lista vacía y el día en cero', async () => {
+    const { app } = buildApp();
+
+    const response = await request(app).get('/api/kardex/movements').expect(200);
+
+    expect(response.body.data).toMatchObject({
+      items: [],
+      total: 0,
+      today: { entries: 0, exits: 0, count: 0 },
+    });
   });
 });

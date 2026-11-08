@@ -146,7 +146,7 @@ describe('historial', () => {
         reason: 'Venta #12',
         sale: { id: 'sale-12', number: 12 },
       }),
-      // Sin motivo y con pedido: concepto por tipo y referencia al pedido.
+      // Entrada de un pedido: el concepto es la recepción y el documento la factura.
       kardexMovement({
         id: 'd',
         type: 'ENTRY',
@@ -156,6 +156,15 @@ describe('historial', () => {
         at: '2026-10-04T15:00:00Z',
         reason: '   ',
         purchaseOrder: { id: 'po-7', number: 7 },
+        receipt: { invoiceNumber: 'na-o1' },
+        lots: [
+          {
+            lotNumber: 'L-1',
+            expirationDate: new Date('2026-12-01T00:00:00Z'),
+            receivedQuantity: 12,
+          },
+          { lotNumber: 'L-2', expirationDate: null, receivedQuantity: 8 },
+        ],
       }),
     ]);
 
@@ -163,15 +172,23 @@ describe('historial', () => {
 
     expect(page.items.map((item) => item.id)).toEqual(['d', 'c', 'b', 'a']);
     expect(page.items[0]).toMatchObject({
-      concept: 'Entrada de inventario',
+      concept: 'Recepción PED-0007',
+      document: 'na-o1',
       entry: 20,
       exit: 0,
       stockBefore: 8,
       stockAfter: 28,
       reference: { type: 'PURCHASE_ORDER', id: 'po-7', number: 7 },
+      lots: [
+        { lotNumber: 'L-1', expirationDate: '2026-12-01', quantity: 12 },
+        { lotNumber: 'L-2', expirationDate: null, quantity: 8 },
+      ],
     });
+    // La venta: concepto breve y solo su número como documento.
     expect(page.items[2]).toMatchObject({
-      concept: 'Venta #12',
+      concept: 'Venta',
+      document: '12',
+      lots: [],
       entry: 0,
       exit: 3,
       reference: { type: 'SALE', id: 'sale-12', number: 12 },

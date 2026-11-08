@@ -205,14 +205,26 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
   await expect(tile('Stock actual')).toHaveText('8');
 
   // Criterios 2 y 4: todo el historial, del más reciente al más antiguo, con su saldo.
-  // [fecha, concepto, documento, entrada, salida, stock anterior, stock final]
+  // [fecha, concepto, documento, entrada, salida, stock final, lotes]: el concepto es
+  // breve y el documento es solo el número (HU-38); el stock anterior es la línea de abajo.
   expect(await readHistory(page)).toEqual([
-    ['06/05/2024 14:20', 'Venta #2', 'Venta #2', '—', '5', '13', '8'],
-    ['05/05/2024 11:00', 'Devolución venta #1: Empaque dañado', 'Venta #1', '1', '—', '12', '13'],
-    ['04/05/2024 16:45', 'Conteo físico', '—', '—', '6', '18', '12'],
-    ['03/05/2024 09:15', 'Conteo físico', '—', '3', '—', '15', '18'],
-    ['02/05/2024 10:30', 'Venta #1', 'Venta #1', '—', '5', '20', '15'],
-    ['01/05/2024 08:00', 'Stock inicial', '—', '20', '—', '0', '20'],
+    ['06/05/2024 14:20', 'Venta', '2', '—', '5', '8', '—'],
+    ['05/05/2024 11:00', 'Devolución de cliente', '1', '1', '—', '13', '—'],
+    ['04/05/2024 16:45', 'Conteo físico', '—', '—', '6', '12', '—'],
+    ['03/05/2024 09:15', 'Conteo físico', '—', '3', '—', '18', '—'],
+    ['02/05/2024 10:30', 'Venta', '1', '—', '5', '15', '—'],
+    ['01/05/2024 08:00', 'Stock inicial', '—', '20', '—', '20', '—'],
+  ]);
+  await expect(
+    page.getByRole('table', { name: 'Movimientos del producto' }).getByRole('columnheader'),
+  ).toHaveText([
+    'Fecha y hora',
+    'Concepto',
+    'Documento',
+    'Entrada',
+    'Salida',
+    'Stock final',
+    'Lotes',
   ]);
   await expect(page.getByText('6 movimientos')).toBeVisible();
   await expect(page.getByText('Página 1 de 1')).toBeVisible();
@@ -232,12 +244,17 @@ test('el ajuste que baja el stock es una salida y el que lo sube es una entrada;
 
   const rows = await readHistory(page);
 
-  // De más antiguo a más reciente, cada movimiento parte de donde terminó el anterior.
+  // De más antiguo a más reciente: el stock final de la línea anterior, más lo que
+  // entra y menos lo que sale, da el stock final de la siguiente.
   const chronological = [...rows].reverse();
+  const units = (cell: string | undefined) => (cell === '—' ? 0 : Number(cell));
 
   chronological.forEach((row, index) => {
     if (index > 0) {
-      expect(row[5], `fila ${index + 1}`).toBe(chronological[index - 1]?.[6]);
+      expect(
+        units(chronological[index - 1]?.[5]) + units(row[3]) - units(row[4]),
+        `fila ${index + 1}`,
+      ).toBe(units(row[5]));
     }
   });
   // Los dos conteos son del mismo tipo (ajuste): uno sube y otro baja.
@@ -248,7 +265,7 @@ test('el ajuste que baja el stock es una salida y el que lo sube es una entrada;
     ['3', '—'],
   ]);
   // El stock final del último movimiento es el stock actual de la ficha.
-  expect(rows[0]?.[6]).toBe('8');
+  expect(rows[0]?.[5]).toBe('8');
 });
 
 test('doble clic sigue abriendo la edición y «Ver movimientos» pide primero elegir un producto', async ({
@@ -298,6 +315,47 @@ test('un producto sin movimientos muestra su ficha y el mensaje de que no hay hi
   );
 });
 
+test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimientos de todos los productos', async ({
+  page,
+}) => {
+  await page.goto('/movimientos');
+
+  const recent = page.getByRole('region', { name: 'Movimientos recientes' });
+  const table = recent.getByRole('table', { name: 'Movimientos recientes de todos los productos' });
+
+  // La pantalla no arranca vacía: el resumen de hoy (nada se movió hoy) y la tabla.
+  await expect(recent.locator('.stat-tile', { hasText: 'Entró hoy' })).toContainText('0');
+  await expect(recent.locator('.stat-tile', { hasText: 'Movimientos hoy' })).toContainText('0');
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Fecha y hora',
+    'Código',
+    'Producto',
+    'Concepto',
+    'Documento',
+    'Entrada',
+    'Salida',
+    'Stock final',
+    'Lotes',
+  ]);
+  // 6 del café + 1 del descontinuado + 60 de la gaseosa = 67, de 15 en 15.
+  await expect(table.locator('tbody tr')).toHaveCount(15);
+  await expect(recent.getByText('Página 1 de 5')).toBeVisible();
+  await expect(table.locator('tbody tr').first()).toContainText('Gaseosa 2 L');
+  await expect(table.locator('tbody tr').first()).toContainText('Movimiento 60');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await saveEvidence(page, 'HU-31', 'movimientos-vista-general.png');
+
+  // El código es un enlace (con el estilo de enlace del sistema) al kardex de ese producto.
+  await table
+    .locator('tbody tr')
+    .first()
+    .getByRole('link', { name: /^Ver movimientos de P004/ })
+    .click();
+  await expect(page).toHaveURL(/\/movimientos\?productId=/);
+  await expect(page.getByRole('region', { name: 'Ficha de Gaseosa 2 L' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Movimientos recientes' })).toHaveCount(0);
+});
+
 test('un producto desactivado se abre desde «Desactivados» y conserva su historial', async ({
   page,
 }) => {
@@ -312,7 +370,7 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
   await expect(sheet.getByRole('heading')).toContainText('Inactivo');
   await expect(sheet).toContainText('Granos del Valle');
   expect(await readHistory(page)).toEqual([
-    ['01/04/2024 09:00', 'Stock inicial', '—', '2', '—', '0', '2'],
+    ['01/04/2024 09:00', 'Stock inicial', '—', '2', '—', '2', '—'],
   ]);
 });
 
@@ -544,7 +602,7 @@ test('una venta real aparece en el historial y consultar Movimientos no cambia s
 
   // La venta nueva es el movimiento más reciente: 8 → 6 y queda enlazada a su venta (#3).
   expect(rows).toHaveLength(7);
-  expect(rows[0]?.slice(1)).toEqual(['Venta #3', 'Venta #3', '—', '2', '8', '6']);
+  expect(rows[0]?.slice(1)).toEqual(['Venta', '3', '—', '2', '6', '—']);
 
   // Recorrer fichas, historiales y el selector es solo lectura.
   await page.goto(`/movimientos?productId=${await productIdOf('P004')}`);

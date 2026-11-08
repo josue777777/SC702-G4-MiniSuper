@@ -4,6 +4,7 @@ import { isProductId } from '../features/kardex/kardex-format';
 import { MovementsHistory } from '../features/kardex/MovementsHistory';
 import { ProductPicker } from '../features/kardex/ProductPicker';
 import { ProductSheet } from '../features/kardex/ProductSheet';
+import { RecentMovements } from '../features/kardex/RecentMovements';
 import { useKeyedRequest } from '../features/kardex/use-keyed-request';
 import { kardexService } from '../services/kardex.service';
 
@@ -18,6 +19,10 @@ import { kardexService } from '../services/kardex.service';
  * El producto viaja en la dirección (`/movimientos?productId=<uuid>`): se abre desde
  * Inventario con «Ver movimientos» y se puede compartir o recargar. El id se verifica
  * antes de pedirlo al servidor.
+ *
+ * Sin producto elegido, la pantalla no queda vacía: debajo del buscador se ve
+ * lo que entró y salió hoy y los últimos movimientos de todos los productos
+ * (`RecentMovements`); tocar un código abre ese producto.
  */
 export function KardexPage() {
   const [params, setParams] = useSearchParams();
@@ -71,6 +76,8 @@ export function KardexPage() {
       ) : null}
 
       {showPicker ? <ProductPicker onPick={pick} /> : null}
+
+      {requested === '' || !validId ? <RecentMovements /> : null}
 
       {product.phase === 'loading' ? (
         <p className="card muted" role="status">

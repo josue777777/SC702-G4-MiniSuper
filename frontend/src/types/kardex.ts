@@ -42,7 +42,10 @@ export interface KardexMovement {
   /** Fecha y hora (ISO 8601). */
   createdAt: string;
   type: KardexMovementKind;
+  /** Descripción breve: «Recepción PED-0408», «Venta», «Conteo físico»… */
   concept: string;
+  /** Solo el número: la factura del proveedor (entradas) o la venta (salidas); `null` si no hay. */
+  document: string | null;
   /** Unidades que entran (0 si no es una entrada). */
   entry: number;
   /** Unidades que salen (0 si no es una salida). */
@@ -50,6 +53,15 @@ export interface KardexMovement {
   stockBefore: number;
   stockAfter: number;
   reference: KardexReference | null;
+  /** Lotes con que entró (HU-38); vacío si el movimiento no trajo lotes. */
+  lots: KardexLot[];
+}
+
+/** Un lote que entró con un movimiento. `expirationDate`: `YYYY-MM-DD` o `null`. */
+export interface KardexLot {
+  lotNumber: string;
+  expirationDate: string | null;
+  quantity: number;
 }
 
 export interface KardexMovementPage {
@@ -58,4 +70,20 @@ export interface KardexMovementPage {
   pageSize: number;
   total: number;
   totalPages: number;
+}
+
+/** Movimiento de la vista general: el de la ficha más el producto al que pertenece. */
+export interface KardexRecentMovement extends KardexMovement {
+  product: { id: string; code: string; name: string };
+}
+
+/** Vista general de Movimientos (sin producto elegido): todos los productos y el resumen de hoy. */
+export interface KardexRecentPage {
+  items: KardexRecentMovement[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  /** Hoy: unidades que entraron, que salieron y cuántos movimientos. */
+  today: { entries: number; exits: number; count: number };
 }

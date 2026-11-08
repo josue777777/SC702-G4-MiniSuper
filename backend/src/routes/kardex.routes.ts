@@ -15,6 +15,7 @@ export function createKardexRouter(repositoryFor: ForBusiness<KardexRepository>)
   );
   const router = Router();
 
+  router.get('/movements', (req, res) => controller.listRecentMovements(req, res));
   router.get('/products', (req, res) => controller.searchProducts(req, res));
   router.get('/products/:productId', (req, res) => controller.getProduct(req, res));
   router.get('/products/:productId/movements', (req, res) => controller.listMovements(req, res));

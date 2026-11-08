@@ -191,18 +191,19 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
     expect(
       page.items.map((item) => [
         item.concept,
+        item.document,
         item.entry,
         item.exit,
         item.stockBefore,
         item.stockAfter,
       ]),
     ).toEqual([
-      ['Ajuste desde edición de producto', 2, 0, 4, 6],
-      ['Conteo físico', 0, 11, 15, 4],
-      ['Conteo físico', 7, 0, 8, 15],
-      [`Devolución venta #${saleNumber}: Empaque dañado`, 1, 0, 7, 8],
-      [`Venta #${saleNumber}`, 0, 3, 10, 7],
-      ['Stock inicial', 10, 0, 0, 10],
+      ['Ajuste desde edición de producto', null, 2, 0, 4, 6],
+      ['Conteo físico', null, 0, 11, 15, 4],
+      ['Conteo físico', null, 7, 0, 8, 15],
+      ['Devolución de cliente', String(saleNumber), 1, 0, 7, 8],
+      ['Venta', String(saleNumber), 0, 3, 10, 7],
+      ['Stock inicial', null, 10, 0, 0, 10],
     ]);
 
     // El saldo encadena: cada movimiento parte de donde terminó el anterior.
@@ -216,7 +217,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
     expect(page.items[0]?.stockAfter).toBe(6);
 
     // La venta y su devolución enlazan con la venta real (solo su número).
-    expect(page.items.find((item) => item.concept === `Venta #${saleNumber}`)?.reference).toEqual({
+    expect(page.items.find((item) => item.concept === 'Venta')?.reference).toEqual({
       type: 'SALE',
       id: ids['sale'],
       number: saleNumber,
@@ -377,7 +378,8 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
     const page = await kardex.listMovements(product.id, { page: 1, pageSize: 25 });
 
     expect(page.items[0]).toMatchObject({
-      concept: 'Recepción de pedido',
+      concept: 'Recepción PED-0007',
+      document: 'PED-0007',
       entry: 12,
       reference: { type: 'PURCHASE_ORDER', id: order.id, number: 7 },
     });
@@ -397,6 +399,26 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
     await expect(
       kardexOfB.listMovements(ids['coffee'] ?? '', { page: 1, pageSize: 25 }),
     ).rejects.toMatchObject({ statusCode: 404 });
+
+    // La vista general de cada negocio solo trae sus movimientos.
+    await prisma.inventoryMovement.create({
+      data: {
+        productId: ids['foreign'] ?? '',
+        type: 'ENTRY',
+        quantity: 1,
+        stockBefore: 0,
+        stockAfter: 1,
+        reason: 'Movimiento de B',
+      },
+    });
+
+    const ofA = await kardex.listRecentMovements({ page: 1, pageSize: 100 });
+    const ofB = await kardexOfB.listRecentMovements({ page: 1, pageSize: 100 });
+
+    expect(ofA.items.some((item) => item.product.id === ids['foreign'])).toBe(false);
+    expect(ofA.items.length).toBeGreaterThan(0);
+    expect(ofB.items.map((item) => item.concept)).toEqual(['Movimiento de B']);
+    expect(ofB.today).toEqual({ entries: 1, exits: 0, count: 1 });
 
     // El selector de B solo ofrece sus productos.
     expect((await kardexOfB.searchProducts(undefined)).map((option) => option.name)).toEqual([

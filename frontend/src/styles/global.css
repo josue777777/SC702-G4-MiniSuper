@@ -572,6 +572,19 @@ code {
   text-align: right;
 }
 
+/* Texto y fecha dentro de una tabla (lote y vencimiento, HU-38): el mismo
+   borde y alto que las cantidades, para que la fila se lea como una sola. */
+.table input:not([type]),
+.table input[type='text'],
+.table input[type='date'] {
+  min-width: 120px;
+  padding: 5px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--color-surface, #fff);
+}
+
 /* Un importe con decimales (₡1 000,00) necesita más ancho que una cantidad */
 .table input.input--money {
   width: 120px;

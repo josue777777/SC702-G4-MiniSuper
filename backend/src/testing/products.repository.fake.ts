@@ -47,6 +47,7 @@ export function buildProduct(overrides: Partial<ProductDto> = {}): ProductDto {
     preferredSupplierName: 'Distribuidora Central',
     minStock: 0,
     expirationDate: null,
+    perishable: true,
     imageUrl: null,
     ...overrides,
   };
@@ -167,6 +168,7 @@ export class FakeProductsRepository implements ProductsRepository {
       price: plan.fields.price,
       cost: plan.fields.cost,
       stock: plan.fields.stock,
+      perishable: plan.fields.perishable ?? true,
       isActive: true,
       preferredSupplierId: plan.fields.supplierId,
       preferredSupplierName:
@@ -197,6 +199,7 @@ export class FakeProductsRepository implements ProductsRepository {
       price: plan.fields.price,
       cost: plan.fields.cost,
       stock: plan.fields.stock,
+      perishable: plan.fields.perishable ?? current.perishable,
       preferredSupplierId: plan.fields.supplierId,
       preferredSupplierName:
         this.suppliers.find((supplier) => supplier.id === plan.fields.supplierId)?.name ?? null,
