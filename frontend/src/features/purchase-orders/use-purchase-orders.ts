@@ -6,7 +6,6 @@ import type {
   PurchaseOrder,
   PurchaseOrderPayload,
   PurchaseOrderSummary,
-  ReceiveOrderPayload,
 } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import type { Notice } from '../products/use-products';
@@ -126,58 +125,6 @@ export function usePurchaseOrders() {
     [load, filter],
   );
 
-  /**
-   * HU-38: registrar una entrega con su factura (y cargarla ya o dejarla
-   * pendiente). Si se eligió el archivo de la factura, se adjunta después de
-   * guardar la entrega. Si solo falla el archivo, la entrega queda registrada
-   * (no se pide registrarla de nuevo) y el aviso dice cómo adjuntarlo después.
-   */
-  const receiveOrder = useCallback(
-    async (
-      order: PurchaseOrder,
-      payload: ReceiveOrderPayload,
-      invoice: File | null,
-    ): Promise<string | null> => {
-      setBusy(true);
-      setNotice(null);
-
-      try {
-        let updated = await purchaseOrdersService.receive(order.id, payload);
-        let notice: Notice = {
-          kind: 'success',
-          text: payload.loadNow
-            ? `Factura ${payload.invoiceNumber} registrada y cargada al inventario.`
-            : `Factura ${payload.invoiceNumber} registrada. La carga al inventario quedó pendiente.`,
-        };
-        const receipt = updated.receipts.find(
-          (candidate) => candidate.invoiceNumber === payload.invoiceNumber,
-        );
-
-        if (invoice !== null && receipt !== undefined) {
-          try {
-            updated = await purchaseOrdersService.attachInvoice(order.id, receipt.id, invoice);
-          } catch (error) {
-            notice = {
-              kind: 'error',
-              text: `La entrega ${payload.invoiceNumber} quedó registrada, pero el archivo de la factura no se pudo adjuntar: ${describeError(error)} Adjúntelo desde «Entregas».`,
-            };
-          }
-        }
-
-        setSelected(updated);
-        setNotice(notice);
-        await load(filter);
-
-        return null;
-      } catch (error) {
-        return describeError(error);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [load, filter],
-  );
-
   /** HU-38: adjuntar (o reemplazar) después la factura del proveedor de una entrega. */
   const attachInvoice = useCallback(
     (order: PurchaseOrder, receiptId: string, invoiceNumber: string, file: File) =>
@@ -223,7 +170,6 @@ export function usePurchaseOrders() {
     createOrder,
     openOrder,
     closeOrder,
-    receiveOrder,
     attachInvoice,
     loadReceipt,
     concludeOrder,

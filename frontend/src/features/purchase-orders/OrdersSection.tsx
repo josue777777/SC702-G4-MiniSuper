@@ -25,7 +25,6 @@ export function OrdersSection() {
     createOrder,
     openOrder,
     closeOrder,
-    receiveOrder,
     attachInvoice,
     loadReceipt,
     concludeOrder,
@@ -95,7 +94,6 @@ export function OrdersSection() {
           onClose={closeOrder}
           notice={notice}
           onDismissNotice={dismissNotice}
-          onReceive={(payload, invoice) => receiveOrder(selected, payload, invoice)}
           onAttachInvoice={(receiptId, invoiceNumber, file) =>
             attachInvoice(selected, receiptId, invoiceNumber, file)
           }

@@ -7,12 +7,17 @@ import { readHistory } from '../support/kardex';
 import { BODEGA, openAs } from '../support/reports';
 
 /**
- * HU-38 desde Movimientos · Kardex: la entrada de mercadería se registra en el
- * kardex del producto, con pedido (PED-xxxx precarga proveedor, lo que falta
- * y el costo; el pedido queda recibido o parcial) o sin pedido (compra
- * directa con factura, proveedor, fecha, cantidad, costo y lotes). Sin
- * referencia o con 0 unidades no se guarda. También el egreso: una salida que
- * no es venta (vencido, traslado, devolución a proveedor) del lote elegido.
+ * HU-38 desde Movimientos: la entrada de mercadería se registra allí, cada
+ * acción en su ventana, con el diseño de todo el sistema.
+ *
+ * - «📦 Carga de pedido»: un pedido COMPLETO (PED-xxxx, todos sus productos a
+ *   la vez); el pedido queda recibido o parcial. Pedidos › «Registrar
+ *   entrega» llega a esta misma ventana con el pedido ya elegido.
+ * - «+ Ingreso»: UN producto sin pedido (compra directa con factura,
+ *   proveedor, fecha, cantidad, costo y lotes). Sin referencia o con 0
+ *   unidades no se guarda.
+ * - «− Egreso»: una salida que no es venta (vencido, traslado, devolución a
+ *   proveedor) del lote elegido.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -78,51 +83,51 @@ function inDays(days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-function entryPanel(page: Page) {
-  return page.getByRole('region', { name: 'Registrar ingreso' });
+function entryDialog(page: Page) {
+  return page.getByRole('dialog', { name: /^Ingreso · / });
 }
 
-function exitPanel(page: Page) {
-  return page.getByRole('region', { name: 'Registrar egreso' });
+function exitDialog(page: Page) {
+  return page.getByRole('dialog', { name: /^Egreso · / });
 }
 
-test('ingreso con pedido: PED-0001 precarga proveedor, lo que falta y el costo; el pedido queda parcial', async ({
+test('carga de pedido: se elige PED-0001 entre los pendientes y entran todos sus productos; el pedido queda parcial', async ({
   page,
 }) => {
   await orderRice(page);
-  await page.goto(`/movimientos?productId=${await productId('ARR-01')}`);
-  await page.getByRole('button', { name: '+ Registrar ingreso' }).click();
+  await page.goto('/movimientos');
+  await page.getByRole('button', { name: '📦 Carga de pedido' }).click();
 
-  const panel = entryPanel(page);
+  const picker = page.getByRole('dialog', { name: 'Carga de pedido' });
+  const pending = picker.getByRole('table', { name: 'Pedidos pendientes' });
 
-  await panel.getByLabel('N.º pedido (si viene de uno)').fill('PED-0001');
-  await panel.getByRole('button', { name: 'Cargar pedido' }).click();
+  // Se busca por número de pedido, proveedor o producto.
+  await picker.getByRole('searchbox').fill('arroz');
+  await expect(pending.locator('tbody tr')).toHaveCount(1);
+  await expect(pending).toContainText('PED-0001');
+  await saveEvidence(page, 'HU-38', 'movimientos-carga-de-pedido.png');
+  await pending.getByRole('button', { name: 'Cargar PED-0001' }).click();
 
-  // Se precargan el proveedor, lo que falta y el costo acordado del pedido.
-  await expect(panel.getByLabel('Proveedor')).toHaveValue('Distribuidora Central');
-  await expect(panel.getByLabel('Cantidad (faltan 10)')).toHaveValue('10');
-  await expect(panel.getByLabel('Costo unit.')).toHaveValue('980.00');
+  // La misma ventana de la entrega: factura, lo que llegó y sus lotes.
+  const receipt = page.getByRole('dialog', { name: 'Registrar entrega · PED-0001' });
 
-  // Llegaron 6 de los 10, con la factura F-700.
-  await panel.getByLabel('Cantidad (faltan 10)').fill('6');
-  await panel.getByLabel('N.º factura').fill('F-700');
-  await expect(panel.getByRole('status')).toContainText('Saldo: 40 → 46');
-  await saveEvidence(page, 'HU-38', 'movimientos-ingreso-con-pedido.png', { fullPage: true });
-  await panel.getByRole('button', { name: 'Guardar ingreso' }).click();
+  await receipt.getByLabel('N.º de factura').fill('F-700');
+  await receipt.getByLabel('Llegó de Arroz blanco 1 kg').fill('6');
+  await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
+  await expect(receipt).toHaveCount(0);
 
   await expect(
-    page.getByRole('status').filter({ hasText: 'Ingreso registrado: +6' }),
+    page.getByRole('status').filter({
+      hasText: 'Entrega F-700 del pedido PED-0001 cargada al inventario.',
+    }),
   ).toBeVisible();
   expect(await stockOf('ARR-01')).toBe(46);
-  expect((await readHistory(page))[0]?.slice(1, 6)).toEqual([
-    'Recepción PED-0001',
-    'F-700',
-    '6',
-    '—',
-    '46',
-  ]);
 
-  // El pedido quedó parcial: faltan 4.
+  // En los movimientos recientes se ve la entrada, con la factura como documento.
+  await expect(
+    page.getByRole('table', { name: 'Movimientos recientes de todos los productos' }),
+  ).toContainText('Recepción PED-0001');
+
   const status = await withDb(async (client) => {
     const result = await client.query<{ status: string }>(
       `SELECT status FROM "PurchaseOrder" WHERE number = 1`,
@@ -134,41 +139,67 @@ test('ingreso con pedido: PED-0001 precarga proveedor, lo que falta y el costo; 
   expect(status).toBe('PARTIAL');
 });
 
+test('desde Pedidos, «Registrar entrega» lleva a la carga de ese pedido en Movimientos', async ({
+  page,
+}) => {
+  await orderRice(page);
+  await page.goto('/orders');
+  await page.getByRole('button', { name: 'Ver pedido PED-0001' }).click();
+  await page
+    .getByRole('dialog', { name: /^Pedido PED-0001/ })
+    .getByRole('link', { name: '📦 Registrar entrega' })
+    .click();
+
+  await expect(page).toHaveURL(/\/movimientos\?pedido=/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Movimientos' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Registrar entrega · PED-0001' })).toBeVisible();
+  await saveEvidence(page, 'HU-38', 'pedidos-a-movimientos.png');
+
+  // Cancelar cierra la ventana y quita el pedido de la dirección.
+  await page
+    .getByRole('dialog', { name: 'Registrar entrega · PED-0001' })
+    .getByRole('button', { name: 'Cancelar' })
+    .click();
+  await expect(page).toHaveURL(/\/movimientos$/);
+});
+
 test('ingreso sin pedido: sin referencia o con 0 no se guarda; una compra directa entra con sus lotes', async ({
   page,
 }) => {
   await page.goto(`/movimientos?productId=${await productId('ACE-12')}`);
-  await page.getByRole('button', { name: '+ Registrar ingreso' }).click();
+  await page.getByRole('button', { name: '+ Ingreso' }).click();
 
-  const panel = entryPanel(page);
+  const dialog = entryDialog(page);
 
   // Sin referencia (factura) no se guarda.
-  await panel.getByRole('button', { name: 'Guardar ingreso' }).click();
-  await expect(panel.getByRole('alert')).toHaveText(
+  await dialog.getByRole('button', { name: 'Guardar ingreso' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText(
     'Indique el número de factura (la referencia del ingreso).',
   );
 
   // Con 0 unidades tampoco.
-  await panel.getByLabel('N.º factura').fill('45991');
-  await panel.getByLabel('Proveedor').selectOption({ label: 'Distribuidora Central' });
-  await panel.getByLabel('Cantidad').fill('0');
-  await panel.getByRole('button', { name: 'Guardar ingreso' }).click();
-  await expect(panel.getByRole('alert')).toHaveText('La cantidad debe ser mayor que 0.');
+  await dialog.getByLabel('N.º factura').fill('45991');
+  await dialog.getByLabel('Proveedor').selectOption({ label: 'Distribuidora Central' });
+  await dialog.getByLabel('Cantidad').fill('0');
+  await dialog.getByRole('button', { name: 'Guardar ingreso' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('La cantidad debe ser mayor que 0.');
 
   // 12 aceites en dos lotes con su fecha de vencimiento.
-  await panel.getByLabel('Cantidad').fill('12');
-  await panel.getByLabel('Lote 1', { exact: true }).fill('L-2411A');
-  await panel.getByLabel('Vence el lote 1').fill(inDays(120));
-  await panel.getByLabel('Unidades del lote 1').fill('8');
-  await panel.getByRole('button', { name: '+ Agregar lote' }).click();
-  await expect(panel.getByLabel('Unidades del lote 2')).toHaveValue('4');
-  await panel.getByLabel('Lote 2', { exact: true }).fill('L-2411B');
-  await panel.getByLabel('Vence el lote 2').fill(inDays(170));
-  await expect(panel.getByLabel('Suma de los lotes')).toHaveText('12 / 12');
-  await expect(panel.getByRole('status')).toContainText('Saldo: 18 → 30');
-  await expect(panel.getByRole('status')).toContainText('₡58');
-  await saveEvidence(page, 'HU-38', 'movimientos-ingreso-compra-directa.png', { fullPage: true });
-  await panel.getByRole('button', { name: 'Guardar ingreso' }).click();
+  await dialog.getByLabel('Cantidad').fill('12');
+  await dialog.getByLabel('Lote 1', { exact: true }).fill('L-2411A');
+  await dialog.getByLabel('Vence el lote 1').fill(inDays(120));
+  await dialog.getByLabel('Unidades del lote 1').fill('8');
+  await dialog.getByRole('button', { name: '+ Agregar lote' }).click();
+  // El lote nuevo va arriba con lo que falta para cuadrar.
+  await expect(dialog.getByLabel('Unidades del lote 1')).toHaveValue('4');
+  await dialog.getByLabel('Lote 1', { exact: true }).fill('L-2411B');
+  await dialog.getByLabel('Vence el lote 1').fill(inDays(170));
+  await expect(dialog.getByLabel('Suma de los lotes')).toHaveText('Los lotes suman 12 de 12.');
+  await expect(dialog.getByRole('status')).toContainText('Stock: 18 → 30');
+  await expect(dialog.getByRole('status')).toContainText('₡58');
+  await saveEvidence(page, 'HU-38', 'movimientos-ingreso-compra-directa.png');
+  await dialog.getByRole('button', { name: 'Guardar ingreso' }).click();
+  await expect(dialog).toHaveCount(0);
 
   await expect(
     page.getByRole('status').filter({ hasText: 'Ingreso registrado: +12' }),
@@ -183,7 +214,7 @@ test('ingreso sin pedido: sin referencia o con 0 no se guarda; una compra direct
     '2 lotes',
   ]);
 
-  // La ficha se actualiza sin recargar: existencias y el resumen.
+  // La ficha se actualiza sin recargar.
   const sheet = page.getByRole('region', { name: 'Ficha de Aceite vegetal grande' });
 
   await expect(sheet.getByLabel('Stock actual')).toHaveText('30');
@@ -193,24 +224,25 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   page,
 }) => {
   await page.goto(`/movimientos?productId=${await productId('ACE-12')}`);
-  await page.getByRole('button', { name: '− Registrar egreso' }).click();
+  await page.getByRole('button', { name: '− Egreso' }).click();
 
-  const panel = exitPanel(page);
+  const dialog = exitDialog(page);
 
   // El stock que había quedó en el lote «SIN LOTE».
-  await panel.getByLabel('Lote').selectOption({ label: 'SIN LOTE · no vence · 18 disp.' });
-  await panel.getByLabel('N.º documento').fill('44');
-  await panel.getByLabel('Cantidad').fill('99');
-  await panel.getByRole('button', { name: 'Guardar egreso' }).click();
-  await expect(panel.getByRole('alert')).toHaveText(
+  await dialog.getByLabel('Lote').selectOption({ label: 'SIN LOTE · no vence · 18 disp.' });
+  await dialog.getByLabel('N.º documento').fill('44');
+  await dialog.getByLabel('Cantidad').fill('99');
+  await dialog.getByRole('button', { name: 'Guardar egreso' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText(
     'Del lote SIN LOTE quedan 18: no puede salir más.',
   );
 
-  await panel.getByLabel('Cantidad').fill('4');
-  await panel.getByLabel('Detalle (opcional)').fill('botellas vencidas retiradas de la góndola');
-  await expect(panel.getByRole('status')).toContainText('Saldo: 18 → 14');
-  await saveEvidence(page, 'HU-38', 'movimientos-egreso.png', { fullPage: true });
-  await panel.getByRole('button', { name: 'Guardar egreso' }).click();
+  await dialog.getByLabel('Cantidad').fill('4');
+  await dialog.getByLabel('Detalle (opcional)').fill('botellas vencidas retiradas de la góndola');
+  await expect(dialog.getByRole('status')).toContainText('Stock: 18 → 14');
+  await saveEvidence(page, 'HU-38', 'movimientos-egreso.png');
+  await dialog.getByRole('button', { name: 'Guardar egreso' }).click();
+  await expect(dialog).toHaveCount(0);
 
   await expect(page.getByRole('status').filter({ hasText: 'Egreso registrado: −4' })).toBeVisible();
   expect(await stockOf('ACE-12')).toBe(14);
@@ -232,8 +264,8 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   const table = page.getByRole('table', { name: 'Movimientos del producto' });
 
   await expect(table.locator('tbody tr')).toHaveCount(1);
-  await expect(table.locator('tfoot')).toHaveText(/Totales\s*\+0\s*−4\s*14/);
-  await saveEvidence(page, 'HU-38', 'movimientos-filtro-salidas.png', { fullPage: true });
+  await expect(table.locator('tfoot')).toHaveText(/Totales\s*0\s*4\s*14/);
+  await saveEvidence(page, 'HU-38', 'movimientos-filtro-salidas.png');
 });
 
 test('unidad de medida y stock máximo se guardan en el producto y se ven en la ficha', async ({
@@ -261,17 +293,20 @@ test('unidad de medida y stock máximo se guardan en el producto y se ven en la 
   await expect(cell('Unidad')).toHaveText('Kilogramo (KG)');
   await expect(cell('Stock máximo')).toHaveText('30');
   // 40 con máximo 30: el estado lo dice en palabra.
-  await expect(cell('Existencias')).toContainText('Sobre el máximo');
-  await saveEvidence(page, 'HU-38', 'movimientos-ficha.png', { fullPage: true });
+  await expect(sheet.locator('.stat-tile', { hasText: 'Existencias' })).toContainText(
+    'Sobre el máximo',
+  );
+  await saveEvidence(page, 'HU-38', 'movimientos-ficha.png');
 });
 
-test('la Bodega registra ingresos y egresos', async ({ browser }) => {
+test('la Bodega registra ingresos, egresos y cargas de pedido', async ({ browser }) => {
   await insertUser(BODEGA);
 
   const bodega = await openAs(browser, BODEGA);
 
   await bodega.page.goto(`/movimientos?productId=${await productId('ARR-01')}`);
-  await expect(bodega.page.getByRole('button', { name: '+ Registrar ingreso' })).toBeEnabled();
-  await expect(bodega.page.getByRole('button', { name: '− Registrar egreso' })).toBeEnabled();
+  await expect(bodega.page.getByRole('button', { name: '+ Ingreso' })).toBeEnabled();
+  await expect(bodega.page.getByRole('button', { name: '− Egreso' })).toBeEnabled();
+  await expect(bodega.page.getByRole('button', { name: '📦 Carga de pedido' })).toBeEnabled();
   await bodega.context.close();
 });

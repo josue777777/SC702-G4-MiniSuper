@@ -191,19 +191,27 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
       .locator('xpath=following-sibling::dd');
 
   // Producto: código, nombre, código de barras y categoría.
-  await expect(cell('Producto')).toHaveText('P001 Café molido 500 g· 7501000000012 · Bebidas');
-  await expect(cell('Proveedor princ\.')).toHaveText('Distribuidora Central');
-  expect(digits(await cell('Precio de venta').textContent())).toBe('150000');
-  expect(digits(await cell('Costo').textContent())).toBe('100050');
+  // «Producto» es el código y «Descripción» el nombre.
+  await expect(cell('Producto')).toHaveText('P001');
+  await expect(cell('Descripción')).toHaveText('Café molido 500 g');
+  await expect(cell('Código de barras')).toHaveText('7501000000012');
+  await expect(cell('Categoría')).toHaveText('Bebidas');
+  await expect(cell('Proveedor principal')).toHaveText('Distribuidora Central');
   await expect(cell('Unidad')).toHaveText('Unidad (UD)');
-  // Existencias con su estado en palabra (mínimo 3 en las semillas: 8 está «Bien»).
-  await expect(cell('Existencias')).toContainText('8');
-  await expect(cell('Existencias')).toContainText('Bien');
+
+  // Las cifras, en las tarjetas del sistema; existencias con su estado en palabra
+  // (mínimo 3 en las semillas: 8 está «Bien»).
+  const tile = (label: string) => sheet.locator('.stat-tile', { hasText: label });
+
+  expect(digits(await tile('Precio de venta').locator('.stat-tile__value').textContent())).toBe(
+    '150000',
+  );
+  expect(digits(await tile('Costo').locator('.stat-tile__value').textContent())).toBe('100050');
+  await expect(sheet.getByLabel('Stock actual')).toHaveText('8');
+  await expect(tile('Existencias')).toContainText('Bien');
   // Resumen de todo el historial: lo que entró y salió.
   // 20 + 1 + 3 (el conteo que subió) = 24 entran; 5 + 6 + 5 = 16 salen.
-  await expect(cell('Historial')).toContainText('Entró +24');
-  await expect(cell('Historial')).toContainText('Salió −16');
-  await expect(cell('Historial')).toContainText('6 movimientos');
+  await expect(page.getByLabel('Resumen del historial')).toHaveText('Entró 24 · Salió 16');
 
   // Criterios 2 y 4: todo el historial, del más reciente al más antiguo, con su saldo.
   // [fecha, concepto, documento, entrada, salida, stock final, lotes]: el concepto es
@@ -328,7 +336,7 @@ test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimie
   const sheet = page.getByRole('region', { name: 'Ficha del producto' });
 
   await expect(
-    sheet.locator('dt', { hasText: 'Existencias' }).locator('xpath=following-sibling::dd'),
+    sheet.locator('.stat-tile', { hasText: 'Existencias' }).locator('.stat-tile__value'),
   ).toHaveText('—');
   await expect(
     sheet.locator('dt', { hasText: 'Producto' }).locator('xpath=following-sibling::dd'),
@@ -336,9 +344,10 @@ test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimie
   await expect(recent.getByLabel('Hoy')).toHaveText('Hoy: 0 entran · 0 salen · 0 movimientos');
   const actions = page.getByRole('toolbar', { name: 'Acciones de movimientos' });
 
-  await expect(actions.getByRole('button', { name: '+ Registrar ingreso' })).toBeDisabled();
+  await expect(actions.getByRole('button', { name: '+ Ingreso' })).toBeDisabled();
+  await expect(actions.getByRole('button', { name: '📦 Carga de pedido' })).toBeEnabled();
   await expect(actions.getByRole('status')).toHaveText(
-    'Busque un producto para registrar ingresos o egresos.',
+    'Busque un producto para un ingreso o egreso; un pedido completo, en «Carga de pedido».',
   );
   await expect(table.getByRole('columnheader')).toHaveText([
     'Fecha y hora',

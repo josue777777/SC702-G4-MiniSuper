@@ -1,154 +1,121 @@
-import type { ReactNode } from 'react';
-import type { KardexAmounts, KardexProduct } from '../../types/kardex';
+import type { KardexProduct } from '../../types/kardex';
 import { UNITS_OF_MEASURE } from '../../types/products';
 import { formatDateOnly } from '../inventory/inventory-count';
 import { formatMoney } from '../products/money';
-import { signed, stockStatus } from './kardex-format';
+import { stockStatus } from './kardex-format';
 
-/** Una celda de la ficha: etiqueta oscura a la izquierda, valor a la derecha. */
-function Cell({
-  label,
-  children,
-  size,
-}: {
-  label: string;
-  children: ReactNode;
-  size?: 'wide' | 'full';
-}) {
-  return (
-    <div
-      className={
-        size === undefined ? 'kardex-sheet__cell' : `kardex-sheet__cell kardex-sheet__cell--${size}`
-      }
-    >
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
+/** Datos de la ficha, en el orden en que se leen. */
+function details(product: KardexProduct | null): [string, string][] {
+  if (product === null) {
+    return [
+      'Producto',
+      'Descripción',
+      'Código de barras',
+      'Categoría',
+      'Unidad',
+      'Proveedor principal',
+      'Stock mínimo',
+      'Stock máximo',
+      'Vencimiento',
+    ].map((label) => [label, '—']);
+  }
 
-/** Resumen de todo el historial: «Entró +30 · Salió −12 · 9 movimientos». */
-function Summary({ summary }: { summary: KardexAmounts | null }) {
-  return (
-    <Cell label="Historial" size="wide">
-      {summary === null ? (
-        <span className="muted">Entró — · Salió — · — movimientos</span>
-      ) : (
-        <>
-          <span>
-            Entró <span className="flow-in">{signed(summary.entries, 'in')}</span>
-          </span>
-          <span>
-            Salió <span className="flow-out">{signed(summary.exits, 'out')}</span>
-          </span>
-          <span className="muted">
-            {summary.count.toLocaleString('es-CR')}{' '}
-            {summary.count === 1 ? 'movimiento' : 'movimientos'}
-          </span>
-        </>
-      )}
-    </Cell>
-  );
+  return [
+    ['Producto', product.code],
+    ['Descripción', product.name],
+    ['Código de barras', product.barcode ?? 'Sin código de barras'],
+    ['Categoría', product.categoryName],
+    ['Unidad', `${UNITS_OF_MEASURE[product.unit]} (${product.unit})`],
+    ['Proveedor principal', product.supplierName ?? 'Sin proveedor'],
+    [
+      'Stock mínimo',
+      product.minStock === 0 ? 'Sin mínimo' : product.minStock.toLocaleString('es-CR'),
+    ],
+    [
+      'Stock máximo',
+      product.maxStock === 0 ? 'Sin máximo' : product.maxStock.toLocaleString('es-CR'),
+    ],
+    [
+      'Vencimiento',
+      !product.perishable
+        ? 'No vence'
+        : product.expirationDate === null
+          ? 'Sin fecha'
+          : formatDateOnly(product.expirationDate),
+    ],
+  ];
 }
 
 /**
- * Ficha del producto en Movimientos (HU-31), como una hoja de celdas:
- * producto (código, nombre, código de barras y categoría), unidad, precio,
- * costo, proveedor principal, descripción, vencimiento, existencias con su
- * estado («Bien», «Bajo», «Agotado», «Sobre el máximo»: insignia con color Y
- * palabra), stock mínimo y máximo, y el resumen de lo que entró y salió.
+ * Ficha del producto en Movimientos (HU-31), con las mismas piezas que el
+ * resto del sistema: tarjetas para las cifras (existencias, precio, costo) y
+ * la lista de datos. «Producto» es el código y «Descripción» el nombre.
  *
- * Sin producto (`product = null`) se ve la misma hoja con «—», para que la
+ * Las existencias llevan su estado en palabra («Bien», «Bajo», «Agotado»,
+ * «Sobre el máximo»): el color solo marca estados (docs/PANTALLAS.md).
+ *
+ * Sin producto (`product = null`) se ve la misma ficha con «—», para que la
  * pantalla muestre desde el inicio qué se va a ver.
  */
-export function ProductSheet({
-  product,
-  summary,
-}: {
-  product: KardexProduct | null;
-  summary: KardexAmounts | null;
-}) {
-  if (product === null) {
-    return (
-      <section className="card kardex-sheet--empty" aria-label="Ficha del producto">
-        <header className="card__header">
-          <h2>Ningún producto elegido</h2>
-          <span className="card__header-end muted">
-            Busque un código, un nombre o escanee el código de barras
-          </span>
-        </header>
-        <dl className="kardex-sheet">
-          <Cell label="Producto" size="full">
-            —
-          </Cell>
-          {[
-            'Unidad',
-            'Precio de venta',
-            'Costo',
-            'Proveedor princ.',
-            'Existencias',
-            'Stock mínimo',
-            'Stock máximo',
-          ].map((label) => (
-            <Cell key={label} label={label}>
-              —
-            </Cell>
-          ))}
-          <Summary summary={null} />
-        </dl>
-      </section>
-    );
-  }
-
-  const status = stockStatus(product);
+export function ProductSheet({ product }: { product: KardexProduct | null }) {
+  const status = product === null ? null : stockStatus(product);
 
   return (
-    <section className="card" aria-label={`Ficha de ${product.name}`}>
+    <section
+      className="card"
+      aria-label={product === null ? 'Ficha del producto' : `Ficha de ${product.name}`}
+    >
       <header className="card__header">
-        <h2>
-          {product.name}{' '}
-          <span className={`badge ${product.isActive ? 'badge--ok' : 'badge--muted'}`}>
-            {product.isActive ? 'Activo' : 'Inactivo'}
-          </span>
-        </h2>
+        {product === null ? (
+          <>
+            <h2>Ningún producto elegido</h2>
+            <span className="card__header-end muted">
+              Busque un código, un nombre o escanee el código de barras
+            </span>
+          </>
+        ) : (
+          <h2>
+            {product.name}{' '}
+            <span className={`badge ${product.isActive ? 'badge--ok' : 'badge--muted'}`}>
+              {product.isActive ? 'Activo' : 'Inactivo'}
+            </span>
+          </h2>
+        )}
       </header>
 
-      <dl className="kardex-sheet">
-        <Cell label="Producto" size="full">
-          <strong>{product.code}</strong> {product.name}
-          <span className="muted">
-            · {product.barcode ?? 'Sin código de barras'} · {product.categoryName}
-          </span>
-        </Cell>
-        <Cell label="Unidad">
-          {UNITS_OF_MEASURE[product.unit]} ({product.unit})
-        </Cell>
-        <Cell label="Precio de venta">{formatMoney(product.price)}</Cell>
-        <Cell label="Costo">{formatMoney(product.cost)}</Cell>
-        <Cell label="Proveedor princ.">{product.supplierName ?? 'Sin proveedor'}</Cell>
-        <Cell label="Descripción" size="wide">
-          {product.description ?? 'Sin descripción'}
-        </Cell>
-        <Cell label="Vencimiento">
-          {product.perishable
-            ? product.expirationDate === null
-              ? 'Sin fecha'
-              : formatDateOnly(product.expirationDate)
-            : 'No vence'}
-        </Cell>
-        <Cell label="Existencias">
-          <span className="kardex-sheet__big" aria-label="Stock actual">
-            {product.stock.toLocaleString('es-CR')}
-          </span>
-          <span className={`badge badge--${status.tone}`}>{status.label}</span>
-        </Cell>
-        <Cell label="Stock mínimo">
-          {product.minStock === 0 ? 'Sin mínimo' : product.minStock.toLocaleString('es-CR')}
-        </Cell>
-        <Cell label="Stock máximo">
-          {product.maxStock === 0 ? 'Sin máximo' : product.maxStock.toLocaleString('es-CR')}
-        </Cell>
-        <Summary summary={summary} />
+      <div className="stat-grid" aria-label="Datos principales">
+        <div className="stat-tile">
+          <span className="stat-tile__label">Existencias</span>
+          <strong className="stat-tile__value" aria-label="Stock actual">
+            {product === null ? '—' : product.stock.toLocaleString('es-CR')}
+          </strong>
+          {status === null ? null : (
+            <span className="stat-tile__detail">
+              <span className={`badge badge--${status.tone}`}>{status.label}</span>
+            </span>
+          )}
+        </div>
+        <div className="stat-tile">
+          <span className="stat-tile__label">Precio de venta</span>
+          <strong className="stat-tile__value">
+            {product === null ? '—' : formatMoney(product.price)}
+          </strong>
+        </div>
+        <div className="stat-tile">
+          <span className="stat-tile__label">Costo</span>
+          <strong className="stat-tile__value">
+            {product === null ? '—' : formatMoney(product.cost)}
+          </strong>
+        </div>
+      </div>
+
+      <dl className="kardex-details">
+        {details(product).map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
       </dl>
     </section>
   );

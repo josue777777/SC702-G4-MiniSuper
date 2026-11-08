@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { Pagination } from '../../components/Pagination';
 import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { purchaseOrdersService } from '../../services/purchase-orders.service';
-import type {
-  PurchaseOrder,
-  PurchaseReceipt,
-  ReceiveOrderPayload,
-} from '../../types/purchase-orders';
+import type { PurchaseOrder, PurchaseReceipt } from '../../types/purchase-orders';
 import type { Notice } from '../products/use-products';
 import { useSession } from '../auth/session-context';
 import { BusinessDocumentFooter, BusinessDocumentHeader } from '../business/BusinessDocument';
@@ -17,7 +14,6 @@ import { formatMoney } from '../products/money';
 import { INVOICE_ACCEPT, invoiceFileError } from './invoice-file';
 import { InvoicePreview } from './InvoicePreview';
 import { formatOrderNumber, STATUS_LABELS } from './purchase-order-form';
-import { ReceiveOrderModal } from './ReceiveOrderModal';
 
 interface PurchaseOrderDetailProps {
   order: PurchaseOrder;
@@ -27,7 +23,6 @@ interface PurchaseOrderDetailProps {
   onDismissNotice: () => void;
   onClose: () => void;
   /** HU-38: cada acción devuelve el error del servidor, o `null` si salió bien. */
-  onReceive: (payload: ReceiveOrderPayload, invoice: File | null) => Promise<string | null>;
   onAttachInvoice: (receiptId: string, invoiceNumber: string, file: File) => Promise<string | null>;
   onLoadReceipt: (receiptId: string, invoiceNumber: string) => Promise<string | null>;
   onConclude: () => Promise<string | null>;
@@ -66,7 +61,8 @@ function printOrder(): void {
  * «Etiquetas» (HU-07) abre la impresión de etiquetas con los productos del
  * pedido y una etiqueta por unidad, para rotular la mercadería cuando llega.
  *
- * Entregas (HU-38): «Registrar entrega» anota cada factura con su fecha real y
+ * Entregas (HU-38): «Registrar entrega» lleva a Movimientos, donde se abre la
+ * ventana «Carga de pedido» con este pedido; allí se anota cada factura con su fecha real y
  * lo que llegó; la columna «Cant. recibida» muestra lo recibido hasta ahora (en
  * blanco mientras no llega nada, para anotarlo a mano en el papel). Cada
  * entrega con la carga pendiente tiene su botón «Cargar al inventario». Un
@@ -78,7 +74,6 @@ export function PurchaseOrderDetail({
   notice,
   onDismissNotice,
   onClose,
-  onReceive,
   onAttachInvoice,
   onLoadReceipt,
   onConclude,
@@ -86,7 +81,6 @@ export function PurchaseOrderDetail({
   const contact = [order.supplierPhone, order.supplierEmail].filter(Boolean).join(' · ');
   const { can, user } = useSession();
   const [labelling, setLabelling] = useState(false);
-  const [receiving, setReceiving] = useState(false);
   const [confirmingConclude, setConfirmingConclude] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<PurchaseReceipt | null>(null);
@@ -371,17 +365,14 @@ export function PurchaseOrderDetail({
 
       <div className="form__actions">
         {order.status === 'RECEIVED' ? null : (
-          <button
-            type="button"
+          // La entrega se registra en Movimientos, en su ventana de carga de
+          // pedido (la misma para todos los pedidos): allí sube el inventario.
+          <Link
+            to={`/movimientos?pedido=${encodeURIComponent(order.id)}`}
             className="button button--primary"
-            disabled={busy}
-            onClick={() => {
-              setError(null);
-              setReceiving(true);
-            }}
           >
             📦 Registrar entrega
-          </button>
+          </Link>
         )}
         {order.status === 'PARTIAL' && !confirmingConclude ? (
           <button
@@ -417,15 +408,6 @@ export function PurchaseOrderDetail({
           onClose={() => setViewing(null)}
         />
       )}
-
-      {receiving ? (
-        <ReceiveOrderModal
-          order={order}
-          busy={busy}
-          onSubmit={onReceive}
-          onClose={() => setReceiving(false)}
-        />
-      ) : null}
 
       {labelling ? (
         <LabelPrintModal

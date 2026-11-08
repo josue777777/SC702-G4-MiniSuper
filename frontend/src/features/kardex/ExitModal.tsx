@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Modal } from '../../components/Modal';
 import { ApiError } from '../../services/api-client';
 import { kardexService } from '../../services/kardex.service';
 import { EXIT_CONCEPTS, type KardexExitConcept, type KardexProduct } from '../../types/kardex';
@@ -8,12 +9,13 @@ import { todayInBusinessZone } from '../reports/report-filters';
 import { formatLotDate } from './kardex-format';
 import { useKeyedRequest } from './use-keyed-request';
 
-interface ExitPanelProps {
+interface ExitModalProps {
   product: KardexProduct;
   /** Cambia tras cada ingreso o egreso: vuelve a pedir los lotes. */
   version: number;
   /** Guardado: el aviso para la pantalla (y se recargan ficha e historial). */
   onSaved: (message: string) => void;
+  onClose: () => void;
 }
 
 /**
@@ -24,9 +26,10 @@ interface ExitPanelProps {
  * el kardex va en el orden en que pasan las cosas.
  *
  * Nunca deja sacar más de lo que tiene el lote; si otra persona sacó antes,
- * el servidor responde y no cambia nada.
+ * el servidor responde y no cambia nada. Es una ventana, como todo formulario
+ * del sistema (regla 1).
  */
-export function ExitPanel({ product, version, onSaved }: ExitPanelProps) {
+export function ExitModal({ product, version, onSaved, onClose }: ExitModalProps) {
   const [concept, setConcept] = useState<KardexExitConcept>('EXPIRED');
   const [document, setDocument] = useState('');
   const [lotId, setLotId] = useState('');
@@ -42,15 +45,6 @@ export function ExitPanel({ product, version, onSaved }: ExitPanelProps) {
   const available = lots.phase === 'ready' ? lots.value : [];
   const lot = available.find((candidate) => candidate.id === lotId);
   const units = parseUnits(quantity);
-
-  function reset(): void {
-    setConcept('EXPIRED');
-    setDocument('');
-    setLotId('');
-    setQuantity('');
-    setDetail('');
-    setError(null);
-  }
 
   function validate(): string | null {
     if (document.trim() === '') {
@@ -96,7 +90,6 @@ export function ExitPanel({ product, version, onSaved }: ExitPanelProps) {
       onSaved(
         `Egreso registrado: −${units.toLocaleString('es-CR')} de ${product.name} (${EXIT_CONCEPTS[concept]}).`,
       );
-      reset();
     } catch (failure) {
       setError(
         failure instanceof ApiError
@@ -111,14 +104,21 @@ export function ExitPanel({ product, version, onSaved }: ExitPanelProps) {
   const value = units === null ? null : (Number(product.cost) * units).toFixed(2);
 
   return (
-    <section className="kardex-panel kardex-panel--out" aria-label="Registrar egreso">
-      <h2 className="kardex-panel__title">− Egreso · Salida que no es venta · {product.code}</h2>
-      <form className="kardex-panel__body form" noValidate onSubmit={(event) => void save(event)}>
+    <Modal title={`Egreso · ${product.code} ${product.name}`} size="wide" onClose={onClose}>
+      <form
+        className="form"
+        noValidate
+        // Al corregir cualquier dato, el aviso anterior ya no aplica.
+        onChange={() => setError(null)}
+        onSubmit={(event) => void save(event)}
+      >
+        <p className="muted">Salida que no es venta: las ventas salen solas desde la caja.</p>
         <div className="form__grid">
           <div className="form__field">
             <label htmlFor="exit-concept">Concepto</label>
             <select
               id="exit-concept"
+              data-autofocus
               value={concept}
               onChange={(event) => setConcept(event.target.value as KardexExitConcept)}
             >
@@ -190,32 +190,23 @@ export function ExitPanel({ product, version, onSaved }: ExitPanelProps) {
           </p>
         )}
 
-        <div className="kardex-panel__footer">
-          <div className="kardex-panel__figures" role="status">
-            <span>
-              Disponible en el lote:{' '}
-              <strong>{lot === undefined ? '—' : lot.quantity.toLocaleString('es-CR')}</strong>
-            </span>
-            <span>
-              Saldo: <strong>{product.stock.toLocaleString('es-CR')}</strong> →{' '}
-              <strong className="flow-out">
-                {Math.max(0, product.stock - (units ?? 0)).toLocaleString('es-CR')}
-              </strong>
-            </span>
-            <span>
-              Valor al costo: <strong>{value === null ? '—' : formatMoney(value)}</strong>
-            </span>
-          </div>
-          <div className="form__actions">
-            <button type="button" className="button" onClick={reset}>
-              Limpiar
-            </button>
-            <button type="submit" className="button button--out" disabled={busy}>
-              {busy ? 'Guardando…' : 'Guardar egreso'}
-            </button>
-          </div>
+        <p className="muted" role="status">
+          Disponible en el lote:{' '}
+          <strong>{lot === undefined ? '—' : lot.quantity.toLocaleString('es-CR')}</strong> · Stock:{' '}
+          {product.stock.toLocaleString('es-CR')} →{' '}
+          <strong>{Math.max(0, product.stock - (units ?? 0)).toLocaleString('es-CR')}</strong> ·
+          Valor al costo: <strong>{value === null ? '—' : formatMoney(value)}</strong>
+        </p>
+
+        <div className="form__actions">
+          <button type="submit" className="button button--primary" disabled={busy}>
+            {busy ? 'Guardando…' : 'Guardar egreso'}
+          </button>
+          <button type="button" className="button" onClick={onClose}>
+            Cancelar
+          </button>
         </div>
       </form>
-    </section>
+    </Modal>
   );
 }

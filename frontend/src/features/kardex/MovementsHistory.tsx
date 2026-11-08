@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { DEFAULT_PAGE_SIZE } from '../../components/use-pagination';
 import { kardexService } from '../../services/kardex.service';
-import type { KardexAmounts, KardexDirection } from '../../types/kardex';
+import type { KardexDirection } from '../../types/kardex';
 import { MovementsTable } from './MovementsTable';
 import { useKeyedRequest } from './use-keyed-request';
 
@@ -21,12 +21,10 @@ interface MovementsHistoryProps {
   stock: number;
   /** Cambia cada vez que se registra un ingreso o egreso: vuelve a pedir el historial. */
   version: number;
-  /** Entrega el resumen de todo el historial a la ficha («Entró · Salió · N movimientos»). */
-  onSummary: (summary: KardexAmounts) => void;
 }
 
 /**
- * Kardex del producto (HU-31), del más reciente al más antiguo. Se pide aparte
+ * Historial de movimientos del producto (HU-31), del más reciente al más antiguo. Se pide aparte
  * de la ficha y por páginas: un historial largo nunca se baja de golpe y la
  * ficha se ve sin esperarlo.
  *
@@ -34,7 +32,7 @@ interface MovementsHistoryProps {
  * si subió o bajó el stock). La fila «Totales» suma lo filtrado y cierra con
  * el stock actual. Sin «stock anterior»: es el stock final de la línea de abajo.
  */
-export function MovementsHistory({ productId, stock, version, onSummary }: MovementsHistoryProps) {
+export function MovementsHistory({ productId, stock, version }: MovementsHistoryProps) {
   const [position, setPosition] = useState({
     productId,
     page: 1,
@@ -59,17 +57,17 @@ export function MovementsHistory({ productId, stock, version, onSummary }: Movem
 
   const loaded = history.phase === 'ready' ? history.value : null;
 
-  useEffect(() => {
-    if (loaded !== null) {
-      onSummary(loaded.summary);
-    }
-  }, [loaded, onSummary]);
-
   return (
     <section className="card" aria-label="Historial de movimientos">
       <header className="card__header">
-        <h2>Kardex del producto</h2>
-        <div className="segmented" role="group" aria-label="Movimientos a mostrar">
+        <h2>Historial de movimientos</h2>
+        {loaded === null ? null : (
+          <span className="muted" aria-label="Resumen del historial">
+            Entró {loaded.summary.entries.toLocaleString('es-CR')} · Salió{' '}
+            {loaded.summary.exits.toLocaleString('es-CR')}
+          </span>
+        )}
+        <div className="segmented card__header-end" role="group" aria-label="Movimientos a mostrar">
           {DIRECTIONS.map(([id, label]) => (
             <button
               key={id}

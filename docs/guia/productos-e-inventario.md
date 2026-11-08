@@ -29,30 +29,34 @@ Es el catálogo del negocio y el control de sus existencias:
   anterior»: es el stock final de la línea de abajo. Si la línea entró en lotes, su botón
   «N lotes» los muestra en una ventana (HU-38). Más adelante se suman los conceptos de
   salida «Devolución» (a proveedor), «Traslado» y «Vencido-descartado».
-- **Movimientos · Kardex**, siempre con la misma forma:
+- **Movimientos**, siempre con la misma forma y las piezas del resto del sistema:
   1. **Buscador** arriba (código, nombre o código de barras; con el lector, código + Enter
      abre el producto). Al entrar en la caja se despliega «Recientes» (los últimos 6
      productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
      coinciden con su stock (`KardexSearch.tsx`).
-  2. **Ficha** en celdas (etiqueta oscura y valor, `ProductSheet.tsx`): producto (código,
-     nombre, código de barras, categoría), unidad, precio, costo, proveedor principal,
-     descripción, vencimiento, **existencias con su estado** («Bien», «Bajo», «Agotado»,
-     «Sobre el máximo»: insignia con palabra), stock mínimo y máximo, y el historial
-     («Entró +30 · Salió −12 · 9 movimientos»). Sin producto, la misma ficha con «—».
-  3. **Kardex del producto** con «Todos / Entradas / Salidas» (el filtro va al servidor) y
-     la fila «Totales»; lo que entra con «+» en verde y lo que sale con «−» en rojo
-     (`docs/PANTALLAS.md`, «Entradas y salidas»). Sin producto, los últimos movimientos de
-     todos los productos con «Hoy: N entran · N salen» (`RecentMovements.tsx`).
-  4. **Barra de acciones** abajo: «+ Registrar ingreso» y «− Registrar egreso» abren su
-     panel debajo (`EntryPanel.tsx`, `ExitPanel.tsx`). Las ventas salen solas desde la caja.
-- **Ingreso** (HU-38, permiso `purchasing`): con **N.º de pedido** (PED-0421) se
-  precargan el proveedor, lo que falta de ese producto y su costo, y la entrega queda en
-  el pedido; «Registrar todo el pedido» abre la ventana de Pedidos con todos sus
-  productos. **Sin pedido** es una «Compra directa»: factura, proveedor, fecha, cantidad,
-  costo y lotes. Sin factura o con 0 unidades no se guarda.
-- **Egreso** (permiso `inventory.write`): salida que no es venta — «Vencido / descartado»,
-  «Traslado» o «Devolución a proveedor» — del **lote elegido**, con su documento y un
-  detalle. Nunca saca más de lo que tiene el lote.
+  2. **Ficha** (`ProductSheet.tsx`): tarjetas de existencias (con su estado en palabra:
+     «Bien», «Bajo», «Agotado», «Sobre el máximo»), precio y costo, y la lista de datos:
+     **Producto** (el código), **Descripción** (el nombre), código de barras, categoría,
+     unidad, proveedor principal, stock mínimo y máximo, vencimiento. Sin producto, la
+     misma ficha con «—».
+  3. **Historial de movimientos** con «Todos / Entradas / Salidas» (el filtro va al
+     servidor), «Entró N · Salió N» y la fila «Totales». Sin producto, los últimos
+     movimientos de todos los productos con «Hoy: N entran · N salen»
+     (`RecentMovements.tsx`).
+  4. **Barra de acciones** abajo, como en Inventario. Cada acción abre su ventana:
+     «+ Ingreso» (`EntryModal.tsx`), «− Egreso» (`ExitModal.tsx`) y «📦 Carga de pedido»
+     (`OrderLoadModal.tsx`). Las ventas salen solas desde la caja.
+- **+ Ingreso** (HU-38, permiso `purchasing`): UN producto sin pedido, una «Compra
+  directa»: factura, proveedor, fecha, cantidad, costo y lotes (de 4 en 4). Sin factura o
+  con 0 unidades no se guarda.
+- **📦 Carga de pedido** (permiso `purchasing`): un pedido COMPLETO, todos sus productos a
+  la vez (carga masiva). Se elige el pedido pendiente (buscando PED-0001, proveedor o
+  producto) y se abre la ventana «Registrar entrega»: factura con su vista previa, lo que
+  llegó con sus lotes, cargar ya o dejar la carga pendiente. Desde Pedidos › «Registrar
+  entrega» se llega aquí con el pedido ya elegido (`/movimientos?pedido=<id>`).
+- **− Egreso** (permiso `inventory.write`): salida que no es venta — «Vencido /
+  descartado», «Traslado» o «Devolución a proveedor» — del **lote elegido**, con su
+  documento y un detalle. Nunca saca más de lo que tiene el lote.
 - **Unidad de medida y stock máximo** (Editar › Existencias): UD, KG, G, L, ML, M, CJ, PQ;
   el máximo (0 = sin máximo) hace que la ficha diga «Sobre el máximo».
 - **Lotes** (HU-38): cada entrada de mercadería guarda sus lotes con su fecha de
