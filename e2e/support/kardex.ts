@@ -212,9 +212,27 @@ export async function readHistory(page: Page): Promise<string[][]> {
 
   await expect(table).toBeVisible();
 
+  // [fecha, concepto, documento, entrada, salida, stock final, lotes]: el concepto
+  // sin su signo (+ entra, − sale) y el botón «N lotes» aparte («—» si no hay).
   return Promise.all(
-    (await table.locator('tbody tr').all()).map(async (row) =>
-      (await row.locator('td').allTextContents()).map((cell) => cell.trim()),
-    ),
+    (await table.locator('tbody tr').all()).map(async (row) => {
+      const cells = (await row.locator('td').allTextContents()).map((cell) => cell.trim());
+      const conceptCell = row.locator('td').nth(1);
+      const concept = ((await conceptCell.locator('span').first().textContent()) ?? '')
+        .trim()
+        .replace(/^[+−]/, '');
+      const lots = conceptCell.getByRole('button');
+      const lotsText = (await lots.count()) === 0 ? '—' : ((await lots.textContent()) ?? '').trim();
+
+      return [
+        cells[0] ?? '',
+        concept,
+        cells[2] ?? '',
+        cells[3] ?? '',
+        cells[4] ?? '',
+        cells[5] ?? '',
+        lotsText,
+      ];
+    }),
   );
 }

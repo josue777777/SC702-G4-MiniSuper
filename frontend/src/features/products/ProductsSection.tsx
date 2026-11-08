@@ -439,6 +439,8 @@ export function ProductsSection({
           initialMinStock={editing?.minStock ?? 0}
           initialExpirationDate={editing?.expirationDate ?? null}
           initialPerishable={editing?.perishable ?? true}
+          initialUnit={editing?.unit ?? 'UD'}
+          initialMaxStock={editing?.maxStock ?? 0}
           onCategoryCreated={afterCategoryCreated}
           onSupplierCreated={afterSupplierCreated}
           busy={busy}

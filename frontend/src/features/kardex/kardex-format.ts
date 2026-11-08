@@ -40,3 +40,62 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function isProductId(value: string): boolean {
   return UUID.test(value);
 }
+
+/** Estado de las existencias: una palabra y su tono de insignia. */
+export interface StockStatus {
+  label: 'Agotado' | 'Bajo' | 'Sobre el máximo' | 'Bien';
+  tone: 'error' | 'warning' | 'ok';
+}
+
+/**
+ * Cómo están las existencias de un producto, con la misma regla de la alerta
+ * de stock bajo (HU-08): con mínimo, «Bajo» es estar en el mínimo o por debajo.
+ *
+ * @example stockStatus({ stock: 0, minStock: 5, maxStock: 0 });   // { label: 'Agotado', tone: 'error' }
+ * @example stockStatus({ stock: 5, minStock: 5, maxStock: 0 });   // { label: 'Bajo', tone: 'warning' }
+ * @example stockStatus({ stock: 70, minStock: 9, maxStock: 60 }); // { label: 'Sobre el máximo', tone: 'warning' }
+ * @example stockStatus({ stock: 30, minStock: 9, maxStock: 60 }); // { label: 'Bien', tone: 'ok' }
+ */
+export function stockStatus(product: {
+  stock: number;
+  minStock: number;
+  maxStock: number;
+}): StockStatus {
+  if (product.stock === 0) {
+    return { label: 'Agotado', tone: 'error' };
+  }
+
+  if (product.minStock > 0 && product.stock <= product.minStock) {
+    return { label: 'Bajo', tone: 'warning' };
+  }
+
+  if (product.maxStock > 0 && product.stock > product.maxStock) {
+    return { label: 'Sobre el máximo', tone: 'warning' };
+  }
+
+  return { label: 'Bien', tone: 'ok' };
+}
+
+/**
+ * Cantidad con signo: «+12» si entra, «−2» si sale (el signo es el menos
+ * tipográfico, como se lee en papel).
+ *
+ * @example signed(12, 'in');  // "+12"
+ * @example signed(2, 'out');  // "−2"
+ */
+export function signed(value: number, direction: 'in' | 'out'): string {
+  return `${direction === 'in' ? '+' : '−'}${value.toLocaleString('es-CR')}`;
+}
+
+/**
+ * Número de pedido escrito → consecutivo, o `null` si no lo parece.
+ *
+ * @example orderNumberOf('PED-0421'); // 421
+ * @example orderNumberOf('421');      // 421
+ * @example orderNumberOf('abc');      // null
+ */
+export function orderNumberOf(text: string): number | null {
+  const match = /^\s*(?:PED-?)?0*(\d{1,7})\s*$/i.exec(text);
+
+  return match?.[1] === undefined ? null : Number(match[1]);
+}

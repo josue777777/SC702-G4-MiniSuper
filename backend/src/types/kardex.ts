@@ -6,6 +6,8 @@
  * Dinero: cadenas con dos decimales (`"1500.00"`), como en `types/products.ts`.
  */
 
+import type { UnitOfMeasure } from './products.js';
+
 export type KardexMovementKind = 'ENTRY' | 'EXIT' | 'ADJUSTMENT';
 
 /** Importe tal como lo entrega Prisma (`Decimal`): solo se necesita `toFixed`. */
@@ -23,6 +25,10 @@ export interface KardexProductRow {
   cost: DecimalLike;
   stock: number;
   minStock: number;
+  maxStock: number;
+  unit: UnitOfMeasure;
+  description: string | null;
+  perishable: boolean;
   expirationDate: Date | null;
   isActive: boolean;
   category: { name: string };
@@ -43,6 +49,13 @@ export interface KardexProductDto {
   supplierName: string | null;
   stock: number;
   minStock: number;
+  /** Stock máximo que conviene tener; 0 = sin máximo. */
+  maxStock: number;
+  /** Unidad en que se cuenta el stock. */
+  unit: UnitOfMeasure;
+  description: string | null;
+  /** ¿Vence? Si es así, un ingreso pide lote y fecha de vencimiento. */
+  perishable: boolean;
   /** `YYYY-MM-DD` o `null` si no vence. */
   expirationDate: string | null;
   isActive: boolean;
@@ -73,6 +86,12 @@ export interface KardexMovementRow {
   receipt: { invoiceNumber: string } | null;
   /** Lotes que entraron con este movimiento (HU-38). */
   lots: { lotNumber: string; expirationDate: Date | null; receivedQuantity: number }[];
+  /** Documento de un ingreso o egreso registrado en Movimientos. */
+  documentNumber: string | null;
+  /** Detalle libre de un egreso. */
+  detail: string | null;
+  /** Lote del que salió un egreso. */
+  exitLot: { lotNumber: string; expirationDate: Date | null } | null;
 }
 
 /** Un lote que entró con un movimiento: número, vencimiento y cuántas unidades. */
@@ -112,17 +131,30 @@ export interface KardexMovementDto {
   stockBefore: number;
   stockAfter: number;
   reference: KardexReference | null;
-  /** Lotes con que entró (HU-38); vacío si el movimiento no trajo lotes. */
+  /** Lotes con que entró, o el lote del que salió un egreso (HU-38); vacío si no hay. */
   lots: KardexLotDto[];
+  /** Detalle de un egreso, o `null`. */
+  detail: string | null;
+}
+
+/** Unidades que entraron y salieron en un grupo de movimientos, y cuántos son. */
+export interface KardexAmounts {
+  entries: number;
+  exits: number;
+  count: number;
 }
 
 export interface KardexMovementPage {
   items: KardexMovementDto[];
   page: number;
   pageSize: number;
-  /** Movimientos totales del producto. */
+  /** Movimientos del producto con el filtro aplicado. */
   total: number;
   totalPages: number;
+  /** Totales con el filtro aplicado (la fila «Totales» de la tabla). */
+  totals: KardexAmounts;
+  /** Todo el historial del producto, sin filtro (el resumen de la ficha). */
+  summary: KardexAmounts;
 }
 
 /** Movimiento de cualquier producto, tal como lo lee el repositorio (vista general). */
@@ -152,10 +184,68 @@ export interface KardexRecentPage {
   total: number;
   totalPages: number;
   /** Hoy, en la zona del negocio: unidades que entraron, que salieron y cuántos movimientos. */
-  today: { entries: number; exits: number; count: number };
+  today: KardexAmounts;
 }
+
+/** Qué movimientos se listan: todos, solo los que suben el stock o solo los que lo bajan. */
+export type KardexDirection = 'all' | 'entries' | 'exits';
 
 export interface KardexMovementsQuery {
   page: number;
   pageSize: number;
+  /** Sin indicar: todos. */
+  direction?: KardexDirection | undefined;
+}
+
+/** Lote con unidades, tal como lo lee el repositorio. */
+export interface KardexStockLotRow {
+  id: string;
+  lotNumber: string;
+  expirationDate: Date | null;
+  quantity: number;
+}
+
+/** Lote con unidades en inventario: lo que se puede elegir en un egreso. */
+export interface KardexStockLotDto {
+  id: string;
+  lotNumber: string;
+  /** `YYYY-MM-DD`, o `null` si no vence. */
+  expirationDate: string | null;
+  quantity: number;
+}
+
+/**
+ * Conceptos de un egreso registrado en Movimientos (salidas que no son
+ * ventas: esas salen solas desde la caja), con el texto que ve la persona.
+ */
+export const EXIT_CONCEPTS = {
+  EXPIRED: 'Vencido / descartado',
+  TRANSFER: 'Traslado',
+  SUPPLIER_RETURN: 'Devolución a proveedor',
+} as const;
+
+export type KardexExitConcept = keyof typeof EXIT_CONCEPTS;
+
+/** Concepto de un ingreso sin pedido (compra directa al proveedor). */
+export const DIRECT_PURCHASE_CONCEPT = 'Compra directa';
+
+/** Ingreso sin pedido (HU-38): lo que envía el formulario. */
+export interface KardexEntryFields {
+  supplierId: string;
+  invoiceNumber: string;
+  /** `YYYY-MM-DD`: el día de la factura (no futuro). */
+  documentDate: string;
+  quantity: number;
+  /** Costo unitario, `"4850.00"`. */
+  unitCost: string;
+  lots?: { lotNumber: string; expirationDate: string | null; quantity: number }[] | undefined;
+}
+
+/** Egreso (HU-38): salida que no es venta, de un lote elegido. */
+export interface KardexExitFields {
+  concept: KardexExitConcept;
+  documentNumber: string;
+  lotId: string;
+  quantity: number;
+  detail?: string | undefined;
 }

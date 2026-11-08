@@ -67,6 +67,10 @@ export interface ProductDto {
   expirationDate: string | null;
   /** ¿Vence? `false` = «No vence»: sus entradas no piden fecha (HU-38). */
   perishable: boolean;
+  /** Unidad en que se cuenta el stock (`UD`, `KG`, `L`…). */
+  unit: UnitOfMeasure;
+  /** Stock máximo que conviene tener; 0 = sin máximo. */
+  maxStock: number;
   /**
    * URL de la imagen (HU-01), o `null` si no tiene. Lleva `?v=` con la fecha del
    * cambio para que el navegador no muestre una imagen vieja de su caché.
@@ -132,6 +136,10 @@ export interface ProductWritableFields {
    * Si vence, cada entrada de mercadería pide lote y fecha de vencimiento.
    */
   perishable?: boolean | undefined;
+  /** Unidad de medida. Si se omite: al crear, `UD`; al editar, la que tenía. */
+  unit?: UnitOfMeasure | undefined;
+  /** Stock máximo (0 = sin máximo). Si se omite: al crear, 0; al editar, el que tenía. */
+  maxStock?: number | undefined;
 }
 
 /** Trabajo que el service encarga al repositorio al crear un producto. */
@@ -153,3 +161,8 @@ export interface ProductReferences {
   sales: number;
   purchaseOrders: number;
 }
+
+/** Unidades de medida: los mismos literales del enum `UnitOfMeasure` de Prisma. */
+export const UNITS_OF_MEASURE = ['UD', 'KG', 'G', 'L', 'ML', 'M', 'CJ', 'PQ'] as const;
+
+export type UnitOfMeasure = (typeof UNITS_OF_MEASURE)[number];

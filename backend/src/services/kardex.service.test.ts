@@ -33,6 +33,10 @@ describe('ficha del producto', () => {
       supplierName: 'Distribuidora Central',
       stock: 8,
       minStock: 3,
+      maxStock: 0,
+      unit: 'UD',
+      description: null,
+      perishable: false,
       expirationDate: null,
       isActive: true,
     });
@@ -111,6 +115,8 @@ describe('historial', () => {
       pageSize: 25,
       total: 0,
       totalPages: 0,
+      totals: { entries: 0, exits: 0, count: 0 },
+      summary: { entries: 0, exits: 0, count: 0 },
     });
   });
 

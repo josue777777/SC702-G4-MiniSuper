@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { disconnectPrisma, prisma } from '../config/prisma.js';
 import { PurchaseOrdersService } from '../services/purchase-orders.service.js';
+import { KardexService } from '../services/kardex.service.js';
+import { KardexRepository } from './kardex.repository.js';
 import { PurchaseOrdersRepository } from './purchase-orders.repository.js';
 
 /**
@@ -339,6 +341,144 @@ describe.skipIf(!databaseName.endsWith('_test'))(
 
       expect(lots.find((lot) => lot.lotNumber === 'SIN LOTE')?.quantity).toBe(2);
       expect(lots.reduce((sum, lot) => sum + lot.quantity, 0)).toBe(await stockOf(ids['milk']));
+    });
+
+    it('una entrega pendiente de antes de los lotes se carga con la factura como lote', async () => {
+      const order = await service.createOrder({
+        supplierId: ids['supplier'] ?? '',
+        notes: null,
+        items: [{ productId: ids['beans'] ?? '', quantity: 3 }],
+      });
+      const received = await service.receiveOrder(
+        order.id,
+        {
+          invoiceNumber: 'F-OLD',
+          receivedOn: '2099-01-15',
+          loadNow: false,
+          items: [{ productId: ids['beans'] ?? '', quantity: 3 }],
+        },
+        TODAY,
+      );
+      const receiptId = received.receipts[0]?.id ?? '';
+      const before = await stockOf(ids['beans']);
+
+      // Como si se hubiera registrado antes de la migración de lotes.
+      await prisma.purchaseReceiptItemLot.deleteMany({ where: { receiptItem: { receiptId } } });
+      await service.loadReceipt(order.id, receiptId);
+
+      expect(await stockOf(ids['beans'])).toBe(before + 3);
+      expect((await lotsOf(ids['beans'])).find((lot) => lot.lotNumber === 'F-OLD')?.quantity).toBe(
+        3,
+      );
+    });
+
+    it('ingreso sin pedido desde Movimientos: compra directa con sus lotes, factura, costo y proveedor', async () => {
+      const kardex = new KardexService(new KardexRepository(A));
+      const before = await stockOf(ids['milk']);
+
+      await kardex.registerEntry(
+        ids['milk'] ?? '',
+        {
+          supplierId: ids['supplier'] ?? '',
+          invoiceNumber: 'F-900',
+          documentDate: '2099-01-20',
+          quantity: 5,
+          unitCost: '650.00',
+          lots: [{ lotNumber: 'L-9', expirationDate: '2099-04-01', quantity: 5 }],
+        },
+        TODAY,
+      );
+
+      expect(await stockOf(ids['milk'])).toBe(before + 5);
+
+      const page = await kardex.listMovements(ids['milk'] ?? '', { page: 1, pageSize: 5 });
+
+      expect(page.items[0]).toMatchObject({
+        concept: 'Compra directa',
+        document: 'F-900',
+        entry: 5,
+        lots: [{ lotNumber: 'L-9', expirationDate: '2099-04-01', quantity: 5 }],
+      });
+
+      const saved = await prisma.inventoryMovement.findFirstOrThrow({
+        where: { productId: ids['milk'], documentNumber: 'F-900' },
+        select: { unitCost: true, supplierId: true },
+      });
+
+      expect(saved.unitCost?.toFixed(2)).toBe('650.00');
+      expect(saved.supplierId).toBe(ids['supplier']);
+    });
+
+    it('egreso del lote elegido (no del que vence primero), con concepto, documento y su lote', async () => {
+      const kardex = new KardexService(new KardexRepository(A));
+      const l2 = await prisma.productLot.findFirstOrThrow({
+        where: { productId: ids['milk'], lotNumber: 'L-2' },
+      });
+      const stock = await stockOf(ids['milk']);
+
+      await kardex.registerExit(ids['milk'] ?? '', {
+        concept: 'EXPIRED',
+        documentNumber: '44',
+        lotId: l2.id,
+        quantity: 3,
+        detail: 'botellas golpeadas',
+      });
+
+      const lots = await lotsOf(ids['milk']);
+
+      expect(lots.find((lot) => lot.lotNumber === 'L-2')?.quantity).toBe(l2.quantity - 3);
+      // L-1 vence antes, pero no se tocó: salió del lote elegido.
+      expect(lots.find((lot) => lot.lotNumber === 'L-1')?.quantity).toBe(4);
+      expect(await stockOf(ids['milk'])).toBe(stock - 3);
+      expect(lots.reduce((sum, lot) => sum + lot.quantity, 0)).toBe(stock - 3);
+
+      const page = await kardex.listMovements(ids['milk'] ?? '', { page: 1, pageSize: 5 });
+
+      expect(page.items[0]).toMatchObject({
+        concept: 'Vencido / descartado',
+        document: '44',
+        exit: 3,
+        detail: 'botellas golpeadas',
+        lots: [{ lotNumber: 'L-2', quantity: 3 }],
+      });
+    });
+
+    it('dos egresos a la vez del último que queda en un lote: uno sale y el otro recibe 409', async () => {
+      const kardex = new KardexService(new KardexRepository(A));
+      const l2 = await prisma.productLot.findFirstOrThrow({
+        where: { productId: ids['milk'], lotNumber: 'L-2' },
+      });
+      const stock = await stockOf(ids['milk']);
+      const exit = () =>
+        kardex.registerExit(ids['milk'] ?? '', {
+          concept: 'TRANSFER',
+          documentNumber: '15',
+          lotId: l2.id,
+          quantity: l2.quantity,
+        });
+
+      const results = await Promise.allSettled([exit(), exit()]);
+
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(await stockOf(ids['milk'])).toBe(stock - l2.quantity);
+      expect((await lotsOf(ids['milk'])).reduce((sum, lot) => sum + lot.quantity, 0)).toBe(
+        stock - l2.quantity,
+      );
+    });
+
+    it('otro negocio no puede sacar de un lote ajeno', async () => {
+      const l1 = await prisma.productLot.findFirstOrThrow({
+        where: { productId: ids['milk'], lotNumber: 'L-1' },
+      });
+
+      await expect(
+        new KardexService(new KardexRepository(B)).registerExit(ids['milk'] ?? '', {
+          concept: 'EXPIRED',
+          documentNumber: '1',
+          lotId: l1.id,
+          quantity: 1,
+        }),
+      ).rejects.toMatchObject({ statusCode: 404 });
     });
   },
 );

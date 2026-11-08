@@ -1,10 +1,14 @@
 import type {
+  KardexDirection,
+  KardexEntryPayload,
+  KardexExitPayload,
   KardexMovementPage,
   KardexProduct,
   KardexProductOption,
   KardexRecentPage,
+  KardexStockLot,
 } from '../types/kardex';
-import { apiGet } from './api-client';
+import { apiGet, apiPost } from './api-client';
 
 interface DataResponse<T> {
   data: T;
@@ -36,8 +40,13 @@ export const kardexService = {
     productId: string,
     page: number,
     pageSize: number,
+    direction: KardexDirection = 'all',
   ): Promise<KardexMovementPage> {
-    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    const query = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+      direction,
+    });
 
     return (
       await apiGet<DataResponse<KardexMovementPage>>(
@@ -52,6 +61,35 @@ export const kardexService = {
 
     return (
       await apiGet<DataResponse<KardexRecentPage>>(`/api/kardex/movements?${query.toString()}`)
+    ).data;
+  },
+
+  /** Lotes con unidades del producto, del que vence primero (para un egreso). */
+  async listStockLots(productId: string): Promise<KardexStockLot[]> {
+    return (
+      await apiGet<DataResponse<KardexStockLot[]>>(
+        `/api/kardex/products/${encodeURIComponent(productId)}/lots`,
+      )
+    ).data;
+  },
+
+  /** HU-38 — ingreso sin pedido (compra directa). Devuelve la ficha con el stock nuevo. */
+  async registerEntry(productId: string, payload: KardexEntryPayload): Promise<KardexProduct> {
+    return (
+      await apiPost<DataResponse<KardexProduct>>(
+        `/api/kardex/products/${encodeURIComponent(productId)}/entries`,
+        payload,
+      )
+    ).data;
+  },
+
+  /** HU-38 — egreso de un lote (salida que no es venta). Devuelve la ficha con el stock nuevo. */
+  async registerExit(productId: string, payload: KardexExitPayload): Promise<KardexProduct> {
+    return (
+      await apiPost<DataResponse<KardexProduct>>(
+        `/api/kardex/products/${encodeURIComponent(productId)}/exits`,
+        payload,
+      )
     ).data;
   },
 };

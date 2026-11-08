@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { nextDocumentNumber } from './document-sequence.js';
+import { addStockWithLots } from './stock-entries.js';
 import type {
   CreatePurchaseOrderPlan,
   PurchaseOrderDto,
@@ -224,11 +225,8 @@ type Tx = Prisma.TransactionClient;
  * si seguía pendiente: si dos personas confirman a la vez, la segunda no suma
  * dos veces (responde 409).
  *
- * Cada lote de la entrega pasa a ser un lote del inventario (`ProductLot`),
- * ligado a su entrada del Kardex; un lote nuevo nunca cambia la fecha de los
- * anteriores (HU-38). Los lotes se crean ANTES de subir el stock: así el
- * disparador que mantiene «stock = suma de lotes» ya los encuentra y no agrega
- * nada. Después, la fecha del producto pasa a ser la del lote que vence primero.
+ * Cada lote de la entrega pasa a ser un lote del inventario, ligado a su
+ * entrada del Kardex (`addStockWithLots`, la misma de la compra directa).
  */
 async function loadReceiptStock(
   tx: Tx,
@@ -249,6 +247,7 @@ async function loadReceiptStock(
     where: { id: receiptId },
     select: {
       purchaseOrderId: true,
+      invoiceNumber: true,
       items: {
         select: {
           productId: true,
@@ -260,51 +259,18 @@ async function loadReceiptStock(
   });
 
   for (const item of receipt.items) {
-    const lots = await tx.productLot.createManyAndReturn({
-      data: item.lots.map((lot) => ({
-        productId: item.productId,
-        lotNumber: lot.lotNumber,
-        expirationDate: lot.expirationDate,
-        quantity: lot.quantity,
-        receivedQuantity: lot.quantity,
-      })),
-      select: { id: true },
-    });
-    const product = await tx.product.update({
-      where: { id: item.productId, businessId },
-      data: { stock: { increment: item.quantity } },
-      select: { stock: true },
-    });
-    const movement = await tx.inventoryMovement.create({
-      data: {
-        productId: item.productId,
-        type: 'ENTRY',
-        quantity: item.quantity,
-        stockBefore: product.stock - item.quantity,
-        stockAfter: product.stock,
-        reason,
-        purchaseOrderId: receipt.purchaseOrderId,
-        receiptId,
-      },
-      select: { id: true },
-    });
+    // Una entrega registrada antes de los lotes no tiene lotes: entra en uno
+    // con el número de factura, sin fecha.
+    const lots =
+      item.lots.length > 0
+        ? item.lots
+        : [{ lotNumber: receipt.invoiceNumber, expirationDate: null, quantity: item.quantity }];
 
-    await tx.productLot.updateMany({
-      where: { id: { in: lots.map((lot) => lot.id) } },
-      data: { entryMovementId: movement.id },
+    await addStockWithLots(tx, businessId, item.productId, lots, {
+      reason,
+      purchaseOrderId: receipt.purchaseOrderId,
+      receiptId,
     });
-
-    const earliest = await tx.productLot.aggregate({
-      where: { productId: item.productId, quantity: { gt: 0 }, expirationDate: { not: null } },
-      _min: { expirationDate: true },
-    });
-
-    if (earliest._min.expirationDate !== null) {
-      await tx.product.update({
-        where: { id: item.productId, businessId },
-        data: { expirationDate: earliest._min.expirationDate },
-      });
-    }
   }
 }
 

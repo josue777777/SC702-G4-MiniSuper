@@ -9,9 +9,17 @@ import type {
   KardexProductDto,
   KardexProductOption,
   KardexRecentPage,
+  KardexStockLotDto,
 } from '../types/kardex.js';
-import { businessDayRange, dateToDateOnly, todayInBusinessZone } from '../utils/dates.js';
-import { formatOrderNumber } from './purchase-orders.service.js';
+import { DIRECT_PURCHASE_CONCEPT, EXIT_CONCEPTS } from '../types/kardex.js';
+import {
+  businessDayRange,
+  dateOnlyToDate,
+  dateToDateOnly,
+  todayInBusinessZone,
+} from '../utils/dates.js';
+import type { KardexEntryInput, KardexExitInput } from '../validators/kardex.validator.js';
+import { formatOrderNumber, resolveReceiptLots } from './purchase-orders.service.js';
 import { HttpError } from '../utils/http-error.js';
 
 /** Productos que ofrece el selector: suficiente para elegir y acota la respuesta. */
@@ -91,12 +99,18 @@ export function movementConcept(row: KardexMovementRow): string {
  *
  * @example
  * movementDocument({ receipt: { invoiceNumber: 'na-o1' }, … }); // "na-o1"
+ * movementDocument({ documentNumber: '44', … });                // "44"
  * movementDocument({ sale: { number: 408 }, … });               // "408"
  * movementDocument({ reason: 'Conteo físico', … });            // null
  */
 export function movementDocument(row: KardexMovementRow): string | null {
   if (row.receipt !== null) {
     return row.receipt.invoiceNumber;
+  }
+
+  // Ingreso o egreso registrado en Movimientos: su factura o su documento.
+  if (row.documentNumber !== null) {
+    return row.documentNumber;
   }
 
   if (row.purchaseOrder !== null) {
@@ -128,11 +142,25 @@ function toMovementDto(row: KardexMovementRow): KardexMovementDto {
     stockBefore: row.stockBefore,
     stockAfter: row.stockAfter,
     reference,
-    lots: row.lots.map((lot) => ({
-      lotNumber: lot.lotNumber,
-      expirationDate: lot.expirationDate === null ? null : dateToDateOnly(lot.expirationDate),
-      quantity: lot.receivedQuantity,
-    })),
+    // Lo que entró en lotes, o el lote del que salió un egreso.
+    lots:
+      row.exitLot === null
+        ? row.lots.map((lot) => ({
+            lotNumber: lot.lotNumber,
+            expirationDate: lot.expirationDate === null ? null : dateToDateOnly(lot.expirationDate),
+            quantity: lot.receivedQuantity,
+          }))
+        : [
+            {
+              lotNumber: row.exitLot.lotNumber,
+              expirationDate:
+                row.exitLot.expirationDate === null
+                  ? null
+                  : dateToDateOnly(row.exitLot.expirationDate),
+              quantity: row.quantity,
+            },
+          ],
+    detail: row.detail,
   };
 }
 
@@ -190,23 +218,38 @@ export class KardexService {
       supplierName: product.supplierProducts[0]?.supplier.name ?? null,
       stock: product.stock,
       minStock: product.minStock,
+      maxStock: product.maxStock,
+      unit: product.unit,
+      description: product.description,
+      perishable: product.perishable,
       expirationDate:
         product.expirationDate === null ? null : dateToDateOnly(product.expirationDate),
       isActive: product.isActive,
     };
   }
 
-  /** Una página del historial, del más reciente al más antiguo. */
+  /**
+   * Una página del historial, del más reciente al más antiguo; con
+   * `direction` solo las entradas o solo las salidas. Trae los totales de lo
+   * filtrado (fila «Totales») y el resumen de todo el historial (la ficha).
+   */
   async listMovements(productId: string, query: KardexMovementsQuery): Promise<KardexMovementPage> {
     if ((await this.repository.findProduct(productId)) === null) {
       throw HttpError.notFound('El producto no existe.');
     }
 
-    const { rows, total } = await this.repository.listMovements(
-      productId,
-      (query.page - 1) * query.pageSize,
-      query.pageSize,
-    );
+    const direction = query.direction ?? 'all';
+    const [{ rows, total }, filtered, all] = await Promise.all([
+      this.repository.listMovements(
+        productId,
+        (query.page - 1) * query.pageSize,
+        query.pageSize,
+        direction,
+      ),
+      this.repository.listProductAmounts(productId, direction),
+      direction === 'all' ? null : this.repository.listProductAmounts(productId),
+    ]);
+    const totals = sumAmounts(filtered);
 
     return {
       items: rows.map(toMovementDto),
@@ -214,7 +257,115 @@ export class KardexService {
       pageSize: query.pageSize,
       total,
       totalPages: Math.ceil(total / query.pageSize),
+      totals,
+      summary: all === null ? totals : sumAmounts(all),
     };
+  }
+
+  /** Lotes con unidades (para elegir de cuál sale un egreso), del que vence primero. */
+  async listStockLots(productId: string): Promise<KardexStockLotDto[]> {
+    if ((await this.repository.findProduct(productId)) === null) {
+      throw HttpError.notFound('El producto no existe.');
+    }
+
+    return (await this.repository.listStockLots(productId)).map((lot) => ({
+      id: lot.id,
+      lotNumber: lot.lotNumber,
+      expirationDate: lot.expirationDate === null ? null : dateToDateOnly(lot.expirationDate),
+      quantity: lot.quantity,
+    }));
+  }
+
+  /**
+   * HU-38 — ingreso SIN pedido (compra directa al proveedor) desde
+   * Movimientos. Reglas: el proveedor es del negocio y está activo; la
+   * factura no es de una fecha futura; los lotes cuadran con lo que entró
+   * (`resolveReceiptLots`: si el producto vence, lote y fecha en cada uno).
+   * Deja la entrada con concepto «Compra directa», la factura como documento,
+   * el costo unitario y el proveedor.
+   *
+   * @returns La ficha actualizada (con el stock nuevo).
+   */
+  async registerEntry(
+    productId: string,
+    input: KardexEntryInput,
+    today = todayInBusinessZone(),
+  ): Promise<KardexProductDto> {
+    const product = await this.getProduct(productId);
+
+    if (!(await this.repository.supplierIsActive(input.supplierId))) {
+      throw HttpError.badRequest('El proveedor no existe o está inactivo.', {
+        supplierId: ['Elija un proveedor activo.'],
+      });
+    }
+
+    if (input.documentDate > today) {
+      throw HttpError.badRequest('La fecha de la factura no puede ser futura.', {
+        documentDate: ['La fecha de la factura no puede ser futura.'],
+      });
+    }
+
+    const lots = resolveReceiptLots(
+      { productName: product.name, perishable: product.perishable },
+      { quantity: input.quantity, lots: input.lots },
+      input.invoiceNumber,
+      input.documentDate,
+    );
+
+    await this.repository.addDirectEntry(
+      productId,
+      lots.map((lot) => ({
+        lotNumber: lot.lotNumber,
+        expirationDate: lot.expirationDate === null ? null : dateOnlyToDate(lot.expirationDate),
+        quantity: lot.quantity,
+      })),
+      {
+        reason: DIRECT_PURCHASE_CONCEPT,
+        documentNumber: input.invoiceNumber,
+        documentDate: dateOnlyToDate(input.documentDate),
+        unitCost: input.unitCost,
+        supplierId: input.supplierId,
+      },
+    );
+
+    return this.getProduct(productId);
+  }
+
+  /**
+   * HU-38 — egreso: una salida que NO es venta (vencido o descartado,
+   * traslado, devolución a proveedor), del lote elegido. Nunca baja de lo que
+   * tiene el lote; si alguien sacó antes, responde 409 sin cambiar nada.
+   *
+   * @returns La ficha actualizada (con el stock nuevo).
+   */
+  async registerExit(productId: string, input: KardexExitInput): Promise<KardexProductDto> {
+    await this.getProduct(productId);
+
+    const lots = await this.repository.listStockLots(productId);
+    const lot = lots.find((candidate) => candidate.id === input.lotId);
+
+    if (lot === undefined) {
+      throw HttpError.badRequest('Ese lote no es de este producto o ya no tiene unidades.', {
+        lotId: ['Elija un lote con unidades.'],
+      });
+    }
+
+    if (input.quantity > lot.quantity) {
+      throw HttpError.badRequest(
+        `Del lote ${lot.lotNumber} quedan ${lot.quantity}: no puede salir más.`,
+        { quantity: [`Del lote ${lot.lotNumber} quedan ${lot.quantity}.`] },
+      );
+    }
+
+    await this.repository.registerExit(productId, {
+      lotId: lot.id,
+      quantity: input.quantity,
+      reason: EXIT_CONCEPTS[input.concept],
+      documentNumber: input.documentNumber,
+      detail: input.detail === undefined || input.detail === '' ? null : input.detail,
+    });
+
+    return this.getProduct(productId);
   }
 
   /**

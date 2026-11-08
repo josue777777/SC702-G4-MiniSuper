@@ -17,6 +17,10 @@ de HU-38, los lotes con vencimiento y la entrada desde el Kardex). Volver al
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
+- **Recibir desde Movimientos** (HU-38): en Movimientos · Kardex, «+ Registrar ingreso» con
+  el N.º de pedido registra la entrega de ese producto (el pedido queda recibido o
+  parcial) y «Registrar todo el pedido» abre esta misma ventana de «Registrar entrega»:
+  una ventana, dos puertas. Ver `docs/guia/productos-e-inventario.md`.
 - **Lotes con vencimiento** (HU-38): en «Registrar entrega» cada producto lleva su
   **lote** y, si vence, su **fecha de vencimiento**, en la misma fila. Si llegó en
   varios lotes, «Partir en lotes» abre una ventana solo para ese producto (lote,

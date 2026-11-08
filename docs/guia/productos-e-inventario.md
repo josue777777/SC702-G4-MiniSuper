@@ -29,17 +29,32 @@ Es el catálogo del negocio y el control de sus existencias:
   anterior»: es el stock final de la línea de abajo. Si la línea entró en lotes, su botón
   «N lotes» los muestra en una ventana (HU-38). Más adelante se suman los conceptos de
   salida «Devolución» (a proveedor), «Traslado» y «Vencido-descartado».
-- **Pantalla de Movimientos**, siempre con la misma forma:
+- **Movimientos · Kardex**, siempre con la misma forma:
   1. **Buscador** arriba (código, nombre o código de barras; con el lector, código + Enter
      abre el producto). Al entrar en la caja se despliega «Recientes» (los últimos 6
      productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
      coinciden con su stock (`KardexSearch.tsx`).
-  2. **Ficha** del producto; sin producto, la misma ficha con «—» (`EmptyProductSheet`).
-  3. **Movimientos**: los del producto o, sin producto, los últimos de todos los productos
-     con «Hoy: N entran · N salen · N movimientos» y el código como enlace al kardex de
-     cada uno (`RecentMovements.tsx`).
-  4. **Barra de acciones** abajo, como en Inventario: «+ Registrar ingreso» y «− Registrar
-     egreso» (se activan con la entrada desde Movimientos de HU-38).
+  2. **Ficha** en celdas (etiqueta oscura y valor, `ProductSheet.tsx`): producto (código,
+     nombre, código de barras, categoría), unidad, precio, costo, proveedor principal,
+     descripción, vencimiento, **existencias con su estado** («Bien», «Bajo», «Agotado»,
+     «Sobre el máximo»: insignia con palabra), stock mínimo y máximo, y el historial
+     («Entró +30 · Salió −12 · 9 movimientos»). Sin producto, la misma ficha con «—».
+  3. **Kardex del producto** con «Todos / Entradas / Salidas» (el filtro va al servidor) y
+     la fila «Totales»; lo que entra con «+» en verde y lo que sale con «−» en rojo
+     (`docs/PANTALLAS.md`, «Entradas y salidas»). Sin producto, los últimos movimientos de
+     todos los productos con «Hoy: N entran · N salen» (`RecentMovements.tsx`).
+  4. **Barra de acciones** abajo: «+ Registrar ingreso» y «− Registrar egreso» abren su
+     panel debajo (`EntryPanel.tsx`, `ExitPanel.tsx`). Las ventas salen solas desde la caja.
+- **Ingreso** (HU-38, permiso `purchasing`): con **N.º de pedido** (PED-0421) se
+  precargan el proveedor, lo que falta de ese producto y su costo, y la entrega queda en
+  el pedido; «Registrar todo el pedido» abre la ventana de Pedidos con todos sus
+  productos. **Sin pedido** es una «Compra directa»: factura, proveedor, fecha, cantidad,
+  costo y lotes. Sin factura o con 0 unidades no se guarda.
+- **Egreso** (permiso `inventory.write`): salida que no es venta — «Vencido / descartado»,
+  «Traslado» o «Devolución a proveedor» — del **lote elegido**, con su documento y un
+  detalle. Nunca saca más de lo que tiene el lote.
+- **Unidad de medida y stock máximo** (Editar › Existencias): UD, KG, G, L, ML, M, CJ, PQ;
+  el máximo (0 = sin máximo) hace que la ficha diga «Sobre el máximo».
 - **Lotes** (HU-38): cada entrada de mercadería guarda sus lotes con su fecha de
   vencimiento; el stock es la suma de los lotes. Un producto marcado **«No vence»**
   (Editar › Existencias) no pide fecha al recibirlo.
@@ -114,6 +129,10 @@ está en la ventana: es el reporte **Reportes › Conteos** (ver [Reportes](repo
 | `PATCH /api/inventory/products/:id/min-stock` · `/expiration-date` | Mínimo y vencimiento |
 | `GET /api/kardex/products/:id/movements?page=` | Movimientos de un producto, paginados en el servidor (HU-31) |
 | `GET /api/kardex/movements?page=` | Vista general: últimos movimientos de todos los productos y el resumen de hoy (`sumAmounts`) |
+| `GET /api/kardex/products/:id/movements?direction=entries\|exits` | El historial filtrado, con `totals` (lo filtrado) y `summary` (todo) |
+| `GET /api/kardex/products/:id/lots` | Lotes con unidades, del que vence primero (para elegir en un egreso) |
+| `POST /api/kardex/products/:id/entries` | Ingreso sin pedido: «Compra directa» con lotes (`purchasing`) |
+| `POST /api/kardex/products/:id/exits` | Egreso de un lote: vencido, traslado o devolución (`inventory.write`) |
 | `GET /api/reports/inventory` · `/rows?section=` · `/export` | Reporte de inventario: resumen, páginas y Excel (HU-25 a HU-27) |
 
 ### En el navegador
@@ -251,6 +270,16 @@ Se devuelve 1 (sin lote): «SIN LOTE» 1 → stock 9 = 0 + 4 + 4 + 1
 Los lotes que no vencen se descuentan al final. La fecha del producto (alertas de
 HU-09) pasa a ser la del lote que vence primero al cargar una entrega.
 
+### Ingreso y egreso (`addStockWithLots` y `registerExit` en los repositorios)
+
+```text
+Ingreso (pedido o compra directa) → addStockWithLots(): crea los lotes, sube el stock,
+  deja la entrada y le liga los lotes (el disparador ya encuentra la suma cuadrada).
+Egreso de 4 del lote L-2409C (30) → el lote baja PRIMERO a 26 (solo si tiene 4),
+  luego el stock (solo si alcanza) y queda la salida con su lote: el disparador no
+  toca ningún otro lote. Si dos personas sacan a la vez, la segunda recibe 409.
+```
+
 ### Concepto y documento del kardex (`movementConcept`, `movementDocument`)
 
 | Movimiento | Concepto | Documento |
@@ -258,6 +287,8 @@ HU-09) pasa a ser la del lote que vence primero al cargar una entrega.
 | Entrada de un pedido | Recepción PED-0408 | la factura: `na-o1` |
 | Venta | Venta | el número de venta: `408` |
 | Anulación o devolución de una venta | Anulación de venta / Devolución de cliente | el número de venta |
+| Compra directa (ingreso sin pedido) | Compra directa | la factura |
+| Egreso | Vencido / descartado, Traslado o Devolución a proveedor | su documento |
 | Conteo, ajuste, stock inicial | el motivo registrado | — |
 
 ### Entradas y salidas del kardex (`movementAmounts`)

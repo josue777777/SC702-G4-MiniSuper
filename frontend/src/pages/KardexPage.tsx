@@ -1,43 +1,67 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useSession } from '../features/auth/session-context';
+import { EntryPanel } from '../features/kardex/EntryPanel';
+import { ExitPanel } from '../features/kardex/ExitPanel';
 import { isProductId } from '../features/kardex/kardex-format';
 import { rememberRecent } from '../features/kardex/kardex-recents';
 import { KardexSearch } from '../features/kardex/KardexSearch';
 import { MovementsHistory } from '../features/kardex/MovementsHistory';
-import { EmptyProductSheet, ProductSheet } from '../features/kardex/ProductSheet';
+import { ProductSheet } from '../features/kardex/ProductSheet';
 import { RecentMovements } from '../features/kardex/RecentMovements';
 import { useKeyedRequest } from '../features/kardex/use-keyed-request';
 import { kardexService } from '../services/kardex.service';
+import type { KardexAmounts, KardexProduct } from '../types/kardex';
+
+/** Panel abierto bajo la barra de acciones. */
+type Panel = 'entry' | 'exit' | null;
 
 /**
- * Movimientos (kardex): ficha de un producto con sus entradas y salidas (HU-31).
+ * Movimientos · Kardex (HU-31, HU-38). Siempre con la misma forma:
  *
- * Aquí no se cambian cantidades: se consultan los movimientos que ya dejaron
- * las ventas, las devoluciones, los conteos, las ediciones y las entregas de
- * pedidos (HU-38) en la tabla `InventoryMovement`.
- *
- * La pantalla tiene siempre la misma forma, haya o no producto elegido:
  * 1. Arriba, el buscador (código, nombre o código de barras, con «Recientes»).
- * 2. La ficha del producto; sin producto, la misma ficha con «—».
- * 3. Los movimientos: los del producto o, sin producto, los últimos de todos
- *    los productos con lo que entró y salió hoy.
- * 4. Abajo, la barra de acciones (como en Inventario).
+ * 2. La ficha del producto en celdas; sin producto, la misma ficha con «—».
+ * 3. El kardex del producto (Todos / Entradas / Salidas, con «Totales») o,
+ *    sin producto, los últimos movimientos de todos los productos.
+ * 4. La barra de acciones: «+ Registrar ingreso» (con o sin pedido) y
+ *    «− Registrar egreso» (salidas que no son ventas). Cada uno abre su panel
+ *    debajo, a la vista junto al kardex. Las ventas salen solas desde la caja.
+ *
+ * Los permisos los vuelve a revisar el servidor: el ingreso pide `purchasing`
+ * (como recibir un pedido) y el egreso `inventory.write`.
  *
  * El producto viaja en la dirección (`/movimientos?productId=<uuid>`): se abre desde
- * Inventario con «Ver movimientos» y se puede compartir o recargar. El id se verifica
- * antes de pedirlo al servidor.
+ * Inventario con «Ver movimientos» y se puede compartir o recargar.
  */
 export function KardexPage() {
+  const { can } = useSession();
   const [params, setParams] = useSearchParams();
   const requested = params.get('productId') ?? '';
   const validId = isProductId(requested);
+  const [panel, setPanel] = useState<{ productId: string; open: Panel }>({
+    productId: requested,
+    open: null,
+  });
+  const [version, setVersion] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [summary, setSummary] = useState<{ productId: string; value: KardexAmounts } | null>(null);
+
+  /** Ficha vuelta a leer tras un ingreso o egreso (stock nuevo), sin recargar la pantalla. */
+  const [fresh, setFresh] = useState<KardexProduct | null>(null);
 
   const product = useKeyedRequest(
     validId ? `product:${requested}` : null,
     () => kardexService.getProduct(requested),
     'No se pudo cargar la ficha del producto.',
   );
-  const ready = product.phase === 'ready' ? product.value : null;
+  const ready =
+    product.phase !== 'ready'
+      ? null
+      : fresh !== null && fresh.id === product.value.id
+        ? fresh
+        : product.value;
+  // Al cambiar de producto se cierra el panel sin escribir estado en un efecto.
+  const open = panel.productId === requested ? panel.open : null;
 
   // El producto abierto pasa a «Recientes» del buscador (solo en este navegador).
   useEffect(() => {
@@ -46,22 +70,54 @@ export function KardexPage() {
     }
   }, [ready]);
 
+  const receiveSummary = useCallback(
+    (value: KardexAmounts) => setSummary({ productId: requested, value }),
+    [requested],
+  );
+
   function pick(productId: string): void {
+    setNotice(null);
     setParams({ productId });
   }
+
+  function toggle(next: Exclude<Panel, null>): void {
+    setNotice(null);
+    setPanel({ productId: requested, open: open === next ? null : next });
+  }
+
+  function saved(message: string): void {
+    setNotice(message);
+    setPanel({ productId: requested, open: null });
+    setVersion((current) => current + 1);
+    // El stock cambió: se vuelve a leer la ficha (si falla, queda la anterior).
+    kardexService
+      .getProduct(requested)
+      .then(setFresh)
+      .catch(() => undefined);
+  }
+
+  const canEnter = ready !== null && can('purchasing');
+  const canExit = ready !== null && can('inventory.write');
 
   return (
     <>
       <header className="page-header">
-        <h1>Movimientos</h1>
+        <h1>Movimientos · Kardex</h1>
         <p>Entradas y salidas de cada producto, con el saldo después de cada movimiento.</p>
       </header>
 
       <div className="kardex-toolbar">
         <KardexSearch onPick={pick} />
-        <Link to="/inventory" className="button kardex-back">
-          ← Volver a Inventario
-        </Link>
+        <span className="kardex-toolbar__links">
+          {requested === '' ? null : (
+            <Link to="/movimientos" onClick={() => setNotice(null)}>
+              ← Limpiar y buscar otro
+            </Link>
+          )}
+          <Link to="/inventory" className="button kardex-back">
+            ← Volver a Inventario
+          </Link>
+        </span>
       </div>
 
       {requested !== '' && !validId ? (
@@ -78,41 +134,69 @@ export function KardexPage() {
         </p>
       ) : null}
 
-      {product.phase === 'loading' ? (
+      {notice === null ? null : (
+        <p className="alert alert--success" role="status">
+          {notice}
+        </p>
+      )}
+
+      {product.phase === 'loading' && ready === null ? (
         <p className="card muted" role="status">
           Cargando ficha del producto…
         </p>
-      ) : null}
+      ) : (
+        <ProductSheet
+          product={ready}
+          summary={summary !== null && summary.productId === requested ? summary.value : null}
+        />
+      )}
 
       {ready === null ? (
         product.phase === 'loading' ? null : (
-          <>
-            <EmptyProductSheet />
-            <RecentMovements />
-          </>
+          <RecentMovements />
         )
       ) : (
-        <>
-          <ProductSheet product={ready} />
-          {/* La ficha ya se ve: el historial llega aparte y por páginas. */}
-          <MovementsHistory productId={ready.id} />
-        </>
+        // La ficha ya se ve: el historial llega aparte y por páginas.
+        <MovementsHistory
+          productId={ready.id}
+          stock={ready.stock}
+          version={version}
+          onSummary={receiveSummary}
+        />
       )}
 
-      {/* Registrar ingresos y egresos desde aquí es lo siguiente de HU-38. */}
       <div className="action-bar" role="toolbar" aria-label="Acciones de movimientos">
-        <button type="button" className="action-bar__button" disabled>
+        <button
+          type="button"
+          className="action-bar__button action-bar__button--ok"
+          disabled={!canEnter}
+          aria-pressed={open === 'entry'}
+          onClick={() => toggle('entry')}
+        >
           + Registrar ingreso
         </button>
-        <button type="button" className="action-bar__button" disabled>
+        <button
+          type="button"
+          className="action-bar__button action-bar__button--danger"
+          disabled={!canExit}
+          aria-pressed={open === 'exit'}
+          onClick={() => toggle('exit')}
+        >
           − Registrar egreso
         </button>
         <span className="action-bar__status" role="status">
           {ready === null
             ? 'Busque un producto para registrar ingresos o egresos.'
-            : 'Pronto se registran aquí. Por ahora, las entradas se registran en Pedidos › Ver pedido.'}
+            : 'Las ventas salen solas desde la caja.'}
         </span>
       </div>
+
+      {ready !== null && open === 'entry' ? (
+        <EntryPanel key={`entry-${ready.id}`} product={ready} onSaved={saved} />
+      ) : null}
+      {ready !== null && open === 'exit' ? (
+        <ExitPanel key={`exit-${ready.id}`} product={ready} version={version} onSaved={saved} />
+      ) : null}
     </>
   );
 }

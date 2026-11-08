@@ -73,6 +73,18 @@ enum PlanRequestStatus {
   REJECTED
 }
 
+/// Unidad de medida del producto: en qué se cuenta su stock y se vende.
+enum UnitOfMeasure {
+  UD /// unidad
+  KG /// kilogramo
+  G /// gramo
+  L /// litro
+  ML /// mililitro
+  M /// metro
+  CJ /// caja
+  PQ /// paquete
+}
+
 /// Tipo de cambio de inventario. Toda variación de stock deja un registro.
 /// ADJUSTMENT cubre los conteos físicos (HU-10) y las correcciones.
 enum InventoryMovementType {
@@ -292,8 +304,8 @@ model Category {
 
 /// Producto del catálogo (HU-01 … HU-09).
 model Product {
-  id             String    @id @default(uuid()) @db.Uuid
-  businessId     String    @db.Uuid
+  id             String        @id @default(uuid()) @db.Uuid
+  businessId     String        @db.Uuid
   /// Código interno del producto, solicitado en HU-01. Único en el negocio.
   code           String
   /// Código de barras leído por el lector (HU-06). Puede no existir hasta
@@ -302,24 +314,28 @@ model Product {
   name           String
   description    String?
   /// Precio de venta al público (HU-01).
-  price          Decimal   @db.Decimal(12, 2)
+  price          Decimal       @db.Decimal(12, 2)
   /// Costo de referencia actual (HU-01). El costo por proveedor vive en
   /// SupplierProduct; este campo es el último costo conocido del producto.
-  cost           Decimal   @db.Decimal(12, 2)
+  cost           Decimal       @db.Decimal(12, 2)
   /// Cantidad disponible. Todo cambio debe generar un InventoryMovement.
-  stock          Int       @default(0)
+  stock          Int           @default(0)
   /// Mínimo que dispara la alerta de stock bajo (HU-08).
-  minStock       Int       @default(0)
+  minStock       Int           @default(0)
+  /// Máximo que conviene tener (0 = sin máximo): la ficha avisa «Sobre el máximo».
+  maxStock       Int           @default(0)
+  /// En qué se cuenta el stock (UD, KG, L…).
+  unit           UnitOfMeasure @default(UD)
   /// Solo aplica a productos perecederos (HU-09). Al cargar lotes con fecha
   /// (HU-38) pasa a ser la fecha del lote que vence primero.
   expirationDate DateTime?
   /// ¿Vence? Si es `true`, cada entrada pide lote Y fecha de vencimiento; si
   /// es `false` («No vence»: detergente, ollas) solo el lote, y si no se
   /// escribe, el lote es el número de factura (HU-38).
-  perishable     Boolean   @default(true)
+  perishable     Boolean       @default(true)
   /// Desactivar en lugar de eliminar: conserva el historial de ventas (HU-03).
-  isActive       Boolean   @default(true)
-  categoryId     String    @db.Uuid
+  isActive       Boolean       @default(true)
+  categoryId     String        @db.Uuid
   /// Imagen opcional del producto (HU-01). Se guarda en la base para que la app
   /// no dependa de una carpeta del servidor; el listado nunca la selecciona.
   imageData      Bytes?
@@ -327,12 +343,12 @@ model Product {
   imageMimeType  String?
   /// Cuándo cambió la imagen; va en la URL para que el navegador no muestre una vieja.
   imageUpdatedAt DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  business           Business            @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  business           Business              @relation(fields: [businessId], references: [id], onDelete: Restrict)
   /// Compuesta: la base impide usar una categoría de otro negocio.
-  category           Category            @relation(fields: [categoryId, businessId], references: [id, businessId], onDelete: Restrict)
+  category           Category              @relation(fields: [categoryId, businessId], references: [id, businessId], onDelete: Restrict)
   supplierProducts   SupplierProduct[]
   inventoryMovements InventoryMovement[]
   saleItems          SaleItem[]
@@ -362,6 +378,19 @@ model InventoryMovement {
   purchaseOrderId String?               @db.Uuid
   /// Recepción (factura) que cargó esta entrada (HU-38).
   receiptId       String?               @db.Uuid
+  /// Documento de un ingreso o egreso registrado en Movimientos: la factura
+  /// de una compra directa o el documento de un egreso (HU-38).
+  documentNumber  String?
+  /// Fecha del documento (la factura de una compra directa).
+  documentDate    DateTime?             @db.Date
+  /// Costo unitario de una compra directa.
+  unitCost        Decimal?              @db.Decimal(12, 2)
+  /// Proveedor de una compra directa (del mismo negocio: lo revisa el service).
+  supplierId      String?               @db.Uuid
+  /// Detalle libre de un egreso («botellas vencidas retiradas de la góndola»).
+  detail          String?
+  /// Lote del que salió un egreso registrado en Movimientos.
+  exitLotId       String?               @db.Uuid
   createdAt       DateTime              @default(now())
 
   product       Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -369,12 +398,16 @@ model InventoryMovement {
   purchaseOrder PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   receipt       PurchaseReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
   /// Lotes que entraron con este movimiento (HU-38); se ven por línea en el Kardex.
-  lots          ProductLot[]
+  lots          ProductLot[]     @relation("EntryLots")
+  supplier      Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  exitLot       ProductLot?      @relation("ExitLot", fields: [exitLotId], references: [id], onDelete: SetNull)
 
   @@index([productId, createdAt])
   @@index([saleId])
   @@index([purchaseOrderId])
   @@index([receiptId])
+  @@index([supplierId])
+  @@index([exitLotId])
 }
 
 // -----------------------------------------------------------------------------
@@ -545,9 +578,11 @@ model Supplier {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  business       Business          @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  business       Business            @relation(fields: [businessId], references: [id], onDelete: Restrict)
   products       SupplierProduct[]
   purchaseOrders PurchaseOrder[]
+  /// Compras directas registradas en Movimientos (HU-38).
+  movements      InventoryMovement[]
 
   @@unique([businessId, name])
   /// Para que un pedido solo pueda ser a proveedores de su mismo negocio.
@@ -669,8 +704,8 @@ model PurchaseReceiptItem {
   productId String @db.Uuid
   quantity  Int
 
-  receipt PurchaseReceipt         @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  product Product                 @relation(fields: [productId], references: [id], onDelete: Restrict)
+  receipt PurchaseReceipt          @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  product Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
   /// Cómo vino partido en lotes; la suma de los lotes es `quantity`.
   lots    PurchaseReceiptItemLot[]
 
@@ -715,8 +750,9 @@ model ProductLot {
   entryMovementId  String?   @db.Uuid
   createdAt        DateTime  @default(now())
 
-  product       Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  entryMovement InventoryMovement? @relation(fields: [entryMovementId], references: [id], onDelete: SetNull)
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  entryMovement InventoryMovement?  @relation("EntryLots", fields: [entryMovementId], references: [id], onDelete: SetNull)
+  exitMovements InventoryMovement[] @relation("ExitLot")
 
   @@index([productId, expirationDate])
   @@index([entryMovementId])

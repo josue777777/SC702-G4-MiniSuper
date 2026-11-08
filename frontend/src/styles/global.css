@@ -26,6 +26,12 @@
   --color-row-selected: #e4e4e7;
   --color-ok: #15803d;
   --color-ok-bg: #dcfce7;
+  /* Dirección de un movimiento de inventario (no es una alerta): solo como
+     color de TEXTO y siempre con su signo, «+12» entra y «−2» sale. Las
+     alertas van en insignias con fondo y palabra («Bajo», «Agotado»), así el
+     ojo no las confunde (docs/PANTALLAS.md, «Entradas y salidas»). */
+  --color-flow-in: var(--color-ok);
+  --color-flow-out: var(--color-error);
   --color-warning: #b45309;
   --color-warning-bg: #fef3c7;
   --color-error: #b91c1c;
@@ -2953,6 +2959,164 @@ tr.print-only-row {
   margin-left: 8px;
 }
 
+/* Entra / sale: color de texto con signo (ver --color-flow-in / -out). */
+.flow-in {
+  color: var(--color-flow-in);
+  font-weight: 600;
+}
+
+.flow-out {
+  color: var(--color-flow-out);
+  font-weight: 600;
+}
+
+/* Guardar un ingreso o un egreso: el botón lleva el color de su dirección. */
+.button--in,
+.button--out {
+  border-color: transparent;
+  color: #fff;
+}
+
+.button--in {
+  background: var(--color-flow-in);
+}
+
+.button--out {
+  background: var(--color-flow-out);
+}
+
+/* «N lotes» junto al concepto: una insignia que se puede tocar. */
+.badge--button {
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* Ficha del kardex: etiqueta oscura y valor claro, en celdas, como una hoja.
+   Se acomoda sola: en pantalla angosta cada dato va en su propia fila. */
+.kardex-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.kardex-sheet__cell {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  min-height: 44px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.kardex-sheet__cell--wide {
+  grid-column: span 2;
+}
+
+.kardex-sheet__cell--full {
+  grid-column: 1 / -1;
+}
+
+.kardex-sheet__cell dt {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-sidebar);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.kardex-sheet__cell dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.kardex-sheet__cell--summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.kardex-sheet__big {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.kardex-sheet--empty dd {
+  color: var(--color-muted);
+}
+
+@media (max-width: 640px) {
+  .kardex-sheet__cell--wide {
+    grid-column: auto;
+  }
+}
+
+/* Fila «Totales» al pie del kardex. */
+.table tfoot td {
+  border-top: 2px solid var(--color-text);
+  font-weight: 700;
+}
+
+/* Panel de ingreso o egreso, debajo de la barra de acciones (no es una
+   ventana: queda a la vista junto al kardex mientras se llena). */
+.kardex-panel {
+  margin: 0 0 16px;
+  overflow: hidden;
+  border: 2px solid var(--color-flow-in);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.kardex-panel--out {
+  border-color: var(--color-flow-out);
+}
+
+.kardex-panel__title {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--color-flow-in);
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.kardex-panel--out .kardex-panel__title {
+  background: var(--color-flow-out);
+}
+
+.kardex-panel__body {
+  padding: 14px;
+}
+
+.kardex-panel__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.kardex-panel__figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
 /* Movimientos: buscador arriba, siempre a la vista, con su lista desplegable
    («Recientes» o lo encontrado), como la barra de búsqueda de la referencia. */
 .kardex-toolbar {
@@ -2962,6 +3126,13 @@ tr.print-only-row {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.kardex-toolbar__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
 .kardex-search {

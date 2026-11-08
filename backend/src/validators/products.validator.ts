@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { PRODUCT_IMAGE_TYPES, type ProductWritableFields } from '../types/products.js';
+import {
+  PRODUCT_IMAGE_TYPES,
+  UNITS_OF_MEASURE,
+  type ProductWritableFields,
+} from '../types/products.js';
 
 /**
  * Esquemas Zod del recurso productos (HU-01, HU-02).
@@ -111,6 +115,13 @@ export const createProductSchema = z.object({
   stock: stockSchema,
   supplierId: supplierIdSchema,
   perishable: z.boolean({ error: 'Indique si el producto vence.' }).optional(),
+  unit: z.enum(UNITS_OF_MEASURE, { error: 'Elija una unidad de medida válida.' }).optional(),
+  maxStock: z
+    .number({ error: 'El stock máximo debe ser un número.' })
+    .int('El stock máximo debe ser un número entero.')
+    .min(0, 'El stock máximo no puede ser negativo.')
+    .max(MAX_STOCK, `El stock máximo no puede superar ${MAX_STOCK}.`)
+    .optional(),
 });
 
 /**
