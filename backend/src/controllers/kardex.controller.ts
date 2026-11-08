@@ -41,4 +41,14 @@ export class KardexController {
       data: await this.serviceFor(businessIdOf(res)).listMovements(productId, query),
     });
   }
+
+  /** `GET /api/kardex/movements?page=&pageSize=` — vista general: todos los productos y el resumen de hoy. */
+  async listRecentMovements(req: Request, res: Response): Promise<void> {
+    const query = kardexMovementsQuerySchema.parse(req.query);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json({
+      data: await this.serviceFor(businessIdOf(res)).listRecentMovements(query),
+    });
+  }
 }

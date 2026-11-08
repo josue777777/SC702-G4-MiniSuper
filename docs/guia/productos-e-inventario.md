@@ -29,6 +29,10 @@ Es el catálogo del negocio y el control de sus existencias:
   anterior»: es el stock final de la línea de abajo. Si la línea entró en lotes, su botón
   «N lotes» los muestra en una ventana (HU-38). Más adelante se suman los conceptos de
   salida «Devolución» (a proveedor), «Traslado» y «Vencido-descartado».
+- **Movimientos sin producto elegido**: la pantalla no arranca vacía. Debajo del
+  buscador se ve lo que entró y salió hoy (tarjetas) y los últimos movimientos de todos
+  los productos, de 15 en 15, con el código como enlace al kardex de cada producto
+  (`RecentMovements.tsx`).
 - **Lotes** (HU-38): cada entrada de mercadería guarda sus lotes con su fecha de
   vencimiento; el stock es la suma de los lotes. Un producto marcado **«No vence»**
   (Editar › Existencias) no pide fecha al recibirlo.
@@ -102,6 +106,7 @@ está en la ventana: es el reporte **Reportes › Conteos** (ver [Reportes](repo
 | `GET /api/inventory/low-stock` · `/expirations` · `/products` | Alertas y configuración de existencias (HU-08, HU-09) |
 | `PATCH /api/inventory/products/:id/min-stock` · `/expiration-date` | Mínimo y vencimiento |
 | `GET /api/kardex/products/:id/movements?page=` | Movimientos de un producto, paginados en el servidor (HU-31) |
+| `GET /api/kardex/movements?page=` | Vista general: últimos movimientos de todos los productos y el resumen de hoy (`sumAmounts`) |
 | `GET /api/reports/inventory` · `/rows?section=` · `/export` | Reporte de inventario: resumen, páginas y Excel (HU-25 a HU-27) |
 
 ### En el navegador

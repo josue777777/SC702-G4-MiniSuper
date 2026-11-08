@@ -98,4 +98,30 @@ export class FakeKardexRepository {
 
     return Promise.resolve({ rows: all.slice(skip, skip + take), total: all.length });
   }
+
+  /** Todos los movimientos de todos los productos, con su producto, como la base. */
+  allMovements() {
+    return [...this.movements.entries()]
+      .flatMap(([productId, rows]) => {
+        const product = this.products.get(productId);
+
+        return rows.map((row) => ({
+          ...row,
+          product: { id: productId, code: product?.code ?? '?', name: product?.name ?? '?' },
+        }));
+      })
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id));
+  }
+
+  listRecentMovements(skip: number, take: number) {
+    const all = this.allMovements();
+
+    return Promise.resolve({ rows: all.slice(skip, skip + take), total: all.length });
+  }
+
+  listAmountsBetween(start: Date, end: Date) {
+    return Promise.resolve(
+      this.allMovements().filter((row) => row.createdAt >= start && row.createdAt < end),
+    );
+  }
 }

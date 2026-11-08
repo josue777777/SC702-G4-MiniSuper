@@ -400,6 +400,26 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
       kardexOfB.listMovements(ids['coffee'] ?? '', { page: 1, pageSize: 25 }),
     ).rejects.toMatchObject({ statusCode: 404 });
 
+    // La vista general de cada negocio solo trae sus movimientos.
+    await prisma.inventoryMovement.create({
+      data: {
+        productId: ids['foreign'] ?? '',
+        type: 'ENTRY',
+        quantity: 1,
+        stockBefore: 0,
+        stockAfter: 1,
+        reason: 'Movimiento de B',
+      },
+    });
+
+    const ofA = await kardex.listRecentMovements({ page: 1, pageSize: 100 });
+    const ofB = await kardexOfB.listRecentMovements({ page: 1, pageSize: 100 });
+
+    expect(ofA.items.some((item) => item.product.id === ids['foreign'])).toBe(false);
+    expect(ofA.items.length).toBeGreaterThan(0);
+    expect(ofB.items.map((item) => item.concept)).toEqual(['Movimiento de B']);
+    expect(ofB.today).toEqual({ entries: 1, exits: 0, count: 1 });
+
     // El selector de B solo ofrece sus productos.
     expect((await kardexOfB.searchProducts(undefined)).map((option) => option.name)).toEqual([
       'Producto de B',

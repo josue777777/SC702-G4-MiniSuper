@@ -315,6 +315,47 @@ test('un producto sin movimientos muestra su ficha y el mensaje de que no hay hi
   );
 });
 
+test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimientos de todos los productos', async ({
+  page,
+}) => {
+  await page.goto('/movimientos');
+
+  const recent = page.getByRole('region', { name: 'Movimientos recientes' });
+  const table = recent.getByRole('table', { name: 'Movimientos recientes de todos los productos' });
+
+  // La pantalla no arranca vacía: el resumen de hoy (nada se movió hoy) y la tabla.
+  await expect(recent.locator('.stat-tile', { hasText: 'Entró hoy' })).toContainText('0');
+  await expect(recent.locator('.stat-tile', { hasText: 'Movimientos hoy' })).toContainText('0');
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Fecha y hora',
+    'Código',
+    'Producto',
+    'Concepto',
+    'Documento',
+    'Entrada',
+    'Salida',
+    'Stock final',
+    'Lotes',
+  ]);
+  // 6 del café + 1 del descontinuado + 60 de la gaseosa = 67, de 15 en 15.
+  await expect(table.locator('tbody tr')).toHaveCount(15);
+  await expect(recent.getByText('Página 1 de 5')).toBeVisible();
+  await expect(table.locator('tbody tr').first()).toContainText('Gaseosa 2 L');
+  await expect(table.locator('tbody tr').first()).toContainText('Movimiento 60');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await saveEvidence(page, 'HU-31', 'movimientos-vista-general.png');
+
+  // El código es un enlace (con el estilo de enlace del sistema) al kardex de ese producto.
+  await table
+    .locator('tbody tr')
+    .first()
+    .getByRole('link', { name: /^Ver movimientos de P004/ })
+    .click();
+  await expect(page).toHaveURL(/\/movimientos\?productId=/);
+  await expect(page.getByRole('region', { name: 'Ficha de Gaseosa 2 L' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Movimientos recientes' })).toHaveCount(0);
+});
+
 test('un producto desactivado se abre desde «Desactivados» y conserva su historial', async ({
   page,
 }) => {

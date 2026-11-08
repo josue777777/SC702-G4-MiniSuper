@@ -1,4 +1,9 @@
-import type { KardexMovementPage, KardexProduct, KardexProductOption } from '../types/kardex';
+import type {
+  KardexMovementPage,
+  KardexProduct,
+  KardexProductOption,
+  KardexRecentPage,
+} from '../types/kardex';
 import { apiGet } from './api-client';
 
 interface DataResponse<T> {
@@ -38,6 +43,15 @@ export const kardexService = {
       await apiGet<DataResponse<KardexMovementPage>>(
         `/api/kardex/products/${encodeURIComponent(productId)}/movements?${query.toString()}`,
       )
+    ).data;
+  },
+
+  /** Vista general: los últimos movimientos de todos los productos y el resumen de hoy. */
+  async listRecentMovements(page: number, pageSize: number): Promise<KardexRecentPage> {
+    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+
+    return (
+      await apiGet<DataResponse<KardexRecentPage>>(`/api/kardex/movements?${query.toString()}`)
     ).data;
   },
 };

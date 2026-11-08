@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { DEFAULT_PAGE_SIZE } from '../../components/use-pagination';
 import { kardexService } from '../../services/kardex.service';
-import type { KardexMovement } from '../../types/kardex';
-import { formatMovementDate, formatQuantity } from './kardex-format';
-import { MovementLotsModal } from './MovementLotsModal';
+import { MovementsTable } from './MovementsTable';
 import { useKeyedRequest } from './use-keyed-request';
 
 /** Movimientos por página: el mismo estándar de todas las tablas (regla 2). */
@@ -22,8 +20,6 @@ const PAGE_SIZE = DEFAULT_PAGE_SIZE;
  */
 export function MovementsHistory({ productId }: { productId: string }) {
   const [position, setPosition] = useState({ productId, page: 1, attempt: 0 });
-  /** Línea cuyos lotes se están viendo. */
-  const [showingLots, setShowingLots] = useState<KardexMovement | null>(null);
   // Cambiar de producto vuelve a la primera página sin escribir estado en un efecto.
   const { page, attempt } = position.productId === productId ? position : { page: 1, attempt: 0 };
 
@@ -78,46 +74,7 @@ export function MovementsHistory({ productId }: { productId: string }) {
 
       {loaded !== null && loaded.items.length > 0 ? (
         <>
-          <div className="table-wrapper">
-            <table className="table" aria-label="Movimientos del producto">
-              <thead>
-                <tr>
-                  <th>Fecha y hora</th>
-                  <th>Concepto</th>
-                  <th>Documento</th>
-                  <th className="table__number">Entrada</th>
-                  <th className="table__number">Salida</th>
-                  <th className="table__number">Stock final</th>
-                  <th>Lotes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loaded.items.map((movement) => (
-                  <tr key={movement.id}>
-                    <td>{formatMovementDate(movement.createdAt)}</td>
-                    <td>{movement.concept}</td>
-                    <td>{movement.document ?? '—'}</td>
-                    <td className="table__number">{formatQuantity(movement.entry)}</td>
-                    <td className="table__number">{formatQuantity(movement.exit)}</td>
-                    <td className="table__number">{movement.stockAfter.toLocaleString('es-CR')}</td>
-                    <td>
-                      {movement.lots.length === 0 ? (
-                        '—'
-                      ) : (
-                        <button
-                          type="button"
-                          className="button"
-                          onClick={() => setShowingLots(movement)}
-                        >
-                          {movement.lots.length === 1 ? '1 lote' : `${movement.lots.length} lotes`}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <MovementsTable label="Movimientos del producto" items={loaded.items} />
 
           <nav className="kardex-pager" aria-label="Páginas del historial">
             <span className="muted">
@@ -142,10 +99,6 @@ export function MovementsHistory({ productId }: { productId: string }) {
           </nav>
         </>
       ) : null}
-
-      {showingLots === null ? null : (
-        <MovementLotsModal movement={showingLots} onClose={() => setShowingLots(null)} />
-      )}
     </section>
   );
 }

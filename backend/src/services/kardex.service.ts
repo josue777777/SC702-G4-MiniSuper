@@ -1,5 +1,6 @@
 import type { KardexRepository } from '../repositories/kardex.repository.js';
 import type {
+  KardexAmountRow,
   KardexMovementDto,
   KardexMovementKind,
   KardexMovementPage,
@@ -7,8 +8,9 @@ import type {
   KardexMovementsQuery,
   KardexProductDto,
   KardexProductOption,
+  KardexRecentPage,
 } from '../types/kardex.js';
-import { dateToDateOnly } from '../utils/dates.js';
+import { businessDayRange, dateToDateOnly, todayInBusinessZone } from '../utils/dates.js';
 import { formatOrderNumber } from './purchase-orders.service.js';
 import { HttpError } from '../utils/http-error.js';
 
@@ -34,7 +36,7 @@ const DEFAULT_CONCEPT: Record<KardexMovementKind, string> = {
  * movementAmounts({ type: 'ENTRY', quantity: 10, … });                      // { entry: 10, exit: 0 }
  * movementAmounts({ type: 'ADJUSTMENT', stockBefore: 20, stockAfter: 18, … }); // { entry: 0, exit: 2 }
  */
-export function movementAmounts(row: KardexMovementRow): { entry: number; exit: number } {
+export function movementAmounts(row: KardexAmountRow): { entry: number; exit: number } {
   if (row.type === 'ENTRY') {
     return { entry: row.quantity, exit: 0 };
   }
@@ -135,6 +137,29 @@ function toMovementDto(row: KardexMovementRow): KardexMovementDto {
 }
 
 /**
+ * Unidades que entraron y salieron en un grupo de movimientos (el resumen de
+ * hoy de la vista general), con la misma regla que cada línea del historial.
+ *
+ * @example
+ * sumAmounts([{ type: 'ENTRY', quantity: 24, … }, { type: 'EXIT', quantity: 13, … }]);
+ * // { entries: 24, exits: 13, count: 2 }
+ */
+export function sumAmounts(rows: KardexAmountRow[]): {
+  entries: number;
+  exits: number;
+  count: number;
+} {
+  return rows.reduce(
+    (total, row) => {
+      const { entry, exit } = movementAmounts(row);
+
+      return { entries: total.entries + entry, exits: total.exits + exit, count: total.count + 1 };
+    },
+    { entries: 0, exits: 0, count: 0 },
+  );
+}
+
+/**
  * Ficha e historial de un producto (HU-31). Solo consulta: no cambia stock ni
  * registra movimientos. Un producto de otro negocio responde igual que uno que
  * no existe, para no revelar que está en la base.
@@ -189,6 +214,30 @@ export class KardexService {
       pageSize: query.pageSize,
       total,
       totalPages: Math.ceil(total / query.pageSize),
+    };
+  }
+
+  /**
+   * Vista general de Movimientos (sin producto elegido): los últimos
+   * movimientos de todos los productos y lo que entró y salió hoy.
+   */
+  async listRecentMovements(
+    query: KardexMovementsQuery,
+    today = todayInBusinessZone(),
+  ): Promise<KardexRecentPage> {
+    const { start, end } = businessDayRange(today, today);
+    const [{ rows, total }, todayRows] = await Promise.all([
+      this.repository.listRecentMovements((query.page - 1) * query.pageSize, query.pageSize),
+      this.repository.listAmountsBetween(start, end),
+    ]);
+
+    return {
+      items: rows.map((row) => ({ ...toMovementDto(row), product: row.product })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.ceil(total / query.pageSize),
+      today: sumAmounts(todayRows),
     };
   }
 }

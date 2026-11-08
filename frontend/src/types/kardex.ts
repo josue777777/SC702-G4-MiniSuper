@@ -71,3 +71,19 @@ export interface KardexMovementPage {
   total: number;
   totalPages: number;
 }
+
+/** Movimiento de la vista general: el de la ficha más el producto al que pertenece. */
+export interface KardexRecentMovement extends KardexMovement {
+  product: { id: string; code: string; name: string };
+}
+
+/** Vista general de Movimientos (sin producto elegido): todos los productos y el resumen de hoy. */
+export interface KardexRecentPage {
+  items: KardexRecentMovement[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  /** Hoy: unidades que entraron, que salieron y cuántos movimientos. */
+  today: { entries: number; exits: number; count: number };
+}

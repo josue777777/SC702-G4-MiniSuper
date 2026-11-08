@@ -123,6 +123,36 @@ export interface KardexMovementPage {
   totalPages: number;
 }
 
+/** Movimiento de cualquier producto, tal como lo lee el repositorio (vista general). */
+export interface KardexRecentMovementRow extends KardexMovementRow {
+  product: { id: string; code: string; name: string };
+}
+
+/** Lo justo de un movimiento para sumar lo que entró y salió hoy. */
+export type KardexAmountRow = Pick<
+  KardexMovementRow,
+  'type' | 'quantity' | 'stockBefore' | 'stockAfter'
+>;
+
+/** Movimiento de la vista general: el de la ficha más el producto al que pertenece. */
+export interface KardexRecentMovementDto extends KardexMovementDto {
+  product: { id: string; code: string; name: string };
+}
+
+/**
+ * Vista general de Movimientos, cuando todavía no se eligió un producto: los
+ * últimos movimientos del negocio (de todos los productos) y el resumen de hoy.
+ */
+export interface KardexRecentPage {
+  items: KardexRecentMovementDto[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  /** Hoy, en la zona del negocio: unidades que entraron, que salieron y cuántos movimientos. */
+  today: { entries: number; exits: number; count: number };
+}
+
 export interface KardexMovementsQuery {
   page: number;
   pageSize: number;
