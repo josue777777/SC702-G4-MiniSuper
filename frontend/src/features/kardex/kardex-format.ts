@@ -19,11 +19,6 @@ export function formatMovementDate(iso: string): string {
   return `${parts['day']}/${parts['month']}/${parts['year']} ${parts['hour']}:${parts['minute']}`;
 }
 
-/** Cantidad de una columna de entradas o salidas: vacía (`—`) cuando no aplica. */
-export function formatQuantity(value: number): string {
-  return value === 0 ? '—' : value.toLocaleString('es-CR');
-}
-
 /**
  * Fecha de vencimiento de un lote, `DD/MM/AAAA`, o «No vence».
  *

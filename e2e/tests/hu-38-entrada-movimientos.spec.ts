@@ -264,7 +264,9 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   const table = page.getByRole('table', { name: 'Movimientos del producto' });
 
   await expect(table.locator('tbody tr')).toHaveCount(1);
-  await expect(table.locator('tfoot')).toHaveText(/Totales\s*0\s*4\s*14/);
+  await expect(table.locator('tfoot')).toHaveText(/Totales\s*—\s*−4\s*14/);
+  // La salida, en la insignia roja suave del panel con su signo.
+  await expect(table.locator('tbody tr').first().locator('.badge--error')).toHaveText('−4');
   await saveEvidence(page, 'HU-38', 'movimientos-filtro-salidas.png');
 });
 

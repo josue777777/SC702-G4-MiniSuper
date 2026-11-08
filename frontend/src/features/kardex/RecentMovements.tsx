@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DEFAULT_PAGE_SIZE } from '../../components/use-pagination';
 import { kardexService } from '../../services/kardex.service';
 import type { KardexRecentMovement } from '../../types/kardex';
+import { FlowAmount } from './FlowAmount';
 import { MovementsTable } from './MovementsTable';
 import { useKeyedRequest } from './use-keyed-request';
 
@@ -33,8 +34,8 @@ export function RecentMovements() {
         <h2>Movimientos recientes · todos los productos</h2>
         {loaded === null ? null : (
           <span className="card__header-end kardex-today" aria-label="Hoy">
-            Hoy: <strong>{loaded.today.entries.toLocaleString('es-CR')} entran</strong> ·{' '}
-            <strong>{loaded.today.exits.toLocaleString('es-CR')} salen</strong> ·{' '}
+            Hoy: entran <FlowAmount value={loaded.today.entries} direction="in" /> · salen{' '}
+            <FlowAmount value={loaded.today.exits} direction="out" /> ·{' '}
             <span className="muted">
               {loaded.today.count.toLocaleString('es-CR')}{' '}
               {loaded.today.count === 1 ? 'movimiento' : 'movimientos'}

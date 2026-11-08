@@ -32,6 +32,10 @@ Reglas:
 
 - **El color comunica estado, no decora.** Si algo es rojo, ámbar o verde es
   porque bloquea, pide atención o salió bien. Lo demás es neutro.
+- **Entra y sale, con los tonos del panel.** En Movimientos, lo que entra va en la
+  insignia verde suave (`badge--ok`) con «+» y lo que sale en la roja suave
+  (`badge--error`) con «−» (`FlowAmount.tsx`): las mismas piezas que el panel, sin
+  colores propios de la pantalla, y siempre con su signo.
 - **Solo tokens.** Una regla usa `var(--color-…)` y `var(--radius…)`; un color
   fijo nuevo en una regla es un error (el diseño ya no se podría cambiar en un
   solo lugar).

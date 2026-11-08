@@ -524,7 +524,7 @@ test('lotes: lo que vence pide lote y fecha, se parte en varios lotes y cada lí
   // El botón con sus lotes va junto al concepto.
   await expect(entry.locator('td').nth(1)).toHaveText('Recepción PED-0001 2 lotes');
   await expect(entry.locator('td').nth(2)).toHaveText('F-300');
-  await expect(entry.locator('td').nth(3)).toHaveText('4');
+  await expect(entry.locator('td').nth(3)).toHaveText('+4');
   await expect(entry.locator('td').nth(5)).toHaveText('22');
   await entry.getByRole('button', { name: '2 lotes' }).click();
 

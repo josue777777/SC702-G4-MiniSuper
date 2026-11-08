@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DEFAULT_PAGE_SIZE } from '../../components/use-pagination';
 import { kardexService } from '../../services/kardex.service';
 import type { KardexDirection } from '../../types/kardex';
+import { FlowAmount } from './FlowAmount';
 import { MovementsTable } from './MovementsTable';
 import { useKeyedRequest } from './use-keyed-request';
 
@@ -62,9 +63,9 @@ export function MovementsHistory({ productId, stock, version }: MovementsHistory
       <header className="card__header">
         <h2>Historial de movimientos</h2>
         {loaded === null ? null : (
-          <span className="muted" aria-label="Resumen del historial">
-            Entró {loaded.summary.entries.toLocaleString('es-CR')} · Salió{' '}
-            {loaded.summary.exits.toLocaleString('es-CR')}
+          <span aria-label="Resumen del historial">
+            Entró <FlowAmount value={loaded.summary.entries} direction="in" /> · Salió{' '}
+            <FlowAmount value={loaded.summary.exits} direction="out" />
           </span>
         )}
         <div className="segmented card__header-end" role="group" aria-label="Movimientos a mostrar">

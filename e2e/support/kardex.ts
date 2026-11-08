@@ -225,8 +225,9 @@ export async function readHistory(page: Page): Promise<string[][]> {
         cells[0] ?? '',
         concept,
         cells[2] ?? '',
-        cells[3] ?? '',
-        cells[4] ?? '',
+        // Entrada y salida van en insignias con su signo («+12», «−2»): aquí, la cifra.
+        (cells[3] ?? '').replace(/^[+−]/, ''),
+        (cells[4] ?? '').replace(/^[+−]/, ''),
         cells[5] ?? '',
         lotsText,
       ];

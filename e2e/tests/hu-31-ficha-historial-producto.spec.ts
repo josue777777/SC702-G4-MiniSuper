@@ -211,7 +211,12 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
   await expect(tile('Existencias')).toContainText('Bien');
   // Resumen de todo el historial: lo que entró y salió.
   // 20 + 1 + 3 (el conteo que subió) = 24 entran; 5 + 6 + 5 = 16 salen.
-  await expect(page.getByLabel('Resumen del historial')).toHaveText('Entró 24 · Salió 16');
+  // Con las insignias de tono suave del panel: verde con «+», roja con «−».
+  const summary = page.getByLabel('Resumen del historial');
+
+  await expect(summary).toHaveText('Entró +24 · Salió −16');
+  await expect(summary.locator('.badge--ok')).toHaveText('+24');
+  await expect(summary.locator('.badge--error')).toHaveText('−16');
 
   // Criterios 2 y 4: todo el historial, del más reciente al más antiguo, con su saldo.
   // [fecha, concepto, documento, entrada, salida, stock final, lotes]: el concepto es
@@ -341,7 +346,7 @@ test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimie
   await expect(
     sheet.locator('dt', { hasText: 'Producto' }).locator('xpath=following-sibling::dd'),
   ).toHaveText('—');
-  await expect(recent.getByLabel('Hoy')).toHaveText('Hoy: 0 entran · 0 salen · 0 movimientos');
+  await expect(recent.getByLabel('Hoy')).toHaveText('Hoy: entran — · salen — · 0 movimientos');
   const actions = page.getByRole('toolbar', { name: 'Acciones de movimientos' });
 
   await expect(actions.getByRole('button', { name: '+ Ingreso' })).toBeDisabled();
