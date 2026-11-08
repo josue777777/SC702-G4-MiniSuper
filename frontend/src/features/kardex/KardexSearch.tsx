@@ -20,9 +20,18 @@ type Option = RecentProduct & Partial<Pick<KardexProductOption, 'stock' | 'isAct
  * escribiendo más. Se elige con el ratón o con ↑ ↓ y Enter.
  *
  * «Buscar» (o Enter sin nada marcado) busca ya: si hay un solo producto, lo
- * abre; si hay varios, muestra la lista para elegir.
+ * abre; si hay varios, muestra la lista para elegir. Con un producto abierto,
+ * «Limpiar» (el mismo botón de Inventario, al lado) vuelve a la vista sin
+ * producto y deja la caja lista para escribir otro.
  */
-export function KardexSearch({ onPick }: { onPick: (productId: string) => void }) {
+export function KardexSearch({
+  onPick,
+  onClear,
+}: {
+  onPick: (productId: string) => void;
+  /** Si se da (hay un producto abierto), junto a «Buscar» va «Limpiar», como en Inventario. */
+  onClear?: () => void;
+}) {
   const [input, setInput] = useState('');
   const [term, setTerm] = useState('');
   const [open, setOpen] = useState(false);
@@ -208,6 +217,20 @@ export function KardexSearch({ onPick }: { onPick: (productId: string) => void }
       <button type="submit" className="button button--primary">
         🔍 Buscar
       </button>
+      {onClear === undefined ? null : (
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            setInput('');
+            setNotFound(null);
+            setOpen(false);
+            onClear();
+          }}
+        >
+          Limpiar
+        </button>
+      )}
       {notFound === null ? null : (
         <p className="form__error kardex-search__notice" role="alert">
           {notFound}

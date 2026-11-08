@@ -3097,18 +3097,11 @@ tr.print-only-row {
   margin-bottom: 16px;
 }
 
-.kardex-toolbar__links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-
 .kardex-search {
   display: flex;
   flex: 1;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   max-width: 640px;
 }

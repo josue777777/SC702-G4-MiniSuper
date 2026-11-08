@@ -466,6 +466,15 @@ test('el selector encuentra productos desactivados y permite cambiar de producto
   await expect(page.getByRole('region', { name: 'Ficha de Producto descontinuado' })).toBeVisible();
   // El historial mostrado es el del producto nuevo, no el anterior.
   expect((await readHistory(page)).map((row) => row[1])).toEqual(['Stock inicial']);
+
+  // «Limpiar», el mismo botón de Inventario junto al buscador, vuelve a la vista sin producto.
+  const search = page.getByRole('search');
+
+  await search.getByRole('button', { name: 'Limpiar', exact: true }).click();
+  await expect(page).toHaveURL(/\/movimientos$/);
+  await expect(page.getByRole('region', { name: 'Movimientos recientes' })).toBeVisible();
+  // Sin producto no hay nada que limpiar.
+  await expect(search.getByRole('button', { name: 'Limpiar', exact: true })).toHaveCount(0);
 });
 
 test('un historial de más de una página se recorre completo, sin repetir ni omitir movimientos', async ({
