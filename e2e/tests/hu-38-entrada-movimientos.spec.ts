@@ -264,8 +264,8 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   const table = page.getByRole('table', { name: 'Movimientos del producto' });
 
   await expect(table.locator('tbody tr')).toHaveCount(1);
-  // Sin fila de totales: la primera línea ya es el saldo más reciente.
-  await expect(table.locator('tfoot')).toHaveCount(0);
+  // «Totales» de lo filtrado: solo salió el egreso; el stock de hoy al final.
+  await expect(table.locator('tfoot td')).toHaveText(['Totales', '0', '−4', '14']);
   // Con los tonos del panel: la salida en rojo, el concepto con «−» y el lote al lado.
   const exitRow = table.locator('tbody tr').first();
 

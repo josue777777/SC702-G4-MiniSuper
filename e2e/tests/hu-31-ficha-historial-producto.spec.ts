@@ -183,7 +183,9 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
   const sheet = page.getByRole('region', { name: SHEET });
 
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('heading', { name: /Café molido 500 g/ })).toContainText('Activo');
+  // Sin encabezado repetido: el nombre va en «Descripción»; un producto activo no lleva insignia.
+  await expect(sheet.getByRole('heading')).toHaveCount(0);
+  await expect(sheet.getByText('Inactivo')).toHaveCount(0);
   // La ficha es una hoja de celdas: etiqueta oscura y su valor.
   const cell = (label: string) =>
     sheet
@@ -212,7 +214,7 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
 
   await expect(summary).toContainText('Entró +24');
   await expect(summary).toContainText('Salió −16');
-  await expect(summary).toContainText('6 movimientos');
+  await expect(summary).toContainText('6 movs.');
   await expect(summary.locator('.text-ok')).toHaveText('+24');
   await expect(summary.locator('.text-error')).toHaveText('−16');
 
@@ -231,13 +233,18 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
   await expect(
     page.getByRole('table', { name: 'Movimientos del producto' }).getByRole('columnheader'),
   ).toHaveText(['Fecha y hora', 'Concepto', 'Documento', 'Entrada', 'Salida', 'Stock final']);
+  // Al pie, «Totales»: lo que entró y salió (con el filtro, en todas las páginas) y el stock de hoy.
+  const totals = page.getByRole('table', { name: 'Movimientos del producto' }).locator('tfoot td');
+
+  await expect(totals).toHaveText(['Totales', '+24', '−16', '8']);
   await expect(
     page.getByRole('navigation', { name: 'Páginas del historial' }).getByText('6 movimientos'),
   ).toBeVisible();
   await expect(page.getByText('Página 1 de 1')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Anterior' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
-  await expect(page.getByRole('link', { name: /Volver a Inventario/ })).toBeVisible();
+  // Se vuelve a Inventario desde el menú: no hay un enlace repetido en la pantalla.
+  await expect(page.getByRole('link', { name: /Volver a Inventario/ })).toHaveCount(0);
 
   expect(errors).toEqual([]);
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -309,9 +316,12 @@ test('un producto sin movimientos muestra su ficha y el mensaje de que no hay hi
 }) => {
   // Sin producto en la dirección: el buscador de arriba y la ficha vacía, con «—».
   await page.goto('/movimientos');
-  await expect(page.getByRole('region', { name: 'Ficha del producto' })).toContainText(
-    'Ningún producto elegido',
-  );
+  await expect(
+    page
+      .getByRole('region', { name: 'Ficha del producto' })
+      .locator('dt', { hasText: /^Producto$/ })
+      .locator('xpath=following-sibling::dd'),
+  ).toHaveText('—');
   await page
     .getByRole('combobox', { name: 'Buscar producto por código, nombre o código de barras' })
     .fill('arroz');
@@ -390,7 +400,7 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
   const sheet = page.getByRole('region', { name: 'Ficha de Producto descontinuado' });
 
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('heading')).toContainText('Inactivo');
+  await expect(sheet.locator('.badge--muted')).toHaveText('Inactivo');
   await expect(sheet).toContainText('Granos del Valle');
   expect(await readHistory(page)).toEqual([
     ['01/04/2024 09:00', 'Stock inicial', '—', '2', '0', '2', '—'],
@@ -514,6 +524,11 @@ test('la ficha se ve y la pantalla responde aunque el historial tarde en llegar'
   // Criterio 5: la ficha ya está, el historial se anuncia como «cargando» y la página responde.
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Cargando historial…' })).toBeVisible();
+  // La paginación ya está en su lugar (apagada), para que nada salte al llegar los datos.
+  const pager = page.getByRole('navigation', { name: 'Páginas del historial' });
+
+  await expect(pager).toContainText('Página — de —');
+  await expect(pager.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
   await page
     .getByRole('combobox', { name: 'Buscar producto por código, nombre o código de barras' })
     .click();
