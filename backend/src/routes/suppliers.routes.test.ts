@@ -13,8 +13,7 @@ import { createSuppliersRouter } from './suppliers.routes.js';
 import { fakeSession } from '../testing/fake-session.js';
 
 /** Rutas reales de proveedores (HU-21) sobre HTTP, con el repositorio falso. */
-function buildApp() {
-  const repository = new FakeSuppliersRepository();
+function buildApp(repository = new FakeSuppliersRepository()) {
   const app = express();
   app.use(express.json());
   app.use(
@@ -102,5 +101,55 @@ describe('PATCH /api/suppliers/:id', () => {
       .send({ ...body, name: 'Distribuidora Central' });
 
     expect(response.status).toBe(409);
+  });
+});
+
+describe('GET /api/suppliers/costs/:productId (HU-39)', () => {
+  it('compara el costo del producto entre sus proveedores, del más bajo al más alto', async () => {
+    const repository = new FakeSuppliersRepository();
+
+    repository.productCosts.set(COFFEE_ID, {
+      product: { id: COFFEE_ID, code: 'P001', name: 'Café molido 500 g' },
+      costs: [
+        {
+          supplierId: SUPPLIER_A_ID,
+          supplierName: 'Distribuidora Central',
+          unitCost: '1000.50',
+          isPreferred: true,
+          updatedAt: new Date('2026-11-01T12:00:00Z'),
+        },
+        {
+          supplierId: MISSING_SUPPLIER_ID,
+          supplierName: 'Lácteos del Valle',
+          unitCost: '950.00',
+          isPreferred: false,
+          updatedAt: new Date('2026-11-05T12:00:00Z'),
+        },
+      ],
+    });
+
+    const response = await request(buildApp(repository))
+      .get(`/api/suppliers/costs/${COFFEE_ID}`)
+      .expect(200);
+
+    expect(response.body.data.product).toEqual({
+      id: COFFEE_ID,
+      code: 'P001',
+      name: 'Café molido 500 g',
+    });
+    expect(
+      response.body.data.suppliers.map((item: { supplierName: string; difference: string }) => [
+        item.supplierName,
+        item.difference,
+      ]),
+    ).toEqual([
+      ['Lácteos del Valle', '0.00'],
+      ['Distribuidora Central', '50.50'],
+    ]);
+  });
+
+  it('responde 404 si el producto no existe (o es de otro negocio) y 400 si el id no es válido', async () => {
+    await request(buildApp()).get(`/api/suppliers/costs/${RICE_ID}`).expect(404);
+    await request(buildApp()).get('/api/suppliers/costs/no-es-un-id').expect(400);
   });
 });

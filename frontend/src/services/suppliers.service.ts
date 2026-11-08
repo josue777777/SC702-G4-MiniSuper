@@ -1,4 +1,4 @@
-import type { Supplier, SupplierPayload } from '../types/suppliers';
+import type { ProductSupplierCosts, Supplier, SupplierPayload } from '../types/suppliers';
 import { apiGet, apiPatch, apiPost } from './api-client';
 
 /** Service de proveedores (HU-21): único punto que conoce las rutas de la API. */
@@ -23,6 +23,15 @@ export const suppliersService = {
   /** HU-21: editar proveedor. */
   async update(id: string, payload: SupplierPayload): Promise<Supplier> {
     const response = await apiPatch<DataResponse<Supplier>>(`/api/suppliers/${id}`, payload);
+
+    return response.data;
+  },
+
+  /** HU-39 — el costo de un producto con cada proveedor, del más barato al más caro. */
+  async compareCosts(productId: string): Promise<ProductSupplierCosts> {
+    const response = await apiGet<DataResponse<ProductSupplierCosts>>(
+      `/api/suppliers/costs/${encodeURIComponent(productId)}`,
+    );
 
     return response.data;
   },

@@ -1,5 +1,5 @@
 import type { SuppliersRepository } from '../repositories/suppliers.repository.js';
-import type { SupplierDto, SupplierWritableFields } from '../types/suppliers.js';
+import type { SupplierCostRow, SupplierDto, SupplierWritableFields } from '../types/suppliers.js';
 import { TEST_BUSINESS_ID } from './fake-session.js';
 
 /**
@@ -47,6 +47,11 @@ export class FakeSuppliersRepository implements SuppliersRepository {
 
   readonly created: SupplierWritableFields[] = [];
   readonly updated: { id: string; fields: SupplierWritableFields }[] = [];
+  /** Comparación de costos por producto (HU-39): producto y lo que cobra cada proveedor. */
+  readonly productCosts = new Map<
+    string,
+    { product: { id: string; code: string; name: string }; costs: SupplierCostRow[] }
+  >();
 
   private readonly suppliers: SupplierDto[];
   private readonly activeProductIds = new Set([COFFEE_ID, RICE_ID]);
@@ -116,5 +121,9 @@ export class FakeSuppliersRepository implements SuppliersRepository {
     return supplier === undefined
       ? Promise.reject(new Error(`El doble no tiene el proveedor ${id}.`))
       : Promise.resolve(supplier);
+  }
+
+  findProductSupplierCosts(productId: string) {
+    return Promise.resolve(this.productCosts.get(productId) ?? null);
   }
 }

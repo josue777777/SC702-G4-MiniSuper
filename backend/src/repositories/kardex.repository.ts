@@ -222,7 +222,8 @@ export class KardexRepository {
 
   /**
    * Ingreso sin pedido (HU-38): lotes, stock y la entrada del Kardex con la
-   * factura, su fecha, el costo y el proveedor, en una sola transacción.
+   * factura, su fecha, el costo y el proveedor, en una sola transacción. El
+   * costo queda como el último de ese proveedor para el producto (HU-39).
    */
   async addDirectEntry(
     productId: string,
@@ -235,9 +236,16 @@ export class KardexRepository {
       supplierId: string;
     },
   ): Promise<void> {
-    await prisma.$transaction((tx) =>
-      addStockWithLots(tx, this.businessId, productId, lots, movement),
-    );
+    await prisma.$transaction(async (tx) => {
+      await addStockWithLots(tx, this.businessId, productId, lots, movement);
+      // HU-39: el costo de esta compra pasa a ser el último costo registrado de
+      // ese proveedor para el producto (la comparación de costos lo usa).
+      await tx.supplierProduct.upsert({
+        where: { supplierId_productId: { supplierId: movement.supplierId, productId } },
+        update: { unitCost: movement.unitCost },
+        create: { supplierId: movement.supplierId, productId, unitCost: movement.unitCost },
+      });
+    });
   }
 
   /**

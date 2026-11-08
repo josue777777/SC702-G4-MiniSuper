@@ -21,6 +21,11 @@ de HU-38, los lotes con vencimiento y la entrada desde Movimientos). Volver al
   Movimientos y abre la ventana «Carga de pedido» con ese pedido (todos sus productos a la
   vez). La entrega se registra allí porque es donde sube el inventario; el pedido queda
   recibido o parcial. Ver `docs/guia/productos-e-inventario.md`.
+- **Comparar costos** (HU-39): en Inventario, con el producto marcado, «⚖ Comparar costos»
+  muestra el costo de cada proveedor activo que lo suministra, del más barato al más caro:
+  «Más barato» y cuánto más cuesta cada uno, con la fecha del costo. Es siempre el
+  **último costo registrado**: el de Proveedores › Editar o el de la última compra directa
+  (Movimientos › Ingreso). Con un solo proveedor lo dice: no hay con quién comparar.
 - **Lotes con vencimiento** (HU-38): en «Registrar entrega» cada producto lleva su
   **lote** y, si vence, su **fecha de vencimiento**, en la misma fila. Si llegó en
   varios lotes, «Partir en lotes» abre una ventana solo para ese producto (lote,
@@ -115,6 +120,7 @@ dos personas confirman a la vez, el stock se suma una vez y la otra recibe 409.
 | Ruta | Para qué |
 | --- | --- |
 | `GET /api/purchase-orders?supplierId=` | Historial, filtrable por proveedor (HU-22) |
+| `GET /api/suppliers/costs/:productId` | Comparar el costo de un producto entre sus proveedores activos (HU-39) |
 | `GET /api/purchase-orders/:id` | Un pedido con sus líneas y sus entregas: el documento «Ver pedido» |
 | `POST /api/purchase-orders/:id/receipts/:receiptId/load` | Cargar al inventario una entrega pendiente (HU-38) |
 | `POST /api/purchase-orders/:id/close` | Dar por concluido un pedido que llegó en parte (HU-38) |
@@ -198,6 +204,20 @@ dos lotes, L-1 (vence 01/12) con 6 y L-2 (vence 15/12) con 4 → se guardan los 
 uno con su fecha. Un lote nuevo **nunca** cambia la fecha de los que ya había: el stock
 total es la suma de todos los lotes (`ProductLot`). Un detergente que «No vence», sin lote
 escrito, entra en el lote «F-120» (la factura) y sin fecha.
+
+### Comparar costos (`rankSupplierCosts`)
+
+Del costo más bajo al más alto (en céntimos, sin errores de coma flotante); si dos cuestan
+lo mismo, por nombre, y los dos son «más baratos». La diferencia es contra el más barato:
+
+```text
+Comercial del Valle ₡950,00 → Más barato
+Distribuidora Central ₡980,00 → +₡30,00
+Abarrotes La Unión ₡1 010,50 → +₡60,50
+```
+
+Una compra directa guarda su costo en `SupplierProduct.unitCost` (crea la relación si no
+existía): así la comparación usa siempre el último costo de cada proveedor.
 
 ### Consecutivo del pedido (`nextDocumentNumber`)
 

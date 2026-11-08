@@ -51,3 +51,24 @@ export interface SupplierFormValues {
   notes: string;
   products: SupplierProductRow[];
 }
+
+/** Un proveedor en la comparación de costos, del más barato al más caro (HU-39). */
+export interface SupplierCost {
+  supplierId: string;
+  supplierName: string;
+  /** Costo con dos decimales, `"4850.00"`. */
+  unitCost: string;
+  isPreferred: boolean;
+  /** Es el más barato (o empata con él). */
+  cheapest: boolean;
+  /** Cuánto más cuesta que el más barato, `"120.00"`. */
+  difference: string;
+  /** Cuándo se registró ese costo (ISO 8601). */
+  updatedAt: string;
+}
+
+/** Comparación de costos de un producto entre sus proveedores activos (HU-39). */
+export interface ProductSupplierCosts {
+  product: { id: string; code: string; name: string };
+  suppliers: SupplierCost[];
+}
