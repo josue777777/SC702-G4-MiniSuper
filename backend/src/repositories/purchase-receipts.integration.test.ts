@@ -307,7 +307,12 @@ describe.skipIf(!databaseName.endsWith('_test'))(
       expect(lots[0]?.entryMovementId).not.toBe(lots[1]?.entryMovementId);
       expect(lots.every((lot) => lot.entryMovementId !== null)).toBe(true);
 
-      // La fecha del producto (alertas de HU-09) es la del lote que vence primero.
+      // La ficha del Kardex muestra el vencimiento del lote que vence primero; la
+      // fecha propia del producto (HU-09, la del stock sin lote) no cambia.
+      expect(
+        (await new KardexService(new KardexRepository(A)).getProduct(ids['milk'] ?? ''))
+          .expirationDate,
+      ).toBe('2099-01-20');
       expect(
         (
           await prisma.product.findUniqueOrThrow({
@@ -315,7 +320,7 @@ describe.skipIf(!databaseName.endsWith('_test'))(
             select: { expirationDate: true },
           })
         ).expirationDate,
-      ).toEqual(day('2099-01-20'));
+      ).toBeNull();
     });
 
     it('si el stock baja (venta, conteo), sale primero el lote que vence antes', async () => {
@@ -479,6 +484,23 @@ describe.skipIf(!databaseName.endsWith('_test'))(
           quantity: 1,
         }),
       ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it('HU-32: lo que está «SIN LOTE» sigue la fecha del producto; los lotes de una entrega conservan la suya', async () => {
+      // La leche tiene «SIN LOTE» (lo que subió sin lote) y lotes de entregas.
+      await prisma.product.update({
+        where: { id: ids['milk'] },
+        data: { expirationDate: day('2099-05-05') },
+      });
+
+      const lots = await lotsOf(ids['milk']);
+
+      expect(lots.find((lot) => lot.lotNumber === 'SIN LOTE')?.expirationDate).toEqual(
+        day('2099-05-05'),
+      );
+      expect(lots.find((lot) => lot.lotNumber === 'L-1')?.expirationDate).toEqual(
+        day('2099-02-01'),
+      );
     });
   },
 );

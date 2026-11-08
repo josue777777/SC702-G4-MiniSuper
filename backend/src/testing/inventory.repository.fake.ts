@@ -1,6 +1,7 @@
 import type { CountReportRow, InventoryRepository } from '../repositories/inventory.repository.js';
 import type {
   CreateInventoryCountPlan,
+  ExpiringLotRow,
   InventoryCountDto,
   ProductStockSettingsDto,
   StockLevel,
@@ -31,6 +32,11 @@ export interface FakeCountProduct {
   isActive?: boolean;
   /** `YYYY-MM-DD` (HU-09); si se omite, el producto no vence. */
   expirationDate?: string | null;
+  /**
+   * Lotes con su vencimiento (HU-32). Si se omiten, el stock cuenta como un
+   * solo lote «SIN LOTE» con la fecha del producto, como en la base.
+   */
+  lots?: { lotNumber: string; expirationDate: string | null; quantity: number }[];
   /** Para el reporte de conteos; si se omiten: «Abarrotes» y ₡1 000. */
   category?: string;
   cost?: string;
@@ -165,6 +171,37 @@ export class FakeInventoryRepository implements InventoryRepository {
     }
 
     return product;
+  }
+
+  listExpiringLots(): Promise<ExpiringLotRow[]> {
+    return Promise.resolve(
+      this.products
+        .filter((product) => product.isActive !== false)
+        .flatMap((product) =>
+          (
+            product.lots ??
+            (product.stock > 0
+              ? [
+                  {
+                    lotNumber: 'SIN LOTE',
+                    expirationDate: product.expirationDate ?? null,
+                    quantity: product.stock,
+                  },
+                ]
+              : [])
+          )
+            .filter((lot) => lot.quantity > 0 && lot.expirationDate !== null)
+            .map((lot) => ({
+              productId: product.id,
+              productCode: product.code,
+              productName: product.name,
+              stock: product.stock,
+              lotNumber: lot.lotNumber,
+              quantity: lot.quantity,
+              expirationDate: lot.expirationDate ?? '',
+            })),
+        ),
+    );
   }
 
   listProductSettings(): Promise<ProductStockSettingsDto[]> {

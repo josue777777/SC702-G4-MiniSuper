@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.js';
 import type {
   CreateInventoryCountPlan,
+  ExpiringLotRow,
   InventoryCountDto,
   ProductStockSettingsDto,
   StockLevel,
@@ -263,5 +264,43 @@ export class InventoryRepository {
     }
 
     return updated;
+  }
+
+  /**
+   * Lotes de productos ACTIVOS con unidades y fecha de vencimiento (HU-32):
+   * lo que puede alertar. Un lote agotado (cantidad 0) ya no aparece, y un
+   * producto sin stock no tiene lotes con unidades.
+   */
+  async listExpiringLots(): Promise<ExpiringLotRow[]> {
+    const lots = await prisma.productLot.findMany({
+      where: {
+        quantity: { gt: 0 },
+        expirationDate: { not: null },
+        product: { businessId: this.businessId, isActive: true },
+      },
+      orderBy: [{ expirationDate: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        lotNumber: true,
+        quantity: true,
+        expirationDate: true,
+        product: { select: { id: true, code: true, name: true, stock: true } },
+      },
+    });
+
+    return lots.flatMap((lot) =>
+      lot.expirationDate === null
+        ? []
+        : [
+            {
+              productId: lot.product.id,
+              productCode: lot.product.code,
+              productName: lot.product.name,
+              stock: lot.product.stock,
+              lotNumber: lot.lotNumber,
+              quantity: lot.quantity,
+              expirationDate: dateToDateOnly(lot.expirationDate),
+            },
+          ],
+    );
   }
 }

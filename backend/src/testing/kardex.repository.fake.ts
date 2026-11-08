@@ -31,6 +31,7 @@ export function kardexProduct(overrides: Partial<KardexProductRow> = {}): Kardex
     description: null,
     perishable: false,
     expirationDate: null,
+    lots: [],
     isActive: true,
     category: { name: 'Bebidas' },
     supplierProducts: [{ supplier: { name: 'Distribuidora Central' } }],

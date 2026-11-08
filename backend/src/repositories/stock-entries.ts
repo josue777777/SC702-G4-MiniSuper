@@ -24,10 +24,10 @@ export type EntryMovementData = Omit<
  * 1. crea los lotes (`ProductLot`) ANTES de subir el stock, así el disparador
  *    que mantiene «stock = suma de lotes» ya los encuentra y no agrega nada;
  * 2. sube el stock del producto (solo si es del negocio);
- * 3. deja la entrada (ENTRY) en el Kardex y le liga los lotes;
- * 4. la fecha del producto pasa a ser la del lote que vence primero.
+ * 3. deja la entrada (ENTRY) en el Kardex y le liga los lotes.
  *
- * Un lote nuevo nunca cambia la fecha de los anteriores.
+ * Un lote nuevo nunca cambia la fecha de los anteriores, ni la del producto:
+ * esa es la del stock sin lote (HU-09); las alertas salen de cada lote (HU-32).
  *
  * @returns El id de la entrada creada en el Kardex.
  */
@@ -76,18 +76,6 @@ export async function addStockWithLots(
     where: { id: { in: created.map((lot) => lot.id) } },
     data: { entryMovementId: entry.id },
   });
-
-  const earliest = await tx.productLot.aggregate({
-    where: { productId, quantity: { gt: 0 }, expirationDate: { not: null } },
-    _min: { expirationDate: true },
-  });
-
-  if (earliest._min.expirationDate !== null) {
-    await tx.product.updateMany({
-      where: { id: productId, businessId },
-      data: { expirationDate: earliest._min.expirationDate },
-    });
-  }
 
   return entry.id;
 }
