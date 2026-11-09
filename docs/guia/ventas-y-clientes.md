@@ -8,9 +8,18 @@ en curso). Volver al [índice de la guía](README.md).
 - **Caja** (Ventas › Caja): escanear o buscar productos, armar el carrito, cobrar en
   efectivo, tarjeta o fiado y entregar el comprobante (HU-16 a HU-18, HU-34).
 - **Historial del día** (Ventas › Historial del día): las ventas de un día, filtradas
-  por método de pago, con su detalle (HU-20).
-- **Devolver o anular** una venta: devuelve las unidades al stock y deja constancia
-  (HU-35).
+  por método de pago (HU-20), con las mismas piezas que Pedidos y Proveedores:
+  - columnas en orden: N.º, hora, cliente, productos, pago, estado (insignia con su
+    palabra: «Completada», «Con devolución», «Devuelta», «Anulada») y total (si cambió,
+    debajo «de ₡X», el original);
+  - en la celda de productos, el primero y «+N más», que abre solo esa lista en una
+    ventana de 4 en 4 (`SaleProductsModal.tsx`): la fila no crece;
+  - por fila, «Ver venta» (el detalle completo) y «🧾 Comprobante» (HU-34);
+  - páginas de 15 armadas en el servidor con `Pagination`; mientras llega otra página
+    se ve la anterior atenuada.
+- **Devolver o anular** una venta (HU-35): desde «Ver venta» › «Anular o devolver»
+  (se decide viendo la venta completa); devuelve las unidades al stock y deja
+  constancia.
 - **Clientes**: el cliente al que se le fía y su saldo (HU-18, HU-36).
 - **Inicio**: «Lo urgente hoy» (como mucho tres urgencias con su acción) y el resumen
   de ventas de hoy (HU-37). La barra de comandos `Ctrl + K` está en todas las pantallas.
@@ -86,7 +95,7 @@ pages/SalesPage.tsx                 pestañas «Caja» e «Historial del día»
   ├─ CheckoutPanel.tsx / cash-suggestions.ts   cobro y montos rápidos
   ├─ CustomerPicker.tsx             elegir o crear el cliente del fiado
   ├─ ReceiptModal.tsx / SaleReceipt.tsx       comprobante para imprimir
-  └─ SalesHistory.tsx / SaleDetailModal.tsx / SaleAdjustmentModal.tsx
+  └─ SalesHistory.tsx / SaleProductsModal.tsx / SaleDetailModal.tsx / SaleAdjustmentModal.tsx
 pages/CustomersPage.tsx → features/customers/CustomersSection.tsx
 pages/DashboardPage.tsx → features/dashboard/
   ├─ use-dashboard.ts          alertas, facturas sin cargar, pedidos y ventas del día (cada 15 s)

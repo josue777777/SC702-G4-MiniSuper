@@ -900,6 +900,13 @@ code {
   overflow-x: auto;
 }
 
+/* Mientras llega otra página o filtro, la tabla anterior se ve atenuada (no salta). */
+.table-wrapper--busy {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -2538,6 +2545,13 @@ tr.print-only-row {
 .pos__lines {
   margin: 0 0 12px;
   padding-left: 18px;
+}
+
+/* --- Ventas: Historial del día (HU-20) ------------------------------------- */
+/* Total de una venta con ajustes: el efectivo y, debajo, «de ₡X» (el original). */
+.sales-history__original {
+  display: block;
+  font-size: 0.8rem;
 }
 
 /* --- Comprobante de venta (HU-34) -------------------------------------------- */

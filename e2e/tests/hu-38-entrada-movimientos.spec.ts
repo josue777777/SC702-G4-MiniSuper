@@ -280,6 +280,10 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   const exitRow = table.locator('tbody tr').first();
 
   await expect(exitRow.locator('td').nth(4).locator('.text-error')).toHaveText('4');
+  // La entrada en 0 no se ve (la vista va a la cifra que movió el stock); solo la leen
+  // los lectores de pantalla.
+  await expect(exitRow.locator('td').nth(3).locator('.text-ok')).toHaveCount(0);
+  await expect(exitRow.locator('td').nth(3).locator('.visually-hidden')).toHaveText('0');
   await expect(exitRow.locator('td').nth(1)).toContainText('−Vencido / descartado');
   await saveEvidence(page, 'HU-38', 'movimientos-filtro-salidas.png');
 });

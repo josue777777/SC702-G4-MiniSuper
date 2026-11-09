@@ -192,6 +192,8 @@ Ejemplos ya aplicados:
 | --- | --- | --- |
 | Proveedores | Botón «14 productos» | Ventana con los productos, su costo y cuál es principal |
 | Pedidos | El producto, si es uno; si son varios, botón «2 productos» | Ventana con solo los productos del pedido, de 4 en 4 (el pedido completo es «Ver pedido») |
+| Ventas › Historial del día | El primer producto y «+N más» | Ventana con solo los productos de la venta, de 4 en 4 (la venta completa es «Ver venta») |
+| Movimientos | Entrada y salida: solo la cifra que movió el stock (el 0 queda en blanco, `visually-hidden` para lectores de pantalla) | — |
 | Conteo físico (ventana) | El formulario para contar | Enlace a Reportes › Conteos (el historial es otra tarea) |
 | Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) |
 

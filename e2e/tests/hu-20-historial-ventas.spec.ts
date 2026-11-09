@@ -81,8 +81,31 @@ test('ventas reales, detalle, comprobante y ajustes actualizan el total sin perd
   const table = history.getByRole('table', { name: 'Historial de ventas' });
   await expect(table.locator('tbody tr')).toHaveCount(3);
   await expect(table.locator('tbody tr').first()).toContainText(`#${credit.number}`);
-  await expect(table).toContainText('Café molido 500 g × 2');
-  await expect(table).toContainText('Arroz 1 kg × 1');
+  // Columnas en orden, como el resto de las tablas.
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'N.º',
+    'Hora',
+    'Cliente',
+    'Productos',
+    'Pago',
+    'Estado',
+    'Total',
+    'Acciones',
+  ]);
+  // En la celda va el primer producto y «+N más»: la fila no crece (regla 4).
+  const cashRow = table.locator('tbody tr').filter({ hasText: `#${cash.number}` });
+  await expect(cashRow).toContainText(/(Arroz 1 kg × 1|Café molido 500 g × 2) \+1 más/);
+  await expect(table.locator('tbody tr').first().locator('.badge--ok')).toHaveText('Completada');
+  await table
+    .getByRole('button', { name: `Ver los 2 productos de la venta ${cash.number}`, exact: true })
+    .click();
+  const products = page.getByRole('dialog', { name: `Productos de la venta #${cash.number}` });
+  const productRows = products.getByRole('table', { name: 'Productos de la venta' });
+  await expect(productRows).toContainText('Arroz 1 kg');
+  await expect(productRows).toContainText('Café molido 500 g');
+  await saveEvidence(page, 'HU-20', 'HU-20-productos-de-la-venta.png');
+  await products.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(products).toHaveCount(0);
   await expect(history.getByRole('status', { name: 'Totales del día' })).toContainText(
     /6\s?900,00/,
   );
@@ -105,7 +128,12 @@ test('ventas reales, detalle, comprobante y ajustes actualizan el total sin perd
   await expect(receipt).toContainText('Arroz 1 kg');
   await receipt.getByRole('button', { name: 'Cerrar', exact: true }).last().click();
 
+  // «Anular o devolver» está dentro de «Ver venta»: se decide viendo la venta completa.
   await history
+    .getByRole('button', { name: `Ver detalle de la venta ${cash.number}`, exact: true })
+    .click();
+  await page
+    .getByRole('dialog', { name: `Detalle de venta #${cash.number}`, exact: true })
     .getByRole('button', { name: `Anular o devolver la venta ${cash.number}`, exact: true })
     .click();
   const adjustment = page.getByRole('dialog', {
@@ -122,6 +150,10 @@ test('ventas reales, detalle, comprobante y ajustes actualizan el total sin perd
   );
 
   await history
+    .getByRole('button', { name: `Ver detalle de la venta ${card.number}`, exact: true })
+    .click();
+  await page
+    .getByRole('dialog', { name: `Detalle de venta #${card.number}`, exact: true })
     .getByRole('button', { name: `Anular o devolver la venta ${card.number}`, exact: true })
     .click();
   const voidDialog = page.getByRole('dialog', {
@@ -134,7 +166,7 @@ test('ventas reales, detalle, comprobante y ajustes actualizan el total sin perd
   await voidDialog.getByLabel('Motivo').fill('Anulación de prueba');
   await voidDialog.getByRole('button', { name: 'Anular venta', exact: true }).click();
   await expect(voidDialog).not.toBeVisible();
-  await expect(table).toContainText('Anulada');
+  await expect(table.locator('.badge--error')).toHaveText('Anulada');
   const totals = history.getByRole('status', { name: 'Totales del día' });
   await expect(totals).toContainText(/3\s?900,00/);
   await expect(totals).toContainText(/Total original:.*6\s?900,00/);
