@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { Pagination } from '../../components/Pagination';
 import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { purchaseOrdersService } from '../../services/purchase-orders.service';
-import type { PurchaseOrder, PurchaseReceipt } from '../../types/purchase-orders';
+import type {
+  PurchaseOrder,
+  PurchaseReceipt,
+  ReceiveOrderPayload,
+} from '../../types/purchase-orders';
 import type { Notice } from '../products/use-products';
 import { useSession } from '../auth/session-context';
 import { BusinessDocumentFooter, BusinessDocumentHeader } from '../business/BusinessDocument';
@@ -13,7 +17,8 @@ import { LabelPrintModal } from '../labels/LabelPrintModal';
 import { formatMoney } from '../products/money';
 import { INVOICE_ACCEPT, invoiceFileError } from './invoice-file';
 import { InvoicePreview } from './InvoicePreview';
-import { formatOrderNumber, STATUS_LABELS } from './purchase-order-form';
+import { formatOrderNumber, loadUrl, STATUS_LABELS } from './purchase-order-form';
+import { ReceiveOrderModal } from './ReceiveOrderModal';
 
 interface PurchaseOrderDetailProps {
   order: PurchaseOrder;
@@ -24,7 +29,14 @@ interface PurchaseOrderDetailProps {
   onClose: () => void;
   /** HU-38: cada acción devuelve el error del servidor, o `null` si salió bien. */
   onAttachInvoice: (receiptId: string, invoiceNumber: string, file: File) => Promise<string | null>;
-  onLoadReceipt: (receiptId: string, invoiceNumber: string) => Promise<string | null>;
+  /**
+   * Registra una entrega con la carga pendiente: el error, o el id de la
+   * entrega (para confirmar su carga en Movimientos).
+   */
+  onRegisterDelivery: (
+    payload: ReceiveOrderPayload,
+    invoice: File | null,
+  ) => Promise<{ error: string } | { receiptId: string }>;
   onConclude: () => Promise<string | null>;
 }
 
@@ -61,12 +73,21 @@ function printOrder(): void {
  * «Etiquetas» (HU-07) abre la impresión de etiquetas con los productos del
  * pedido y una etiqueta por unidad, para rotular la mercadería cuando llega.
  *
- * Entregas (HU-38): «Registrar entrega» lleva a Movimientos, donde se abre la
- * ventana «Carga de pedido» con este pedido; allí se anota cada factura con su fecha real y
- * lo que llegó; la columna «Cant. recibida» muestra lo recibido hasta ahora (en
- * blanco mientras no llega nada, para anotarlo a mano en el papel). Cada
- * entrega con la carga pendiente tiene su botón «Cargar al inventario». Un
- * pedido que llegó en parte se puede dar por concluido.
+ * Entregas (HU-38): «Registrar entrega» abre su ventana AQUÍ, sobre «Ver
+ * pedido»: la factura con su fecha real y lo que llegó, con sus lotes. La
+ * persona decide a dónde va:
+ *
+ * - «Cancelar» vuelve a «Ver pedido», sin guardar nada.
+ * - «Registrar y dejar la carga pendiente» guarda la entrega y vuelve a «Ver
+ *   pedido»: la entrega queda con su botón «Cargar al inventario».
+ * - «Registrar y cargar al inventario» guarda la entrega y lleva a Movimientos
+ *   › «Carga de pedido», con la entrega ya cargada en pantalla para una última
+ *   verificación («¿Está seguro…?»): ahí sube el stock. Lo mismo hace
+ *   «Cargar al inventario» de una entrega pendiente.
+ *
+ * La columna «Cant. recibida» muestra lo recibido hasta ahora (en blanco
+ * mientras no llega nada, para anotarlo a mano en el papel). Un pedido que
+ * llegó en parte se puede dar por concluido.
  */
 export function PurchaseOrderDetail({
   order,
@@ -75,9 +96,12 @@ export function PurchaseOrderDetail({
   onDismissNotice,
   onClose,
   onAttachInvoice,
-  onLoadReceipt,
+  onRegisterDelivery,
   onConclude,
 }: PurchaseOrderDetailProps) {
+  const navigate = useNavigate();
+  /** Ventana «Registrar entrega» abierta, sobre «Ver pedido». */
+  const [receiving, setReceiving] = useState(false);
   const contact = [order.supplierPhone, order.supplierEmail].filter(Boolean).join(' · ');
   const { can, user } = useSession();
   const [labelling, setLabelling] = useState(false);
@@ -258,9 +282,7 @@ export function PurchaseOrderDetail({
                             className="button button--primary"
                             disabled={busy}
                             aria-label={`Cargar al inventario la factura ${receipt.invoiceNumber}`}
-                            onClick={() =>
-                              void run(() => onLoadReceipt(receipt.id, receipt.invoiceNumber))
-                            }
+                            onClick={() => navigate(loadUrl(order.id, receipt.id))}
                           >
                             Cargar al inventario
                           </button>
@@ -365,14 +387,14 @@ export function PurchaseOrderDetail({
 
       <div className="form__actions">
         {order.status === 'RECEIVED' ? null : (
-          // La entrega se registra en Movimientos, en su ventana de carga de
-          // pedido (la misma para todos los pedidos): allí sube el inventario.
-          <Link
-            to={`/movimientos?pedido=${encodeURIComponent(order.id)}`}
+          <button
+            type="button"
             className="button button--primary"
+            disabled={busy}
+            onClick={() => setReceiving(true)}
           >
             📦 Registrar entrega
-          </Link>
+          </button>
         )}
         {order.status === 'PARTIAL' && !confirmingConclude ? (
           <button
@@ -396,6 +418,31 @@ export function PurchaseOrderDetail({
           Cerrar
         </button>
       </div>
+
+      {receiving ? (
+        <ReceiveOrderModal
+          order={order}
+          busy={busy}
+          onSubmit={async (payload, invoice) => {
+            const result = await onRegisterDelivery(payload, invoice);
+
+            if ('error' in result) {
+              return result.error;
+            }
+
+            if (payload.loadNow) {
+              // «Registrar y cargar»: la última verificación y la carga, en Movimientos.
+              navigate(loadUrl(order.id, result.receiptId));
+            } else {
+              // «Dejar la carga pendiente»: de vuelta a «Ver pedido», con el aviso.
+              setReceiving(false);
+            }
+
+            return null;
+          }}
+          onClose={() => setReceiving(false)}
+        />
+      ) : null}
 
       {viewing === null ? null : (
         <InvoiceViewer

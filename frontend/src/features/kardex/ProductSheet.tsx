@@ -47,8 +47,8 @@ interface ProductSheetProps {
   product: KardexProduct | null;
   /** El producto está llegando: las mismas celdas con «—» y «Cargando producto…». */
   loading?: boolean;
-  /** Resumen de todo el historial; `null` mientras llega. */
-  summary: KardexAmounts | null;
+  /** Lo que entró y salió hoy de este producto; `null` mientras llega. */
+  today: KardexAmounts | null;
   /** Cambia tras cada ingreso o egreso: vuelve a pedir los lotes. */
   version: number;
 }
@@ -70,13 +70,14 @@ interface ProductSheetProps {
  *    fecha no sirve cuando hay varios lotes.
  * 4. **Existencias** (la etiqueta en el tono de su estado y el aviso pequeño
  *    con la palabra: «Bien», «Bajo», «Agotado», «Sobre el máximo»), **stock
- *    mínimo**, **stock máximo** e **historial** («Entró +30 · Salió −12 ·
- *    9 movimientos»).
+ *    mínimo**, **stock máximo** y **hoy**: lo que entró y salió hoy de este
+ *    producto («Entró +30 · Salió −12 · 9 movs.»). Todo el historial ya
+ *    está en la tabla y los totales en Reportes.
  *
  * Sin producto (`product = null`) o mientras llega (`loading`) se ven las
  * mismas celdas con «—»: la pantalla no cambia de forma.
  */
-export function ProductSheet({ product, loading = false, summary, version }: ProductSheetProps) {
+export function ProductSheet({ product, loading = false, today, version }: ProductSheetProps) {
   /** Ventana «Lotes en existencia» abierta. */
   const [showingLots, setShowingLots] = useState(false);
   // Solo lo que vence tiene lotes que mirar; se vuelven a pedir tras cada ingreso o egreso.
@@ -187,22 +188,22 @@ export function ProductSheet({ product, loading = false, summary, version }: Pro
               ? 'Sin máximo'
               : product.maxStock.toLocaleString('es-CR')}
         </Cell>
-        <Cell label="Historial">
-          {product === null || summary === null ? (
+        <Cell label="Hoy">
+          {product === null || today === null ? (
             dash
           ) : (
             <span
               className="kardex-block__row kardex-block__row--together"
-              aria-label="Resumen del historial"
+              aria-label="Resumen de hoy"
             >
               <span>
-                Entró <FlowAmount value={summary.entries} direction="in" signed />
+                Entró <FlowAmount value={today.entries} direction="in" signed />
               </span>
               <span>
-                Salió <FlowAmount value={summary.exits} direction="out" signed />
+                Salió <FlowAmount value={today.exits} direction="out" signed />
               </span>
               <span className="muted">
-                {summary.count.toLocaleString('es-CR')} {summary.count === 1 ? 'mov.' : 'movs.'}
+                {today.count.toLocaleString('es-CR')} {today.count === 1 ? 'mov.' : 'movs.'}
               </span>
             </span>
           )}

@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
 import { ProfileForm } from '../features/profile/ProfileForm';
 import { useProfile } from '../features/profile/use-profile';
+import { PageHeader } from '../components/PageHeader';
 
 /**
  * Perfil del usuario: nombre, correo y contraseña (HU-14). Requiere sesión.
@@ -23,10 +24,9 @@ export function ProfilePage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Mi perfil</h1>
-        <p>Mantenga actualizados su nombre, su correo y su contraseña.</p>
-      </header>
+      <PageHeader icon="user" title="Mi perfil">
+        Mantenga actualizados su nombre, su correo y su contraseña.
+      </PageHeader>
 
       {user.mustChangePassword ? (
         <div className="alert alert--warning" role="alert">

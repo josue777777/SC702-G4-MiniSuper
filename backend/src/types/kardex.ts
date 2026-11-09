@@ -70,10 +70,28 @@ export interface KardexProductDto {
 export interface KardexProductOption {
   id: string;
   code: string;
+  /** Código de barras, para reconocer lo que escribió el lector. */
+  barcode: string | null;
   name: string;
+  categoryName: string;
   isActive: boolean;
   /** Stock actual: se ve en la lista del buscador. */
   stock: number;
+}
+
+/** Qué se busca en «Buscar producto»: texto (nombre, código o barras) y categoría. */
+export interface KardexProductFilter {
+  term: string;
+  categoryId?: string | undefined;
+}
+
+/** Una página de «Buscar producto» (de 4 en 4 en su ventana). */
+export interface KardexProductPage {
+  items: KardexProductOption[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 /** Movimiento tal como lo lee el repositorio. */
@@ -156,10 +174,8 @@ export interface KardexMovementPage {
   /** Movimientos del producto con el filtro aplicado. */
   total: number;
   totalPages: number;
-  /** Totales con el filtro aplicado (la fila «Totales» de la tabla). */
-  totals: KardexAmounts;
-  /** Todo el historial del producto, sin filtro (el resumen de la ficha). */
-  summary: KardexAmounts;
+  /** Lo que entró y salió HOY de este producto, sin filtro (la celda «Hoy» de la ficha). */
+  today: KardexAmounts;
 }
 
 /** Movimiento de cualquier producto, tal como lo lee el repositorio (vista general). */

@@ -191,8 +191,7 @@ describe('GET /api/kardex/products/:productId/movements', () => {
       pageSize: 15,
       total: 0,
       totalPages: 0,
-      totals: { entries: 0, exits: 0, count: 0 },
-      summary: { entries: 0, exits: 0, count: 0 },
+      today: { entries: 0, exits: 0, count: 0 },
     });
   });
 
@@ -211,22 +210,38 @@ describe('GET /api/kardex/products/:productId/movements', () => {
   });
 });
 
-describe('GET /api/kardex/products (selector)', () => {
-  it('lista los productos que devuelve el repositorio y valida la búsqueda', async () => {
+describe('GET /api/kardex/products («Buscar producto»)', () => {
+  it('devuelve una página (de 4 por defecto) y valida la búsqueda, la categoría y la página', async () => {
     const { app, repository } = buildApp();
 
     repository.options = [
-      { id: KARDEX_PRODUCT_ID, code: 'P001', name: 'Café', isActive: false, stock: 4 },
+      {
+        id: KARDEX_PRODUCT_ID,
+        code: 'P001',
+        barcode: null,
+        name: 'Café',
+        categoryName: 'Bebidas',
+        isActive: false,
+        stock: 4,
+      },
     ];
 
     const response = await request(app).get('/api/kardex/products?search=%20caf%C3%A9%20');
 
-    expect(response.body.data).toEqual(repository.options);
+    expect(response.body.data).toEqual({
+      items: repository.options,
+      page: 1,
+      pageSize: 4,
+      total: 1,
+      totalPages: 1,
+    });
     // La búsqueda se recorta antes de llegar al repositorio.
-    expect(repository.searches[0]?.term).toBe('café');
+    expect(repository.searches[0]?.filter.term).toBe('café');
     expect((await request(app).get(`/api/kardex/products?search=${'x'.repeat(121)}`)).status).toBe(
       400,
     );
+    expect((await request(app).get('/api/kardex/products?categoryId=nada')).status).toBe(400);
+    expect((await request(app).get('/api/kardex/products?pageSize=500')).status).toBe(400);
     expect((await request(app).get('/api/kardex/products?limit=500')).status).toBe(400);
   });
 });
@@ -304,8 +319,8 @@ describe('GET /api/kardex/movements (vista general, sin producto elegido)', () =
   });
 });
 
-describe('Entradas / Salidas y totales del historial (HU-38)', () => {
-  it('filtra solo las entradas o solo las salidas y suma cada filtro y todo el historial', async () => {
+describe('Entradas / Salidas del historial y lo de hoy (HU-38)', () => {
+  it('filtra solo las entradas o solo las salidas; «hoy» suma solo lo de hoy, sin filtro', async () => {
     const { app, repository } = buildApp();
 
     repository.movements.set(KARDEX_PRODUCT_ID, [
@@ -334,15 +349,24 @@ describe('Entradas / Salidas y totales del historial (HU-38)', () => {
         stockAfter: 9,
         at: '2026-10-03T15:00:00Z',
       }),
+      // Lo de hoy: una entrada de 5.
+      kardexMovement({
+        id: 'd',
+        type: 'ENTRY',
+        quantity: 5,
+        stockBefore: 9,
+        stockAfter: 14,
+        at: new Date().toISOString(),
+      }),
     ]);
 
     const exits = await request(app).get(`${PRODUCT}/movements?direction=exits`).expect(200);
     const entries = await request(app).get(`${PRODUCT}/movements?direction=entries`).expect(200);
 
     expect(exits.body.data.items.map((item: { id: string }) => item.id)).toEqual(['c', 'b']);
-    expect(exits.body.data.totals).toEqual({ entries: 0, exits: 3, count: 2 });
-    expect(exits.body.data.summary).toEqual({ entries: 12, exits: 3, count: 3 });
-    expect(entries.body.data.items.map((item: { id: string }) => item.id)).toEqual(['a']);
+    // «Hoy» no depende del filtro: solo la entrada de hoy.
+    expect(exits.body.data.today).toEqual({ entries: 5, exits: 0, count: 1 });
+    expect(entries.body.data.items.map((item: { id: string }) => item.id)).toEqual(['d', 'a']);
     await request(app).get(`${PRODUCT}/movements?direction=todo`).expect(400);
   });
 });

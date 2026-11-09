@@ -24,6 +24,7 @@ export function OrdersPage() {
 
   return (
     <PagePlaceholder
+      icon="truck"
       title="Pedidos"
       summary="Los pedidos a los proveedores y los proveedores a quienes se les compra."
       stories="HU-23, HU-38, HU-39"

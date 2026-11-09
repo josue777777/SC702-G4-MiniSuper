@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
 import { EntryModal } from '../features/kardex/EntryModal';
 import { ExitModal } from '../features/kardex/ExitModal';
@@ -9,13 +9,18 @@ import { KardexSearch } from '../features/kardex/KardexSearch';
 import { MovementsHistory } from '../features/kardex/MovementsHistory';
 import { OrderLoadModal } from '../features/kardex/OrderLoadModal';
 import { ProductSheet } from '../features/kardex/ProductSheet';
+import { ReceiptLoadModal } from '../features/kardex/ReceiptLoadModal';
 import { RecentMovements } from '../features/kardex/RecentMovements';
 import { useKeyedRequest } from '../features/kardex/use-keyed-request';
 import { kardexService } from '../services/kardex.service';
 import type { KardexAmounts, KardexProduct } from '../types/kardex';
+import { PageHeader } from '../components/PageHeader';
 
-/** Ventana abierta: ingreso o egreso de UN producto, o la carga de un pedido completo. */
-type Dialog = 'entry' | 'exit' | 'order' | null;
+/**
+ * Ventana abierta: ingreso o egreso de UN producto, la carga de un pedido
+ * completo o la última verificación de una entrega que viene de Pedidos.
+ */
+type Dialog = 'entry' | 'exit' | 'order' | 'receipt' | null;
 
 /**
  * Movimientos (HU-31, HU-38): entradas y salidas del inventario. Siempre con
@@ -24,14 +29,18 @@ type Dialog = 'entry' | 'exit' | 'order' | null;
  * 1. Encabezado y, arriba, el buscador (código, nombre o código de barras,
  *    con «Recientes»).
  * 2. La ficha del producto; sin producto, la misma ficha con «—».
- * 3. Su historial (Todos / Entradas / Salidas, con «Totales») o, sin
+ * 3. Su historial (Todos / Entradas / Salidas) o, sin
  *    producto, los últimos movimientos de todos los productos.
  * 4. La barra de acciones, como en Inventario. Cada acción abre su ventana:
  *    - «+ Ingreso»: UN producto sin pedido (compra directa);
  *    - «− Egreso»: UN producto, una salida que no es venta, de un lote;
  *    - «📦 Carga de pedido»: un pedido completo, todos sus productos a la
- *      vez. Pedidos › «Registrar entrega» llega aquí con el pedido ya
- *      elegido (`/movimientos?pedido=<id>`).
+ *      vez, con una última verificación antes de subir el stock.
+ *
+ * Desde Pedidos, «Registrar y cargar al inventario» o «Cargar al inventario»
+ * llegan con la entrega ya elegida (`/movimientos?pedido=<id>&entrega=<id>`):
+ * se abre directo la verificación. «Cancelar» ahí vuelve a «Ver pedido» de
+ * ese pedido (de donde se venía), con la carga pendiente.
  *
  * Los permisos los vuelve a revisar el servidor: el ingreso y la carga de
  * pedido piden `purchasing`; el egreso, `inventory.write`.
@@ -41,12 +50,14 @@ export function KardexPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('productId') ?? '';
   const orderParam = params.get('pedido');
+  const receiptParam = params.get('entrega');
+  const navigate = useNavigate();
   const validId = isProductId(requested);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
-  /** Resumen del historial del producto que se ve («Entró · Salió · N movimientos»). */
-  const [summary, setSummary] = useState<{ productId: string; value: KardexAmounts } | null>(null);
+  /** Lo de hoy del producto que se ve («Entró · Salió · N movs.»). */
+  const [today, setToday] = useState<{ productId: string; value: KardexAmounts } | null>(null);
   /** Ficha vuelta a leer tras un ingreso o egreso (stock nuevo), sin recargar la pantalla. */
   const [fresh, setFresh] = useState<KardexProduct | null>(null);
 
@@ -62,10 +73,11 @@ export function KardexPage() {
         ? fresh
         : product.value;
   // Desde Pedidos › «Registrar entrega»: la carga de ese pedido ya abierta.
-  const open: Dialog = orderParam !== null && dialog === null ? 'order' : dialog;
+  const open: Dialog =
+    orderParam === null || dialog !== null ? dialog : receiptParam === null ? 'order' : 'receipt';
 
-  const receiveSummary = useCallback(
-    (value: KardexAmounts) => setSummary({ productId: requested, value }),
+  const receiveToday = useCallback(
+    (value: KardexAmounts) => setToday({ productId: requested, value }),
     [requested],
   );
 
@@ -117,10 +129,9 @@ export function KardexPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Movimientos</h1>
-        <p>Entradas y salidas del inventario, con el saldo después de cada una.</p>
-      </header>
+      <PageHeader icon="swap" title="Movimientos">
+        Entradas y salidas del inventario, con el saldo después de cada una.
+      </PageHeader>
 
       <div className="kardex-toolbar">
         <KardexSearch onPick={pick} {...(requested === '' ? {} : { onClear: clear })} />
@@ -152,16 +163,11 @@ export function KardexPage() {
         product={ready}
         loading={product.phase === 'loading' && ready === null}
         version={version}
-        summary={summary !== null && summary.productId === requested ? summary.value : null}
+        today={today !== null && today.productId === requested ? today.value : null}
       />
 
       {validId && product.phase !== 'failed' ? (
-        <MovementsHistory
-          productId={requested}
-          stock={ready === null ? null : ready.stock}
-          version={version}
-          onSummary={receiveSummary}
-        />
+        <MovementsHistory productId={requested} version={version} onToday={receiveToday} />
       ) : (
         <RecentMovements key={version} />
       )}
@@ -203,6 +209,15 @@ export function KardexPage() {
       ) : null}
       {open === 'order' ? (
         <OrderLoadModal orderId={orderParam} onDone={saved} onClose={close} />
+      ) : null}
+      {open === 'receipt' && orderParam !== null && receiptParam !== null ? (
+        <ReceiptLoadModal
+          orderId={orderParam}
+          receiptId={receiptParam}
+          onDone={saved}
+          // «Cancelar»: de vuelta a «Ver pedido» en Pedidos, de donde se venía.
+          onCancel={() => navigate(`/orders?pedido=${encodeURIComponent(orderParam)}`)}
+        />
       ) : null}
     </>
   );

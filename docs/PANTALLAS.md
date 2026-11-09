@@ -24,7 +24,7 @@ Todo el sistema usa un solo diseño, y un cambio se aplica a **todo** o a nada
 | Texto | Casi negro; lo secundario, gris | `--color-text`, `--color-muted` |
 | Acción principal | Botón casi negro (redondeado) | `--color-primary` |
 | Botones y campos | Esquinas redondeadas | `--radius` |
-| Títulos de pantalla | Grandes, en el color del texto (sin barra de color) | — |
+| Títulos de pantalla | Grandes, en el color del texto, con el cuadro oscuro de su ícono a la izquierda (`PageHeader`) | `--color-sidebar` |
 | Encabezados de tabla | Gris claro con texto gris | `--color-row-alt`, `--color-muted` |
 | **Estados** | Rojo crítico, ámbar atención, verde éxito — y siempre con su palabra | `--color-error`, `--color-warning`, `--color-ok` |
 
@@ -41,8 +41,17 @@ Reglas:
   celdas iguales, como una hoja (`.kardex-block`): la etiqueta a la izquierda en el oscuro
   del sistema (`--color-sidebar`, el mismo del menú) y el dato a la derecha; ningún dato
   manda sobre otro y solo la etiqueta «Existencias» toma el tono de su estado. El
-  encabezado de las tablas sigue gris claro, como en todo el sistema. El historial cierra
-  con la fila «Totales» (lo filtrado, en todas las páginas, y el stock de hoy).
+  encabezado de las tablas sigue gris claro, como en todo el sistema. La celda «Hoy» dice
+  lo que entró y salió hoy de ese producto; el historial no lleva fila «Totales»
+  (repetía lo que ya dicen la ficha y Reportes).
+- **Cada pantalla lleva su ícono.** El encabezado es siempre `PageHeader`: el cuadro
+  oscuro del menú (`--color-sidebar`) con el ícono de la pantalla (el mismo dibujo del
+  menú, `NavIcon`) y, al lado, el título y su frase. Nunca un `<header className="page-header">`
+  escrito a mano: así todas se ven iguales.
+- **La persona decide a dónde va.** «Cancelar» vuelve a la ventana o pantalla de antes,
+  nunca a otra; una acción solo lleva a otra pantalla cuando eso es lo que se pidió (por
+  ejemplo, «Registrar y cargar al inventario» lleva a Movimientos para la verificación).
+  Lo que no se pidió («dejar la carga pendiente») se queda donde estaba.
 - **Una tabla con páginas no salta.** Ocupa siempre el alto de una página completa, la
   paginación está siempre en el mismo lugar (apagada, «Página — de —», mientras no hay
   datos) y, mientras llega otra página o filtro, se ve la anterior atenuada en vez de un

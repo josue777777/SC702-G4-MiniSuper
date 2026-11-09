@@ -9,6 +9,7 @@ import { SalesHistory } from '../features/sales/SalesHistory';
 import { ProductSearchModal } from '../features/sales/ProductSearchModal';
 import { SCANNER_INPUT_ID, ScannerBar } from '../features/sales/ScannerBar';
 import { usePos } from '../features/sales/use-pos';
+import { PageHeader } from '../components/PageHeader';
 
 /** Las dos partes de la pantalla: vender o consultar lo vendido. */
 type SalesView = 'caja' | 'historial';
@@ -91,10 +92,9 @@ export function SalesPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Ventas</h1>
-        <p>Escanee los productos, elija cómo paga el cliente y finalice la venta.</p>
-      </header>
+      <PageHeader icon="cart" title="Ventas">
+        Escanee los productos, elija cómo paga el cliente y finalice la venta.
+      </PageHeader>
 
       <div className="tabs" role="tablist" aria-label="Secciones de ventas">
         {VIEWS.map((item) => (

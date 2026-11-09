@@ -18,25 +18,23 @@ const DIRECTIONS: [KardexDirection, string][] = [
 
 interface MovementsHistoryProps {
   productId: string;
-  /** Stock actual (el saldo de la fila «Totales»); `null` mientras llega la ficha. */
-  stock: number | null;
   /** Cambia cada vez que se registra un ingreso o egreso: vuelve a pedir el historial. */
   version: number;
-  /** Entrega a la ficha el resumen de todo el historial («Entró · Salió · N movimientos»). */
-  onSummary: (summary: KardexAmounts) => void;
+  /** Entrega a la ficha lo de hoy de este producto («Entró · Salió · N movs.»). */
+  onToday: (today: KardexAmounts) => void;
 }
 
 /**
  * Historial de movimientos del producto (HU-31), del más reciente al más
- * antiguo, por páginas de 15, con la fila «Totales» al pie (lo filtrado, en
- * todas las páginas, y el stock de hoy).
+ * antiguo, por páginas de 15. Sin fila de totales: el historial completo ya
+ * está en la tabla, lo de hoy en la ficha y los totales en Reportes.
  *
  * La tabla no se mueve: su espacio es siempre el de una página completa, la
  * paginación está siempre en el mismo lugar y, mientras llega otra página u
  * otro filtro, se sigue viendo la anterior atenuada (en vez de un «Cargando…»
  * que empuja todo). «Todos / Entradas / Salidas» filtra en el servidor.
  */
-export function MovementsHistory({ productId, stock, version, onSummary }: MovementsHistoryProps) {
+export function MovementsHistory({ productId, version, onToday }: MovementsHistoryProps) {
   const [position, setPosition] = useState({
     productId,
     page: 1,
@@ -65,9 +63,9 @@ export function MovementsHistory({ productId, stock, version, onSummary }: Movem
 
   useEffect(() => {
     if (loaded !== null) {
-      onSummary(loaded.summary);
+      onToday(loaded.today);
     }
-  }, [loaded, onSummary]);
+  }, [loaded, onToday]);
 
   return (
     <section className="card" aria-label="Historial de movimientos" aria-busy={busy}>
@@ -117,11 +115,7 @@ export function MovementsHistory({ productId, stock, version, onSummary }: Movem
               : `No hay ${direction === 'entries' ? 'entradas' : 'salidas'} de este producto.`}
           </p>
         ) : (
-          <MovementsTable
-            label="Movimientos del producto"
-            items={shown.items}
-            {...(stock === null ? {} : { totals: { amounts: shown.totals, stock } })}
-          />
+          <MovementsTable label="Movimientos del producto" items={shown.items} />
         )}
       </div>
 

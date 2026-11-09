@@ -31,14 +31,25 @@ export interface KardexProduct {
   isActive: boolean;
 }
 
-/** Opción del selector de producto (incluye desactivados). */
+/** Un producto en «Buscar producto» (incluye desactivados). */
 export interface KardexProductOption {
   id: string;
   code: string;
+  /** Para reconocer lo que escribió el lector de código de barras. */
+  barcode: string | null;
   name: string;
+  categoryName: string;
   isActive: boolean;
-  /** Stock actual: se ve en la lista del buscador. */
   stock: number;
+}
+
+/** Una página de «Buscar producto». */
+export interface KardexProductPage {
+  items: KardexProductOption[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface KardexReference {
@@ -92,10 +103,8 @@ export interface KardexMovementPage {
   pageSize: number;
   total: number;
   totalPages: number;
-  /** Con el filtro aplicado: la fila «Totales». */
-  totals: KardexAmounts;
-  /** Todo el historial del producto: el resumen de la ficha. */
-  summary: KardexAmounts;
+  /** Lo que entró y salió HOY de este producto, sin filtro (la celda «Hoy» de la ficha). */
+  today: KardexAmounts;
 }
 
 /** Lote con unidades: lo que se elige en un egreso. */

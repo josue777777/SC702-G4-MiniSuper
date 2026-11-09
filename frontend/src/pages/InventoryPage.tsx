@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Modal } from '../components/Modal';
 import { PhysicalCountSection } from '../features/inventory/PhysicalCountSection';
 import { ProductsSection } from '../features/products/ProductsSection';
+import { PageHeader } from '../components/PageHeader';
 
 /**
  * Ventana de inventario (HU-01 … HU-10): la lista general de productos con
@@ -31,13 +32,10 @@ export function InventoryPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Inventario</h1>
-        <p>
-          Administre productos y existencias. Use el lector para identificarlos en ventas y conteos
-          físicos.
-        </p>
-      </header>
+      <PageHeader icon="box" title="Inventario">
+        Administre productos y existencias. Use el lector para identificarlos en ventas y conteos
+        físicos.
+      </PageHeader>
       {/* HU-01 … HU-05: lista de productos; crear, modificar y desactivar en modales. */}
       <ProductsSection
         refreshKey={productsVersion}
