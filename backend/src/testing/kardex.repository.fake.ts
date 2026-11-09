@@ -1,6 +1,7 @@
 import type { IncomingLot } from '../repositories/stock-entries.js';
 import type {
   KardexDirection,
+  KardexProductFilter,
   KardexMovementKind,
   KardexMovementRow,
   KardexProductOption,
@@ -92,7 +93,7 @@ export class FakeKardexRepository {
   /** Lo que el service encargó escribir. */
   entries: { productId: string; lots: IncomingLot[]; movement: Record<string, unknown> }[] = [];
   exits: { productId: string; plan: Record<string, unknown> }[] = [];
-  searches: { term: string; limit: number }[] = [];
+  searches: { filter: KardexProductFilter; skip: number; take: number }[] = [];
 
   constructor(readonly businessId: string = TEST_BUSINESS_ID) {
     this.products.set(KARDEX_PRODUCT_ID, kardexProduct());
@@ -106,10 +107,13 @@ export class FakeKardexRepository {
     return Promise.resolve(this.products.get(id) ?? null);
   }
 
-  searchProducts(term: string, limit: number) {
-    this.searches.push({ term, limit });
+  searchProducts(filter: KardexProductFilter, skip: number, take: number) {
+    this.searches.push({ filter, skip, take });
 
-    return Promise.resolve(this.options);
+    return Promise.resolve({
+      rows: this.options.slice(skip, skip + take),
+      total: this.options.length,
+    });
   }
 
   listMovements(productId: string, skip: number, take: number, direction: KardexDirection = 'all') {
@@ -132,8 +136,12 @@ export class FakeKardexRepository {
     });
   }
 
-  listProductAmounts(productId: string, direction: KardexDirection = 'all') {
-    return Promise.resolve(this.filtered(productId, direction));
+  listProductAmountsBetween(productId: string, start: Date, end: Date) {
+    return Promise.resolve(
+      (this.movements.get(productId) ?? []).filter(
+        (row) => row.createdAt >= start && row.createdAt < end,
+      ),
+    );
   }
 
   listStockLots(productId: string) {

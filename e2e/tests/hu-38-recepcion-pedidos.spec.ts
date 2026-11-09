@@ -79,13 +79,27 @@ async function openOrder(page: Page): Promise<void> {
 }
 
 /**
- * «📦 Registrar entrega» del pedido lleva a Movimientos, donde se abre la
- * ventana de la entrega con ese pedido (la entrada al inventario es allí).
+ * «📦 Registrar entrega» abre la ventana de la entrega AQUÍ, sobre «Ver pedido»
+ * (sin salir de Pedidos).
  */
 async function startDelivery(page: Page): Promise<void> {
-  await orderDialog(page).getByRole('link', { name: '📦 Registrar entrega' }).click();
-  await expect(page).toHaveURL(/\/movimientos\?pedido=/);
+  await orderDialog(page).getByRole('button', { name: '📦 Registrar entrega' }).click();
   await expect(receiptDialog(page)).toBeVisible();
+  await expect(page).toHaveURL(/\/orders/);
+}
+
+/**
+ * Tras «Registrar y cargar» (o «Cargar al inventario»): Movimientos abre la
+ * última verificación de la entrega y se confirma con «Sí, cargar».
+ */
+async function confirmLoad(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/movimientos\?pedido=.+&entrega=/);
+
+  const check = page.getByRole('dialog', { name: 'Carga de pedido · PED-0001' });
+
+  await expect(check.getByText('¿Está seguro de cargar esta entrega al inventario?')).toBeVisible();
+  await check.getByRole('button', { name: 'Sí, cargar al inventario' }).click();
+  await expect(check).toHaveCount(0);
 }
 
 test('entrega parcial cargada ya, segunda con la carga pendiente y confirmada después', async ({
@@ -105,6 +119,7 @@ test('entrega parcial cargada ya, segunda con la carga pendiente y confirmada de
   await saveEvidence(page, 'HU-38', 'registrar-entrega.png');
   await first.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
   await expect(first).toHaveCount(0);
+  await confirmLoad(page);
   // Queda en Movimientos, con el aviso de lo que se cargó.
   await expect(
     page
@@ -129,7 +144,11 @@ test('entrega parcial cargada ya, segunda con la carga pendiente y confirmada de
   await second.getByLabel('N.º de factura').fill('F-101');
   await second.getByRole('button', { name: 'Registrar y dejar la carga pendiente' }).click();
   await expect(second).toHaveCount(0);
-  await openOrder(page);
+  // Se queda en Pedidos, en «Ver pedido» (de donde vino), con el aviso: no salta a Movimientos.
+  await expect(page).toHaveURL(/\/orders/);
+  await expect(order).toContainText(
+    'Entrega F-101 registrada; la carga al inventario quedó pendiente.',
+  );
   await expect(order.locator('.order-meta')).toContainText('Recibido ·');
   expect(await stockOf('ARR-01')).toBe(46);
 
@@ -148,8 +167,30 @@ test('entrega parcial cargada ya, segunda con la carga pendiente y confirmada de
   await orderDialog(page)
     .getByRole('button', { name: 'Cargar al inventario la factura F-101' })
     .click();
-  await expect(orderDialog(page).getByText(/^Cargada ·/)).toHaveCount(2);
+  // «Cargar al inventario» lleva a la verificación en Movimientos; «Cancelar» vuelve a «Ver pedido».
+  await expect(page).toHaveURL(/\/movimientos\?pedido=.+&entrega=/);
+
+  const check = page.getByRole('dialog', { name: 'Carga de pedido · PED-0001' });
+  const preview = check.getByRole('table', { name: 'Lo que se va a cargar' });
+
+  await expect(check.getByLabel('Datos de la entrega')).toContainText('F-101');
+  await expect(preview.locator('tbody tr')).toHaveCount(1);
+  await expect(preview.locator('tbody tr')).toContainText('Arroz blanco 1 kg');
+  await expect(preview.locator('tbody tr')).toContainText('+4');
+  await saveEvidence(page, 'HU-38', 'carga-de-pedido-verificacion.png');
+  await check.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page).toHaveURL(/\/orders$/);
+  await expect(orderDialog(page)).toBeVisible();
+  expect(await stockOf('ARR-01')).toBe(46);
+
+  // Ahora sí: se confirma y sube el stock, una sola vez.
+  await orderDialog(page)
+    .getByRole('button', { name: 'Cargar al inventario la factura F-101' })
+    .click();
+  await confirmLoad(page);
   expect(await stockOf('ARR-01')).toBe(50);
+  await openOrder(page);
+  await expect(orderDialog(page).getByText(/^Cargada ·/)).toHaveCount(2);
 
   // El Kardex sabe de qué pedido y factura salió cada entrada.
   const reasons = await withDb(async (client) => {
@@ -178,6 +219,7 @@ test('un pedido que llegó en parte se da por concluido y ya no recibe más', as
   await receipt.getByLabel('Llegó de Arroz blanco 1 kg').fill('0');
   await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
   await expect(receipt).toHaveCount(0);
+  await confirmLoad(page);
   await openOrder(page);
 
   const order = orderDialog(page);
@@ -185,7 +227,7 @@ test('un pedido que llegó en parte se da por concluido y ya no recibe más', as
   await order.getByRole('button', { name: 'Dar por concluido' }).click();
   await order.getByRole('button', { name: 'Sí, dar por concluido' }).click();
   await expect(order.locator('.order-meta')).toContainText('Recibido ·');
-  await expect(order.getByRole('link', { name: '📦 Registrar entrega' })).toHaveCount(0);
+  await expect(order.getByRole('button', { name: '📦 Registrar entrega' })).toHaveCount(0);
   expect(await stockOf('ARR-01')).toBe(40);
   expect(await stockOf('CAF-01')).toBe(22);
 });
@@ -212,6 +254,12 @@ test('no guarda una entrega sin factura, con más de lo que falta o sin nada', a
   await save.click();
   await expect(error).toHaveText('Anote al menos un producto que haya llegado.');
   expect(await stockOf('ARR-01')).toBe(40);
+
+  // «Cancelar» vuelve a «Ver pedido», sin guardar nada y sin salir de Pedidos.
+  await receipt.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(receipt).toHaveCount(0);
+  await expect(orderDialog(page)).toBeVisible();
+  await expect(page).toHaveURL(/\/orders/);
 });
 
 /** Un PDF mínimo válido (la firma «%PDF-» es lo que revisa el servidor). */
@@ -286,6 +334,7 @@ test('la factura se puede adjuntar después, desde «Entregas»', async ({ page 
   await receipt.getByLabel('N.º de factura').fill('F-500');
   await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
   await expect(receipt).toHaveCount(0);
+  await confirmLoad(page);
   await openOrder(page);
 
   const order = orderDialog(page);
@@ -357,6 +406,7 @@ test('cancelar el selector de archivos no cierra la ventana; Esc sí', async ({ 
     .getByRole('button', { name: 'Registrar y cargar al inventario' })
     .click();
   await expect(receiptDialog(page)).toHaveCount(0);
+  await confirmLoad(page);
   await openOrder(page);
 
   // El navegador avisa «cancel» (y sube por la página) al cerrar el selector sin elegir.
@@ -487,6 +537,7 @@ test('lotes: lo que vence pide lote y fecha, se parte en varios lotes y cada lí
   await saveEvidence(page, 'HU-38', 'registrar-entrega-con-lotes.png');
   await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
   await expect(receipt).toHaveCount(0);
+  await confirmLoad(page);
   await openOrder(page);
   expect(await stockOf('CAF-01')).toBe(22);
 

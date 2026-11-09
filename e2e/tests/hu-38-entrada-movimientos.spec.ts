@@ -116,6 +116,13 @@ test('carga de pedido: se elige PED-0001 entre los pendientes y entran todos sus
   await receipt.getByRole('button', { name: 'Registrar y cargar al inventario' }).click();
   await expect(receipt).toHaveCount(0);
 
+  // Verificación de dos pasos: se ve lo que va a entrar antes de subir el stock.
+  const check = page.getByRole('dialog', { name: 'Carga de pedido · PED-0001' });
+
+  await expect(check.getByRole('table', { name: 'Lo que se va a cargar' })).toContainText('+6');
+  expect(await stockOf('ARR-01')).toBe(40);
+  await check.getByRole('button', { name: 'Sí, cargar al inventario' }).click();
+
   await expect(
     page.getByRole('status').filter({
       hasText: 'Entrega F-700 del pedido PED-0001 cargada al inventario.',
@@ -139,28 +146,29 @@ test('carga de pedido: se elige PED-0001 entre los pendientes y entran todos sus
   expect(status).toBe('PARTIAL');
 });
 
-test('desde Pedidos, «Registrar entrega» lleva a la carga de ese pedido en Movimientos', async ({
+test('desde Pedidos, «Registrar entrega» se abre sobre «Ver pedido» y «Cancelar» vuelve a él', async ({
   page,
 }) => {
   await orderRice(page);
   await page.goto('/orders');
   await page.getByRole('button', { name: 'Ver pedido PED-0001' }).click();
-  await page
-    .getByRole('dialog', { name: /^Pedido PED-0001/ })
-    .getByRole('link', { name: '📦 Registrar entrega' })
-    .click();
 
-  await expect(page).toHaveURL(/\/movimientos\?pedido=/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Movimientos' })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Registrar entrega · PED-0001' })).toBeVisible();
-  await saveEvidence(page, 'HU-38', 'pedidos-a-movimientos.png');
+  const order = page.getByRole('dialog', { name: /^Pedido PED-0001/ });
 
-  // Cancelar cierra la ventana y quita el pedido de la dirección.
-  await page
-    .getByRole('dialog', { name: 'Registrar entrega · PED-0001' })
-    .getByRole('button', { name: 'Cancelar' })
-    .click();
-  await expect(page).toHaveURL(/\/movimientos$/);
+  await order.getByRole('button', { name: '📦 Registrar entrega' }).click();
+
+  // La entrega se registra sin salir de Pedidos.
+  const receipt = page.getByRole('dialog', { name: 'Registrar entrega · PED-0001' });
+
+  await expect(receipt).toBeVisible();
+  await expect(page).toHaveURL(/\/orders/);
+  await saveEvidence(page, 'HU-38', 'pedidos-registrar-entrega.png');
+
+  // Cancelar vuelve a «Ver pedido» (la ventana de antes), no a otra pantalla.
+  await receipt.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(receipt).toHaveCount(0);
+  await expect(order).toBeVisible();
+  await expect(page).toHaveURL(/\/orders/);
 });
 
 test('ingreso sin pedido: sin referencia o con 0 no se guarda; una compra directa entra con sus lotes', async ({
@@ -218,6 +226,8 @@ test('ingreso sin pedido: sin referencia o con 0 no se guarda; una compra direct
   const sheet = page.getByRole('region', { name: 'Ficha de Aceite vegetal grande' });
 
   await expect(sheet.getByLabel('Stock actual')).toHaveText('30');
+  // «Hoy» de la ficha suma el ingreso de hoy, en el verde del panel con «+».
+  await expect(sheet.getByLabel('Resumen de hoy')).toContainText('Entró +12');
 });
 
 test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salidas» lo muestra', async ({
@@ -255,7 +265,7 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
     '1 lote',
   ]);
 
-  // «Salidas»: solo el egreso, con la fila «Totales».
+  // «Salidas»: solo el egreso.
   await page
     .getByRole('group', { name: 'Movimientos a mostrar' })
     .getByRole('button', { name: 'Salidas', exact: true })
@@ -264,8 +274,8 @@ test('egreso: «Vencido / descartado» sale del lote elegido y el filtro «Salid
   const table = page.getByRole('table', { name: 'Movimientos del producto' });
 
   await expect(table.locator('tbody tr')).toHaveCount(1);
-  // «Totales» de lo filtrado: solo salió el egreso; el stock de hoy al final.
-  await expect(table.locator('tfoot td')).toHaveText(['Totales', '0', '−4', '14']);
+  // Sin fila «Totales» al pie: lo de hoy está en la ficha.
+  await expect(table.locator('tfoot')).toHaveCount(0);
   // Con los tonos del panel: la salida en rojo, el concepto con «−» y el lote al lado.
   const exitRow = table.locator('tbody tr').first();
 

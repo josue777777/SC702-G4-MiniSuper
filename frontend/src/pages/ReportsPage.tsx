@@ -3,6 +3,7 @@ import { useSession } from '../features/auth/session-context';
 import { CommercialReportPanel } from '../features/reports/CommercialReports';
 import { InventoryStockReport } from '../features/reports/InventoryStockReport';
 import type { ReportKind } from '../types/reports';
+import { PageHeader } from '../components/PageHeader';
 
 type ReportTab = ReportKind | 'inventario';
 
@@ -44,10 +45,9 @@ export function ReportsPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Reportes</h1>
-        <p>Consulte, personalice y descargue en PDF o Excel los reportes del negocio.</p>
-      </header>
+      <PageHeader icon="reports" title="Reportes">
+        Consulte, personalice y descargue en PDF o Excel los reportes del negocio.
+      </PageHeader>
 
       {active === undefined ? (
         <p className="card muted">Todavía no hay reportes disponibles para su rol.</p>

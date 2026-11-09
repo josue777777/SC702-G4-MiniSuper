@@ -3,6 +3,7 @@ import { useSession } from '../features/auth/session-context';
 import { UrgentToday } from '../features/dashboard/UrgentToday';
 import { useDashboard } from '../features/dashboard/use-dashboard';
 import { formatMoney } from '../features/products/money';
+import { PageHeader } from '../components/PageHeader';
 
 /**
  * Pantalla de inicio con «foco»: primero lo urgente del día (como mucho tres
@@ -22,13 +23,10 @@ export function DashboardPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Panel principal</h1>
-        <p>
-          Lo que necesita atención hoy. Se actualiza solo. Para ir a cualquier parte, pulse{' '}
-          <kbd>Ctrl</kbd> + <kbd>K</kbd>.
-        </p>
-      </header>
+      <PageHeader icon="home" title="Panel principal">
+        Lo que necesita atención hoy. Se actualiza solo. Para ir a cualquier parte, pulse{' '}
+        <kbd>Ctrl</kbd> + <kbd>K</kbd>.
+      </PageHeader>
 
       {phase === 'failed' ? (
         <p className="alert alert--error" role="status">

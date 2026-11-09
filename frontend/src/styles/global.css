@@ -394,8 +394,29 @@ code {
 }
 
 /* --- Piezas reutilizables ------------------------------------------------- */
+/* Encabezado de pantalla (PageHeader): el cuadro oscuro con el ícono y, al
+   lado, el título y su frase. Igual en todas las pantallas. */
 .page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   margin-bottom: 16px;
+}
+
+.page-header__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: var(--color-sidebar);
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(24 24 27 / 12%);
+}
+
+.page-header__text {
+  min-width: 0;
 }
 
 /* Título de la pantalla: grande, en el color del texto (sin barra de color) */
@@ -3080,14 +3101,14 @@ tr.print-only-row {
   }
 }
 
-/* Fila «Totales» al pie del kardex. */
+/* Fila de totales al pie de una tabla (pedidos, carrito, reportes). */
 .table tfoot td {
   border-top: 2px solid var(--color-text);
   font-weight: 700;
 }
 
-/* Movimientos: buscador arriba, siempre a la vista, con su lista desplegable
-   («Recientes» o lo encontrado), como la barra de búsqueda de la referencia. */
+/* Movimientos: arriba, «Buscar producto» (abre su ventana con todos los
+   productos, la búsqueda y la categoría) y «Limpiar». */
 .kardex-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -3099,92 +3120,18 @@ tr.print-only-row {
 
 .kardex-search {
   display: flex;
-  flex: 1;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  max-width: 640px;
 }
 
-.kardex-search__box {
-  position: relative;
-  flex: 1;
-  min-width: 220px;
-}
-
-.kardex-search__input {
-  width: 100%;
-  padding: 9px 11px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.kardex-search__dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 20;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-}
-
-.kardex-search__dropdown ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.kardex-search__heading {
-  margin: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.kardex-search__empty {
-  margin: 0;
-  padding: 12px;
-  color: var(--color-muted);
-  font-size: 0.9rem;
-}
-
-.kardex-search__option {
-  display: grid;
-  grid-template-columns: 90px 1fr auto;
-  gap: 12px;
+/* «Recientes» dentro de «Buscar producto»: los últimos abiertos, a un toque. */
+.product-picker__recents {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  border-bottom: 1px solid var(--color-border);
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.kardex-search__option .badge {
-  margin-left: 8px;
-}
-
-.kardex-search__option--active,
-.kardex-search__option:hover {
-  background: var(--color-row-hover);
-}
-
-.kardex-search__notice {
-  flex-basis: 100%;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 /* Ficha sin producto: los mismos datos con «—», en gris. */

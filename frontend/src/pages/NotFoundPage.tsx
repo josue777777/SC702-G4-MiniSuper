@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
 
 /**
  * Ruta desconocida. En lugar de una página en blanco, devuelve al dueño a la
@@ -7,10 +8,9 @@ import { Link } from 'react-router-dom';
 export function NotFoundPage() {
   return (
     <>
-      <header className="page-header">
-        <h1>Página no encontrada</h1>
-        <p>La dirección a la que intentó entrar no existe en el sistema.</p>
-      </header>
+      <PageHeader icon="compass" title="Página no encontrada">
+        La dirección a la que intentó entrar no existe en el sistema.
+      </PageHeader>
 
       <section className="card">
         <p className="muted">

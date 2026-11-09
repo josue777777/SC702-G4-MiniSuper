@@ -8,6 +8,7 @@ import { TemporaryPasswordDialog } from '../features/users/TemporaryPasswordDial
 import { ApiError } from '../services/api-client';
 import { platformService } from '../services/platform.service';
 import type { BusinessSummary, BusinessWithManager } from '../types/platform';
+import { PageHeader } from '../components/PageHeader';
 
 function describeError(error: unknown): string {
   return error instanceof ApiError
@@ -60,13 +61,10 @@ export function BusinessesPage() {
 
   return (
     <>
-      <header className="page-header">
-        <h1>Negocios</h1>
-        <p>
-          Los negocios registrados: su nivel de cuenta, cuántos usuarios usan y su Encargado. Los
-          datos internos de cada negocio solo los ve su gente.
-        </p>
-      </header>
+      <PageHeader icon="store" title="Negocios">
+        Los negocios registrados: su nivel de cuenta, cuántos usuarios usan y su Encargado. Los
+        datos internos de cada negocio solo los ve su gente.
+      </PageHeader>
 
       <div className="toolbar">
         <button

@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react';
+import type { NavIconName } from '../layouts/navigation';
+import { PageHeader } from './PageHeader';
 import { PendingWork } from './PendingWork';
 
 interface PagePlaceholderProps {
+  /** El ícono del encabezado (el mismo del menú). */
+  icon: NavIconName;
   title: string;
   /** Qué resuelve la pantalla, en una frase. */
   summary: string;
@@ -22,6 +26,7 @@ interface PagePlaceholderProps {
  * desarrollo (ver `PendingWork`).
  */
 export function PagePlaceholder({
+  icon,
   title,
   summary,
   stories,
@@ -30,10 +35,9 @@ export function PagePlaceholder({
 }: PagePlaceholderProps) {
   return (
     <>
-      <header className="page-header">
-        <h1>{title}</h1>
-        <p>{summary}</p>
-      </header>
+      <PageHeader icon={icon} title={title}>
+        {summary}
+      </PageHeader>
 
       {children}
 

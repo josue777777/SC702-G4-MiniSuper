@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Permission } from '../../types/auth';
 import { useSession } from './session-context';
+import { PageHeader } from '../../components/PageHeader';
 
 /**
  * Pantalla que pide un permiso del rol. Si alguien escribe la dirección a mano
@@ -23,10 +24,9 @@ export function RequirePermission({
 
   return (
     <>
-      <header className="page-header">
-        <h1>Acceso no permitido</h1>
-        <p>Su rol no tiene acceso a esta sección.</p>
-      </header>
+      <PageHeader icon="lock" title="Acceso no permitido">
+        Su rol no tiene acceso a esta sección.
+      </PageHeader>
 
       <section className="card">
         <p className="muted">

@@ -30,12 +30,12 @@ Es el catálogo del negocio y el control de sus existencias:
   «N lotes» los muestra en una ventana (HU-38). Más adelante se suman los conceptos de
   salida «Devolución» (a proveedor), «Traslado» y «Vencido-descartado».
 - **Movimientos**, siempre con la misma forma y las piezas del resto del sistema:
-  1. **Buscador** arriba (código, nombre o código de barras; con el lector, código + Enter
-     abre el producto). Al entrar en la caja se despliega «Recientes» (los últimos 6
-     productos abiertos en ese navegador, `kardex-recents.ts`) o, al escribir, los que
-     coinciden con su stock (`KardexSearch.tsx`). Con un producto abierto, al lado de
-     «Buscar» va «Limpiar» (el mismo botón de Inventario), que vuelve a la vista sin
-     producto.
+  1. **🔍 Buscar producto** arriba (`KardexSearch.tsx`): abre una ventana con TODOS los
+     productos, de 4 en 4 y paginados en el servidor (`ProductPickerModal.tsx`). Dentro
+     de la ventana se busca por código, nombre o código de barras (con el lector, código
+     + Enter abre el producto), se filtra por categoría y se ven «Recientes» (los últimos
+     6 abiertos en ese navegador, `kardex-recents.ts`). Afuera no hay más filtros. Con un
+     producto abierto, al lado va «Limpiar» (el mismo botón de Inventario).
   2. **Ficha** (`ProductSheet.tsx`), en celdas como una hoja (la etiqueta oscura a la
      izquierda, el dato a la derecha), sin encabezado propio porque el nombre ya va en
      «Descripción»; la insignia «Inactivo» solo si el producto está desactivado: **Producto** (el código, con
@@ -44,11 +44,12 @@ Es el catálogo del negocio y el control de sus existencias:
      «Bajo», «Agotado», «Sobre el máximo»), stock mínimo y máximo, **lotes** (cuándo vence el próximo y
      la insignia «▦ N lotes», `ProductLotsModal.tsx`; un
      producto puede tener varias fechas, por eso no se muestra una sola; lo que no vence
-     dice «No vence») e historial («Entró +30 · Salió −12 · 9 movs.»). Sin producto, o mientras llega, las
-     mismas celdas con «—»: la pantalla no cambia de forma.
+     dice «No vence») y **hoy**: lo que entró y salió HOY de ese producto («Entró +30 ·
+     Salió −12 · 9 movs.»; todo el historial está en la tabla y los totales en
+     Reportes). Sin producto, o mientras llega, las mismas celdas con «—»: la pantalla no
+     cambia de forma.
   3. **Historial de movimientos** con «Todos / Entradas / Salidas» (el filtro va al
-     servidor) y la fila «Totales» al pie (lo filtrado, en todas las páginas, y el stock
-     de hoy). Sin producto, los últimos movimientos de todos los productos con «Hoy: N
+     servidor), sin fila de totales. Sin producto, los últimos movimientos de todos los productos con «Hoy: N
      entran · N salen» (`RecentMovements.tsx`). Las dos tablas ocupan siempre el alto de
      una página de 15, con la paginación siempre en su lugar (`MovementsPager.tsx`);
      mientras llega otra página se ve la anterior atenuada, así nada salta.
@@ -59,10 +60,20 @@ Es el catálogo del negocio y el control de sus existencias:
   directa»: factura, proveedor, fecha, cantidad, costo y lotes (de 4 en 4). Sin factura o
   con 0 unidades no se guarda.
 - **📦 Carga de pedido** (permiso `purchasing`): un pedido COMPLETO, todos sus productos a
-  la vez (carga masiva). Se elige el pedido pendiente (buscando PED-0001, proveedor o
-  producto) y se abre la ventana «Registrar entrega»: factura con su vista previa, lo que
-  llegó con sus lotes, cargar ya o dejar la carga pendiente. Desde Pedidos › «Registrar
-  entrega» se llega aquí con el pedido ya elegido (`/movimientos?pedido=<id>`).
+  la vez (carga masiva), con **verificación de dos pasos** (`OrderLoadModal.tsx`):
+  1. Se elige el pedido (los que faltan por llegar y los que tienen entregas sin cargar;
+     se busca por PED-0001, proveedor o producto).
+  2. Si tiene entregas sin cargar, se elige cuál cargar o «Registrar otra entrega».
+  3. «Registrar entrega» (la misma ventana de Pedidos): «Registrar y dejar la carga
+     pendiente» vuelve a la lista; «Registrar y cargar al inventario» pasa al paso 4.
+  4. La última verificación (`ReceiptLoadModal.tsx`): el pedido, el proveedor, la
+     factura y lo que va a entrar de cada producto con sus lotes, y «¿Está seguro de
+     cargar esta entrega al inventario?». Recién con «Sí, cargar al inventario» sube el
+     stock. «Cancelar» siempre vuelve un paso atrás.
+
+  Desde Pedidos, «Registrar y cargar al inventario» o «Cargar al inventario» llegan
+  directo al paso 4 (`/movimientos?pedido=<id>&entrega=<id>`); ahí «Cancelar» vuelve a
+  «Ver pedido» en Pedidos, con la carga pendiente.
 - **− Egreso** (permiso `inventory.write`): salida que no es venta — «Vencido /
   descartado», «Traslado» o «Devolución a proveedor» — del **lote elegido**, con su
   documento y un detalle. Nunca saca más de lo que tiene el lote.
@@ -142,7 +153,8 @@ está en la ventana: es el reporte **Reportes › Conteos** (ver [Reportes](repo
 | `PATCH /api/inventory/products/:id/min-stock` · `/expiration-date` | Mínimo y vencimiento |
 | `GET /api/kardex/products/:id/movements?page=` | Movimientos de un producto, paginados en el servidor (HU-31) |
 | `GET /api/kardex/movements?page=` | Vista general: últimos movimientos de todos los productos y el resumen de hoy (`sumAmounts`) |
-| `GET /api/kardex/products/:id/movements?direction=entries\|exits` | El historial filtrado, con `totals` (lo filtrado) y `summary` (todo) |
+| `GET /api/kardex/products/:id/movements?direction=entries\|exits` | El historial filtrado, con `today`: lo que entró y salió hoy de ese producto (la celda «Hoy») |
+| `GET /api/kardex/products?search=&categoryId=&page=&pageSize=` | «Buscar producto»: una página (4 por defecto) por nombre, código o código de barras y categoría, con los desactivados |
 | `GET /api/kardex/products/:id/lots` | Lotes con unidades, del que vence primero (para elegir en un egreso) |
 | `POST /api/kardex/products/:id/entries` | Ingreso sin pedido: «Compra directa» con lotes (`purchasing`) |
 | `POST /api/kardex/products/:id/exits` | Egreso de un lote: vencido, traslado o devolución (`inventory.write`) |

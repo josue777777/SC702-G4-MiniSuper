@@ -15,7 +15,9 @@ interface ReceiveOrderModalProps {
   busy: boolean;
   /**
    * Guarda la entrega (y, si se eligió, adjunta la factura del proveedor);
-   * devuelve el error del servidor o `null` si la entrega se guardó.
+   * devuelve el error del servidor o `null` si la entrega se guardó. Con
+   * `null`, quien abrió la ventana decide a dónde se va (esta no se cierra
+   * sola): `payload.loadNow` dice qué botón se tocó.
    */
   onSubmit: (payload: ReceiveOrderPayload, invoice: File | null) => Promise<string | null>;
   onClose: () => void;
@@ -27,9 +29,10 @@ interface ReceiveOrderModalProps {
  * si vino menos). Solo se listan los productos que todavía faltan.
  *
  * Al guardar se elige qué pasa con el inventario, con dos botones claros:
- * cargarlo ya, o dejar la carga pendiente para confirmarla después (por
- * ejemplo, cuando se terminó de revisar la mercadería). El pedido sigue
- * abierto hasta que llega todo o se da por concluido.
+ * «Registrar y cargar al inventario» (pasa a la última verificación, en
+ * Movimientos › «Carga de pedido») o «Registrar y dejar la carga pendiente»
+ * (vuelve a la ventana de antes). «Cancelar» también vuelve a la de antes,
+ * sin guardar. El pedido sigue abierto hasta que llega todo o se concluye.
  *
  * La factura del proveedor (PDF o foto) se puede adjuntar aquí mismo: se
  * muestra al lado de las cantidades, para ir leyéndola mientras se anotan. Es
@@ -131,9 +134,7 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
       invoice,
     );
 
-    if (failed === null) {
-      onClose();
-    } else {
+    if (failed !== null) {
       setError(failed);
     }
   }

@@ -115,9 +115,52 @@ describe('historial', () => {
       pageSize: 25,
       total: 0,
       totalPages: 0,
-      totals: { entries: 0, exits: 0, count: 0 },
-      summary: { entries: 0, exits: 0, count: 0 },
+      today: { entries: 0, exits: 0, count: 0 },
     });
+  });
+
+  it('«hoy» suma solo lo de este producto en el día de Costa Rica, sin importar el filtro', async () => {
+    const { service, repository } = build();
+
+    repository.movements.set(KARDEX_PRODUCT_ID, [
+      // Ayer (01/10 a las 09:00 en Costa Rica): no cuenta.
+      kardexMovement({
+        id: 'ayer',
+        type: 'ENTRY',
+        quantity: 10,
+        stockBefore: 0,
+        stockAfter: 10,
+        at: '2026-10-01T15:00:00Z',
+      }),
+      // Hoy a las 09:00 en Costa Rica.
+      kardexMovement({
+        id: 'manana',
+        type: 'ENTRY',
+        quantity: 4,
+        stockBefore: 10,
+        stockAfter: 14,
+        at: '2026-10-02T15:00:00Z',
+      }),
+      // Hoy a las 23:00 en Costa Rica (ya es 03/10 en UTC): cuenta como hoy.
+      kardexMovement({
+        id: 'noche',
+        type: 'EXIT',
+        quantity: 3,
+        stockBefore: 14,
+        stockAfter: 11,
+        at: '2026-10-03T05:00:00Z',
+      }),
+    ]);
+
+    const page = await service.listMovements(
+      KARDEX_PRODUCT_ID,
+      { ...FIRST_PAGE, direction: 'entries' },
+      '2026-10-02',
+    );
+
+    expect(page.today).toEqual({ entries: 4, exits: 3, count: 2 });
+    // El filtro sí cambia la tabla.
+    expect(page.items.map((item) => item.id)).toEqual(['manana', 'ayer']);
   });
 
   it('ordena del más reciente al más antiguo y muestra concepto, referencia y saldos', async () => {
@@ -266,15 +309,32 @@ describe('historial', () => {
     );
   });
 
-  it('el selector pide un máximo de productos y acepta una búsqueda vacía', async () => {
+  it('«Buscar producto» pide la página que toca, con texto y categoría, y acepta una búsqueda vacía', async () => {
     const { service, repository } = build();
 
-    await service.searchProducts(undefined);
-    await service.searchProducts('café');
+    repository.options = Array.from({ length: 6 }, (_, index) => ({
+      id: `p${index}`,
+      code: `P00${index}`,
+      barcode: null,
+      name: `Producto ${index}`,
+      categoryName: 'Granos',
+      isActive: true,
+      stock: index,
+    }));
 
+    const second = await service.searchProducts({ page: 2, pageSize: 4, search: 'pro' });
+
+    expect(await service.searchProducts({ page: 1, pageSize: 4 })).toMatchObject({
+      total: 6,
+      totalPages: 2,
+    });
+    // La segunda página trae lo que queda, de 4 en 4.
+    expect(second.items.map((item) => item.code)).toEqual(['P004', 'P005']);
+    await service.searchProducts({ page: 1, pageSize: 4, categoryId: 'c1' });
     expect(repository.searches).toEqual([
-      { term: '', limit: 20 },
-      { term: 'café', limit: 20 },
+      { filter: { term: 'pro', categoryId: undefined }, skip: 4, take: 4 },
+      { filter: { term: '', categoryId: undefined }, skip: 0, take: 4 },
+      { filter: { term: '', categoryId: 'c1' }, skip: 0, take: 4 },
     ]);
   });
 });

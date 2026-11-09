@@ -7,6 +7,7 @@ import type {
   KardexDirection,
   KardexStockLotRow,
   KardexMovementRow,
+  KardexProductFilter,
   KardexProductOption,
   KardexProductRow,
   KardexRecentMovementRow,
@@ -103,28 +104,53 @@ export class KardexRepository {
   }
 
   /**
-   * Productos para elegir en el selector, por nombre o código sin distinguir
-   * mayúsculas, o por el código de barras exacto (lector). Incluye los desactivados: conservan su historial.
+   * Una página de «Buscar producto»: por nombre o código sin distinguir
+   * mayúsculas, o por el código de barras exacto (lector), y por categoría.
+   * Incluye los desactivados: conservan su historial.
    */
-  async searchProducts(term: string, limit: number): Promise<KardexProductOption[]> {
-    return prisma.product.findMany({
-      where: {
-        businessId: this.businessId,
-        ...(term === ''
-          ? {}
-          : {
-              OR: [
-                { name: { contains: term, mode: 'insensitive' } },
-                { code: { contains: term, mode: 'insensitive' } },
-                // Con el lector: el código de barras completo.
-                { barcode: term },
-              ],
-            }),
-      },
-      orderBy: [{ name: 'asc' }, { code: 'asc' }],
-      take: limit,
-      select: { id: true, code: true, name: true, isActive: true, stock: true },
-    });
+  async searchProducts(
+    filter: KardexProductFilter,
+    skip: number,
+    take: number,
+  ): Promise<{ rows: KardexProductOption[]; total: number }> {
+    const { term, categoryId } = filter;
+    const where: Prisma.ProductWhereInput = {
+      businessId: this.businessId,
+      ...(categoryId === undefined ? {} : { categoryId }),
+      ...(term === ''
+        ? {}
+        : {
+            OR: [
+              { name: { contains: term, mode: 'insensitive' } },
+              { code: { contains: term, mode: 'insensitive' } },
+              // Con el lector: el código de barras completo.
+              { barcode: term },
+            ],
+          }),
+    };
+    const [rows, total] = await prisma.$transaction([
+      prisma.product.findMany({
+        where,
+        orderBy: [{ name: 'asc' }, { code: 'asc' }, { id: 'asc' }],
+        skip,
+        take,
+        select: {
+          id: true,
+          code: true,
+          barcode: true,
+          name: true,
+          isActive: true,
+          stock: true,
+          category: { select: { name: true } },
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    return {
+      rows: rows.map(({ category, ...row }) => ({ ...row, categoryName: category.name })),
+      total,
+    };
   }
 
   /**
@@ -191,13 +217,18 @@ export class KardexRepository {
     });
   }
 
-  /** Lo justo para sumar entradas y salidas de un producto, con el filtro dado. */
-  async listProductAmounts(
+  /** Lo justo para sumar entradas y salidas de un producto en `[start, end)`. */
+  async listProductAmountsBetween(
     productId: string,
-    direction: KardexDirection = 'all',
+    start: Date,
+    end: Date,
   ): Promise<KardexAmountRow[]> {
     return prisma.inventoryMovement.findMany({
-      where: { productId, product: { businessId: this.businessId }, ...directionFilter(direction) },
+      where: {
+        productId,
+        product: { businessId: this.businessId },
+        createdAt: { gte: start, lt: end },
+      },
       select: { type: true, quantity: true, stockBefore: true, stockAfter: true },
     });
   }

@@ -4,7 +4,7 @@ import type {
   KardexExitPayload,
   KardexMovementPage,
   KardexProduct,
-  KardexProductOption,
+  KardexProductPage,
   KardexRecentPage,
   KardexStockLot,
 } from '../types/kardex';
@@ -19,11 +19,28 @@ interface DataResponse<T> {
  * es el único punto por el que la pantalla habla con `/api/kardex`.
  */
 export const kardexService = {
-  /** Productos para elegir, por nombre o código. Incluye los desactivados. */
-  async searchProducts(search: string): Promise<KardexProductOption[]> {
-    const query = search === '' ? '' : `?${new URLSearchParams({ search }).toString()}`;
+  /**
+   * Una página de «Buscar producto»: por nombre, código o código de barras y
+   * por categoría, de 4 en 4 (la ventana).
+   */
+  async searchProducts(filter: {
+    search: string;
+    categoryId: string;
+    page: number;
+  }): Promise<KardexProductPage> {
+    const query = new URLSearchParams({ page: String(filter.page) });
 
-    return (await apiGet<DataResponse<KardexProductOption[]>>(`/api/kardex/products${query}`)).data;
+    if (filter.search !== '') {
+      query.set('search', filter.search);
+    }
+
+    if (filter.categoryId !== '') {
+      query.set('categoryId', filter.categoryId);
+    }
+
+    return (
+      await apiGet<DataResponse<KardexProductPage>>(`/api/kardex/products?${query.toString()}`)
+    ).data;
   },
 
   /** Ficha del producto. 404 si no existe (o es de otro negocio). */

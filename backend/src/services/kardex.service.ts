@@ -7,7 +7,7 @@ import type {
   KardexMovementRow,
   KardexMovementsQuery,
   KardexProductDto,
-  KardexProductOption,
+  KardexProductPage,
   KardexRecentPage,
   KardexStockLotDto,
 } from '../types/kardex.js';
@@ -18,12 +18,13 @@ import {
   dateToDateOnly,
   todayInBusinessZone,
 } from '../utils/dates.js';
-import type { KardexEntryInput, KardexExitInput } from '../validators/kardex.validator.js';
+import type {
+  KardexEntryInput,
+  KardexExitInput,
+  KardexSearchQuery,
+} from '../validators/kardex.validator.js';
 import { formatOrderNumber, resolveReceiptLots } from './purchase-orders.service.js';
 import { HttpError } from '../utils/http-error.js';
-
-/** Productos que ofrece el selector: suficiente para elegir y acota la respuesta. */
-const PRODUCT_OPTIONS_LIMIT = 20;
 
 /** Descripción cuando el movimiento no registró un motivo. */
 const DEFAULT_CONCEPT: Record<KardexMovementKind, string> = {
@@ -195,8 +196,21 @@ export function sumAmounts(rows: KardexAmountRow[]): {
 export class KardexService {
   constructor(private readonly repository: KardexRepository) {}
 
-  searchProducts(term: string | undefined): Promise<KardexProductOption[]> {
-    return this.repository.searchProducts(term ?? '', PRODUCT_OPTIONS_LIMIT);
+  /** Una página de «Buscar producto» (texto, categoría), de los activos y desactivados. */
+  async searchProducts(query: KardexSearchQuery): Promise<KardexProductPage> {
+    const { rows, total } = await this.repository.searchProducts(
+      { term: query.search ?? '', categoryId: query.categoryId },
+      (query.page - 1) * query.pageSize,
+      query.pageSize,
+    );
+
+    return {
+      items: rows,
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.ceil(total / query.pageSize),
+    };
   }
 
   /** Ficha del producto; también de los desactivados. */
@@ -234,26 +248,30 @@ export class KardexService {
 
   /**
    * Una página del historial, del más reciente al más antiguo; con
-   * `direction` solo las entradas o solo las salidas. Trae los totales de lo
-   * filtrado (fila «Totales») y el resumen de todo el historial (la ficha).
+   * `direction` solo las entradas o solo las salidas. Trae también lo que
+   * entró y salió HOY de este producto (la celda «Hoy» de la ficha): el
+   * historial completo ya está en la tabla y los totales en Reportes.
    */
-  async listMovements(productId: string, query: KardexMovementsQuery): Promise<KardexMovementPage> {
+  async listMovements(
+    productId: string,
+    query: KardexMovementsQuery,
+    today = todayInBusinessZone(),
+  ): Promise<KardexMovementPage> {
     if ((await this.repository.findProduct(productId)) === null) {
       throw HttpError.notFound('El producto no existe.');
     }
 
     const direction = query.direction ?? 'all';
-    const [{ rows, total }, filtered, all] = await Promise.all([
+    const { start, end } = businessDayRange(today, today);
+    const [{ rows, total }, todayRows] = await Promise.all([
       this.repository.listMovements(
         productId,
         (query.page - 1) * query.pageSize,
         query.pageSize,
         direction,
       ),
-      this.repository.listProductAmounts(productId, direction),
-      direction === 'all' ? null : this.repository.listProductAmounts(productId),
+      this.repository.listProductAmountsBetween(productId, start, end),
     ]);
-    const totals = sumAmounts(filtered);
 
     return {
       items: rows.map(toMovementDto),
@@ -261,8 +279,7 @@ export class KardexService {
       pageSize: query.pageSize,
       total,
       totalPages: Math.ceil(total / query.pageSize),
-      totals,
-      summary: all === null ? totals : sumAmounts(all),
+      today: sumAmounts(todayRows),
     };
   }
 

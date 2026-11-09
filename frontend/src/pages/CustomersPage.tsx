@@ -1,14 +1,14 @@
 import { PendingWork } from '../components/PendingWork';
 import { CustomersSection } from '../features/customers/CustomersSection';
+import { PageHeader } from '../components/PageHeader';
 
 /** Clientes, cuentas fiadas y abonos (HU-18, HU-19, HU-30). Aquí vive el mínimo que HU-18 necesita. */
 export function CustomersPage() {
   return (
     <>
-      <header className="page-header">
-        <h1>Clientes</h1>
-        <p>Contactos del negocio y control de las deudas por venta a crédito (fiado).</p>
-      </header>
+      <PageHeader icon="users" title="Clientes">
+        Contactos del negocio y control de las deudas por venta a crédito (fiado).
+      </PageHeader>
 
       <CustomersSection />
 

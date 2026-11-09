@@ -18,12 +18,15 @@ import {
 export class KardexController {
   constructor(private readonly serviceFor: ForBusiness<KardexService>) {}
 
-  /** `GET /api/kardex/products?search=` — productos para elegir (incluye desactivados). */
+  /**
+   * `GET /api/kardex/products?search=&categoryId=&page=&pageSize=` — una página
+   * de «Buscar producto» (incluye desactivados).
+   */
   async searchProducts(req: Request, res: Response): Promise<void> {
-    const { search } = kardexSearchQuerySchema.parse(req.query);
+    const query = kardexSearchQuerySchema.parse(req.query);
 
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).searchProducts(search) });
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).searchProducts(query) });
   }
 
   /** `GET /api/kardex/products/:productId` — ficha del producto. */

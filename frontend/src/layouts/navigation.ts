@@ -46,7 +46,11 @@ export type NavIconName =
   | 'settings'
   | 'store'
   | 'inbox'
-  | 'logout';
+  | 'logout'
+  | 'swap'
+  | 'box'
+  | 'lock'
+  | 'compass';
 
 export interface NavItem {
   kind: 'link';

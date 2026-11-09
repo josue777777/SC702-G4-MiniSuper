@@ -17,10 +17,18 @@ de HU-38, los lotes con vencimiento y la entrada desde Movimientos). Volver al
   concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
   **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
   en esa factura; el historial avisa «Carga pendiente»).
-- **Registrar entrega** (HU-38): en «Ver pedido», «📦 Registrar entrega» lleva a
-  Movimientos y abre la ventana «Carga de pedido» con ese pedido (todos sus productos a la
-  vez). La entrega se registra allí porque es donde sube el inventario; el pedido queda
-  recibido o parcial. Ver `docs/guia/productos-e-inventario.md`.
+- **Registrar entrega** (HU-38): en «Ver pedido», «📦 Registrar entrega» abre su ventana
+  AQUÍ, sobre «Ver pedido» (sin salir de Pedidos). Quien usa el sistema decide a dónde va:
+  - «Cancelar» vuelve a «Ver pedido», sin guardar nada;
+  - «Registrar y dejar la carga pendiente» guarda la entrega y vuelve a «Ver pedido»,
+    donde la entrega queda con su botón «Cargar al inventario»;
+  - «Registrar y cargar al inventario» guarda la entrega y lleva a Movimientos ›
+    «Carga de pedido» con la entrega ya en pantalla, para una última verificación
+    («¿Está seguro…?»): ahí sube el stock. «Cargar al inventario» de una entrega
+    pendiente lleva al mismo lugar. «Cancelar» en la verificación vuelve a «Ver pedido»
+    (`/orders?pedido=<id>` reabre el pedido).
+
+  Ver `docs/guia/productos-e-inventario.md`.
 - **Comparar costos** (HU-39): en Inventario, con el producto marcado, «⚖ Comparar costos»
   muestra el costo de cada proveedor activo que lo suministra, del más barato al más caro:
   «Más barato» y cuánto más cuesta cada uno, con la fecha del costo. Es siempre el

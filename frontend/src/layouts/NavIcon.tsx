@@ -65,6 +65,13 @@ const PATHS: Record<NavIconName, string[]> = {
   ],
   inbox: ['M3 13l3-8h12l3 8', 'M3 13v6h18v-6', 'M3 13h5l1 3h6l1-3h5'],
   logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  // Encabezados de pantalla (PageHeader)
+  /** Una flecha que entra y otra que sale: Movimientos ⇅. */
+  swap: ['M7 20V4', 'M3 8l4-4 4 4', 'M17 4v16', 'M13 16l4 4 4-4'],
+  /** Una caja: Inventario. */
+  box: ['M3 7l9-4 9 4v10l-9 4-9-4z', 'M3 7l9 4 9-4', 'M12 11v10'],
+  lock: ['M5 11h14v10H5z', 'M8 11V7a4 4 0 0 1 8 0v4'],
+  compass: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M15.5 8.5l-2 5-5 2 2-5z'],
 };
 
 export function NavIcon({ name, size = 20 }: { name: NavIconName; size?: number }) {

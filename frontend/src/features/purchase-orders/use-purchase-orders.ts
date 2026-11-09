@@ -6,6 +6,7 @@ import type {
   PurchaseOrder,
   PurchaseOrderPayload,
   PurchaseOrderSummary,
+  ReceiveOrderPayload,
 } from '../../types/purchase-orders';
 import type { Supplier } from '../../types/suppliers';
 import type { Notice } from '../products/use-products';
@@ -135,14 +136,50 @@ export function usePurchaseOrders() {
     [runOnOrder],
   );
 
-  /** HU-38: confirmar la carga de una entrega pendiente. */
-  const loadReceipt = useCallback(
-    (order: PurchaseOrder, receiptId: string, invoiceNumber: string) =>
-      runOnOrder(
-        () => purchaseOrdersService.loadReceipt(order.id, receiptId),
-        `Factura ${invoiceNumber} cargada al inventario.`,
-      ),
-    [runOnOrder],
+  /**
+   * HU-38: registra una entrega del pedido (factura, lo que llegó y sus lotes)
+   * con la carga PENDIENTE, y adjunta el archivo de la factura si lo hay. La
+   * carga al inventario se confirma aparte, en Movimientos (verificación de
+   * dos pasos). Devuelve el error, o el id de la entrega registrada.
+   */
+  const registerDelivery = useCallback(
+    async (
+      order: PurchaseOrder,
+      payload: ReceiveOrderPayload,
+      invoice: File | null,
+    ): Promise<{ error: string } | { receiptId: string }> => {
+      setBusy(true);
+      setNotice(null);
+
+      try {
+        let updated = await purchaseOrdersService.receive(order.id, { ...payload, loadNow: false });
+        const receipt = updated.receipts.find(
+          (candidate) => candidate.invoiceNumber === payload.invoiceNumber,
+        );
+        let text = `Entrega ${payload.invoiceNumber} registrada; la carga al inventario quedó pendiente.`;
+
+        if (invoice !== null && receipt !== undefined) {
+          try {
+            updated = await purchaseOrdersService.attachInvoice(order.id, receipt.id, invoice);
+          } catch (failure) {
+            text = `${text} El archivo de la factura no se pudo adjuntar: ${describeError(failure)} Adjúntelo desde «Entregas».`;
+          }
+        }
+
+        setSelected(updated);
+        setNotice({ kind: 'success', text });
+        await load(filter);
+
+        return receipt === undefined
+          ? { error: 'La entrega se registró, pero no se encontró para cargarla.' }
+          : { receiptId: receipt.id };
+      } catch (error) {
+        return { error: describeError(error) };
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load, filter],
   );
 
   /** HU-38: dar por concluido un pedido que llegó en parte. */
@@ -171,7 +208,7 @@ export function usePurchaseOrders() {
     openOrder,
     closeOrder,
     attachInvoice,
-    loadReceipt,
+    registerDelivery,
     concludeOrder,
     dismissNotice,
   };
