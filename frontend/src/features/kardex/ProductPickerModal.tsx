@@ -131,7 +131,7 @@ export function ProductPickerModal({ onPick, onClose }: ProductPickerModalProps)
             value={input}
             maxLength={120}
             autoComplete="off"
-            placeholder="Código, nombre o código de barras"
+            placeholder="Código, nombre o barras"
             aria-label="Buscar producto por código, nombre o código de barras"
             onChange={(event) => {
               setInput(event.target.value);
