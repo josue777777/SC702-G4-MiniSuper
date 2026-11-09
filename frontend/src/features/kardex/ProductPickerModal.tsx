@@ -196,7 +196,7 @@ export function ProductPickerModal({ onPick, onClose }: ProductPickerModalProps)
           {term === '' ? 'No hay productos en esta categoría.' : `No hay productos con «${term}».`}
         </p>
       ) : (
-        <div className={busy ? 'table-wrapper kardex-history--busy' : 'table-wrapper'}>
+        <div className={busy ? 'table-wrapper table-wrapper--busy' : 'table-wrapper'}>
           <table className="table" aria-label="Productos">
             <thead>
               <tr>

@@ -1,12 +1,25 @@
 import { useEffect, useState } from 'react';
+import { Pagination } from '../../components/Pagination';
 import { ApiError } from '../../services/api-client';
 import { salesService } from '../../services/sales.service';
-import type { DailySalesHistory, PaymentMethod } from '../../types/sales';
+import type { DailySalesHistory, PaymentMethod, SaleStatus } from '../../types/sales';
 import { formatMoney } from '../products/money';
 import { PAYMENT_LABELS } from './payment-labels';
 import { SaleAdjustmentModal } from './SaleAdjustmentModal';
 import { SaleDetailModal } from './SaleDetailModal';
-import { formatSaleDateTime, saleStatusLabel } from './sale-format';
+import { SaleProductsModal } from './SaleProductsModal';
+import { formatSaleTime, saleStatusLabel } from './sale-format';
+
+/** Tono de la insignia de cada estado (el color comunica estado, siempre con su palabra). */
+const STATUS_TONES: Record<SaleStatus, string> = {
+  COMPLETED: 'badge--ok',
+  PARTIALLY_RETURNED: 'badge--warning',
+  RETURNED: 'badge--muted',
+  VOID: 'badge--error',
+};
+
+/** Venta de la página, tal como llega del historial. */
+type HistorySale = DailySalesHistory['sales'][number];
 
 interface SalesHistoryProps {
   version: number;
@@ -14,7 +27,20 @@ interface SalesHistoryProps {
   onAdjustmentComplete: () => void;
 }
 
-/** Historial diario del negocio, con totales independientes de la página y el método. */
+/**
+ * Historial del día (HU-20), con las mismas piezas que el resto de las tablas
+ * (Pedidos, Proveedores):
+ *
+ * - Filtros arriba que se aplican solos (día y método de pago) y «↻ Actualizar».
+ * - Los totales del día, independientes de la página y del método.
+ * - Una fila por venta, en orden: N.º, hora, cliente, productos, pago, estado
+ *   (insignia con su palabra) y total. En la celda de productos va el primero y,
+ *   si hay más, «+N más», que abre SOLO esa lista en una ventana (regla 4: la
+ *   fila no crece). El detalle completo, con «Anular o devolver», es «Ver venta»;
+ *   el ticket, «Comprobante».
+ * - Páginas de 15 armadas en el servidor (`Pagination`, regla 2); mientras llega
+ *   otra página o filtro se ve la anterior atenuada (no salta).
+ */
 export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: SalesHistoryProps) {
   const [date, setDate] = useState(() =>
     new Date().toLocaleDateString('en-CA', { timeZone: 'America/Costa_Rica' }),
@@ -29,6 +55,10 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
   } | null>(null);
   const [adjustmentSaleId, setAdjustmentSaleId] = useState<string | null>(null);
   const [detailSaleId, setDetailSaleId] = useState<string | null>(null);
+  /** Venta cuyos productos se ven («+N más»). */
+  const [productsOf, setProductsOf] = useState<HistorySale | null>(null);
+  /** La última página que llegó: se sigue viendo, atenuada, mientras llega la nueva. */
+  const [shown, setShown] = useState<DailySalesHistory | undefined>(undefined);
   const key = `${date}/${filter}/${page}/${version}/${attempt}`;
 
   useEffect(() => {
@@ -36,7 +66,10 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
     salesService
       .dailyHistory(date, page, filter === '' ? undefined : filter)
       .then((data) => {
-        if (!cancelled) setResult({ key, data });
+        if (!cancelled) {
+          setResult({ key, data });
+          setShown(data);
+        }
       })
       .catch((caught: unknown) => {
         if (!cancelled)
@@ -50,8 +83,15 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
     };
   }, [date, page, filter, key]);
 
-  const data = result?.key === key ? result.data : undefined;
   const error = result?.key === key ? result.error : undefined;
+  // Mientras llega lo nuevo, lo anterior (atenuado); con un error, nada.
+  const data = error === undefined ? shown : undefined;
+  const busy = result?.key !== key;
+  const pageCount =
+    data === undefined ? 1 : Math.max(1, Math.ceil(data.matchingCount / data.pageSize));
+  const from =
+    data === undefined || data.sales.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1;
+  const to = data === undefined ? 0 : from + data.sales.length - 1;
 
   return (
     <section className="card" aria-labelledby="sales-history-title">
@@ -142,105 +182,120 @@ export function SalesHistory({ version, onOpenReceipt, onAdjustmentComplete }: S
                 : `No hay ventas pagadas con ${PAYMENT_LABELS[filter].toLowerCase()} en este día.`}
             </p>
           ) : (
-            <div className="table-wrapper">
-              <table className="table" aria-label="Historial de ventas">
+            <div className={busy ? 'table-wrapper table-wrapper--busy' : 'table-wrapper'}>
+              <table className="table" aria-label="Historial de ventas" aria-busy={busy}>
                 <thead>
                   <tr>
-                    <th>Venta</th>
-                    <th>Fecha y hora (CR)</th>
-                    <th>Productos × cantidad</th>
+                    <th>N.º</th>
+                    <th>Hora</th>
+                    <th>Cliente</th>
+                    <th>Productos</th>
                     <th>Pago</th>
                     <th>Estado</th>
-                    <th>Cliente</th>
-                    <th className="table__number">Total original</th>
-                    <th className="table__number">Total efectivo</th>
+                    <th className="table__number">Total</th>
                     <th>
                       <span className="visually-hidden">Acciones</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.sales.map((sale) => (
-                    <tr key={sale.id}>
-                      <td>#{sale.number}</td>
-                      <td>{formatSaleDateTime(sale.createdAt)}</td>
-                      <td>
-                        {sale.items.map((item) => (
-                          <div key={item.id}>
-                            {item.name} × {item.quantity}
+                  {data.sales.map((sale) => {
+                    const [first] = sale.items;
+                    const more = sale.items.length - 1;
+
+                    return (
+                      <tr key={sale.id}>
+                        <td>
+                          <strong>#{sale.number}</strong>
+                        </td>
+                        <td>{formatSaleTime(sale.createdAt)}</td>
+                        <td>{sale.customer?.name ?? '—'}</td>
+                        <td>
+                          {first === undefined ? '—' : `${first.name} × ${first.quantity}`}
+                          {more <= 0 ? null : (
+                            <>
+                              {' '}
+                              <button
+                                type="button"
+                                className="badge badge--button"
+                                aria-label={`Ver los ${sale.items.length} productos de la venta ${sale.number}`}
+                                onClick={() => setProductsOf(sale)}
+                              >
+                                +{more} más
+                              </button>
+                            </>
+                          )}
+                        </td>
+                        <td>{PAYMENT_LABELS[sale.paymentMethod]}</td>
+                        <td>
+                          <span className={`badge ${STATUS_TONES[sale.status]}`}>
+                            {saleStatusLabel(sale.status)}
+                          </span>
+                        </td>
+                        <td className="table__number">
+                          <strong>{formatMoney(sale.total)}</strong>
+                          {sale.total === sale.originalTotal ? null : (
+                            <span className="muted sales-history__original">
+                              de {formatMoney(sale.originalTotal)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="table__number">
+                          <div className="row-actions">
+                            <button
+                              type="button"
+                              className="button"
+                              aria-label={`Ver detalle de la venta ${sale.number}`}
+                              onClick={() => setDetailSaleId(sale.id)}
+                            >
+                              Ver venta
+                            </button>
+                            <button
+                              type="button"
+                              className="button"
+                              aria-label={`Ver comprobante de la venta ${sale.number}`}
+                              onClick={() => onOpenReceipt(sale.id)}
+                            >
+                              🧾 Comprobante
+                            </button>
                           </div>
-                        ))}
-                      </td>
-                      <td>{PAYMENT_LABELS[sale.paymentMethod]}</td>
-                      <td>{saleStatusLabel(sale.status)}</td>
-                      <td>{sale.customer?.name ?? '—'}</td>
-                      <td className="table__number">{formatMoney(sale.originalTotal)}</td>
-                      <td className="table__number">{formatMoney(sale.total)}</td>
-                      <td>
-                        <div className="row-actions">
-                          <button
-                            type="button"
-                            className="button"
-                            aria-label={`Ver detalle de la venta ${sale.number}`}
-                            onClick={() => setDetailSaleId(sale.id)}
-                          >
-                            Detalle
-                          </button>
-                          <button
-                            type="button"
-                            className="button"
-                            aria-label={`Ver comprobante de la venta ${sale.number}`}
-                            onClick={() => onOpenReceipt(sale.id)}
-                          >
-                            Comprobante
-                          </button>
-                          <button
-                            type="button"
-                            className="button"
-                            aria-label={`${sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED' ? 'Anular o devolver' : 'Ver ajustes de'} la venta ${sale.number}`}
-                            onClick={() => setAdjustmentSaleId(sale.id)}
-                          >
-                            {sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED'
-                              ? 'Anular/devolver'
-                              : 'Ver ajustes'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-          <nav className="form__actions" aria-label="Páginas del historial">
-            <button
-              type="button"
-              className="button"
-              disabled={page === 1}
-              onClick={() => setPage(page - 1)}
-            >
-              Anterior
-            </button>
-            <span>
-              Página {page} de {Math.max(1, Math.ceil(data.matchingCount / data.pageSize))} ·{' '}
-              {data.matchingCount} ventas coincidentes
-            </span>
-            <button
-              type="button"
-              className="button"
-              disabled={page * data.pageSize >= data.matchingCount}
-              onClick={() => setPage(page + 1)}
-            >
-              Siguiente
-            </button>
-          </nav>
+          <Pagination
+            page={data.page}
+            pageCount={pageCount}
+            total={data.matchingCount}
+            from={from}
+            to={to}
+            itemLabel="ventas"
+            label="Páginas del historial"
+            busy={busy}
+            onPage={setPage}
+          />
         </>
+      )}
+      {productsOf === null ? null : (
+        <SaleProductsModal
+          saleNumber={productsOf.number}
+          items={productsOf.items}
+          onClose={() => setProductsOf(null)}
+        />
       )}
       {detailSaleId === null ? null : (
         <SaleDetailModal
           saleId={detailSaleId}
           onClose={() => setDetailSaleId(null)}
           onOpenReceipt={onOpenReceipt}
+          onAdjust={(saleId) => {
+            setDetailSaleId(null);
+            setAdjustmentSaleId(saleId);
+          }}
         />
       )}
       {adjustmentSaleId === null ? null : (

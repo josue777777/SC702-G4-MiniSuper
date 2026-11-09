@@ -10,15 +10,22 @@ import { useReceipt } from './use-receipt';
 /**
  * Detalle de una venta del historial (HU-20). Sus productos y sus ajustes van de
  * 4 en 4 (`MODAL_PAGE_SIZE`): una venta grande no estira la ventana.
+ *
+ * Desde aquí se abre el comprobante (HU-34) y, si la venta todavía se puede
+ * corregir, «Anular o devolver» (HU-35): se decide viendo la venta completa, no
+ * desde un botón suelto en la fila.
  */
 export function SaleDetailModal({
   saleId,
   onClose,
   onOpenReceipt,
+  onAdjust,
 }: {
   saleId: string;
   onClose: () => void;
   onOpenReceipt: (id: string) => void;
+  /** Abre «Anular o devolver» de esta venta (HU-35). */
+  onAdjust: (id: string) => void;
 }) {
   const [attempt, setAttempt] = useState(0);
   const state = useReceipt(saleId, attempt);
@@ -128,6 +135,16 @@ export function SaleDetailModal({
             >
               Abrir comprobante
             </button>
+            {sale.status === 'COMPLETED' || sale.status === 'PARTIALLY_RETURNED' ? (
+              <button
+                type="button"
+                className="button"
+                aria-label={`Anular o devolver la venta ${sale.number}`}
+                onClick={() => onAdjust(sale.id)}
+              >
+                Anular o devolver
+              </button>
+            ) : null}
           </div>
         </>
       )}
