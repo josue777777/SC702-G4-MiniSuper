@@ -191,18 +191,19 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
     expect(
       page.items.map((item) => [
         item.concept,
+        item.document,
         item.entry,
         item.exit,
         item.stockBefore,
         item.stockAfter,
       ]),
     ).toEqual([
-      ['Ajuste desde edición de producto', 2, 0, 4, 6],
-      ['Conteo físico', 0, 11, 15, 4],
-      ['Conteo físico', 7, 0, 8, 15],
-      [`Devolución venta #${saleNumber}: Empaque dañado`, 1, 0, 7, 8],
-      [`Venta #${saleNumber}`, 0, 3, 10, 7],
-      ['Stock inicial', 10, 0, 0, 10],
+      ['Ajuste desde edición de producto', null, 2, 0, 4, 6],
+      ['Conteo físico', null, 0, 11, 15, 4],
+      ['Conteo físico', null, 7, 0, 8, 15],
+      ['Devolución de cliente', String(saleNumber), 1, 0, 7, 8],
+      ['Venta', String(saleNumber), 0, 3, 10, 7],
+      ['Stock inicial', null, 10, 0, 0, 10],
     ]);
 
     // El saldo encadena: cada movimiento parte de donde terminó el anterior.
@@ -216,7 +217,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
     expect(page.items[0]?.stockAfter).toBe(6);
 
     // La venta y su devolución enlazan con la venta real (solo su número).
-    expect(page.items.find((item) => item.concept === `Venta #${saleNumber}`)?.reference).toEqual({
+    expect(page.items.find((item) => item.concept === 'Venta')?.reference).toEqual({
       type: 'SALE',
       id: ids['sale'],
       number: saleNumber,
@@ -234,6 +235,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
       pageSize: 25,
       total: 0,
       totalPages: 0,
+      today: { entries: 0, exits: 0, count: 0 },
     });
     expect(await kardex.getProduct(ids['inactive'] ?? '')).toMatchObject({
       isActive: false,
@@ -377,7 +379,8 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
     const page = await kardex.listMovements(product.id, { page: 1, pageSize: 25 });
 
     expect(page.items[0]).toMatchObject({
-      concept: 'Recepción de pedido',
+      concept: 'Recepción PED-0007',
+      document: 'PED-0007',
       entry: 12,
       reference: { type: 'PURCHASE_ORDER', id: order.id, number: 7 },
     });
@@ -398,18 +401,91 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
       kardexOfB.listMovements(ids['coffee'] ?? '', { page: 1, pageSize: 25 }),
     ).rejects.toMatchObject({ statusCode: 404 });
 
+    // La vista general de cada negocio solo trae sus movimientos.
+    await prisma.inventoryMovement.create({
+      data: {
+        productId: ids['foreign'] ?? '',
+        type: 'ENTRY',
+        quantity: 1,
+        stockBefore: 0,
+        stockAfter: 1,
+        reason: 'Movimiento de B',
+      },
+    });
+
+    const ofA = await kardex.listRecentMovements({ page: 1, pageSize: 100 });
+    const ofB = await kardexOfB.listRecentMovements({ page: 1, pageSize: 100 });
+
+    expect(ofA.items.some((item) => item.product.id === ids['foreign'])).toBe(false);
+    expect(ofA.items.length).toBeGreaterThan(0);
+    expect(ofB.items.map((item) => item.concept)).toEqual(['Movimiento de B']);
+    expect(ofB.today).toEqual({ entries: 1, exits: 0, count: 1 });
+
     // El selector de B solo ofrece sus productos.
-    expect((await kardexOfB.searchProducts(undefined)).map((option) => option.name)).toEqual([
-      'Producto de B',
-    ]);
+    expect(
+      (await kardexOfB.searchProducts({ page: 1, pageSize: 50 })).items.map(
+        (option) => option.name,
+      ),
+    ).toEqual(['Producto de B']);
   });
 
   it('el selector encuentra por nombre o código, sin distinguir mayúsculas, e incluye desactivados', async () => {
-    expect((await kardex.searchProducts('CAF')).map((option) => option.code)).toEqual(['P001']);
     expect(
-      (await kardex.searchProducts('p003')).map((option) => [option.code, option.isActive]),
+      (await kardex.searchProducts({ search: 'CAF', page: 1, pageSize: 50 })).items.map(
+        (option) => option.code,
+      ),
+    ).toEqual(['P001']);
+    expect(
+      (await kardex.searchProducts({ search: 'p003', page: 1, pageSize: 50 })).items.map(
+        (option) => [option.code, option.isActive],
+      ),
     ).toEqual([['P003', false]]);
-    expect((await kardex.searchProducts('no-existe')).length).toBe(0);
+    expect(
+      (await kardex.searchProducts({ search: 'no-existe', page: 1, pageSize: 50 })).total,
+    ).toBe(0);
+
+    // Con el lector: el código de barras completo encuentra el producto, con su stock.
+    await prisma.product.update({
+      where: { id: ids['coffee'] },
+      data: { barcode: '7501000000012' },
+    });
+    expect(
+      (await kardex.searchProducts({ search: '7501000000012', page: 1, pageSize: 50 })).items.map(
+        (option) => [option.code, option.stock],
+      ),
+    ).toEqual([['P001', 6]]);
+  });
+
+  it('«Buscar producto» filtra por categoría y pagina en la base, sin cruzar negocios', async () => {
+    const all = await kardex.searchProducts({ page: 1, pageSize: 50 });
+    const firstPage = await kardex.searchProducts({ page: 1, pageSize: 1 });
+    const ofCategory = await kardex.searchProducts({
+      categoryId: ids['category'] ?? '',
+      page: 1,
+      pageSize: 50,
+    });
+
+    expect(all.total).toBeGreaterThan(1);
+    // De a uno: tantas páginas como productos, y cada uno trae su categoría.
+    expect(firstPage).toMatchObject({ total: all.total, totalPages: all.total });
+    expect(firstPage.items).toHaveLength(1);
+    expect(ofCategory.items.every((item) => item.categoryName === 'Bebidas')).toBe(true);
+
+    // La categoría de otro negocio no trae nada de este.
+    const foreignCategory = await prisma.product.findUniqueOrThrow({
+      where: { id: ids['foreign'] ?? '' },
+      select: { categoryId: true },
+    });
+
+    expect(
+      (
+        await kardex.searchProducts({
+          categoryId: foreignCategory.categoryId,
+          page: 1,
+          pageSize: 50,
+        })
+      ).total,
+    ).toBe(0);
   });
 
   it('consultar el Kardex NO modifica stock ni crea movimientos', async () => {
@@ -417,7 +493,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Kardex (PostgreSQL de prueba)'
 
     await kardex.getProduct(ids['coffee'] ?? '');
     await kardex.listMovements(ids['coffee'] ?? '', { page: 1, pageSize: 100 });
-    await kardex.searchProducts('');
+    await kardex.searchProducts({ page: 1, pageSize: 50 });
 
     expect(await snapshot()).toEqual(before);
   });

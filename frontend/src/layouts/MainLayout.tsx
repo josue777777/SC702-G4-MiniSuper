@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { useSession } from '../features/auth/session-context';
+import { CommandBar } from '../features/command-bar/CommandBar';
 import { useBusiness } from '../features/business/business-context';
 import { BusinessProvider } from '../features/business/BusinessProvider';
 import { allowedTabs, SETTINGS_TABS, type SettingsTab } from '../features/settings/settings-tabs';
@@ -264,6 +265,8 @@ function Layout() {
             <NavIcon name="menu" />
           </button>
           <strong className="topbar__title">{isPlatform ? systemName : business.name}</strong>
+          {/* Ctrl + K desde cualquier pantalla (features/command-bar). */}
+          <CommandBar />
           {/* HU-15: siempre a la vista, aunque el menú lateral esté oculto. */}
           <div className="topbar__session">
             <span className="topbar__user" title={user.email ?? user.username}>

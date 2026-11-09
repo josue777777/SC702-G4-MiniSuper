@@ -17,8 +17,8 @@ Cada práctica dice cómo está **hoy** el sistema, **quién lo hace así** (pro
 exitosos actuales) y **cuándo** conviene. La única excepción a «después» son dos puntos
 marcados 🔴: no son mejoras sino defectos, y el equipo decide cuándo corregirlos.
 
-Documentos relacionados: [ADR 0002](adr/0002-usuarios-jerarquia-y-plan.md) (multi-negocio
-y planes) y [USUARIOS-Y-ROLES.md](USUARIOS-Y-ROLES.md) (cómo programar un módulo).
+Documentos relacionados: [ADR 0002](adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md) (multi-negocio
+y niveles de cuenta) y [USUARIOS-Y-ROLES.md](USUARIOS-Y-ROLES.md) (cómo programar un módulo).
 
 ---
 
@@ -54,6 +54,11 @@ cómo escribir lo que igual hay que escribir. Cumplirlas es lo que hace que lo d
    cada consulta por él, incluido el SQL directo. Nunca se toma de la URL ni del cuerpo.
 3. **El stock solo cambia dentro de los repositorios** (ventas, recepción, conteo) y
    siempre deja un `InventoryMovement`. Nunca un `UPDATE` suelto desde otro lado.
+   Los **lotes** (`ProductLot`) siguen al stock solos: un disparador de PostgreSQL
+   descuenta del lote que vence primero cuando el stock baja y guarda «SIN LOTE» lo
+   que sube sin lote. Quien agrega lotes con fecha (la recepción, HU-38) los crea
+   **antes** de subir el stock, en la misma transacción. Así stock = suma de lotes
+   siempre, sin que ventas ni conteos tengan que conocer los lotes.
 4. **Lo que mueve dinero o stock va en una transacción**, con una condición que impida
    el negativo (`WHERE stock >= cantidad`), y nunca llama a un servicio externo
    (correo, pasarela) dentro de la transacción.

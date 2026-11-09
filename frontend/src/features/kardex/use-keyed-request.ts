@@ -5,7 +5,11 @@ type Settled<T> = { key: string; value: T } | { key: string; error: ApiError | E
 
 export type RequestState<T> =
   | { phase: 'idle' }
-  | { phase: 'loading' }
+  /**
+   * Cargando. `previous` es lo último que llegó (de otra clave), para seguir
+   * mostrándolo atenuado mientras llega lo nuevo: la pantalla no salta.
+   */
+  | { phase: 'loading'; previous: { key: string; value: T } | null }
   | { phase: 'ready'; value: T }
   | { phase: 'failed'; message: string; status: number | null };
 
@@ -60,7 +64,11 @@ export function useKeyedRequest<T>(
   }
 
   if (settled === null || settled.key !== key) {
-    return { phase: 'loading' };
+    return {
+      phase: 'loading',
+      previous:
+        settled !== null && 'value' in settled ? { key: settled.key, value: settled.value } : null,
+    };
   }
 
   if ('error' in settled) {

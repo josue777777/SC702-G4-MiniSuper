@@ -1,3 +1,5 @@
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { useState } from 'react';
 import type { ExpirationAlert } from '../../types/inventory';
 import { describeExpiration, formatDateOnly, formatDateTime } from './inventory-count';
@@ -44,6 +46,8 @@ export function ExpirationList({
 }: ExpirationListProps) {
   const [filter, setFilter] = useState<Filter>('ALL');
   const visible = filter === 'ALL' ? alerts : alerts.filter((alert) => alert.status === filter);
+  // Se abre en una ventana desde el inicio: de 4 en 4 (regla 2).
+  const pages = usePagination(visible, filter, MODAL_PAGE_SIZE);
   const expiredCount = alerts.filter((alert) => alert.status === 'EXPIRED').length;
 
   return (
@@ -68,18 +72,18 @@ export function ExpirationList({
 
       {showFilter && alerts.length > 0 ? (
         <div className="toolbar no-print">
-          <label htmlFor="expiration-filter" className="muted">
-            Mostrar:{' '}
+          <label htmlFor="expiration-filter" className="toolbar__filter">
+            <span>Mostrar</span>
+            <select
+              id="expiration-filter"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value as Filter)}
+            >
+              <option value="ALL">Todos</option>
+              <option value="EXPIRED">Vencidos</option>
+              <option value="EXPIRING_SOON">Próximos a vencer</option>
+            </select>
           </label>
-          <select
-            id="expiration-filter"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value as Filter)}
-          >
-            <option value="ALL">Todos</option>
-            <option value="EXPIRED">Vencidos</option>
-            <option value="EXPIRING_SOON">Próximos a vencer</option>
-          </select>
           <button
             type="button"
             className="button"
@@ -103,16 +107,20 @@ export function ExpirationList({
                 <th>Código</th>
                 <th>Producto</th>
                 <th className="table__number">Stock</th>
+                <th>Lote</th>
+                <th className="table__number">Unidades del lote</th>
                 <th>Vence</th>
                 <th>Estado</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((alert) => (
-                <tr key={alert.productId}>
+              {pages.pageItems.map((alert) => (
+                <tr key={`${alert.productId}-${alert.lotNumber}-${alert.expirationDate}`}>
                   <td>{alert.productCode}</td>
                   <td>{alert.productName}</td>
                   <td className="table__number">{alert.stock}</td>
+                  <td>{alert.lotNumber}</td>
+                  <td className="table__number">{alert.lotQuantity}</td>
                   <td>{formatDateOnly(alert.expirationDate)}</td>
                   <td>
                     <span
@@ -129,6 +137,7 @@ export function ExpirationList({
           </table>
         </div>
       )}
+      <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
     </section>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '../../components/Modal';
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { ApiError } from '../../services/api-client';
 import { salesService } from '../../services/sales.service';
 import type { Sale, SaleAdjustmentPayload } from '../../types/sales';
@@ -12,7 +14,11 @@ interface SaleAdjustmentModalProps {
   onSaved: () => void;
 }
 
-/** Revisa la venta y permite devolver productos o anular lo que aún queda. */
+/**
+ * Revisa la venta y permite devolver productos o anular lo que aún queda. Los
+ * productos y los ajustes van de 4 en 4 (`MODAL_PAGE_SIZE`); las cantidades a
+ * devolver se conservan al cambiar de página.
+ */
 export function SaleAdjustmentModal({ saleId, onClose, onSaved }: SaleAdjustmentModalProps) {
   const [sale, setSale] = useState<Sale | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -21,6 +27,8 @@ export function SaleAdjustmentModal({ saleId, onClose, onSaved }: SaleAdjustment
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const items = usePagination(sale?.items ?? [], saleId, MODAL_PAGE_SIZE);
+  const adjustments = usePagination(sale?.adjustments ?? [], saleId, MODAL_PAGE_SIZE);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,7 +163,7 @@ export function SaleAdjustmentModal({ saleId, onClose, onSaved }: SaleAdjustment
                       </tr>
                     </thead>
                     <tbody>
-                      {sale.items.map((item) => (
+                      {items.pageItems.map((item) => (
                         <tr key={item.id}>
                           <td>{item.name}</td>
                           <td className="table__number">{item.quantity}</td>
@@ -183,6 +191,7 @@ export function SaleAdjustmentModal({ saleId, onClose, onSaved }: SaleAdjustment
                       ))}
                     </tbody>
                   </table>
+                  <Pagination {...items} itemLabel="productos" onPage={items.setPage} />
                 </div>
               ) : null}
 
@@ -239,7 +248,7 @@ export function SaleAdjustmentModal({ saleId, onClose, onSaved }: SaleAdjustment
             <section aria-labelledby="sale-adjustment-history">
               <h3 id="sale-adjustment-history">Historial de ajustes</h3>
               <ol className="sale-adjustment-history">
-                {sale.adjustments.map((adjustment) => (
+                {adjustments.pageItems.map((adjustment) => (
                   <li key={adjustment.id}>
                     <strong>
                       {adjustment.type === 'VOID' ? 'Anulación' : 'Devolución'} ·{' '}
@@ -255,6 +264,12 @@ export function SaleAdjustmentModal({ saleId, onClose, onSaved }: SaleAdjustment
                   </li>
                 ))}
               </ol>
+              <Pagination
+                {...adjustments}
+                itemLabel="ajustes"
+                label="Páginas de ajustes"
+                onPage={adjustments.setPage}
+              />
             </section>
           )}
         </>

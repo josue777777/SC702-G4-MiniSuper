@@ -298,7 +298,7 @@ test('Apariencia: cada usuario elige su color y tamaño, y no afecta a los demá
 
   // La Encargada sigue con la de fábrica.
   await loginAsOwner(page);
-  await expect(page.locator('html')).toHaveAttribute('data-accent', 'azul');
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'neutro');
 });
 
 test('al desactivar a un usuario se cierra su sesión y ya no puede entrar', async ({

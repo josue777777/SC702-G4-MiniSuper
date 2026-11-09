@@ -45,7 +45,7 @@ export async function ensureOwner(): Promise<void> {
 /**
  * Negocio de las pruebas con sus datos de fábrica (otra prueba pudo cambiarlos
  * en Configuración › General o en la plataforma): Encargado + 4 usuarios,
- * activo. También el nombre del sistema de fábrica.
+ * activo y con el diseño de etiqueta de fábrica (HU-07). También el nombre del sistema de fábrica.
  */
 export async function resetBusiness(): Promise<void> {
   await withDb(async (client) => {
@@ -55,7 +55,7 @@ export async function resetBusiness(): Promise<void> {
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, "legalId" = NULL, phone = NULL,
          email = NULL, address = NULL, "receiptMessage" = EXCLUDED."receiptMessage",
          "logoData" = NULL, "logoMimeType" = NULL, "logoUpdatedAt" = NULL,
-         "extraUsers" = 4, status = 'ACTIVE', "updatedAt" = now()`,
+         "labelDesign" = NULL, "extraUsers" = 4, status = 'ACTIVE', "updatedAt" = now()`,
       [E2E_BUSINESS_ID],
     );
     await client.query(
@@ -106,6 +106,11 @@ export interface SeedProduct {
   supplier: string | null;
   isActive?: boolean;
   barcode?: string;
+  /**
+   * ¿Vence? (HU-38). Por defecto NO: así las entregas de las pruebas que no
+   * tratan de lotes se registran sin lote ni fecha. Las que sí, lo marcan.
+   */
+  perishable?: boolean;
 }
 
 /** Inserta productos con sus categorías y proveedores (creándolos si faltan). */
@@ -119,8 +124,8 @@ export async function seedProducts(products: SeedProduct[]): Promise<void> {
         [product.category, E2E_BUSINESS_ID],
       );
       const inserted = await client.query<{ id: string }>(
-        `INSERT INTO "Product"(id, code, name, price, cost, stock, "isActive", "categoryId", barcode, "businessId", "updatedAt")
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, now()) RETURNING id`,
+        `INSERT INTO "Product"(id, code, name, price, cost, stock, "isActive", "categoryId", barcode, "businessId", perishable, "updatedAt")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now()) RETURNING id`,
         [
           product.code,
           product.name,
@@ -131,6 +136,7 @@ export async function seedProducts(products: SeedProduct[]): Promise<void> {
           category.rows[0]?.id,
           product.barcode ?? null,
           E2E_BUSINESS_ID,
+          product.perishable ?? false,
         ],
       );
 

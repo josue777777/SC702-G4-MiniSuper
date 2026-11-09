@@ -212,9 +212,33 @@ export async function readHistory(page: Page): Promise<string[][]> {
 
   await expect(table).toBeVisible();
 
+  // [fecha, concepto, documento, entrada, salida, stock final, lotes]: el botón
+  // «N lotes» va junto al concepto y se lee aparte («—» si no hay).
   return Promise.all(
-    (await table.locator('tbody tr').all()).map(async (row) =>
-      (await row.locator('td').allTextContents()).map((cell) => cell.trim()),
-    ),
+    (await table.locator('tbody tr').all()).map(async (row) => {
+      const cells = (await row.locator('td').allTextContents()).map((cell) => cell.trim());
+      const lots = row.locator('td').nth(1).getByRole('button');
+      const lotsText =
+        (await lots.count()) === 0
+          ? '—'
+          : ((await lots.textContent()) ?? '').replace('▦', '').trim();
+      // El concepto lleva su signo (+ entra, − sale) y el botón «▦ N lotes» al lado.
+      const concept = (cells[1] ?? '')
+        .replace(lotsText === '—' ? '' : lotsText, '')
+        .replace('▦', '')
+        .trim()
+        .replace(/^[+−]/, '');
+
+      return [
+        cells[0] ?? '',
+        concept,
+        cells[2] ?? '',
+        // Entrada y salida van en insignias con su signo («+12», «−2»): aquí, la cifra.
+        (cells[3] ?? '').replace(/^[+−]/, ''),
+        (cells[4] ?? '').replace(/^[+−]/, ''),
+        cells[5] ?? '',
+        lotsText,
+      ];
+    }),
   );
 }

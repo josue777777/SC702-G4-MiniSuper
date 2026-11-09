@@ -1,5 +1,6 @@
 import { InventoryCountForm } from './InventoryCountForm';
-import { InventoryCountHistory } from './InventoryCountHistory';
+import { Link } from 'react-router-dom';
+import { useSession } from '../auth/session-context';
 import { useInventoryCounts } from './use-inventory-counts';
 
 interface PhysicalCountSectionProps {
@@ -8,14 +9,17 @@ interface PhysicalCountSectionProps {
 }
 
 /**
- * Sección de conteo físico (HU-10): formulario arriba, historial abajo.
+ * Sección de conteo físico (HU-10): solo el formulario. El historial vive en
+ * Reportes › Conteos: dentro de una ventana nada se despliega (docs/PANTALLAS.md,
+ * regla 4), y revisar conteos pasados es otra tarea, con su propio lugar.
  *
  * Vive como una sección aparte para que `InventoryPage` solo la componga: la
  * misma página recibirá también las de HU-06 … HU-09.
  */
 export function PhysicalCountSection({ onCountRegistered }: PhysicalCountSectionProps = {}) {
-  const { phase, products, counts, message, notice, busy, reload, registerCount, dismissNotice } =
+  const { phase, products, message, notice, busy, reload, registerCount, dismissNotice } =
     useInventoryCounts();
+  const { can } = useSession();
 
   async function confirmCount(payload: Parameters<typeof registerCount>[0]): Promise<boolean> {
     const saved = await registerCount(payload);
@@ -61,7 +65,16 @@ export function PhysicalCountSection({ onCountRegistered }: PhysicalCountSection
       {phase === 'ready' ? (
         <>
           <InventoryCountForm products={products} busy={busy} onConfirm={confirmCount} />
-          <InventoryCountHistory counts={counts} />
+          {can('reports.inventory') ? (
+            <div className="row-actions">
+              <span className="muted hint">
+                Los conteos ya registrados, con sus diferencias y su valor:
+              </span>
+              <Link className="button" to="/reports?reporte=physical-counts">
+                Ver en Reportes › Conteos
+              </Link>
+            </div>
+          ) : null}
         </>
       ) : null}
     </>

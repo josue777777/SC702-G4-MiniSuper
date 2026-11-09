@@ -130,6 +130,7 @@ export function recoversByEmail(role: Role): boolean {
   return ROLE_RECOVERY[role] === 'email';
 }
 
+/** Nombre de cada rol tal como se muestra en mensajes y correos. */
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador',
   ENCARGADO: 'Encargado',
@@ -137,10 +138,25 @@ export const ROLE_LABELS: Record<Role, string> = {
   BODEGA: 'Bodega',
 };
 
+/**
+ * Lista de permisos de un rol (una copia, para que nadie cambie la tabla original).
+ *
+ * @param role Rol del usuario en sesión.
+ * @returns Los permisos que la sesión devuelve al navegador para armar el menú.
+ * @example permissionsOf('CAJERO') // ['sales', 'customers', 'inventory.read', …]
+ */
 export function permissionsOf(role: Role): Permission[] {
   return [...ROLE_PERMISSIONS[role]];
 }
 
+/**
+ * ¿El rol tiene este permiso? Es la pregunta que hace `requirePermission` en cada ruta.
+ *
+ * @param role Rol del usuario en sesión.
+ * @param permission Permiso que exige la ruta.
+ * @returns `true` si puede; si no, la ruta responde 403.
+ * @example hasPermission('CAJERO', 'inventory.write') // false: el Cajero solo consulta
+ */
 export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
 }

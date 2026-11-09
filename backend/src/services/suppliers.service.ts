@@ -1,5 +1,10 @@
 import type { SuppliersRepository } from '../repositories/suppliers.repository.js';
-import type { SupplierDto } from '../types/suppliers.js';
+import type {
+  ProductSupplierCostsDto,
+  SupplierCostDto,
+  SupplierCostRow,
+  SupplierDto,
+} from '../types/suppliers.js';
 import { HttpError } from '../utils/http-error.js';
 import type { SupplierInput } from '../validators/suppliers.validator.js';
 
@@ -17,6 +22,46 @@ async function assertProductsAreUsable(
       products: ['Algún producto indicado no existe o está inactivo.'],
     });
   }
+}
+
+/** `"4850.00"` → 485000 céntimos, para comparar y restar sin errores de coma flotante. */
+function toCents(value: string): number {
+  return Math.round(Number(value) * 100);
+}
+
+/**
+ * Proveedores de un producto del más barato al más caro (HU-39), con cuánto
+ * más cuesta cada uno que el más barato. Si dos cuestan lo mismo, van por
+ * nombre; los dos quedan marcados como «más barato».
+ *
+ * @example
+ * rankSupplierCosts([
+ *   { supplierName: 'Comercial del Valle', unitCost: '4970.00', … },
+ *   { supplierName: 'Distribuidora Central', unitCost: '4850.00', … },
+ * ]);
+ * // [Distribuidora Central (más barato, diferencia "0.00"),
+ * //  Comercial del Valle (diferencia "120.00")]
+ */
+export function rankSupplierCosts(rows: SupplierCostRow[]): SupplierCostDto[] {
+  const sorted = [...rows].sort(
+    (a, b) =>
+      toCents(a.unitCost) - toCents(b.unitCost) || a.supplierName.localeCompare(b.supplierName),
+  );
+  const lowest = sorted[0] === undefined ? 0 : toCents(sorted[0].unitCost);
+
+  return sorted.map((row) => {
+    const difference = toCents(row.unitCost) - lowest;
+
+    return {
+      supplierId: row.supplierId,
+      supplierName: row.supplierName,
+      unitCost: row.unitCost,
+      isPreferred: row.isPreferred,
+      cheapest: difference === 0,
+      difference: (difference / 100).toFixed(2),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  });
 }
 
 /**
@@ -73,5 +118,22 @@ export class SuppliersService {
     await assertProductsAreUsable(this.repository, input);
 
     return this.repository.update(id, input);
+  }
+
+  /**
+   * HU-39 — compara el costo de un producto entre los proveedores activos que
+   * lo suministran, del más barato al más caro, con el último costo
+   * registrado de cada uno. Con un solo proveedor la lista trae uno (la
+   * pantalla dice que no hay con quién comparar). Un producto de otro negocio
+   * responde 404, igual que uno que no existe.
+   */
+  async compareProductCosts(productId: string): Promise<ProductSupplierCostsDto> {
+    const found = await this.repository.findProductSupplierCosts(productId);
+
+    if (found === null) {
+      throw HttpError.notFound('El producto no existe.');
+    }
+
+    return { product: found.product, suppliers: rankSupplierCosts(found.costs) };
   }
 }

@@ -425,25 +425,48 @@ export function trackRuntimeErrors(page: Page): string[] {
 /** Abre Reportes y elige el reporte comercial. */
 export async function openReport(page: Page, tab: string): Promise<void> {
   await page.goto('/reports');
-  await expect(page.getByRole('heading', { name: 'Reportes comerciales' })).toBeVisible();
-  await page.getByRole('tab', { name: tab }).click();
+  await page.getByRole('tab', { name: tab, exact: true }).click();
+  await expect(page.getByRole('tab', { name: tab, exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 }
 
-/** Pulsa el botón del formulario y espera la respuesta REAL del servidor. */
-export async function consult(page: Page, button = 'Consultar'): Promise<void> {
-  await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.url().includes('/api/reports/commercial/') &&
-        response.request().method() === 'GET',
-    ),
-    page.getByRole('button', { name: button, exact: true }).click(),
-  ]);
+/**
+ * Espera a que el reporte muestre lo que dicen los filtros. Los filtros se
+ * aplican solos (sin botón): tras cambiar uno, la barra pasa a «Actualizando…»
+ * y vuelve a «Al día» cuando llega el resultado de ESOS filtros.
+ *
+ * Con `button` (el «Actualizar» del reporte de deudas), lo pulsa y espera la
+ * respuesta real del servidor.
+ */
+export async function consult(page: Page, button?: string): Promise<void> {
+  if (button !== undefined) {
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/reports/commercial/') &&
+          response.request().method() === 'GET',
+      ),
+      page.getByRole('button', { name: button, exact: true }).click(),
+    ]);
+  }
+
+  await expect(page.locator('[data-report-sync]')).toHaveAttribute('data-report-sync', 'done');
 }
 
 export async function setPeriod(page: Page, from: string, to: string): Promise<void> {
   await page.getByLabel('Desde').fill(from);
   await page.getByLabel('Hasta').fill(to);
+}
+
+/**
+ * Abre la explicación del reporte y sus notas técnicas: están plegadas para no
+ * llenar la pantalla de texto, pero siguen completas a un clic.
+ */
+export async function openCalculationNotes(page: Page): Promise<void> {
+  await page.getByText('ⓘ Cómo se calcula').click();
+  await page.getByText('Notas técnicas').click();
 }
 
 /** Valor mostrado en el cuadro de total con esa etiqueta. */
@@ -462,10 +485,27 @@ export interface ScreenTable {
   rows: string[][];
 }
 
+/**
+ * En pantalla, el reporte muestra gráficos; el detalle fila por fila está en
+ * «Ver detalle», cerrado. Lo abre si hace falta.
+ */
+export async function openDetail(page: Page): Promise<void> {
+  const summary = page.getByText(/^Ver detalle \(/);
+
+  await expect(summary).toBeVisible();
+
+  if ((await summary.locator('xpath=..').getAttribute('open')) === null) {
+    await summary.click();
+  }
+}
+
 /** Tabla del reporte tal como se ve. */
 export async function readTable(page: Page, name: string): Promise<ScreenTable> {
   const table = page.getByRole('table', { name, exact: true });
 
+  // Primero el reporte correcto (su título es el nombre de la tabla); después, su detalle.
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  await openDetail(page);
   await expect(table).toBeVisible();
 
   const text = async (selector: string) =>
@@ -491,6 +531,8 @@ export interface DownloadedReport {
   summary: Cell[][];
   /** Hoja «Datos»: encabezado y filas. */
   data: Cell[][];
+  /** Cualquier hoja por su nombre (el reporte de inventario usa una por sección). */
+  sheet: (name: string) => Cell[][];
 }
 
 export async function readDownload(download: Download): Promise<DownloadedReport> {
@@ -513,6 +555,7 @@ export async function readDownload(download: Download): Promise<DownloadedReport
   };
 
   return {
+    sheet: rowsOf,
     fileName: download.suggestedFilename(),
     summary: rowsOf('Resumen'),
     data: rowsOf('Datos'),

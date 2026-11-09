@@ -201,6 +201,26 @@ export class SalesRepository {
     return row === null ? null : toProduct(row);
   }
 
+  /** Productos ACTIVOS del negocio cuyo nombre, código o código de barras contiene el texto. */
+  async searchSellableProducts(term: string, limit: number): Promise<SaleProductDto[]> {
+    const rows = await prisma.product.findMany({
+      where: {
+        businessId: this.businessId,
+        isActive: true,
+        OR: [
+          { name: { contains: term, mode: 'insensitive' } },
+          { code: { contains: term, mode: 'insensitive' } },
+          { barcode: { contains: term } },
+        ],
+      },
+      orderBy: { name: 'asc' },
+      take: limit,
+      select: productSelection,
+    });
+
+    return rows.map(toProduct);
+  }
+
   async findProductsByIds(ids: string[]): Promise<SaleProductDto[]> {
     const rows = await prisma.product.findMany({
       where: { id: { in: ids }, businessId: this.businessId },

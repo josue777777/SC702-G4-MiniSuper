@@ -4,6 +4,7 @@ import type { BusinessService } from '../services/business.service.js';
 import type { ForBusiness } from '../types/tenant.js';
 import { declaredContentType } from '../utils/image.js';
 import { businessLogoSchema, businessSettingsSchema } from '../validators/business.validator.js';
+import { labelDesignSchema } from '../validators/label-design.validator.js';
 
 /** Capa de controlador de Configuración › General (el negocio de la sesión). */
 export class BusinessController {
@@ -38,6 +39,20 @@ export class BusinessController {
     const logo = businessLogoSchema.parse({ mimeType: declaredContentType(req), data: req.body });
 
     res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).setLogo(logo) });
+  }
+
+  /** `GET /api/business/label-design` — diseño de la etiqueta de productos (HU-07). */
+  async getLabelDesign(_req: Request, res: Response): Promise<void> {
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).getLabelDesign() });
+  }
+
+  /** `PUT /api/business/label-design` — guardar el diseño (Encargado). */
+  async updateLabelDesign(req: Request, res: Response): Promise<void> {
+    const design = labelDesignSchema.parse(req.body);
+
+    res
+      .status(200)
+      .json({ data: await this.serviceFor(businessIdOf(res)).saveLabelDesign(design) });
   }
 
   /** `DELETE /api/business/logo` — quitar el logo. */

@@ -11,6 +11,7 @@ import type {
   SaleSummary,
 } from '../types/sales';
 import { apiGet, apiPost } from './api-client';
+import { DEFAULT_PAGE_SIZE } from '../components/use-pagination';
 
 interface DataResponse<T> {
   data: T;
@@ -22,7 +23,12 @@ export const salesService = {
     page: number,
     paymentMethod?: PaymentMethod,
   ): Promise<DailySalesHistory> {
-    const query = new URLSearchParams({ date, page: String(page) });
+    // Mismo estándar de filas por página que el resto de las tablas (regla 2).
+    const query = new URLSearchParams({
+      date,
+      page: String(page),
+      pageSize: String(DEFAULT_PAGE_SIZE),
+    });
     if (paymentMethod !== undefined) query.set('paymentMethod', paymentMethod);
     return (await apiGet<DataResponse<DailySalesHistory>>(`/api/sales/daily-history?${query}`))
       .data;
@@ -32,6 +38,14 @@ export const salesService = {
     const query = new URLSearchParams({ code });
 
     return (await apiGet<DataResponse<SaleProduct>>(`/api/sales/lookup?${query.toString()}`)).data;
+  },
+
+  /** HU-16: búsqueda manual (nombre, código o código de barras) si el lector no reconoce el código. */
+  async searchProducts(term: string): Promise<SaleProduct[]> {
+    const query = new URLSearchParams({ q: term });
+
+    return (await apiGet<DataResponse<SaleProduct[]>>(`/api/sales/products?${query.toString()}`))
+      .data;
   },
 
   /** HU-16/17/18: confirma la venta. Reenviar la misma llave no duplica la venta. */

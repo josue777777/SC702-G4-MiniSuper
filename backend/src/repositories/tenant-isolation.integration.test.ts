@@ -155,6 +155,10 @@ describe.skipIf(!databaseName.endsWith('_test'))('Aislamiento entre negocios', (
     const sales = new SalesService(new SalesRepository(B), new CustomersRepository(B));
 
     expect((await sales.lookupProduct('7501000000012')).name).toBe('Leche B');
+    // La búsqueda manual de la caja tampoco ofrece productos de A.
+    expect((await sales.searchProducts('Leche')).map((product) => product.name)).toEqual([
+      'Leche B',
+    ]);
     await expect(
       sales.createSale({
         idempotencyKey: randomUUID(),

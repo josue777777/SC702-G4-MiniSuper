@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Modal } from '../components/Modal';
 import { PhysicalCountSection } from '../features/inventory/PhysicalCountSection';
 import { ProductsSection } from '../features/products/ProductsSection';
+import { PageHeader } from '../components/PageHeader';
 
 /**
  * Ventana de inventario (HU-01 … HU-10): la lista general de productos con
@@ -9,21 +11,31 @@ import { ProductsSection } from '../features/products/ProductsSection';
  * mínimo, HU-08, y su vencimiento, HU-09), el conteo físico (HU-10) y el
  * reporte imprimible. Las cantidades del día a día no se cambian aquí: entran
  * por pedidos y ventas, y se consultan en el Kardex.
+ *
+ * `?conteo=1` abre directo la ventana de conteo físico: así llega el atajo
+ * «Hacer un conteo físico» de la barra de comandos (Ctrl + K).
  */
 export function InventoryPage() {
-  const [countOpen, setCountOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [countOpen, setCountOpen] = useState(() => params.get('conteo') === '1');
+
+  function closeCount(): void {
+    setCountOpen(false);
+
+    // Sin el parámetro, recargar la página no vuelve a abrir la ventana.
+    if (params.has('conteo')) {
+      setParams({}, { replace: true });
+    }
+  }
   /** Un conteo cambia el stock: al confirmarlo, la lista se vuelve a cargar. */
   const [productsVersion, setProductsVersion] = useState(0);
 
   return (
     <>
-      <header className="page-header">
-        <h1>Inventario</h1>
-        <p>
-          Administre productos y existencias. Use el lector para identificarlos en ventas y conteos
-          físicos.
-        </p>
-      </header>
+      <PageHeader icon="box" title="Inventario">
+        Administre productos y existencias. Use el lector para identificarlos en ventas y conteos
+        físicos.
+      </PageHeader>
       {/* HU-01 … HU-05: lista de productos; crear, modificar y desactivar en modales. */}
       <ProductsSection
         refreshKey={productsVersion}
@@ -36,7 +48,7 @@ export function InventoryPage() {
 
       {/* HU-10: conteo de inventario físico. */}
       {countOpen ? (
-        <Modal title="Conteo físico" size="wide" onClose={() => setCountOpen(false)}>
+        <Modal title="Conteo físico" size="wide" onClose={closeCount}>
           <PhysicalCountSection
             onCountRegistered={() => setProductsVersion((version) => version + 1)}
           />

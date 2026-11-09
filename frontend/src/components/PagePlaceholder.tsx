@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
+import type { NavIconName } from '../layouts/navigation';
+import { PageHeader } from './PageHeader';
+import { PendingWork } from './PendingWork';
 
 interface PagePlaceholderProps {
+  /** El ícono del encabezado (el mismo del menú). */
+  icon: NavIconName;
   title: string;
   /** Qué resuelve la pantalla, en una frase. */
   summary: string;
@@ -17,9 +22,11 @@ interface PagePlaceholderProps {
  * No es relleno decorativo: cada pantalla declara sus historias de usuario y
  * las tareas pendientes, de modo que el tablero del sprint y el código dicen lo
  * mismo. Al implementar la historia se borra el `PagePlaceholder` y queda el
- * componente real de esa página.
+ * componente real de esa página. La tarjeta de pendientes solo se ve en
+ * desarrollo (ver `PendingWork`).
  */
 export function PagePlaceholder({
+  icon,
   title,
   summary,
   stories,
@@ -28,24 +35,13 @@ export function PagePlaceholder({
 }: PagePlaceholderProps) {
   return (
     <>
-      <header className="page-header">
-        <h1>{title}</h1>
-        <p>{summary}</p>
-      </header>
+      <PageHeader icon={icon} title={title}>
+        {summary}
+      </PageHeader>
 
       {children}
 
-      <section className="card">
-        <header className="card__header">
-          <h2>Pendiente de implementar</h2>
-        </header>
-        <p className="muted">Historias de usuario: {stories}</p>
-        <ul className="todo-list">
-          {tasks.map((task) => (
-            <li key={task}>{task}</li>
-          ))}
-        </ul>
-      </section>
+      <PendingWork stories={stories} tasks={tasks} />
     </>
   );
 }

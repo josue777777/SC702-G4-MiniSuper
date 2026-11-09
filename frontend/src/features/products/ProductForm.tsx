@@ -1,7 +1,16 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Modal } from '../../components/Modal';
+import { useSession } from '../auth/session-context';
 import { CategoryForm } from '../categories/CategoryForm';
+import { QuickSupplierForm } from '../suppliers/QuickSupplierForm';
 import { parseMinStock, todayDateOnly } from '../inventory/inventory-count';
 import { productsService } from '../../services/products.service';
 import {
@@ -12,8 +21,11 @@ import {
   type ProductImageChange,
   type ProductPayload,
   type ProductSettingsChange,
+  type UnitOfMeasure,
+  UNITS_OF_MEASURE,
 } from '../../types/products';
 import { formatMoney } from './money';
+import { ean13Modules, generateEan13 } from './barcode';
 import {
   describeMargin,
   hasErrors,
@@ -30,11 +42,20 @@ interface ProductFormProps {
   initialValues: ProductFormValues;
   /** Recarga las opciones tras crear una categoría desde el modal (HU-04). */
   onCategoryCreated?: () => Promise<void>;
+  /** Recarga las opciones tras registrar un proveedor desde el modal (HU-21). */
+  onSupplierCreated?: () => Promise<void>;
   /** Imagen guardada del producto (HU-01); `null` si no tiene o es un alta. */
   imageUrl?: string | null;
+  /** Código EAN-13 persistido, si ya se generó. */
+  initialBarcode?: string | null;
   /** Mínimo (HU-08) y vencimiento (HU-09) guardados; en un alta, 0 y sin fecha. */
   initialMinStock?: number;
   initialExpirationDate?: string | null;
+  /** ¿Vence? (HU-38). En un alta, sí. */
+  initialPerishable?: boolean;
+  /** Unidad de medida y stock máximo; en un alta, «Unidad» y sin máximo. */
+  initialUnit?: UnitOfMeasure;
+  initialMaxStock?: number;
   busy: boolean;
   onCancel: () => void;
   onSubmit: (
@@ -107,19 +128,34 @@ export function ProductForm({
   options,
   initialValues,
   imageUrl = null,
+  initialBarcode = null,
   initialMinStock = 0,
   initialExpirationDate = null,
+  initialPerishable = true,
+  initialUnit = 'UD',
+  initialMaxStock = 0,
   onCategoryCreated,
+  onSupplierCreated,
   busy,
   onCancel,
   onSubmit,
 }: ProductFormProps) {
+  /** Registrar proveedores exige el permiso de compras; sin él, no se ofrece. */
+  const canCreateSupplier = useSession().can('purchasing');
   const [values, setValues] = useState<ProductFormValues>(initialValues);
+  const [barcode, setBarcode] = useState(initialBarcode ?? '');
+  const [barcodeError, setBarcodeError] = useState<string | null>(null);
+  /** Pide confirmar antes de reemplazar un código ya guardado (HU-07). */
+  const [confirmingReplace, setConfirmingReplace] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tab, setTab] = useState<Tab>('general');
   /** Mínimo y vencimiento: se guardan con los endpoints de HU-08 y HU-09. */
   const [minStock, setMinStock] = useState(String(initialMinStock));
   const [expirationDate, setExpirationDate] = useState(initialExpirationDate ?? '');
+  /** «No vence» (HU-38): sus entradas solo piden lote, sin fecha. */
+  const [perishable, setPerishable] = useState(initialPerishable);
+  const [unit, setUnit] = useState<UnitOfMeasure>(initialUnit);
+  const [maxStock, setMaxStock] = useState(String(initialMaxStock));
   const [settingsErrors, setSettingsErrors] = useState<{
     minStock?: string;
     expirationDate?: string;
@@ -128,10 +164,13 @@ export function ProductForm({
 
   /** Alta de categoría sin salir del modal (HU-04). */
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [supplierFormOpen, setSupplierFormOpen] = useState(false);
   /** Cambio de imagen pendiente: se aplica al guardar, no al elegir el archivo. */
   const [image, setImage] = useState<ProductImageChange>({ kind: 'keep' });
   const [imageError, setImageError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const barcodeRef = useRef<SVGSVGElement>(null);
+  const qrRef = useRef<SVGSVGElement>(null);
 
   // Vista previa del archivo elegido. La URL temporal se libera al cambiarlo o
   // al cerrar el modal, para no dejar memoria ocupada en el navegador.
@@ -250,7 +289,17 @@ export function ProductForm({
       settings.expirationDate = nextExpiration;
     }
 
-    onSubmit(toPayload(values), image, settings);
+    const payload = {
+      ...toPayload(values),
+      perishable,
+      unit,
+      maxStock: maxStock.trim() === '' ? 0 : Number(maxStock),
+    };
+    if (barcode !== '') {
+      payload.barcode = barcode;
+    }
+
+    onSubmit(payload, image, settings);
   }
 
   const input = (field: keyof ProductFormValues) => ({
@@ -259,6 +308,31 @@ export function ProductForm({
     onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       updateField(field, event.target.value),
   });
+  const qrValue = barcode || values.code.trim();
+
+  function downloadSvg(filename: string, svg: SVGSVGElement | null): void {
+    if (svg === null) {
+      return;
+    }
+
+    const content = new XMLSerializer().serializeToString(svg);
+    const url = URL.createObjectURL(new Blob([content], { type: 'image/svg+xml;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function createBarcode(): void {
+    try {
+      setBarcode(generateEan13());
+      setBarcodeError(null);
+      setConfirmingReplace(false);
+    } catch {
+      setBarcodeError('No se pudo generar el código. Use una conexión segura e intente de nuevo.');
+    }
+  }
 
   return (
     <Modal
@@ -276,13 +350,11 @@ export function ProductForm({
             {missingCategories
               ? ' Todavía no hay categorías: cree una con «+ Nueva categoría», junto al campo Categoría.'
               : ''}
-            {missingSuppliers ? (
-              <>
-                {' Todavía no hay proveedores activos: '}
-                <Link to="/suppliers">registre uno en Proveedores</Link> (este formulario se
-                cierra).
-              </>
-            ) : null}
+            {missingSuppliers
+              ? canCreateSupplier
+                ? ' Todavía no hay proveedores activos: registre uno con «+ Nuevo proveedor», junto al campo Proveedor.'
+                : ' Todavía no hay proveedores activos: pídale a quien maneja las compras que registre uno.'
+              : ''}
           </span>
         </p>
       ) : null}
@@ -321,6 +393,19 @@ export function ProductForm({
               updateField('categoryId', category.id);
             }}
             onClose={() => setCategoryFormOpen(false)}
+          />
+        </div>
+      ) : null}
+
+      {/* Igual que la categoría: alta rápida sin salir; al guardar queda seleccionado. */}
+      {supplierFormOpen ? (
+        <div className="modal__subform">
+          <QuickSupplierForm
+            onCreated={async (supplier) => {
+              await onSupplierCreated?.();
+              updateField('supplierId', supplier.id);
+            }}
+            onClose={() => setSupplierFormOpen(false)}
           />
         </div>
       ) : null}
@@ -374,10 +459,16 @@ export function ProductForm({
                     </option>
                   ))}
                 </select>
-                {/* El formulario de proveedor es grande (contactos y productos): se registra en su pantalla. */}
-                <Link to="/suppliers" className="link-button">
-                  + Nuevo proveedor (en Proveedores)
-                </Link>
+                {canCreateSupplier ? (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setSupplierFormOpen(true)}
+                    disabled={busy || supplierFormOpen}
+                  >
+                    + Nuevo proveedor
+                  </button>
+                ) : null}
               </div>
             </Field>
           </div>
@@ -441,37 +532,81 @@ export function ProductForm({
                 onChange={(event) => setMinStock(event.target.value)}
               />
             </Field>
-            <Field
-              label="Fecha de vencimiento (opcional)"
-              htmlFor="product-expirationDate"
-              error={settingsErrors.expirationDate}
-            >
-              <div className="field-with-action">
-                <input
-                  id="product-expirationDate"
-                  type="date"
-                  min={today}
-                  value={expirationDate}
-                  onChange={(event) => setExpirationDate(event.target.value)}
-                />
-                {expirationDate === '' ? null : (
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => setExpirationDate('')}
-                  >
-                    Quitar fecha (no vence)
-                  </button>
-                )}
-              </div>
+            <Field label="Stock máximo (0 = sin máximo)" htmlFor="product-maxStock">
+              <input
+                id="product-maxStock"
+                type="number"
+                min="0"
+                step="1"
+                value={maxStock}
+                onChange={(event) => setMaxStock(event.target.value)}
+              />
             </Field>
+            <Field label="Unidad de medida" htmlFor="product-unit">
+              <select
+                id="product-unit"
+                value={unit}
+                onChange={(event) => setUnit(event.target.value as UnitOfMeasure)}
+              >
+                {Object.entries(UNITS_OF_MEASURE).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name} ({code})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <fieldset className="filter-bar__field">
+              <legend className="filter-bar__legend">Vencimiento</legend>
+              <label className="filter-toggle">
+                <input
+                  type="checkbox"
+                  checked={!perishable}
+                  onChange={(event) => {
+                    setPerishable(!event.target.checked);
+
+                    if (event.target.checked) {
+                      setExpirationDate('');
+                    }
+                  }}
+                />
+                No vence
+              </label>
+            </fieldset>
+            {perishable ? (
+              <Field
+                label="Fecha de vencimiento (opcional)"
+                htmlFor="product-expirationDate"
+                error={settingsErrors.expirationDate}
+              >
+                <div className="field-with-action">
+                  <input
+                    id="product-expirationDate"
+                    type="date"
+                    min={today}
+                    value={expirationDate}
+                    onChange={(event) => setExpirationDate(event.target.value)}
+                  />
+                  {expirationDate === '' ? null : (
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => setExpirationDate('')}
+                    >
+                      Quitar fecha
+                    </button>
+                  )}
+                </div>
+              </Field>
+            ) : null}
           </div>
           <p className="muted hint">
             {mode === 'create'
-              ? 'El stock inicial queda registrado como la entrada del producto en el Kardex.'
-              : 'Si cambia las existencias, la diferencia queda registrada como un ajuste en el Kardex. Para el día a día use el «Conteo físico».'}{' '}
+              ? 'El stock inicial queda registrado como la entrada del producto en Movimientos.'
+              : 'Si cambia las existencias, la diferencia queda registrada como un ajuste en Movimientos. Para el día a día use el «Conteo físico».'}{' '}
             Con un mínimo mayor que 0, el panel avisa cuando el stock llega a ese nivel (HU-08); la
-            fecha de vencimiento activa las alertas de vencidos y por vencer (HU-09).
+            fecha de vencimiento activa las alertas de vencidos y por vencer (HU-09). Si el producto
+            vence, cada entrada de mercadería pide lote y fecha de vencimiento; si «No vence», solo
+            el lote (HU-38).
           </p>
         </div>
 
@@ -482,25 +617,138 @@ export function ProductForm({
           aria-labelledby="product-tab-labels"
           hidden={tab !== 'labels'}
         >
-          {/* Espacio reservado: se completa en la rama de HU-07. */}
-          <div className="reserved-grid">
-            <div className="reserved-box">
-              <strong>Código de barras</strong>
-              <span className="reserved-box__art" aria-hidden="true">
-                ▌▍▌▌▍▌▍▍▌▌▍▌
-              </span>
-              <p className="muted">
-                Generar un código único, imprimirlo o descargarlo (HU-07, pendiente).
-              </p>
-            </div>
-            <div className="reserved-box">
-              <strong>Código QR</strong>
-              <span className="reserved-box__art" aria-hidden="true">
-                ▦
-              </span>
-              <p className="muted">Descargar el QR del producto (HU-07, pendiente).</p>
-            </div>
+          <div className="label-preview-grid">
+            <section className="label-preview" aria-labelledby="product-barcode-title">
+              <h3 id="product-barcode-title">Código de barras EAN-13</h3>
+              {barcode === '' ? (
+                <p className="muted">Todavía no tiene. Use «Generar códigos».</p>
+              ) : (
+                <>
+                  <svg
+                    ref={barcodeRef}
+                    className="label-preview__barcode"
+                    viewBox="0 0 113 50"
+                    role="img"
+                    aria-label={`Código de barras ${barcode}`}
+                  >
+                    <rect width="113" height="50" fill="white" />
+                    {Array.from(ean13Modules(barcode)).map((module, index) =>
+                      module === '1' ? (
+                        <rect key={index} x={index + 9} y="0" width="1" height="50" />
+                      ) : null,
+                    )}
+                  </svg>
+                  <p className="label-preview__code">{barcode}</p>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => downloadSvg(`codigo-barras-${barcode}.svg`, barcodeRef.current)}
+                  >
+                    Descargar código de barras
+                  </button>
+                </>
+              )}
+            </section>
+            <section className="label-preview" aria-labelledby="product-qr-title">
+              <h3 id="product-qr-title">Código QR</h3>
+              {qrValue === '' ? (
+                <p className="muted">Ingrese el código del producto para generar su QR.</p>
+              ) : (
+                <>
+                  <QRCodeSVG
+                    ref={qrRef}
+                    value={qrValue}
+                    size={180}
+                    level="M"
+                    includeMargin
+                    title={`Código QR del producto ${values.name || values.code}`}
+                  />
+                  <p className="muted">
+                    Contenido: {barcode === '' ? `código ${values.code}` : `EAN-13 ${barcode}`}
+                  </p>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() =>
+                      downloadSvg(
+                        `codigo-qr-${values.code.trim() || 'producto'}.svg`,
+                        qrRef.current,
+                      )
+                    }
+                  >
+                    Descargar código QR
+                  </button>
+                </>
+              )}
+            </section>
           </div>
+
+          {/*
+            Generar y reemplazar van al centro, debajo de los DOS códigos, porque afectan a
+            los dos: el QR guarda el mismo número que el código de barras (si no hay código
+            de barras, guarda el código del producto).
+          */}
+          <section className="label-preview" aria-label="Generar o reemplazar los códigos">
+            <p className="muted">
+              El QR lleva el mismo número que el código de barras: al generarlos o reemplazarlos,
+              cambian los dos.
+              {barcode !== '' && barcode !== initialBarcode
+                ? ' Se guardarán al guardar el producto.'
+                : ''}
+            </p>
+            {/*
+              HU-07: antes de reemplazar un código YA GUARDADO se advierte, porque las
+              etiquetas impresas con el código viejo dejan de servir. Uno recién generado
+              (aún sin guardar) se puede cambiar sin preguntar.
+            */}
+            {confirmingReplace ? (
+              <>
+                <p className="alert alert--warning" role="alert">
+                  Si los reemplaza, el código {barcode} y su QR dejarán de identificar este producto
+                  y las etiquetas impresas con ellos ya no servirán.
+                </p>
+                <div className="form__actions">
+                  <button
+                    type="button"
+                    className="button button--danger-solid"
+                    onClick={createBarcode}
+                    disabled={busy}
+                  >
+                    Sí, reemplazar códigos
+                  </button>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => setConfirmingReplace(false)}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="button button--dark"
+                disabled={busy}
+                onClick={() =>
+                  barcode !== '' && barcode === initialBarcode
+                    ? setConfirmingReplace(true)
+                    : createBarcode()
+                }
+              >
+                {barcode === ''
+                  ? 'Generar códigos'
+                  : barcode === initialBarcode
+                    ? 'Reemplazar códigos'
+                    : 'Generar otros'}
+              </button>
+            )}
+            {barcodeError === null ? null : (
+              <p className="form__error" role="alert">
+                {barcodeError}
+              </p>
+            )}
+          </section>
         </div>
 
         <div

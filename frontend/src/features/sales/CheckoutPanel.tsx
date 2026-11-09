@@ -1,10 +1,15 @@
 import type { Customer, CustomerPayload, PaymentMethod } from '../../types/sales';
+import { NavIcon } from '../../layouts/NavIcon';
+import type { NavIconName } from '../../layouts/navigation';
 import { formatMoney } from '../products/money';
+import { cashSuggestions } from './cash-suggestions';
 import { CustomerPicker } from './CustomerPicker';
 import { PAYMENT_LABELS } from './payment-labels';
 
 interface CheckoutPanelProps {
   total: string;
+  /** Unidades en el carrito, para el visor («3 artículos»). */
+  units: number;
   hasItems: boolean;
   method: PaymentMethod | null;
   cashReceived: string;
@@ -23,29 +28,42 @@ interface CheckoutPanelProps {
   onConfirm: () => void;
 }
 
+const METHOD_ICONS: Record<PaymentMethod, NavIconName> = {
+  CASH: 'cash',
+  CARD: 'card',
+  CREDIT: 'ledger',
+};
+
 /**
  * Cobro (HU-17, HU-18): método de pago explícito (sin opción por defecto),
  * efectivo con monto recibido y cambio, y fiado con cliente identificado.
+ *
+ * Arma la secuencia de una caja registradora, de arriba hacia abajo: el visor
+ * con el total, el método de pago en botones grandes, lo que pide ese método
+ * (monto recibido con montos rápidos, o el cliente del fiado) y, al final, el
+ * botón para finalizar con el total a la vista.
  */
 export function CheckoutPanel(props: CheckoutPanelProps) {
-  const { method, cashReceived, cashValid, change, total, hasItems } = props;
+  const { method, cashReceived, cashValid, change, total, hasItems, units } = props;
   const cashTouched = cashReceived.trim() !== '';
 
   return (
     <section className="card pos__checkout" aria-label="Cobro">
-      <header className="card__header">
-        <h2>Cobro</h2>
-      </header>
-
-      <p className="pos__total">
-        <span>Total a cobrar</span>
-        <strong>{formatMoney(total)}</strong>
-      </p>
+      <div className="pos__display">
+        <span className="pos__display-label">Total a cobrar</span>
+        <strong className="pos__display-total">{formatMoney(total)}</strong>
+        <span className="pos__display-detail">
+          {units === 0 ? 'Sin artículos' : `${units} artículo(s)`}
+        </span>
+      </div>
 
       <fieldset className="pos__methods">
         <legend>Método de pago</legend>
         {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((option) => (
-          <label key={option} className="pos__method">
+          <label
+            key={option}
+            className={method === option ? 'pos__method pos__method--active' : 'pos__method'}
+          >
             <input
               type="radio"
               name="payment-method"
@@ -54,13 +72,14 @@ export function CheckoutPanel(props: CheckoutPanelProps) {
               disabled={props.submitting}
               onChange={() => props.onMethod(option)}
             />
+            <NavIcon name={METHOD_ICONS[option]} size={22} />
             {PAYMENT_LABELS[option]}
           </label>
         ))}
       </fieldset>
 
       {method === 'CASH' ? (
-        <div className="form__field">
+        <div className="form__field pos__cash">
           <label htmlFor="pos-cash">Monto recibido</label>
           <input
             id="pos-cash"
@@ -70,6 +89,21 @@ export function CheckoutPanel(props: CheckoutPanelProps) {
             placeholder="0.00"
             onChange={(event) => props.onCash(event.target.value)}
           />
+          {hasItems ? (
+            <div className="pos__quick-cash" aria-label="Montos rápidos">
+              {cashSuggestions(total).map((amount, index) => (
+                <button
+                  key={amount}
+                  type="button"
+                  className="button"
+                  disabled={props.submitting}
+                  onClick={() => props.onCash(amount)}
+                >
+                  {index === 0 ? 'Exacto' : formatMoney(amount)}
+                </button>
+              ))}
+            </div>
+          ) : null}
           {cashTouched && !cashValid && hasItems ? (
             <p className="form__error" role="alert">
               El monto recibido debe ser un importe válido y no menor al total.
@@ -106,11 +140,14 @@ export function CheckoutPanel(props: CheckoutPanelProps) {
 
       <button
         type="button"
-        className="button button--primary button--block"
+        className="button button--primary button--block pos__confirm"
         disabled={!props.canConfirm}
         onClick={props.onConfirm}
       >
         {props.submitting ? 'Registrando venta…' : 'Finalizar venta'}
+        {props.submitting || !hasItems ? null : (
+          <span className="pos__confirm-total">{formatMoney(total)}</span>
+        )}
       </button>
     </section>
   );

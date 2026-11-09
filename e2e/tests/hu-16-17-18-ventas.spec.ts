@@ -205,6 +205,41 @@ test.describe('HU-16 — venta con código de barras', () => {
     await expect(page.getByRole('button', { name: 'Finalizar venta' })).toBeDisabled();
   });
 
+  test('si el lector no reconoce el código, el cajero busca el producto por nombre y lo agrega', async ({
+    page,
+  }) => {
+    await openSales(page);
+
+    // El lector no encontró el código: el aviso ofrece buscarlo a mano.
+    await scanInField(page, CODE.unknown);
+    await page.getByRole('button', { name: 'Buscar por nombre' }).click();
+
+    const search = page.getByRole('dialog', { name: 'Buscar producto' });
+    const field = search.getByLabel('Nombre o código del producto');
+
+    await field.fill('ARROZ');
+    await expect(search.getByRole('button', { name: /Arroz 1 kg/ })).toContainText('Stock: 5');
+    await saveEvidence(page, 'HU-16', 'HU-16-buscar-producto-por-nombre.png');
+
+    // Enter agrega el primero, con las mismas reglas que el escáner, y vuelve a la caja.
+    await field.press('Enter');
+    await expect(search).toHaveCount(0);
+    await expect(page.getByRole('table', { name: 'Productos de la venta' })).toContainText(
+      'Arroz 1 kg',
+    );
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Agregado: Arroz 1 kg' }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Código de barras o código del producto')).toBeFocused();
+
+    // F4 abre la búsqueda; un producto desactivado no se ofrece.
+    await page.keyboard.press('F4');
+    await search.getByLabel('Nombre o código del producto').fill('descontinuado');
+    await expect(search.getByText('Ningún producto activo coincide')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(search).toHaveCount(0);
+  });
+
   test('no deja agregar más unidades que el stock', async ({ page }) => {
     await openSales(page);
 
@@ -396,6 +431,7 @@ test.describe('HU-17 — método de pago', () => {
     expect((await readSales()).map((sale) => sale.paymentMethod)).toEqual(['CASH', 'CARD']);
 
     // Filtro del historial.
+    await page.getByRole('tab', { name: 'Historial del día' }).click();
     const history = page.getByRole('table', { name: 'Historial de ventas' });
 
     await expect(history.getByRole('row')).toHaveCount(3); // encabezado + 2 ventas

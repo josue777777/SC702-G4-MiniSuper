@@ -10,8 +10,6 @@ import type {
  * Es ayuda de experiencia de usuario: quien decide es el backend.
  */
 
-export const EMPTY_PRODUCT_ROW: SupplierProductRow = { productId: '', unitCost: '' };
-
 export const EMPTY_SUPPLIER_VALUES: SupplierFormValues = {
   name: '',
   contactName: '',

@@ -1,3 +1,5 @@
+import { Pagination } from '../../components/Pagination';
+import { MODAL_PAGE_SIZE, usePagination } from '../../components/use-pagination';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { ApiError } from '../../services/api-client';
@@ -303,6 +305,12 @@ function PlanSection() {
   const { business, reload } = useBusiness();
   const { extraUsers, maxUsers, usedSeats } = business.plan;
   const [own, setOwn] = useState<OwnPlanRequests | null>(null);
+  // «Mis solicitudes» vive en la ventana de Configuración: de 4 en 4 (regla 2).
+  const requestPages = usePagination(
+    own?.requests ?? [],
+    own?.requests.length ?? 0,
+    MODAL_PAGE_SIZE,
+  );
   const [requesting, setRequesting] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const pending = own?.requests.some((request) => request.status === 'PENDING') ?? false;
@@ -370,7 +378,7 @@ function PlanSection() {
               </tr>
             </thead>
             <tbody>
-              {own.requests.map((request) => (
+              {requestPages.pageItems.map((request) => (
                 <tr key={request.id}>
                   <td>{new Date(request.createdAt).toLocaleDateString('es-CR')}</td>
                   <td>+{request.extraUsers}</td>
@@ -383,6 +391,14 @@ function PlanSection() {
             </tbody>
           </table>
         </div>
+      )}
+      {own === null || own.requests.length === 0 ? null : (
+        <Pagination
+          {...requestPages}
+          itemLabel="solicitudes"
+          label="Páginas de mis solicitudes"
+          onPage={requestPages.setPage}
+        />
       )}
 
       {requesting && own !== null ? (

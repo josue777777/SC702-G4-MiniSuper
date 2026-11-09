@@ -18,12 +18,14 @@
     "typecheck:e2e": "tsc -p e2e/tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "check:ai": "node scripts/check-ai-instructions.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "prisma:generate": "npm run prisma:generate -w backend",
     "prisma:validate": "npm run prisma:validate -w backend",
     "db:migrate": "npm run db:migrate -w backend",
     "db:seed": "npm run db:seed -w backend",
+    "db:seed:demo": "npm run db:seed:demo -w backend",
     "db:studio": "npm run db:studio -w backend"
   },
   "devDependencies": {

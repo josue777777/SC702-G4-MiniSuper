@@ -51,6 +51,29 @@ npm run dev            # inicia backend y frontend
 
 La aplicación queda en http://localhost:5173 y la API en http://localhost:4000/api.
 
+### Datos de prueba
+
+Para probar todo el sistema con datos realistas:
+
+```bash
+# en backend/.env:  DEMO_PASSWORD=UnaClaveDePrueba123
+npm run db:seed:demo
+```
+
+Crea el negocio **«Minisúper Demo»**: unos 500 productos en 16 categorías (con código de
+barras, mínimos y vencimientos), 12 proveedores, 40 clientes, y **un año** de ventas
+(~5 700), pedidos, devoluciones, conteos físicos y abonos a fiados. Todo cuadra como si se
+hubiera usado la aplicación: el stock de cada producto es el saldo de su último
+movimiento. Tarda unos segundos.
+
+- Entre con `demo.encargado`, `demo.cajero` o `demo.bodega` y la contraseña de
+  `DEMO_PASSWORD` (no se sube al repositorio).
+- No toca sus otros negocios; si el demo ya existe, lo rehace con fechas al día.
+- No corre en producción. Si avisa que faltan migraciones, corra antes
+  `npm run db:migrate`.
+
+El código está en `backend/src/scripts/demo/` (el generador simula el año día por día).
+
 ### Usuarios y roles
 
 No hay registro público. El **administrador inicial** se crea con `npm run db:seed`,
@@ -69,19 +92,19 @@ responde las solicitudes de más usuarios en **Solicitudes**. **No ve los datos 
 negocio.** Cada Encargado crea a su personal en **Configuración › Usuarios**. Roles
 (fijos; la matriz está en `backend/src/auth/permissions.ts`):
 
-| Rol           | Qué puede usar                                                         |
-| ------------- | ---------------------------------------------------------------------- |
-| Administrador | La plataforma: negocios, planes, solicitudes y nombre del sistema      |
-| Encargado     | Dueño de su negocio: todo el negocio, datos y logo, su Cajero y Bodega |
-| Cajero        | Ventas y clientes; consulta productos sin modificarlos                 |
-| Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario       |
+| Rol           | Qué puede usar                                                               |
+| ------------- | ---------------------------------------------------------------------------- |
+| Administrador | La plataforma: negocios, niveles de cuenta, solicitudes y nombre del sistema |
+| Encargado     | Dueño de su negocio: todo el negocio, datos y logo, su Cajero y Bodega       |
+| Cajero        | Ventas y clientes; consulta productos sin modificarlos                       |
+| Bodega        | Inventario, kardex, pedidos a proveedor y reportes de inventario             |
 
-Hay **jerarquía**: cada uno administra solo usuarios de rango menor. El **plan** es
+Hay **jerarquía**: cada uno administra solo usuarios de rango menor. El **nivel de cuenta** es
 «Encargado + N usuarios»; si se llena, el Encargado solicita más y el Administrador
 aprueba. Cada usuario elige su **apariencia** (color y tamaño de letra) en
 Configuración › Apariencia. Guía para programar módulos en
 [docs/USUARIOS-Y-ROLES.md](docs/USUARIOS-Y-ROLES.md); decisiones en
-[docs/adr/0002-usuarios-jerarquia-y-plan.md](docs/adr/0002-usuarios-jerarquia-y-plan.md) y
+[docs/adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md](docs/adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md) y
 [docs/adr/0003-recuperacion-de-acceso.md](docs/adr/0003-recuperacion-de-acceso.md);
 camino de crecimiento a ERP en [docs/ESCALABILIDAD.md](docs/ESCALABILIDAD.md).
 
@@ -150,20 +173,32 @@ docs/       Documentación técnica
 
 ## Cómo contribuir
 
-1. Tomar una historia de usuario del tablero
-   [Historias de Usuario](https://github.com/josue777777/SC702-G4-MiniSuper/issues) y
-   asignársela.
-2. Crear una rama desde `main` con el formato `feat/hu-XX-descripcion`
-   (o `fix/…`, `docs/…`).
-3. Hacer commits pequeños con mensajes descriptivos: `feat: registrar producto (HU-01)`.
-4. Antes de subir: `npm run lint`, `npm run typecheck` y `npm test` sin errores.
-5. Abrir un pull request hacia `main` y pedir revisión a otro integrante.
+Las reglas están en [`CONTRIBUTING.md`](CONTRIBUTING.md) y son de **lectura
+obligatoria** (el CI no deja pasar un PR sin confirmarlo). En resumen:
+
+1. Tomar una historia del tablero
+   ([issues](https://github.com/josue777777/SC702-G4-MiniSuper/issues)) y asignársela.
+2. Crear una rama desde `develop`.
+3. Antes de subir: `npm run format:check`, `npm run lint`, `npm run typecheck` y las
+   pruebas de lo que se tocó.
+4. Abrir el PR hacia `develop`, marcar la casilla «Leí y cumplo `CONTRIBUTING.md`» y
+   esperar el CI en verde. `develop` pasa a `main` cuando todo está en verde.
 
 ## Documentación
 
-- [Arquitectura del sistema](docs/ARCHITECTURE.md): capas, modelo de datos y convenciones.
-- [Usuarios y roles](docs/USUARIOS-Y-ROLES.md): cómo funciona el acceso y qué hacer al programar un módulo nuevo.
-- [Decisiones de arquitectura](docs/adr/): registro de las decisiones técnicas.
+Todo documento del repositorio está enlazado aquí o desde las reglas: si no está en
+esta lista, no se usa.
+
+| Documento                                    | Para qué sirve                                                                                                                                                                                                                                  |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Reglas del equipo](CONTRIBUTING.md)         | **Lectura obligatoria.** Una página con las reglas generales                                                                                                                                                                                    |
+| [Guía de pantallas](docs/PANTALLAS.md)       | **Antes de crear o cambiar una pantalla.** Modales, paginación, buscadores, reportes, filtros y diseño igual en todo el sistema                                                                                                                 |
+| [Guía del código](docs/guia/README.md)       | **Para entender y buscar.** Una página por módulo: qué hace, flujo de información, librerías, cálculos y dónde buscar cuando algo falla                                                                                                         |
+| [Arquitectura](docs/ARCHITECTURE.md)         | Capas, modelo de datos, receta para una historia nueva y reglas de cálculo de ventas y reportes                                                                                                                                                 |
+| [Usuarios y roles](docs/USUARIOS-Y-ROLES.md) | Cómo funciona el acceso y qué hacer al programar un módulo nuevo                                                                                                                                                                                |
+| [Escalabilidad](docs/ESCALABILIDAD.md)       | Reglas de datos para crecer sin rehacer (negocio de la sesión, dinero, stock, documentos)                                                                                                                                                       |
+| [Decisiones de arquitectura](docs/adr/)      | Por qué se decidió cada cosa: [stack](docs/adr/0001-stack-selection.md), [usuarios y multi-negocio](docs/adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md), [recuperación de acceso](docs/adr/0003-recuperacion-de-acceso.md)                   |
+| [Instrucciones para IA](AGENTS.md)           | Lo que leen las herramientas de IA. [`CLAUDE.md`](CLAUDE.md), [`GEMINI.md`](GEMINI.md) y [`copilot-instructions.md`](.github/copilot-instructions.md) llevan a él y repiten las reglas críticas; `npm run check:ai` revisa que no falte ninguna |
 
 ## Equipo
 

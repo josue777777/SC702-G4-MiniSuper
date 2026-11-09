@@ -61,6 +61,9 @@ jobs:
       - name: Formato (Prettier)
         run: npm run format:check
 
+      - name: Reglas para las IA (todas encuentran las mismas reglas)
+        run: npm run check:ai
+
       - name: Lint
         run: npm run lint
 

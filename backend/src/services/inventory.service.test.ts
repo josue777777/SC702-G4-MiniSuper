@@ -287,6 +287,8 @@ describe('InventoryService.listExpirations (HU-09)', () => {
         productCode: 'B',
         productName: 'Pan',
         stock: 2,
+        lotNumber: 'SIN LOTE',
+        lotQuantity: 2,
         expirationDate: '2026-10-10',
         daysLeft: -3,
         status: 'EXPIRED',
@@ -296,10 +298,64 @@ describe('InventoryService.listExpirations (HU-09)', () => {
         productCode: 'A',
         productName: 'Yogur',
         stock: 4,
+        lotNumber: 'SIN LOTE',
+        lotQuantity: 4,
         expirationDate: '2026-10-20',
         daysLeft: 7,
         status: 'EXPIRING_SOON',
       },
     ]);
+  });
+});
+
+describe('InventoryService.listExpirations por lote (HU-32)', () => {
+  it('con dos lotes, uno a 10 días y otro a 60, solo alerta el próximo a vencer, con su lote y sus unidades', async () => {
+    const repository = new FakeInventoryRepository([
+      {
+        id: 'm',
+        code: 'LEC',
+        name: 'Leche',
+        stock: 18,
+        lots: [
+          { lotNumber: 'L-1', expirationDate: '2026-10-23', quantity: 6 },
+          { lotNumber: 'L-2', expirationDate: '2026-12-12', quantity: 12 },
+        ],
+      },
+    ]);
+    const service = new InventoryService(repository, () => TODAY);
+
+    expect(await service.listExpirations()).toEqual([
+      {
+        productId: 'm',
+        productCode: 'LEC',
+        productName: 'Leche',
+        stock: 18,
+        lotNumber: 'L-1',
+        lotQuantity: 6,
+        expirationDate: '2026-10-23',
+        daysLeft: 10,
+        status: 'EXPIRING_SOON',
+      },
+    ]);
+  });
+
+  it('cuando un lote se agota, su alerta desaparece aunque queden otros lotes; sin stock, no alerta', async () => {
+    const repository = new FakeInventoryRepository([
+      {
+        id: 'm',
+        code: 'LEC',
+        name: 'Leche',
+        stock: 12,
+        lots: [
+          { lotNumber: 'L-1', expirationDate: '2026-10-10', quantity: 0 },
+          { lotNumber: 'L-2', expirationDate: '2026-12-12', quantity: 12 },
+        ],
+      },
+      // Vencido pero ya retirado (sin stock): no alerta.
+      { id: 'y', code: 'YOG', name: 'Yogur', stock: 0, expirationDate: '2026-10-01' },
+    ]);
+    const service = new InventoryService(repository, () => TODAY);
+
+    expect(await service.listExpirations()).toEqual([]);
   });
 });

@@ -5,6 +5,32 @@ import type { NavIconName } from './navigation';
  * el color del texto (`currentColor`), así cambian solos con el tema.
  */
 const PATHS: Record<NavIconName, string[]> = {
+  // Reportes
+  download: ['M12 3v12', 'M7 10l5 5 5-5', 'M4 19h16'],
+  file: ['M6 3h8l4 4v14H6z', 'M14 3v4h4', 'M9 13h6', 'M9 17h6'],
+  sliders: [
+    'M4 6h10',
+    'M18 6h2',
+    'M4 12h4',
+    'M12 12h8',
+    'M4 18h12',
+    'M20 18h0',
+    'M16 4v4',
+    'M10 10v4',
+    'M18 16v4',
+  ],
+  /** Flecha circular «volver a como estaba» (Restablecer). */
+  reset: ['M3 12a9 9 0 1 0 3-6.7', 'M3 4v5h5'],
+  // Caja (punto de venta)
+  barcode: ['M3 5v14', 'M7 5v14', 'M10 5v14', 'M14 5v14', 'M17 5v14', 'M21 5v14'],
+  card: ['M2 6h20v12H2z', 'M2 10h20', 'M6 15h4'],
+  ledger: [
+    'M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2z',
+    'M5 19a2 2 0 0 1 2-2h12',
+    'M9 7h6',
+    'M9 11h6',
+  ],
+  trash: ['M4 7h16', 'M9 7V4h6v3', 'M6 7l1 13h10l1-13', 'M10 11v6', 'M14 11v6'],
   home: ['M3 11l9-8 9 8', 'M5 10v10h14V10', 'M10 20v-6h4v6'],
   warehouse: ['M3 21V8l9-5 9 5v13', 'M7 21v-8h10v8', 'M7 17h10'],
   entries: ['M12 3v10', 'M8 9l4 4 4-4', 'M4 15v5h16v-5'],
@@ -39,6 +65,13 @@ const PATHS: Record<NavIconName, string[]> = {
   ],
   inbox: ['M3 13l3-8h12l3 8', 'M3 13v6h18v-6', 'M3 13h5l1 3h6l1-3h5'],
   logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  // Encabezados de pantalla (PageHeader)
+  /** Una flecha que entra y otra que sale: Movimientos ⇅. */
+  swap: ['M7 20V4', 'M3 8l4-4 4 4', 'M17 4v16', 'M13 16l4 4 4-4'],
+  /** Una caja: Inventario. */
+  box: ['M3 7l9-4 9 4v10l-9 4-9-4z', 'M3 7l9 4 9-4', 'M12 11v10'],
+  lock: ['M5 11h14v10H5z', 'M8 11V7a4 4 0 0 1 8 0v4'],
+  compass: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M15.5 8.5l-2 5-5 2 2-5z'],
 };
 
 export function NavIcon({ name, size = 20 }: { name: NavIconName; size?: number }) {
