@@ -12,6 +12,8 @@ export function createSuppliersRouter(repositoryFor: ForBusiness<SuppliersReposi
   const router = Router();
 
   router.get('/', (req, res) => controller.list(req, res));
+  /** Comparar el costo de un producto entre sus proveedores (HU-39). */
+  router.get('/costs/:productId', (req, res) => controller.compareCosts(req, res));
   router.post('/', (req, res) => controller.create(req, res));
   /** Editar (HU-21). No hay baja: HU-21 no la pide. */
   router.patch('/:id', (req, res) => controller.update(req, res));

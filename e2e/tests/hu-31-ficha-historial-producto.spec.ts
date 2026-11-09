@@ -169,6 +169,17 @@ async function openFromInventory(page: Page, search: string, code: string): Prom
 
 const SHEET = 'Ficha de Café molido 500 g';
 
+/** Abre «🔍 Buscar producto»: la ventana con todos los productos, la búsqueda y la categoría. */
+async function openPicker(page: Page) {
+  await page.getByRole('button', { name: '🔍 Buscar producto' }).click();
+
+  const picker = page.getByRole('dialog', { name: 'Buscar producto' });
+
+  await expect(picker).toBeVisible();
+
+  return picker;
+}
+
 test('desde la búsqueda de Inventario abre la ficha con sus datos y el historial ordenado, y deja la evidencia', async ({
   page,
 }) => {
@@ -183,42 +194,65 @@ test('desde la búsqueda de Inventario abre la ficha con sus datos y el historia
   const sheet = page.getByRole('region', { name: SHEET });
 
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('heading', { name: /Café molido 500 g/ })).toContainText('Activo');
-  await expect(
-    sheet.locator('dt', { hasText: 'Código' }).first().locator('xpath=following-sibling::dd'),
-  ).toHaveText('P001');
-  await expect(
-    sheet.locator('dt', { hasText: 'Código de barras' }).locator('xpath=following-sibling::dd'),
-  ).toHaveText('7501000000012');
-  await expect(
-    sheet.locator('dt', { hasText: 'Categoría' }).locator('xpath=following-sibling::dd'),
-  ).toHaveText('Bebidas');
-  await expect(
-    sheet.locator('dt', { hasText: 'Proveedor principal' }).locator('xpath=following-sibling::dd'),
-  ).toHaveText('Distribuidora Central');
+  // Sin encabezado repetido: el nombre va en «Descripción»; un producto activo no lleva insignia.
+  await expect(sheet.getByRole('heading')).toHaveCount(0);
+  await expect(sheet.getByText('Inactivo')).toHaveCount(0);
+  // La ficha es una hoja de celdas: etiqueta oscura y su valor.
+  const cell = (label: string) =>
+    sheet
+      .locator('dt', { hasText: new RegExp(`^${label}$`) })
+      .locator('xpath=following-sibling::dd');
 
-  const tile = (label: string) =>
-    sheet.locator('.stat-tile', { hasText: label }).locator('.stat-tile__value');
+  // Producto: código, nombre, código de barras y categoría.
+  // «Producto» es el código y «Descripción» el nombre.
+  // Cada dato en su bloque: «Producto» es el código (con código de barras y
+  // categoría) y «Descripción» el nombre.
+  await expect(cell('Producto')).toHaveText('P001 · 7501000000012 · Bebidas');
+  await expect(cell('Descripción')).toHaveText('Café molido 500 g');
+  await expect(cell('Proveedor principal')).toHaveText('Distribuidora Central');
+  await expect(cell('Unidad')).toHaveText('Unidad (UD)');
 
-  expect(digits(await tile('Precio de venta').textContent())).toBe('150000');
-  expect(digits(await tile('Costo').textContent())).toBe('100050');
-  await expect(tile('Stock actual')).toHaveText('8');
+  // Precio y costo en sus bloques, como los demás datos; existencias con el
+  // aviso pequeño de su estado (mínimo 3 en las semillas: 8 está «Bien»).
+  expect(digits(await cell('Precio de venta').textContent())).toBe('150000');
+  expect(digits(await cell('Costo').textContent())).toBe('100050');
+  await expect(sheet.getByLabel('Stock actual')).toHaveText('8');
+  await expect(cell('Existencias').locator('.badge--ok')).toHaveText('Bien');
+  // «Hoy»: solo lo de hoy de este producto (todo su historial es de 2024, así que nada).
+  // Todo el historial ya está en la tabla y los totales en Reportes.
+  const today = page.getByLabel('Resumen de hoy');
+
+  await expect(today).toContainText('Entró 0');
+  await expect(today).toContainText('Salió 0');
+  await expect(today).toContainText('0 movs.');
 
   // Criterios 2 y 4: todo el historial, del más reciente al más antiguo, con su saldo.
-  // [fecha, concepto, documento, entrada, salida, stock anterior, stock final]
+  // [fecha, concepto, documento, entrada, salida, stock final, lotes]: el concepto es
+  // breve y el documento es solo el número (HU-38); el stock anterior es la línea de abajo.
+  // Los lotes de una línea van en un botón junto al concepto (aquí ninguna trae lotes).
   expect(await readHistory(page)).toEqual([
-    ['06/05/2024 14:20', 'Venta #2', 'Venta #2', '—', '5', '13', '8'],
-    ['05/05/2024 11:00', 'Devolución venta #1: Empaque dañado', 'Venta #1', '1', '—', '12', '13'],
-    ['04/05/2024 16:45', 'Conteo físico', '—', '—', '6', '18', '12'],
-    ['03/05/2024 09:15', 'Conteo físico', '—', '3', '—', '15', '18'],
-    ['02/05/2024 10:30', 'Venta #1', 'Venta #1', '—', '5', '20', '15'],
-    ['01/05/2024 08:00', 'Stock inicial', '—', '20', '—', '0', '20'],
+    ['06/05/2024 14:20', 'Venta', '2', '0', '5', '8', '—'],
+    ['05/05/2024 11:00', 'Devolución de cliente', '1', '1', '0', '13', '—'],
+    ['04/05/2024 16:45', 'Conteo físico', '—', '0', '6', '12', '—'],
+    ['03/05/2024 09:15', 'Conteo físico', '—', '3', '0', '18', '—'],
+    ['02/05/2024 10:30', 'Venta', '1', '0', '5', '15', '—'],
+    ['01/05/2024 08:00', 'Stock inicial', '—', '20', '0', '20', '—'],
   ]);
-  await expect(page.getByText('6 movimientos')).toBeVisible();
+  await expect(
+    page.getByRole('table', { name: 'Movimientos del producto' }).getByRole('columnheader'),
+  ).toHaveText(['Fecha y hora', 'Concepto', 'Documento', 'Entrada', 'Salida', 'Stock final']);
+  // Sin fila «Totales» al pie: repetía lo que ya dicen otras pantallas.
+  await expect(
+    page.getByRole('table', { name: 'Movimientos del producto' }).locator('tfoot'),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('navigation', { name: 'Páginas del historial' }).getByText('6 movimientos'),
+  ).toBeVisible();
   await expect(page.getByText('Página 1 de 1')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Anterior' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
-  await expect(page.getByRole('link', { name: /Volver a Inventario/ })).toBeVisible();
+  // Se vuelve a Inventario desde el menú: no hay un enlace repetido en la pantalla.
+  await expect(page.getByRole('link', { name: /Volver a Inventario/ })).toHaveCount(0);
 
   expect(errors).toEqual([]);
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -232,23 +266,28 @@ test('el ajuste que baja el stock es una salida y el que lo sube es una entrada;
 
   const rows = await readHistory(page);
 
-  // De más antiguo a más reciente, cada movimiento parte de donde terminó el anterior.
+  // De más antiguo a más reciente: el stock final de la línea anterior, más lo que
+  // entra y menos lo que sale, da el stock final de la siguiente.
   const chronological = [...rows].reverse();
+  const units = (cell: string | undefined) => (cell === '—' ? 0 : Number(cell));
 
   chronological.forEach((row, index) => {
     if (index > 0) {
-      expect(row[5], `fila ${index + 1}`).toBe(chronological[index - 1]?.[6]);
+      expect(
+        units(chronological[index - 1]?.[5]) + units(row[3]) - units(row[4]),
+        `fila ${index + 1}`,
+      ).toBe(units(row[5]));
     }
   });
   // Los dos conteos son del mismo tipo (ajuste): uno sube y otro baja.
   const counts = rows.filter((row) => row[1] === 'Conteo físico');
 
   expect(counts.map((row) => [row[3], row[4]])).toEqual([
-    ['—', '6'],
-    ['3', '—'],
+    ['0', '6'],
+    ['3', '0'],
   ]);
   // El stock final del último movimiento es el stock actual de la ficha.
-  expect(rows[0]?.[6]).toBe('8');
+  expect(rows[0]?.[5]).toBe('8');
 });
 
 test('doble clic sigue abriendo la edición y «Ver movimientos» pide primero elegir un producto', async ({
@@ -283,11 +322,18 @@ test('doble clic sigue abriendo la edición y «Ver movimientos» pide primero e
 test('un producto sin movimientos muestra su ficha y el mensaje de que no hay historial', async ({
   page,
 }) => {
-  // Sin producto en la dirección: aparece el selector, con búsqueda.
+  // Sin producto en la dirección: el buscador de arriba y la ficha vacía, con «—».
   await page.goto('/movimientos');
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
-  await page.getByLabel('Buscar producto por nombre o código').fill('arroz');
-  await page.getByRole('button', { name: /P002 · Arroz 1 kg/ }).click();
+  await expect(
+    page
+      .getByRole('region', { name: 'Ficha del producto' })
+      .locator('dt', { hasText: /^Producto$/ })
+      .locator('xpath=following-sibling::dd'),
+  ).toHaveText('—');
+  const picker = await openPicker(page);
+
+  await picker.getByLabel('Buscar producto por código, nombre o código de barras').fill('arroz');
+  await picker.getByRole('button', { name: 'Ver movimientos de P002 Arroz 1 kg' }).click();
 
   await expect(page).toHaveURL(/\/movimientos\?productId=/);
   await expect(page.getByRole('region', { name: 'Ficha de Arroz 1 kg' })).toBeVisible();
@@ -296,6 +342,59 @@ test('un producto sin movimientos muestra su ficha y el mensaje de que no hay hi
   await expect(page.getByRole('region', { name: 'Ficha de Arroz 1 kg' })).toContainText(
     'Sin proveedor',
   );
+});
+
+test('sin producto elegido, Movimientos muestra lo de hoy y los últimos movimientos de todos los productos', async ({
+  page,
+}) => {
+  await page.goto('/movimientos');
+
+  const recent = page.getByRole('region', { name: 'Movimientos recientes' });
+  const table = recent.getByRole('table', { name: 'Movimientos recientes de todos los productos' });
+
+  // La pantalla no arranca vacía: la ficha con «—», el resumen de hoy (nada se movió
+  // hoy) y la tabla; abajo, la barra de acciones pide buscar un producto.
+  const sheet = page.getByRole('region', { name: 'Ficha del producto' });
+
+  await expect(sheet.getByLabel('Stock actual')).toHaveText('—');
+  await expect(
+    sheet.locator('dt', { hasText: 'Producto' }).locator('xpath=following-sibling::dd'),
+  ).toHaveText('—');
+  await expect(recent.getByLabel('Hoy')).toHaveText('Hoy: entran 0 · salen 0 · 0 movimientos');
+  const actions = page.getByRole('toolbar', { name: 'Acciones de movimientos' });
+
+  await expect(actions.getByRole('button', { name: '+ Ingreso' })).toBeDisabled();
+  await expect(actions.getByRole('button', { name: '📦 Carga de pedido' })).toBeEnabled();
+  await expect(actions.getByRole('status')).toHaveText(
+    'Busque un producto para un ingreso o egreso; un pedido completo, en «Carga de pedido».',
+  );
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Fecha y hora',
+    'Código',
+    'Producto',
+    'Concepto',
+    'Documento',
+    'Entrada',
+    'Salida',
+    'Stock final',
+  ]);
+  // 6 del café + 1 del descontinuado + 60 de la gaseosa = 67, de 15 en 15.
+  await expect(table.locator('tbody tr')).toHaveCount(15);
+  await expect(recent.getByText('Página 1 de 5')).toBeVisible();
+  await expect(table.locator('tbody tr').first()).toContainText('Gaseosa 2 L');
+  await expect(table.locator('tbody tr').first()).toContainText('Movimiento 60');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await saveEvidence(page, 'HU-31', 'movimientos-vista-general.png');
+
+  // El código es un enlace (con el estilo de enlace del sistema) al kardex de ese producto.
+  await table
+    .locator('tbody tr')
+    .first()
+    .getByRole('link', { name: /^Ver movimientos de P004/ })
+    .click();
+  await expect(page).toHaveURL(/\/movimientos\?productId=/);
+  await expect(page.getByRole('region', { name: 'Ficha de Gaseosa 2 L' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Movimientos recientes' })).toHaveCount(0);
 });
 
 test('un producto desactivado se abre desde «Desactivados» y conserva su historial', async ({
@@ -309,11 +408,81 @@ test('un producto desactivado se abre desde «Desactivados» y conserva su histo
   const sheet = page.getByRole('region', { name: 'Ficha de Producto descontinuado' });
 
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('heading')).toContainText('Inactivo');
+  await expect(sheet.locator('.badge--muted')).toHaveText('Inactivo');
   await expect(sheet).toContainText('Granos del Valle');
   expect(await readHistory(page)).toEqual([
-    ['01/04/2024 09:00', 'Stock inicial', '—', '2', '—', '0', '2'],
+    ['01/04/2024 09:00', 'Stock inicial', '—', '2', '0', '2', '—'],
   ]);
+});
+
+test('«Buscar producto» lista todo de 4 en 4, filtra por categoría, abre con el lector y recuerda los recientes', async ({
+  page,
+}) => {
+  // Un quinto producto: así hay dos páginas de 4.
+  await seedProducts([
+    {
+      code: 'P005',
+      name: 'Atún en lata',
+      category: 'Abarrotes',
+      price: '900.00',
+      cost: '600.00',
+      stock: 12,
+      supplier: 'Distribuidora Central',
+    },
+  ]);
+  await page.goto('/movimientos');
+
+  // Afuera solo está el botón: la búsqueda y la categoría van dentro de la ventana.
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+
+  let picker = await openPicker(page);
+  const rows = picker.getByRole('table', { name: 'Productos' }).locator('tbody tr');
+  const search = picker.getByLabel('Buscar producto por código, nombre o código de barras');
+
+  // Todos los productos (también los desactivados), por nombre, de 4 en 4.
+  await expect(search).toBeFocused();
+  await expect(rows).toHaveCount(4);
+  await expect(rows.first()).toContainText('Arroz 1 kg');
+  await expect(rows.first()).toContainText('Granos');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await saveEvidence(page, 'HU-31', 'movimientos-buscar-producto.png');
+  await picker
+    .getByRole('navigation', { name: 'Páginas de productos' })
+    .getByText('Siguiente')
+    .click();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Producto descontinuado');
+
+  // La categoría filtra en el servidor y vuelve a la primera página.
+  await picker.getByLabel('Categoría').selectOption({ label: 'Bebidas' });
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('Café molido 500 g');
+  await expect(rows.nth(1)).toContainText('Gaseosa 2 L');
+  await picker.getByLabel('Categoría').selectOption({ label: 'Todas' });
+
+  // El lector escribe el código de barras y Enter: se abre ese producto.
+  await search.fill('7501000000012');
+  await search.press('Enter');
+  await expect(picker).toHaveCount(0);
+  await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
+
+  // Con texto, la tabla muestra el stock de cada uno.
+  picker = await openPicker(page);
+  await picker.getByLabel('Buscar producto por código, nombre o código de barras').fill('gaseosa');
+  await expect(picker.getByRole('table', { name: 'Productos' }).locator('tbody tr')).toHaveCount(1);
+  await expect(picker.getByRole('table', { name: 'Productos' })).toContainText('60');
+  await picker.getByRole('button', { name: 'Ver movimientos de P004 Gaseosa 2 L' }).click();
+  await expect(page.getByRole('region', { name: 'Ficha de Gaseosa 2 L' })).toBeVisible();
+
+  // «Recientes»: el último abierto primero; un toque vuelve al café.
+  picker = await openPicker(page);
+
+  const recents = picker.getByRole('group', { name: 'Productos recientes' });
+
+  await expect(recents.getByRole('button')).toHaveCount(2);
+  await expect(recents.getByRole('button').first()).toContainText('P004');
+  await recents.getByRole('button', { name: /P001/ }).click();
+  await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 });
 
 test('el selector encuentra productos desactivados y permite cambiar de producto', async ({
@@ -322,23 +491,38 @@ test('el selector encuentra productos desactivados y permite cambiar de producto
   await page.goto(`/movimientos?productId=${coffeeId}`);
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Elegir otro producto' }).click();
-  await page.getByLabel('Buscar producto por nombre o código').fill('descontinuado');
-  await expect(page.getByRole('button', { name: /P003 · Producto descontinuado/ })).toContainText(
-    'Inactivo',
-  );
-  await page.getByRole('button', { name: /P003/ }).click();
+  // «Buscar producto» sigue arriba: se cambia de producto sin volver atrás.
+  const picker = await openPicker(page);
+
+  await picker
+    .getByLabel('Buscar producto por código, nombre o código de barras')
+    .fill('descontinuado');
+  await expect(picker.getByRole('table', { name: 'Productos' })).toContainText('Inactivo');
+  await picker
+    .getByRole('button', { name: 'Ver movimientos de P003 Producto descontinuado' })
+    .click();
 
   await expect(page.getByRole('region', { name: 'Ficha de Producto descontinuado' })).toBeVisible();
   // El historial mostrado es el del producto nuevo, no el anterior.
   expect((await readHistory(page)).map((row) => row[1])).toEqual(['Stock inicial']);
+
+  // «Limpiar», el mismo botón de Inventario junto al buscador, vuelve a la vista sin producto.
+  const search = page.getByRole('search');
+
+  await search.getByRole('button', { name: 'Limpiar', exact: true }).click();
+  await expect(page).toHaveURL(/\/movimientos$/);
+  await expect(page.getByRole('region', { name: 'Movimientos recientes' })).toBeVisible();
+  // Sin producto no hay nada que limpiar.
+  await expect(search.getByRole('button', { name: 'Limpiar', exact: true })).toHaveCount(0);
 });
 
 test('un historial de más de una página se recorre completo, sin repetir ni omitir movimientos', async ({
   page,
 }) => {
   await page.goto(`/movimientos?productId=${await productIdOf('P004')}`);
-  await expect(page.getByText('60 movimientos')).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Páginas del historial' }).getByText('60 movimientos'),
+  ).toBeVisible();
   await expect(page.getByText('Página 1 de 4')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Anterior' })).toBeDisabled();
 
@@ -388,8 +572,15 @@ test('la ficha se ve y la pantalla responde aunque el historial tarde en llegar'
   // Criterio 5: la ficha ya está, el historial se anuncia como «cargando» y la página responde.
   await expect(page.getByRole('region', { name: SHEET })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Cargando historial…' })).toBeVisible();
-  await page.getByRole('button', { name: 'Elegir otro producto' }).click();
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
+  // La paginación ya está en su lugar (apagada), para que nada salte al llegar los datos.
+  const pager = page.getByRole('navigation', { name: 'Páginas del historial' });
+
+  await expect(pager).toContainText('Página — de —');
+  await expect(pager.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+  const picker = await openPicker(page);
+
+  await expect(picker.getByRole('group', { name: 'Productos recientes' })).toBeVisible();
+  await picker.getByRole('button', { name: 'Cerrar' }).click();
 
   // Al llegar, el historial completo aparece.
   await expect(page.getByRole('table', { name: 'Movimientos del producto' })).toBeVisible({
@@ -408,14 +599,14 @@ test('direcciones inválidas o de otro negocio muestran un error claro sin revel
   await expect(page.getByRole('alert')).toContainText(
     'El producto indicado en la dirección no es válido.',
   );
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ficha del producto' })).toBeVisible();
 
   // Id válido que no existe.
   await page.goto(`/movimientos?productId=${randomUUID()}`);
   await expect(page.getByRole('alert')).toContainText(
     'El producto no existe o ya no está disponible.',
   );
-  await expect(page.getByRole('heading', { name: 'Elegir un producto' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ficha del producto' })).toBeVisible();
 
   // Producto de OTRO negocio: igual que si no existiera.
   await page.goto(`/movimientos?productId=${foreignId}`);
@@ -425,9 +616,12 @@ test('direcciones inválidas o de otro negocio muestran un error claro sin revel
   await expect(page.getByText('Producto del negocio ajeno')).toHaveCount(0);
   await expect(page.getByText('Historial secreto ajeno')).toHaveCount(0);
 
-  // Ni el selector ofrece productos de otro negocio.
-  await page.getByLabel('Buscar producto por nombre o código').fill('ajeno');
-  await expect(page.getByText('Ningún producto coincide con «ajeno».')).toBeVisible();
+  // Ni «Buscar producto» ofrece productos de otro negocio.
+  const picker = await openPicker(page);
+
+  await picker.getByLabel('Buscar producto por código, nombre o código de barras').fill('ajeno');
+  await expect(picker.getByText('No hay productos con «ajeno».')).toBeVisible();
+  await picker.getByRole('button', { name: 'Cerrar' }).click();
 
   // La API responde lo mismo para la ficha y para el historial.
   for (const path of [`products/${foreignId}`, `products/${foreignId}/movements`]) {
@@ -533,18 +727,15 @@ test('una venta real aparece en el historial y consultar Movimientos no cambia s
   const before = await inventoryState();
 
   await page.goto(`/movimientos?productId=${coffeeId}`);
-  await expect(
-    page
-      .getByRole('region', { name: SHEET })
-      .locator('.stat-tile', { hasText: 'Stock actual' })
-      .locator('.stat-tile__value'),
-  ).toHaveText('6');
+  await expect(page.getByRole('region', { name: SHEET }).getByLabel('Stock actual')).toHaveText(
+    '6',
+  );
 
   const rows = await readHistory(page);
 
   // La venta nueva es el movimiento más reciente: 8 → 6 y queda enlazada a su venta (#3).
   expect(rows).toHaveLength(7);
-  expect(rows[0]?.slice(1)).toEqual(['Venta #3', 'Venta #3', '—', '2', '8', '6']);
+  expect(rows[0]?.slice(1)).toEqual(['Venta', '3', '0', '2', '6', '—']);
 
   // Recorrer fichas, historiales y el selector es solo lectura.
   await page.goto(`/movimientos?productId=${await productIdOf('P004')}`);

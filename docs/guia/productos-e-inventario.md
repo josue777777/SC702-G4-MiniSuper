@@ -22,14 +22,79 @@ Es el catálogo del negocio y el control de sus existencias:
 - **Existencias**: mínimo de stock (alerta de stock bajo), fecha de vencimiento
   (alerta de vencidos y por vencer) y conteo físico, que corrige el stock con lo que
   hay de verdad en el estante.
-- **Movimientos** (Almacén › Movimientos): el historial de cada producto, con cada
-  entrada, salida o ajuste y el saldo después de cada uno (kardex).
+- **Movimientos** (Almacén › Movimientos): el historial de cada producto (kardex). Columnas:
+  fecha y hora, **concepto** breve («Recepción PED-0408», «Venta», «Devolución de
+  cliente», «Conteo físico»), **documento** (solo el número: la factura del proveedor en
+  una entrada, la venta en una salida), entrada, salida y **stock final**. No hay «stock
+  anterior»: es el stock final de la línea de abajo. Si la línea entró en lotes, su botón
+  «N lotes» los muestra en una ventana (HU-38). Más adelante se suman los conceptos de
+  salida «Devolución» (a proveedor), «Traslado» y «Vencido-descartado».
+- **Movimientos**, siempre con la misma forma y las piezas del resto del sistema:
+  1. **🔍 Buscar producto** arriba (`KardexSearch.tsx`): abre una ventana con TODOS los
+     productos, de 4 en 4 y paginados en el servidor (`ProductPickerModal.tsx`). Dentro
+     de la ventana se busca por código, nombre o código de barras (con el lector, código
+     + Enter abre el producto), se filtra por categoría y se ven «Recientes» (los últimos
+     6 abiertos en ese navegador, `kardex-recents.ts`). Afuera no hay más filtros. Con un
+     producto abierto, al lado va «Limpiar» (el mismo botón de Inventario).
+  2. **Ficha** (`ProductSheet.tsx`), en celdas como una hoja (la etiqueta oscura a la
+     izquierda, el dato a la derecha), sin encabezado propio porque el nombre ya va en
+     «Descripción»; la insignia «Inactivo» solo si el producto está desactivado: **Producto** (el código, con
+     código de barras y categoría), **Descripción** (el nombre), unidad, proveedor
+     principal, precio, costo, **existencias** con el aviso pequeño de su estado («Bien»,
+     «Bajo», «Agotado», «Sobre el máximo»), stock mínimo y máximo, **lotes** (cuándo vence el próximo y
+     la insignia «▦ N lotes», `ProductLotsModal.tsx`; un
+     producto puede tener varias fechas, por eso no se muestra una sola; lo que no vence
+     dice «No vence») y **hoy**: lo que entró y salió HOY de ese producto («Entró +30 ·
+     Salió −12 · 9 movs.»; todo el historial está en la tabla y los totales en
+     Reportes). Sin producto, o mientras llega, las mismas celdas con «—»: la pantalla no
+     cambia de forma.
+  3. **Historial de movimientos** con «Todos / Entradas / Salidas» (el filtro va al
+     servidor), sin fila de totales. Sin producto, los últimos movimientos de todos los productos con «Hoy: N
+     entran · N salen» (`RecentMovements.tsx`). Las dos tablas ocupan siempre el alto de
+     una página de 15, con la paginación siempre en su lugar (`MovementsPager.tsx`);
+     mientras llega otra página se ve la anterior atenuada, así nada salta.
+  4. **Barra de acciones** abajo, como en Inventario. Cada acción abre su ventana:
+     «+ Ingreso» (`EntryModal.tsx`), «− Egreso» (`ExitModal.tsx`) y «📦 Carga de pedido»
+     (`OrderLoadModal.tsx`). Las ventas salen solas desde la caja.
+- **+ Ingreso** (HU-38, permiso `purchasing`): UN producto sin pedido, una «Compra
+  directa»: factura, proveedor, fecha, cantidad, costo y lotes (de 4 en 4). Sin factura o
+  con 0 unidades no se guarda.
+- **📦 Carga de pedido** (permiso `purchasing`): un pedido COMPLETO, todos sus productos a
+  la vez (carga masiva), con **verificación de dos pasos** (`OrderLoadModal.tsx`):
+  1. Se elige el pedido (los que faltan por llegar y los que tienen entregas sin cargar;
+     se busca por PED-0001, proveedor o producto).
+  2. Si tiene entregas sin cargar, se elige cuál cargar o «Registrar otra entrega».
+  3. «Registrar entrega» (la misma ventana de Pedidos): «Registrar y dejar la carga
+     pendiente» vuelve a la lista; «Registrar y cargar al inventario» pasa al paso 4.
+  4. La última verificación (`ReceiptLoadModal.tsx`): el pedido, el proveedor, la
+     factura y lo que va a entrar de cada producto con sus lotes, y «¿Está seguro de
+     cargar esta entrega al inventario?». Recién con «Sí, cargar al inventario» sube el
+     stock. «Cancelar» siempre vuelve un paso atrás.
+
+  Desde Pedidos, «Registrar y cargar al inventario» o «Cargar al inventario» llegan
+  directo al paso 4 (`/movimientos?pedido=<id>&entrega=<id>`); ahí «Cancelar» vuelve a
+  «Ver pedido» en Pedidos, con la carga pendiente.
+- **− Egreso** (permiso `inventory.write`): salida que no es venta — «Vencido /
+  descartado», «Traslado» o «Devolución a proveedor» — del **lote elegido**, con su
+  documento y un detalle. Nunca saca más de lo que tiene el lote.
+- **Unidad de medida y stock máximo** (Editar › Existencias): UD, KG, G, L, ML, M, CJ, PQ;
+  el máximo (0 = sin máximo) hace que la ficha diga «Sobre el máximo».
+- **Lotes** (HU-38): cada entrada de mercadería guarda sus lotes con su fecha de
+  vencimiento; el stock es la suma de los lotes. Un producto marcado **«No vence»**
+  (Editar › Existencias) no pide fecha al recibirlo.
 - **Reporte de inventario** (Reportes › Inventario): totales, gráficos y el detalle por
   páginas, con PDF y Excel.
 
 **Regla de oro del módulo:** el stock nunca cambia «porque sí». Cada cambio deja un
 `InventoryMovement` (cuánto había, cuánto se movió, cuánto quedó) en la misma
 transacción. Por eso Movimientos siempre cuadra con el stock.
+
+**Y los lotes siempre cuadran con el stock:** un disparador de PostgreSQL
+(`product_lots_follow_stock`, migración `20261110120000_lotes_vencimiento`) se ejecuta
+cada vez que cambia `Product.stock`. Si el stock baja (venta, conteo, edición), descuenta
+del lote que vence primero; si sube sin lote (devolución, conteo, stock inicial), lo
+guarda en el lote «SIN LOTE» con la fecha del producto. Ningún módulo tiene que acordarse
+de los lotes.
 
 ## 2. Flujo de información
 
@@ -87,6 +152,12 @@ está en la ventana: es el reporte **Reportes › Conteos** (ver [Reportes](repo
 | `GET /api/inventory/low-stock` · `/expirations` · `/products` | Alertas y configuración de existencias (HU-08, HU-09) |
 | `PATCH /api/inventory/products/:id/min-stock` · `/expiration-date` | Mínimo y vencimiento |
 | `GET /api/kardex/products/:id/movements?page=` | Movimientos de un producto, paginados en el servidor (HU-31) |
+| `GET /api/kardex/movements?page=` | Vista general: últimos movimientos de todos los productos y el resumen de hoy (`sumAmounts`) |
+| `GET /api/kardex/products/:id/movements?direction=entries\|exits` | El historial filtrado, con `today`: lo que entró y salió hoy de ese producto (la celda «Hoy») |
+| `GET /api/kardex/products?search=&categoryId=&page=&pageSize=` | «Buscar producto»: una página (4 por defecto) por nombre, código o código de barras y categoría, con los desactivados |
+| `GET /api/kardex/products/:id/lots` | Lotes con unidades, del que vence primero (para elegir en un egreso) |
+| `POST /api/kardex/products/:id/entries` | Ingreso sin pedido: «Compra directa» con lotes (`purchasing`) |
+| `POST /api/kardex/products/:id/exits` | Egreso de un lote: vencido, traslado o devolución (`inventory.write`) |
 | `GET /api/reports/inventory` · `/rows?section=` · `/export` | Reporte de inventario: resumen, páginas y Excel (HU-25 a HU-27) |
 
 ### En el navegador
@@ -213,6 +284,53 @@ significa «no definido» y nunca alerta.
 | de 0 a 14 (vencer hoy cuenta) | Próximo a vencer |
 | 15 o más | Sin alerta |
 
+**Una alerta por lote** (HU-32, `listExpiringLots` + `listExpirations`): cada lote con
+unidades y fecha se clasifica aparte, y la alerta dice el lote, su vencimiento y cuántas
+unidades le quedan.
+
+```text
+Leche: L-10 vence en 10 días (6 u.) y L-60 en 60 días (12 u.) → alerta solo L-10 (6 u.)
+Se retiran las 6 de L-10 → L-10 queda en 0 → su alerta desaparece; L-60 sigue sin alertar
+Un yogur vencido que se retira (stock 0) → no tiene lotes con unidades → no alerta
+```
+
+Lo que está «SIN LOTE» vence en la fecha que el producto tiene en Inventario (HU-09):
+el disparador `product_lots_follow_expiration` se la copia cada vez que cambia. Los lotes
+de una entrega o compra conservan la suya. En el panel, un producto con varios lotes por
+vencer cuenta una vez (`distinctProducts`); el detalle por lote está en «Ver por vencer».
+
+### Lotes: el que vence primero sale primero (disparador `product_lots_follow_stock`)
+
+```text
+Lotes de la leche: L-3 vence 20/01 (5), L-1 vence 01/02 (6), L-2 vence 01/03 (4) → stock 15
+Se venden 7: salen 5 de L-3 y 2 de L-1 → L-3 0, L-1 4, L-2 4 → stock 8 = 0 + 4 + 4
+Se devuelve 1 (sin lote): «SIN LOTE» 1 → stock 9 = 0 + 4 + 4 + 1
+```
+
+Los lotes que no vencen se descuentan al final. La fecha del producto (alertas de
+HU-09) pasa a ser la del lote que vence primero al cargar una entrega.
+
+### Ingreso y egreso (`addStockWithLots` y `registerExit` en los repositorios)
+
+```text
+Ingreso (pedido o compra directa) → addStockWithLots(): crea los lotes, sube el stock,
+  deja la entrada y le liga los lotes (el disparador ya encuentra la suma cuadrada).
+Egreso de 4 del lote L-2409C (30) → el lote baja PRIMERO a 26 (solo si tiene 4),
+  luego el stock (solo si alcanza) y queda la salida con su lote: el disparador no
+  toca ningún otro lote. Si dos personas sacan a la vez, la segunda recibe 409.
+```
+
+### Concepto y documento del kardex (`movementConcept`, `movementDocument`)
+
+| Movimiento | Concepto | Documento |
+| --- | --- | --- |
+| Entrada de un pedido | Recepción PED-0408 | la factura: `na-o1` |
+| Venta | Venta | el número de venta: `408` |
+| Anulación o devolución de una venta | Anulación de venta / Devolución de cliente | el número de venta |
+| Compra directa (ingreso sin pedido) | Compra directa | la factura |
+| Egreso | Vencido / descartado, Traslado o Devolución a proveedor | su documento |
+| Conteo, ajuste, stock inicial | el motivo registrado | — |
+
 ### Entradas y salidas del kardex (`movementAmounts`)
 
 `ENTRY` suma, `EXIT` resta y un `ADJUSTMENT` cuenta como entrada o salida según si el
@@ -234,6 +352,8 @@ Estado del stock: agotado (stock 0), en su mínimo o debajo, o suficiente
 | El formulario no deja guardar un precio o un código | `validators/products.validator.ts` y `frontend/.../product-form.ts` |
 | «Ya existe un producto con ese código» | `products.service.ts` (`assertCodeIsAvailable`) |
 | El stock no cuadra con Movimientos | Busque quién cambió `stock` sin movimiento: solo los repositorios lo cambian |
+| Los lotes no suman el stock | El disparador `product_lots_follow_stock` (migración de lotes): ¿se aplicaron las migraciones? |
+| Aparece un lote «SIN LOTE» | Es lo que subió sin lote (stock inicial, devolución, conteo) o lo que había antes de los lotes |
 | Un producto desactivado aparece en la caja | `sales.repository.ts` (filtra `isActive`) |
 | La alerta de stock bajo no aparece | `isLowStock`: ¿el producto tiene mínimo definido? |
 | El código de barras no se lee | `barcode.ts` (`isValidEan13`) y el dígito de control |

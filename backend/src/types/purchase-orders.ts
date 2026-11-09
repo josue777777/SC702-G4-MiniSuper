@@ -27,14 +27,27 @@ export interface PurchaseOrderItemDto {
   receivedQuantity: number;
   /** Lo que falta por llegar: `quantity - receivedQuantity` (nunca negativo). */
   pendingQuantity: number;
+  /** ¿Vence? Si es `true`, al recibirlo se pide lote y fecha de vencimiento (HU-38). */
+  perishable: boolean;
 }
 
-/** Cuánto llegó de un producto en una entrega. */
+/**
+ * Un lote de lo que llegó (HU-38): número, vencimiento y unidades. La
+ * fecha es `YYYY-MM-DD`, o `null` si el producto no vence.
+ */
+export interface ReceiptLotFields {
+  lotNumber: string;
+  expirationDate: string | null;
+  quantity: number;
+}
+
+/** Cuánto llegó de un producto en una entrega, partido en sus lotes. */
 export interface PurchaseReceiptItemDto {
   productId: string;
   productCode: string;
   productName: string;
   quantity: number;
+  lots: ReceiptLotFields[];
 }
 
 /** Una entrega del proveedor con su factura (HU-38). */
@@ -131,8 +144,12 @@ export interface ReceiveOrderFields {
   receivedOn: string;
   /** `true`: cargar ya al inventario; `false`: dejar la carga pendiente. */
   loadNow: boolean;
-  /** Lo que llegó de cada producto; 0 = no llegó en esta entrega. */
-  items: { productId: string; quantity: number }[];
+  /**
+   * Lo que llegó de cada producto; 0 = no llegó en esta entrega. `lots`: cómo
+   * vino partido; la suma de los lotes es `quantity`. Un producto que no vence
+   * puede omitirlos: el lote es entonces el número de factura.
+   */
+  items: { productId: string; quantity: number; lots?: ReceiptLotFields[] | undefined }[];
 }
 
 /** Trabajo que el service encarga al repositorio al registrar una entrega. */
@@ -140,8 +157,11 @@ export interface ReceiveOrderPlan {
   invoiceNumber: string;
   receivedOn: string;
   loadNow: boolean;
-  /** Solo las líneas con cantidad > 0, ya comprobadas contra lo pendiente. */
-  items: { productId: string; quantity: number }[];
+  /**
+   * Solo las líneas con cantidad > 0, ya comprobadas contra lo pendiente, con
+   * sus lotes ya resueltos (`resolveReceiptLots`).
+   */
+  items: { productId: string; quantity: number; lots: ReceiptLotFields[] }[];
   /** Motivo de los movimientos de entrada, p. ej. «Recepción PED-0007 · Factura F-12». */
   reason: string;
 }

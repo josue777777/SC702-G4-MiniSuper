@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.js';
-import type { SupplierDto, SupplierWritableFields } from '../types/suppliers.js';
+import type { SupplierCostRow, SupplierDto, SupplierWritableFields } from '../types/suppliers.js';
 
 /** Columnas y relaciones que necesita la pantalla de proveedores. */
 const supplierSelection = {
@@ -199,5 +199,49 @@ export class SuppliersRepository {
     }
 
     return supplier;
+  }
+
+  /**
+   * Producto del negocio con el costo que le da cada proveedor ACTIVO que lo
+   * suministra (HU-39), o `null` si el producto no es del negocio. El costo es
+   * el de `SupplierProduct`: el último registrado (se cambia al editar el
+   * proveedor y con cada compra directa).
+   */
+  async findProductSupplierCosts(productId: string): Promise<{
+    product: { id: string; code: string; name: string };
+    costs: SupplierCostRow[];
+  } | null> {
+    const product = await prisma.product.findFirst({
+      where: { id: productId, businessId: this.businessId },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        supplierProducts: {
+          where: { supplier: { isActive: true, businessId: this.businessId } },
+          select: {
+            unitCost: true,
+            isPreferred: true,
+            updatedAt: true,
+            supplier: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (product === null) {
+      return null;
+    }
+
+    return {
+      product: { id: product.id, code: product.code, name: product.name },
+      costs: product.supplierProducts.map((row) => ({
+        supplierId: row.supplier.id,
+        supplierName: row.supplier.name,
+        unitCost: row.unitCost.toFixed(2),
+        isPreferred: row.isPreferred,
+        updatedAt: row.updatedAt,
+      })),
+    };
   }
 }

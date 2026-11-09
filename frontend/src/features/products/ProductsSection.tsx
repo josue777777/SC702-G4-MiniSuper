@@ -15,6 +15,7 @@ import { ProductTable } from './ProductTable';
 import { LabelPrintModal, type LabelScope } from '../labels/LabelPrintModal';
 import { useCatalogExport } from './use-catalog-export';
 import { useProducts } from './use-products';
+import { SupplierCostsModal } from '../suppliers/SupplierCostsModal';
 
 /** Qué productos muestra la lista. */
 type ProductView = 'active' | 'inactive' | 'all';
@@ -80,6 +81,8 @@ export function ProductsSection({
   /** «Ver movimientos» solo se ofrece a quien puede usar Movimientos (la API lo exige igual). */
   const { can } = useSession();
 
+  /** Producto cuyos costos por proveedor se comparan (HU-39). */
+  const [comparing, setComparing] = useState<Product | null>(null);
   /** Producto que se está editando; `null` significa que el formulario es de alta. */
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -438,6 +441,9 @@ export function ProductsSection({
           initialBarcode={editing?.barcode ?? null}
           initialMinStock={editing?.minStock ?? 0}
           initialExpirationDate={editing?.expirationDate ?? null}
+          initialPerishable={editing?.perishable ?? true}
+          initialUnit={editing?.unit ?? 'UD'}
+          initialMaxStock={editing?.maxStock ?? 0}
           onCategoryCreated={afterCategoryCreated}
           onSupplierCreated={afterSupplierCreated}
           busy={busy}
@@ -549,6 +555,18 @@ export function ProductsSection({
             }
           >
             🏷 Etiqueta
+          </button>
+        ) : null}
+        {/* HU-39: el costo del producto con cada proveedor, del más barato al más caro. */}
+        {can('purchasing') ? (
+          <button
+            type="button"
+            className="action-bar__button"
+            onClick={() => withSelection((product) => setComparing(product), 'comparar')}
+            disabled={phase !== 'ready' || noSelection}
+            title={selectFirst}
+          >
+            ⚖ Comparar costos
           </button>
         ) : null}
         {/* HU-31: la ficha con el historial de movimientos; también de los desactivados. */}
@@ -664,6 +682,14 @@ export function ProductsSection({
           </div>
         </Modal>
       ) : null}
+
+      {comparing === null ? null : (
+        <SupplierCostsModal
+          productId={comparing.id}
+          productName={comparing.name}
+          onClose={() => setComparing(null)}
+        />
+      )}
     </>
   );
 }

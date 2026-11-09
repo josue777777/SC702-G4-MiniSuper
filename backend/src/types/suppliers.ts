@@ -48,3 +48,35 @@ export interface SupplierWritableFields {
   notes: string | null;
   products: SupplierProductFields[];
 }
+
+/** Costo de un proveedor para un producto, tal como lo lee el repositorio (HU-39). */
+export interface SupplierCostRow {
+  supplierId: string;
+  supplierName: string;
+  /** Costo con dos decimales, `"4850.00"`. */
+  unitCost: string;
+  isPreferred: boolean;
+  /** Cuándo se registró ese costo por última vez. */
+  updatedAt: Date;
+}
+
+/** Un proveedor en la comparación, del más barato al más caro (HU-39). */
+export interface SupplierCostDto {
+  supplierId: string;
+  supplierName: string;
+  unitCost: string;
+  /** Es el proveedor principal del producto. */
+  isPreferred: boolean;
+  /** Es el más barato (o empata con el más barato). */
+  cheapest: boolean;
+  /** Cuánto más cuesta que el más barato, `"120.00"`; `"0.00"` si es el más barato. */
+  difference: string;
+  /** Cuándo se registró ese costo (ISO 8601): la comparación usa siempre el último. */
+  updatedAt: string;
+}
+
+/** Comparación de costos de un producto entre sus proveedores activos (HU-39). */
+export interface ProductSupplierCostsDto {
+  product: { id: string; code: string; name: string };
+  suppliers: SupplierCostDto[];
+}

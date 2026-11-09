@@ -7,21 +7,20 @@ import { todayInBusinessZone } from '../reports/report-filters';
 import { INVOICE_ACCEPT, invoiceFileError } from './invoice-file';
 import { InvoicePreview } from './InvoicePreview';
 import { formatOrderNumber } from './purchase-order-form';
+import { ReceiptLotsModal } from './ReceiptLotsModal';
+import { emptyLot, lotsError, lotsTotal, toReceiptLots, type LotDraft } from './receipt-lots';
 
 interface ReceiveOrderModalProps {
   order: PurchaseOrder;
   busy: boolean;
   /**
    * Guarda la entrega (y, si se eligió, adjunta la factura del proveedor);
-   * devuelve el error del servidor o `null` si la entrega se guardó.
+   * devuelve el error del servidor o `null` si la entrega se guardó. Con
+   * `null`, quien abrió la ventana decide a dónde se va (esta no se cierra
+   * sola): `payload.loadNow` dice qué botón se tocó.
    */
   onSubmit: (payload: ReceiveOrderPayload, invoice: File | null) => Promise<string | null>;
   onClose: () => void;
-}
-
-/** Cantidad escrita → entero ≥ 0, o `null` si no es válida. */
-function parseQuantity(text: string): number | null {
-  return /^\d{1,7}$/.test(text.trim()) ? Number(text.trim()) : null;
 }
 
 /**
@@ -30,13 +29,20 @@ function parseQuantity(text: string): number | null {
  * si vino menos). Solo se listan los productos que todavía faltan.
  *
  * Al guardar se elige qué pasa con el inventario, con dos botones claros:
- * cargarlo ya, o dejar la carga pendiente para confirmarla después (por
- * ejemplo, cuando se terminó de revisar la mercadería). El pedido sigue
- * abierto hasta que llega todo o se da por concluido.
+ * «Registrar y cargar al inventario» (pasa a la última verificación, en
+ * Movimientos › «Carga de pedido») o «Registrar y dejar la carga pendiente»
+ * (vuelve a la ventana de antes). «Cancelar» también vuelve a la de antes,
+ * sin guardar. El pedido sigue abierto hasta que llega todo o se concluye.
  *
  * La factura del proveedor (PDF o foto) se puede adjuntar aquí mismo: se
  * muestra al lado de las cantidades, para ir leyéndola mientras se anotan. Es
  * opcional; también se adjunta después desde «Ver pedido» › Entregas.
+ *
+ * Lotes (HU-38): cada producto lleva su lote y, si vence, su fecha de
+ * vencimiento, en la misma fila. Si llegó en varios lotes, «Partir en lotes»
+ * abre una ventana solo para ese producto; la fila muestra cuántos lotes son,
+ * el que vence primero y la suma. Un producto que «No vence» no pide fecha y,
+ * sin lote escrito, su lote es la factura.
  *
  * @example faltan 10 cafés, llegan 6 con la factura F-120 → el pedido queda
  * «Parcial» y faltan 4.
@@ -48,9 +54,13 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
   const pages = usePagination(pending, order.id, MODAL_PAGE_SIZE);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [receivedOn, setReceivedOn] = useState(today);
-  const [quantities, setQuantities] = useState<Record<string, string>>(() =>
-    Object.fromEntries(pending.map((item) => [item.productId, String(item.pendingQuantity)])),
+  // Cada producto, con sus lotes; de entrada, todo lo que falta en un solo lote.
+  const [lots, setLots] = useState<Record<string, LotDraft[]>>(() =>
+    Object.fromEntries(pending.map((item) => [item.productId, [emptyLot(item.pendingQuantity)]])),
   );
+  /** Producto cuya ventana «Partir en lotes» está abierta. */
+  const [splitting, setSplitting] = useState<string | null>(null);
+  const splittingItem = pending.find((item) => item.productId === splitting);
   const [error, setError] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -63,6 +73,20 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
     setInvoice(problem === null ? file : null);
   }
 
+  function lotsOf(productId: string): LotDraft[] {
+    return lots[productId] ?? [];
+  }
+
+  /** Cambia un dato del único lote de la fila. */
+  function changeSingle(productId: string, field: keyof LotDraft, value: string): void {
+    setLots((current) => ({
+      ...current,
+      [productId]: (current[productId] ?? [emptyLot()]).map((lot, index) =>
+        index === 0 ? { ...lot, [field]: value } : lot,
+      ),
+    }));
+  }
+
   function validate(): string | null {
     if (invoiceNumber.trim() === '') {
       return 'Indique el número de factura.';
@@ -73,18 +97,14 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
     }
 
     for (const item of pending) {
-      const quantity = parseQuantity(quantities[item.productId] ?? '');
+      const problem = lotsError(item, lotsOf(item.productId), receivedOn);
 
-      if (quantity === null) {
-        return `Revise la cantidad de ${item.productName}: debe ser un número entero.`;
-      }
-
-      if (quantity > item.pendingQuantity) {
-        return `De ${item.productName} faltan ${item.pendingQuantity}: no puede llegar más.`;
+      if (problem !== null) {
+        return problem;
       }
     }
 
-    if (pending.every((item) => parseQuantity(quantities[item.productId] ?? '') === 0)) {
+    if (pending.every((item) => lotsTotal(lotsOf(item.productId)) === 0)) {
       return 'Anote al menos un producto que haya llegado.';
     }
 
@@ -107,15 +127,14 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
         loadNow,
         items: pending.map((item) => ({
           productId: item.productId,
-          quantity: parseQuantity(quantities[item.productId] ?? '') ?? 0,
+          quantity: lotsTotal(lotsOf(item.productId)),
+          lots: toReceiptLots(item, lotsOf(item.productId)),
         })),
       },
       invoice,
     );
 
-    if (failed === null) {
-      onClose();
-    } else {
+    if (failed !== null) {
       setError(failed);
     }
   }
@@ -180,43 +199,92 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
                 <tr>
                   <th>Código</th>
                   <th>Producto</th>
-                  <th className="table__number">Pedido</th>
                   <th className="table__number">Falta</th>
                   <th className="table__number">Llegó</th>
+                  <th>Lote</th>
+                  <th>Vence</th>
                 </tr>
               </thead>
               <tbody>
-                {pages.pageItems.map((item) => (
-                  <tr key={item.productId}>
-                    <td>{item.productCode}</td>
-                    <td>{item.productName}</td>
-                    <td className="table__number">{item.quantity}</td>
-                    <td className="table__number">{item.pendingQuantity}</td>
-                    <td className="table__number">
-                      <input
-                        type="number"
-                        min="0"
-                        max={item.pendingQuantity}
-                        step="1"
-                        aria-label={`Llegó de ${item.productName}`}
-                        value={quantities[item.productId] ?? ''}
-                        onChange={(event) =>
-                          setQuantities((current) => ({
-                            ...current,
-                            [item.productId]: event.target.value,
-                          }))
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {pages.pageItems.map((item) => {
+                  const rowLots = lotsOf(item.productId);
+                  const single = rowLots.length === 1 ? rowLots[0] : undefined;
+
+                  return (
+                    <tr key={item.productId}>
+                      <td>{item.productCode}</td>
+                      <td>{item.productName}</td>
+                      <td className="table__number">{item.pendingQuantity}</td>
+                      <td className="table__number">
+                        {single === undefined ? (
+                          <strong aria-label={`Llegó de ${item.productName}`}>
+                            {lotsTotal(rowLots)}
+                          </strong>
+                        ) : (
+                          <input
+                            type="number"
+                            min="0"
+                            max={item.pendingQuantity}
+                            step="1"
+                            aria-label={`Llegó de ${item.productName}`}
+                            value={single.quantity}
+                            onChange={(event) =>
+                              changeSingle(item.productId, 'quantity', event.target.value)
+                            }
+                          />
+                        )}
+                      </td>
+                      <td>
+                        <div className="field-with-action">
+                          {single === undefined ? null : (
+                            <input
+                              aria-label={`Lote de ${item.productName}`}
+                              value={single.lotNumber}
+                              maxLength={40}
+                              autoComplete="off"
+                              placeholder={item.perishable ? '' : 'N.º de factura'}
+                              onChange={(event) =>
+                                changeSingle(item.productId, 'lotNumber', event.target.value)
+                              }
+                            />
+                          )}
+                          <button
+                            type="button"
+                            className="button"
+                            onClick={() => setSplitting(item.productId)}
+                          >
+                            {single === undefined ? `${rowLots.length} lotes` : 'Partir en lotes'}
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        {!item.perishable ? (
+                          <span className="muted">No vence</span>
+                        ) : single === undefined ? (
+                          <span>{earliestDate(rowLots)}</span>
+                        ) : (
+                          <input
+                            type="date"
+                            aria-label={`Vence el lote de ${item.productName}`}
+                            min={receivedOn}
+                            value={single.expirationDate}
+                            onChange={(event) =>
+                              changeSingle(item.productId, 'expirationDate', event.target.value)
+                            }
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <Pagination {...pages} itemLabel="productos" onPage={pages.setPage} />
           <p className="muted hint">
             Anote lo que realmente llegó; 0 si un producto no vino en esta entrega. Lo que no llegue
-            sigue pendiente en el pedido.
+            sigue pendiente en el pedido. Cada producto lleva su lote y, si vence, la fecha de
+            vencimiento; si vino en varios lotes, use «Partir en lotes».
           </p>
 
           {error === null ? null : (
@@ -243,6 +311,32 @@ export function ReceiveOrderModal({ order, busy, onSubmit, onClose }: ReceiveOrd
           </div>
         </form>
       </div>
+      {splittingItem === undefined ? null : (
+        <ReceiptLotsModal
+          item={splittingItem}
+          lots={lotsOf(splittingItem.productId)}
+          receivedOn={receivedOn}
+          onDone={(next) => {
+            setLots((current) => ({ ...current, [splittingItem.productId]: next }));
+            setSplitting(null);
+          }}
+          onClose={() => setSplitting(null)}
+        />
+      )}
     </Modal>
   );
+}
+
+/**
+ * Fecha del lote que vence primero, `DD/MM/AAAA`, o «—» si ninguno tiene.
+ *
+ * @example earliestDate([{ expirationDate: '2026-12-15', … }, { expirationDate: '2026-12-01', … }]); // "01/12/2026"
+ */
+function earliestDate(lots: LotDraft[]): string {
+  const first = lots
+    .map((lot) => lot.expirationDate)
+    .filter((date) => date !== '')
+    .sort()[0];
+
+  return first === undefined ? '—' : first.split('-').reverse().join('/');
 }

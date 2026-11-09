@@ -21,6 +21,8 @@ import {
   type ProductImageChange,
   type ProductPayload,
   type ProductSettingsChange,
+  type UnitOfMeasure,
+  UNITS_OF_MEASURE,
 } from '../../types/products';
 import { formatMoney } from './money';
 import { ean13Modules, generateEan13 } from './barcode';
@@ -49,6 +51,11 @@ interface ProductFormProps {
   /** Mínimo (HU-08) y vencimiento (HU-09) guardados; en un alta, 0 y sin fecha. */
   initialMinStock?: number;
   initialExpirationDate?: string | null;
+  /** ¿Vence? (HU-38). En un alta, sí. */
+  initialPerishable?: boolean;
+  /** Unidad de medida y stock máximo; en un alta, «Unidad» y sin máximo. */
+  initialUnit?: UnitOfMeasure;
+  initialMaxStock?: number;
   busy: boolean;
   onCancel: () => void;
   onSubmit: (
@@ -124,6 +131,9 @@ export function ProductForm({
   initialBarcode = null,
   initialMinStock = 0,
   initialExpirationDate = null,
+  initialPerishable = true,
+  initialUnit = 'UD',
+  initialMaxStock = 0,
   onCategoryCreated,
   onSupplierCreated,
   busy,
@@ -142,6 +152,10 @@ export function ProductForm({
   /** Mínimo y vencimiento: se guardan con los endpoints de HU-08 y HU-09. */
   const [minStock, setMinStock] = useState(String(initialMinStock));
   const [expirationDate, setExpirationDate] = useState(initialExpirationDate ?? '');
+  /** «No vence» (HU-38): sus entradas solo piden lote, sin fecha. */
+  const [perishable, setPerishable] = useState(initialPerishable);
+  const [unit, setUnit] = useState<UnitOfMeasure>(initialUnit);
+  const [maxStock, setMaxStock] = useState(String(initialMaxStock));
   const [settingsErrors, setSettingsErrors] = useState<{
     minStock?: string;
     expirationDate?: string;
@@ -275,7 +289,12 @@ export function ProductForm({
       settings.expirationDate = nextExpiration;
     }
 
-    const payload = toPayload(values);
+    const payload = {
+      ...toPayload(values),
+      perishable,
+      unit,
+      maxStock: maxStock.trim() === '' ? 0 : Number(maxStock),
+    };
     if (barcode !== '') {
       payload.barcode = barcode;
     }
@@ -513,37 +532,81 @@ export function ProductForm({
                 onChange={(event) => setMinStock(event.target.value)}
               />
             </Field>
-            <Field
-              label="Fecha de vencimiento (opcional)"
-              htmlFor="product-expirationDate"
-              error={settingsErrors.expirationDate}
-            >
-              <div className="field-with-action">
-                <input
-                  id="product-expirationDate"
-                  type="date"
-                  min={today}
-                  value={expirationDate}
-                  onChange={(event) => setExpirationDate(event.target.value)}
-                />
-                {expirationDate === '' ? null : (
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => setExpirationDate('')}
-                  >
-                    Quitar fecha (no vence)
-                  </button>
-                )}
-              </div>
+            <Field label="Stock máximo (0 = sin máximo)" htmlFor="product-maxStock">
+              <input
+                id="product-maxStock"
+                type="number"
+                min="0"
+                step="1"
+                value={maxStock}
+                onChange={(event) => setMaxStock(event.target.value)}
+              />
             </Field>
+            <Field label="Unidad de medida" htmlFor="product-unit">
+              <select
+                id="product-unit"
+                value={unit}
+                onChange={(event) => setUnit(event.target.value as UnitOfMeasure)}
+              >
+                {Object.entries(UNITS_OF_MEASURE).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name} ({code})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <fieldset className="filter-bar__field">
+              <legend className="filter-bar__legend">Vencimiento</legend>
+              <label className="filter-toggle">
+                <input
+                  type="checkbox"
+                  checked={!perishable}
+                  onChange={(event) => {
+                    setPerishable(!event.target.checked);
+
+                    if (event.target.checked) {
+                      setExpirationDate('');
+                    }
+                  }}
+                />
+                No vence
+              </label>
+            </fieldset>
+            {perishable ? (
+              <Field
+                label="Fecha de vencimiento (opcional)"
+                htmlFor="product-expirationDate"
+                error={settingsErrors.expirationDate}
+              >
+                <div className="field-with-action">
+                  <input
+                    id="product-expirationDate"
+                    type="date"
+                    min={today}
+                    value={expirationDate}
+                    onChange={(event) => setExpirationDate(event.target.value)}
+                  />
+                  {expirationDate === '' ? null : (
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => setExpirationDate('')}
+                    >
+                      Quitar fecha
+                    </button>
+                  )}
+                </div>
+              </Field>
+            ) : null}
           </div>
           <p className="muted hint">
             {mode === 'create'
               ? 'El stock inicial queda registrado como la entrada del producto en Movimientos.'
               : 'Si cambia las existencias, la diferencia queda registrada como un ajuste en Movimientos. Para el día a día use el «Conteo físico».'}{' '}
             Con un mínimo mayor que 0, el panel avisa cuando el stock llega a ese nivel (HU-08); la
-            fecha de vencimiento activa las alertas de vencidos y por vencer (HU-09).
+            fecha de vencimiento activa las alertas de vencidos y por vencer (HU-09). Si el producto
+            vence, cada entrada de mercadería pide lote y fecha de vencimiento; si «No vence», solo
+            el lote (HU-38).
           </p>
         </div>
 

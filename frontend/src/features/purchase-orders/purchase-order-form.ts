@@ -133,3 +133,13 @@ export function toOrderPayload(
     items: lines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
   };
 }
+
+/**
+ * Dirección de la carga de una entrega en Movimientos › «Carga de pedido»,
+ * donde se verifica antes de subir el stock.
+ *
+ * @example loadUrl('p1', 'r1'); // "/movimientos?pedido=p1&entrega=r1"
+ */
+export function loadUrl(orderId: string, receiptId: string): string {
+  return `/movimientos?${new URLSearchParams({ pedido: orderId, entrega: receiptId }).toString()}`;
+}

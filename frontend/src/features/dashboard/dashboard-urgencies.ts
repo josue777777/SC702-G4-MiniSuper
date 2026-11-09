@@ -78,10 +78,34 @@ function plural(count: number, one: string, many: string): string {
  * buildUrgencies({ lowStock: [{ stock: 0, … }], expirations: [], pendingReceipts: [], ordersToReceive: 0 })
  * // → [{ id: 'low-stock', severity: 'critical', title: '1 producto sin stock o en su mínimo', … }]
  */
+/**
+ * Un aviso por producto (el primero de sus lotes, que ya viene ordenado del
+ * más urgente al menos urgente).
+ *
+ * @example distinctProducts([{ productId: 'a', … }, { productId: 'a', … }]).length; // 1
+ */
+export function distinctProducts(alerts: ExpirationAlert[]): ExpirationAlert[] {
+  const seen = new Set<string>();
+
+  return alerts.filter((alert) => {
+    if (seen.has(alert.productId)) {
+      return false;
+    }
+
+    seen.add(alert.productId);
+
+    return true;
+  });
+}
+
 export function buildUrgencies(input: UrgencyInput): Urgency[] {
   const urgencies: Urgency[] = [];
-  const expired = input.expirations.filter((alert) => alert.status === 'EXPIRED');
-  const expiring = input.expirations.filter((alert) => alert.status === 'EXPIRING_SOON');
+  // Las alertas son por lote (HU-32): un producto con dos lotes por vencer
+  // cuenta una vez en el título; el detalle por lote está en «Ver…».
+  const expired = distinctProducts(input.expirations.filter((alert) => alert.status === 'EXPIRED'));
+  const expiring = distinctProducts(
+    input.expirations.filter((alert) => alert.status === 'EXPIRING_SOON'),
+  );
 
   if (expired.length > 0) {
     urgencies.push({

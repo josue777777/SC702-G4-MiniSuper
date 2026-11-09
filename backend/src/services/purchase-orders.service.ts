@@ -5,6 +5,7 @@ import type {
   PurchaseOrderDto,
   PurchaseOrderSummaryDto,
   ReceiptInvoiceFile,
+  ReceiptLotFields,
 } from '../types/purchase-orders.js';
 import { hasInvoiceSignature } from '../utils/invoice-file.js';
 import { todayInBusinessZone } from '../utils/dates.js';
@@ -56,6 +57,89 @@ export function formatOrderNumber(number: number): string {
  */
 export function receiptReason(orderNumber: number, invoiceNumber: string): string {
   return `Recepción ${formatOrderNumber(orderNumber)} · Factura ${invoiceNumber}`;
+}
+
+/**
+ * Lotes de lo que llegó de un producto (HU-38), revisados y completos.
+ *
+ * - Un producto que **vence** necesita, en cada lote, número de lote y fecha
+ *   de vencimiento; un lote que ya venció el día en que llegó no se recibe.
+ * - Un producto que **no vence** no lleva fecha; si no se escribe el lote,
+ *   el lote es el número de factura (así «se registra igual que siempre»).
+ * - Los lotes suman exactamente lo que llegó y no se repiten.
+ *
+ * @param product Nombre (para los mensajes) y si vence.
+ * @param item Lo que llegó y cómo vino partido (`lots` puede faltar).
+ * @param invoiceNumber Factura de la entrega: lote por defecto si no vence.
+ * @param receivedOn Día en que llegó, `YYYY-MM-DD`.
+ * @returns Los lotes a guardar.
+ * @throws HttpError 400 con un mensaje claro si algo no cuadra.
+ * @example
+ * resolveReceiptLots({ productName: 'Detergente', perishable: false }, { quantity: 6 }, 'F-120', '2026-11-08');
+ * // [{ lotNumber: 'F-120', expirationDate: null, quantity: 6 }]
+ * resolveReceiptLots({ productName: 'Leche', perishable: true }, {
+ *   quantity: 10,
+ *   lots: [
+ *     { lotNumber: 'L-01', expirationDate: '2026-12-01', quantity: 6 },
+ *     { lotNumber: 'L-02', expirationDate: '2026-12-15', quantity: 4 },
+ *   ],
+ * }, 'F-120', '2026-11-08'); // los mismos dos lotes
+ */
+export function resolveReceiptLots(
+  product: { productName: string; perishable: boolean },
+  item: { quantity: number; lots?: ReceiptLotFields[] | undefined },
+  invoiceNumber: string,
+  receivedOn: string,
+): ReceiptLotFields[] {
+  const name = product.productName;
+  const fail = (message: string): never => {
+    throw HttpError.badRequest(message, { items: [message] });
+  };
+  const given = item.lots ?? [];
+
+  if (given.length === 0) {
+    if (product.perishable) {
+      fail(`Indique el lote y la fecha de vencimiento de ${name}.`);
+    }
+
+    return [{ lotNumber: invoiceNumber, expirationDate: null, quantity: item.quantity }];
+  }
+
+  const lots = given.map((lot) => ({
+    lotNumber:
+      lot.lotNumber.trim() === '' && !product.perishable ? invoiceNumber : lot.lotNumber.trim(),
+    expirationDate: product.perishable ? lot.expirationDate : null,
+    quantity: lot.quantity,
+  }));
+  const seen = new Set<string>();
+
+  for (const lot of lots) {
+    if (lot.lotNumber === '') {
+      fail(`Indique el número de lote de ${name}.`);
+    }
+
+    if (product.perishable && lot.expirationDate === null) {
+      fail(`Indique la fecha de vencimiento del lote ${lot.lotNumber} de ${name}.`);
+    }
+
+    if (lot.expirationDate !== null && lot.expirationDate < receivedOn) {
+      fail(`El lote ${lot.lotNumber} de ${name} ya estaba vencido cuando llegó.`);
+    }
+
+    if (seen.has(lot.lotNumber.toLowerCase())) {
+      fail(`El lote ${lot.lotNumber} de ${name} está repetido.`);
+    }
+
+    seen.add(lot.lotNumber.toLowerCase());
+  }
+
+  const total = lots.reduce((sum, lot) => sum + lot.quantity, 0);
+
+  if (total !== item.quantity) {
+    fail(`Los lotes de ${name} suman ${total}, pero llegaron ${item.quantity}.`);
+  }
+
+  return lots;
 }
 
 /**
@@ -174,7 +258,17 @@ export class PurchaseOrdersService {
       invoiceNumber: input.invoiceNumber,
       receivedOn: input.receivedOn,
       loadNow: input.loadNow,
-      items,
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        // `lines` ya se revisó arriba: cada producto es del pedido.
+        lots: resolveReceiptLots(
+          lines.get(item.productId) ?? { productName: '', perishable: true },
+          item,
+          input.invoiceNumber,
+          input.receivedOn,
+        ),
+      })),
       reason: receiptReason(order.number, input.invoiceNumber),
     });
   }

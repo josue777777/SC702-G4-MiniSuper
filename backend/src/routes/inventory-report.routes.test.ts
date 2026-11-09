@@ -127,9 +127,12 @@ describe('GET /api/reports/inventory/export (HU-25, HU-40)', () => {
 
     expect(names).toEqual(['Resumen', 'Productos', 'Vencimientos', 'Stock bajo']);
     expect(read('Productos').slice(1, 2)[0]?.[1]).toBe('Café');
+    // Una fila por lote (HU-32): el lote y sus unidades.
     expect(read('Vencimientos')[1]).toEqual([
       'P001',
       'Café',
+      2,
+      'SIN LOTE',
       2,
       '2026-10-01',
       'Vencido hace 34 día(s)',

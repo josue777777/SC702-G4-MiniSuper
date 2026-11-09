@@ -9,7 +9,11 @@ import {
   RICE_ID,
   SUPPLIER_ID,
 } from '../testing/purchase-orders.repository.fake.js';
-import { calculateTotal, PurchaseOrdersService } from './purchase-orders.service.js';
+import {
+  calculateTotal,
+  PurchaseOrdersService,
+  resolveReceiptLots,
+} from './purchase-orders.service.js';
 
 /** Reglas de negocio de pedidos a proveedor (HU-22, HU-24), con el doble de repositorio. */
 
@@ -126,5 +130,45 @@ describe('PurchaseOrdersService historial (HU-22)', () => {
       items: [{ productCode: 'P001', quantity: 3, unitCost: '1000.50', subtotal: '3001.50' }],
     });
     await expect(service.getOrder(MISSING_ORDER_ID)).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe('resolveReceiptLots (HU-38)', () => {
+  const milk = { productName: 'Leche 1 L', perishable: true };
+  const soap = { productName: 'Detergente', perishable: false };
+  const lot = (lotNumber: string, expirationDate: string | null, quantity: number) => ({
+    lotNumber,
+    expirationDate,
+    quantity,
+  });
+  const resolve = (
+    product: typeof milk,
+    quantity: number,
+    lots?: ReturnType<typeof lot>[],
+  ): unknown => resolveReceiptLots(product, { quantity, lots }, 'F-120', '2026-11-08');
+
+  it('lo que no vence y sin lote escrito: el lote es la factura y no lleva fecha', () => {
+    expect(resolve(soap, 6)).toEqual([lot('F-120', null, 6)]);
+    expect(resolve(soap, 6, [lot('', '2027-01-01', 6)])).toEqual([lot('F-120', null, 6)]);
+  });
+
+  it('lo que vence se acepta partido en varios lotes que suman lo que llegó', () => {
+    expect(resolve(milk, 10, [lot('L-1', '2026-12-01', 6), lot(' L-2 ', '2026-12-15', 4)])).toEqual(
+      [lot('L-1', '2026-12-01', 6), lot('L-2', '2026-12-15', 4)],
+    );
+  });
+
+  it.each([
+    [undefined, 'Indique el lote y la fecha de vencimiento de Leche 1 L.'],
+    [[lot('', '2026-12-01', 10)], 'Indique el número de lote de Leche 1 L.'],
+    [[lot('L-1', null, 10)], 'Indique la fecha de vencimiento del lote L-1 de Leche 1 L.'],
+    [[lot('L-1', '2026-11-07', 10)], 'El lote L-1 de Leche 1 L ya estaba vencido cuando llegó.'],
+    [
+      [lot('L-1', '2026-12-01', 5), lot('l-1', '2026-12-02', 5)],
+      'El lote l-1 de Leche 1 L está repetido.',
+    ],
+    [[lot('L-1', '2026-12-01', 8)], 'Los lotes de Leche 1 L suman 8, pero llegaron 10.'],
+  ])('rechaza lotes que no cuadran (%#)', (lots, message) => {
+    expect(() => resolve(milk, 10, lots)).toThrow(message);
   });
 });

@@ -394,8 +394,29 @@ code {
 }
 
 /* --- Piezas reutilizables ------------------------------------------------- */
+/* Encabezado de pantalla (PageHeader): el cuadro oscuro con el ícono y, al
+   lado, el título y su frase. Igual en todas las pantallas. */
 .page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   margin-bottom: 16px;
+}
+
+.page-header__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: var(--color-sidebar);
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(24 24 27 / 12%);
+}
+
+.page-header__text {
+  min-width: 0;
 }
 
 /* Título de la pantalla: grande, en el color del texto (sin barra de color) */
@@ -570,6 +591,19 @@ code {
   border-radius: 6px;
   font: inherit;
   text-align: right;
+}
+
+/* Texto y fecha dentro de una tabla (lote y vencimiento, HU-38): el mismo
+   borde y alto que las cantidades, para que la fila se lea como una sola. */
+.table input:not([type]),
+.table input[type='text'],
+.table input[type='date'] {
+  min-width: 120px;
+  padding: 5px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--color-surface, #fff);
 }
 
 /* Un importe con decimales (₡1 000,00) necesita más ancho que una cantidad */
@@ -864,6 +898,13 @@ code {
 /* Tabla del catálogo */
 .table-wrapper {
   overflow-x: auto;
+}
+
+/* Mientras llega otra página o filtro, la tabla anterior se ve atenuada (no salta). */
+.table-wrapper--busy {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 120ms ease;
 }
 
 .table {
@@ -1242,6 +1283,11 @@ tr.print-only-row {
 
 .text-error {
   color: var(--color-error);
+}
+
+/* Su par: el verde de los estados «bien» (el mismo del panel). */
+.text-ok {
+  color: var(--color-ok);
 }
 
 /* Filas que se marcan con un clic */
@@ -2501,6 +2547,13 @@ tr.print-only-row {
   padding-left: 18px;
 }
 
+/* --- Ventas: Historial del día (HU-20) ------------------------------------- */
+/* Total de una venta con ajustes: el efectivo y, debajo, «de ₡X» (el original). */
+.sales-history__original {
+  display: block;
+  font-size: 0.8rem;
+}
+
 /* --- Comprobante de venta (HU-34) -------------------------------------------- */
 .receipt {
   width: 302px; /* ≈ 80 mm */
@@ -2940,18 +2993,192 @@ tr.print-only-row {
   margin-left: 8px;
 }
 
+/* «▦ N lotes» junto al concepto: una insignia pequeña, de contorno, que se
+   puede tocar; toma el tono de la línea (verde si entró, neutra si salió). */
+.badge--button {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.badge--button.text-ok {
+  color: var(--color-ok);
+}
+
+/* El concepto de una entrada: en el verde del panel, con su «+». */
+.kardex-concept--in {
+  color: var(--color-ok);
+  font-weight: 600;
+}
+
+/* Ficha de Movimientos: cada dato en su celda, con la etiqueta a la izquierda
+   en el oscuro del sistema (el de la barra lateral, la barra de acciones y los
+   títulos de ventana) y el dato a la derecha, en filas compactas de 12
+   columnas. La etiqueta de «Existencias» toma el tono de su estado (verde
+   «Bien», ámbar «Bajo», rojo «Agotado»), siempre con la palabra al lado. */
+.kardex-sheet {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.kardex-block {
+  display: grid;
+  grid-template-columns: minmax(96px, 34%) 1fr;
+  grid-column: span 3;
+  min-width: 0;
+  min-height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.kardex-block--span-4 {
+  grid-column: span 4;
+}
+
+.kardex-block--span-5 {
+  grid-column: span 5;
+}
+
+.kardex-block--full {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(96px, 12%) 1fr;
+}
+
+.kardex-block__label {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-sidebar);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.kardex-block__label--ok {
+  background: var(--color-ok);
+}
+
+.kardex-block__label--warning {
+  background: var(--color-warning);
+}
+
+.kardex-block__label--error {
+  background: var(--color-error);
+}
+
+.kardex-block__value {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+}
+
+/* Dato con su aviso al lado («30 · Bien») o el resumen en una línea. */
+.kardex-block__row {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kardex-block__row--together {
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .kardex-block,
+  .kardex-block--span-4,
+  .kardex-block--span-5 {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 520px) {
+  .kardex-block,
+  .kardex-block--span-4,
+  .kardex-block--span-5 {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Fila de totales al pie de una tabla (pedidos, carrito, reportes). */
+.table tfoot td {
+  border-top: 2px solid var(--color-text);
+  font-weight: 700;
+}
+
+/* Movimientos: arriba, «Buscar producto» (abre su ventana con todos los
+   productos, la búsqueda y la categoría) y «Limpiar». */
+.kardex-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.kardex-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* «Recientes» dentro de «Buscar producto»: los últimos abiertos, a un toque. */
+.product-picker__recents {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* Ficha sin producto: los mismos datos con «—», en gris. */
+.kardex-sheet--empty .stat-tile__value,
+.kardex-sheet--empty dd {
+  color: var(--color-muted);
+}
+
+/* «Hoy: 24 entran · 13 salen · 6 movimientos» en el encabezado de la tabla. */
+.kardex-today {
+  font-size: 0.9rem;
+}
+
+/* La tabla del historial ocupa siempre el alto de una página completa (15
+   líneas, el encabezado y «Totales»): cambiar de página, de filtro o de
+   producto no mueve lo de abajo. Mientras llega lo nuevo, lo anterior se ve
+   atenuado en vez de un «Cargando…» que empuja todo. */
+.kardex-history {
+  min-height: 630px;
+  transition: opacity 120ms ease;
+}
+
+.kardex-history--busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .kardex-pager {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 12px;
-}
-
-.kardex-back {
-  display: inline-block;
-  color: inherit;
-  text-decoration: none;
 }
 
 /* --- Reportes comerciales (HU-28, HU-29, HU-30) ------------------------- */

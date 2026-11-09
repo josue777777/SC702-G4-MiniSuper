@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { nextDocumentNumber } from './document-sequence.js';
+import { addStockWithLots } from './stock-entries.js';
 import type {
   CreatePurchaseOrderPlan,
   PurchaseOrderDto,
@@ -35,6 +36,12 @@ const receiptsOrder: Prisma.PurchaseReceiptOrderByWithRelationInput[] = [
   { createdAt: 'desc' },
 ];
 
+/** Lotes de una entrega: el que vence primero, primero. */
+const receiptLotsOrder: Prisma.PurchaseReceiptItemLotOrderByWithRelationInput[] = [
+  { expirationDate: 'asc' },
+  { lotNumber: 'asc' },
+];
+
 /** Columnas del detalle y del PDF (HU-24). */
 const detailSelection = {
   id: true,
@@ -51,7 +58,7 @@ const detailSelection = {
       quantity: true,
       unitCost: true,
       receivedQuantity: true,
-      product: { select: { code: true, name: true } },
+      product: { select: { code: true, name: true, perishable: true } },
     },
     orderBy: { product: { name: 'asc' } },
   },
@@ -71,6 +78,10 @@ const detailSelection = {
           productId: true,
           quantity: true,
           product: { select: { code: true, name: true } },
+          lots: {
+            select: { lotNumber: true, expirationDate: true, quantity: true },
+            orderBy: receiptLotsOrder,
+          },
         },
         orderBy: { product: { name: 'asc' } },
       },
@@ -107,7 +118,7 @@ interface DetailRow {
     quantity: number;
     unitCost: Money;
     receivedQuantity: number;
-    product: { code: string; name: string };
+    product: { code: string; name: string; perishable: boolean };
   }[];
   receipts: {
     id: string;
@@ -118,7 +129,12 @@ interface DetailRow {
     invoiceFileName: string | null;
     invoiceFileType: string | null;
     invoiceFileAt: Date | null;
-    items: { productId: string; quantity: number; product: { code: string; name: string } }[];
+    items: {
+      productId: string;
+      quantity: number;
+      product: { code: string; name: string };
+      lots: { lotNumber: string; expirationDate: Date | null; quantity: number }[];
+    }[];
   }[];
   _count: { receipts: number };
 }
@@ -176,6 +192,11 @@ function toDetailDto(row: DetailRow): PurchaseOrderDto {
         productCode: item.product.code,
         productName: item.product.name,
         quantity: item.quantity,
+        lots: item.lots.map((lot) => ({
+          lotNumber: lot.lotNumber,
+          expirationDate: lot.expirationDate === null ? null : dateToDateOnly(lot.expirationDate),
+          quantity: lot.quantity,
+        })),
       })),
     })),
     items: row.items.map((item) => {
@@ -190,6 +211,7 @@ function toDetailDto(row: DetailRow): PurchaseOrderDto {
         subtotal: ((Math.round(Number(unitCost) * 100) * item.quantity) / 100).toFixed(2),
         receivedQuantity: item.receivedQuantity,
         pendingQuantity: Math.max(0, item.quantity - item.receivedQuantity),
+        perishable: item.product.perishable,
       };
     }),
   };
@@ -202,6 +224,9 @@ type Tx = Prisma.TransactionClient;
  * en el Kardex, con la factura en el motivo. Marca la entrega como cargada SOLO
  * si seguía pendiente: si dos personas confirman a la vez, la segunda no suma
  * dos veces (responde 409).
+ *
+ * Cada lote de la entrega pasa a ser un lote del inventario, ligado a su
+ * entrada del Kardex (`addStockWithLots`, la misma de la compra directa).
  */
 async function loadReceiptStock(
   tx: Tx,
@@ -220,27 +245,31 @@ async function loadReceiptStock(
 
   const receipt = await tx.purchaseReceipt.findUniqueOrThrow({
     where: { id: receiptId },
-    select: { purchaseOrderId: true, items: { select: { productId: true, quantity: true } } },
+    select: {
+      purchaseOrderId: true,
+      invoiceNumber: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          lots: { select: { lotNumber: true, expirationDate: true, quantity: true } },
+        },
+      },
+    },
   });
 
   for (const item of receipt.items) {
-    const product = await tx.product.update({
-      where: { id: item.productId, businessId },
-      data: { stock: { increment: item.quantity } },
-      select: { stock: true },
-    });
+    // Una entrega registrada antes de los lotes no tiene lotes: entra en uno
+    // con el número de factura, sin fecha.
+    const lots =
+      item.lots.length > 0
+        ? item.lots
+        : [{ lotNumber: receipt.invoiceNumber, expirationDate: null, quantity: item.quantity }];
 
-    await tx.inventoryMovement.create({
-      data: {
-        productId: item.productId,
-        type: 'ENTRY',
-        quantity: item.quantity,
-        stockBefore: product.stock - item.quantity,
-        stockAfter: product.stock,
-        reason,
-        purchaseOrderId: receipt.purchaseOrderId,
-        receiptId,
-      },
+    await addStockWithLots(tx, businessId, item.productId, lots, {
+      reason,
+      purchaseOrderId: receipt.purchaseOrderId,
+      receiptId,
     });
   }
 }
@@ -388,7 +417,20 @@ export class PurchaseOrdersRepository {
             purchaseOrderId: orderId,
             invoiceNumber: plan.invoiceNumber,
             receivedOn: dateOnlyToDate(plan.receivedOn),
-            items: { create: plan.items },
+            items: {
+              create: plan.items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                lots: {
+                  create: item.lots.map((lot) => ({
+                    lotNumber: lot.lotNumber,
+                    expirationDate:
+                      lot.expirationDate === null ? null : dateOnlyToDate(lot.expirationDate),
+                    quantity: lot.quantity,
+                  })),
+                },
+              })),
+            },
           },
           select: { id: true },
         });

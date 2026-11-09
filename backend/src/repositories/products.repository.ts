@@ -9,6 +9,7 @@ import type {
   ProductReferences,
   ProductListFilter,
   ReferenceOption,
+  UnitOfMeasure,
   UpdateProductPlan,
 } from '../types/products.js';
 
@@ -30,6 +31,9 @@ interface ProductRow {
   isActive: boolean;
   minStock: number;
   expirationDate: Date | null;
+  perishable: boolean;
+  unit: UnitOfMeasure;
+  maxStock: number;
   imageMimeType: string | null;
   imageUpdatedAt: Date | null;
   category: { id: string; name: string };
@@ -52,6 +56,9 @@ const productSelection = {
   isActive: true,
   minStock: true,
   expirationDate: true,
+  perishable: true,
+  unit: true,
+  maxStock: true,
   // Solo los datos de la imagen, nunca sus bytes: el listado sigue liviano.
   imageMimeType: true,
   imageUpdatedAt: true,
@@ -83,6 +90,9 @@ function toProductDto(row: ProductRow): ProductDto {
     preferredSupplierName: preferredSupplier?.supplier.name ?? null,
     minStock: row.minStock,
     expirationDate: row.expirationDate === null ? null : dateToDateOnly(row.expirationDate),
+    perishable: row.perishable,
+    unit: row.unit,
+    maxStock: row.maxStock,
     imageUrl:
       row.imageMimeType === null || row.imageUpdatedAt === null
         ? null
@@ -282,6 +292,9 @@ export class ProductsRepository {
           price: fields.price,
           cost: fields.cost,
           stock: fields.stock,
+          perishable: fields.perishable ?? true,
+          unit: fields.unit ?? 'UD',
+          maxStock: fields.maxStock ?? 0,
         },
         select: { id: true },
       });
@@ -334,6 +347,9 @@ export class ProductsRepository {
           price: fields.price,
           cost: fields.cost,
           stock: fields.stock,
+          ...(fields.perishable === undefined ? {} : { perishable: fields.perishable }),
+          ...(fields.unit === undefined ? {} : { unit: fields.unit }),
+          ...(fields.maxStock === undefined ? {} : { maxStock: fields.maxStock }),
         },
       });
 

@@ -28,6 +28,12 @@ export interface Product {
   minStock: number;
   /** Fecha de vencimiento `YYYY-MM-DD` (HU-09), o `null` si no vence. */
   expirationDate: string | null;
+  /** ¿Vence? `false` = «No vence»: sus entradas no piden fecha de vencimiento (HU-38). */
+  perishable: boolean;
+  /** Unidad en que se cuenta el stock. */
+  unit: UnitOfMeasure;
+  /** Stock máximo que conviene tener; 0 = sin máximo. */
+  maxStock: number;
   /** Ruta de la imagen en la API (HU-01), o `null` si no tiene. */
   imageUrl: string | null;
 }
@@ -75,6 +81,11 @@ export interface ProductPayload {
   /** El stock viaja como número; el backend exige un entero ≥ 0. */
   stock: number;
   supplierId: string;
+  /** ¿Vence? (HU-38). Si vence, cada entrada pide lote y fecha de vencimiento. */
+  perishable?: boolean;
+  unit?: UnitOfMeasure;
+  /** 0 = sin máximo. */
+  maxStock?: number;
 }
 
 /**
@@ -100,3 +111,17 @@ export interface ProductSettingsChange {
   minStock?: number;
   expirationDate?: string | null;
 }
+
+/** Unidades de medida (las mismas del backend), con su nombre para las personas. */
+export const UNITS_OF_MEASURE = {
+  UD: 'Unidad',
+  KG: 'Kilogramo',
+  G: 'Gramo',
+  L: 'Litro',
+  ML: 'Mililitro',
+  M: 'Metro',
+  CJ: 'Caja',
+  PQ: 'Paquete',
+} as const;
+
+export type UnitOfMeasure = keyof typeof UNITS_OF_MEASURE;

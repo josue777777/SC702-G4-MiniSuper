@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { PurchaseOrderPayload, PurchaseOrderSummary } from '../../types/purchase-orders';
 import { PurchaseOrderDetail } from './PurchaseOrderDetail';
 import { PurchaseOrderForm } from './PurchaseOrderForm';
@@ -8,7 +9,9 @@ import { usePurchaseOrders } from './use-purchase-orders';
 
 /**
  * Pestaña «Pedidos» de la pantalla Pedidos: armar el pedido a un proveedor, su
- * PDF y el historial (HU-22, HU-24), y registrar lo que llega (HU-38).
+ * PDF y el historial (HU-22, HU-24), y registrar lo que llega (HU-38). Con
+ * `?pedido=<id>` en la dirección se abre «Ver pedido» de ese pedido (así se
+ * vuelve desde Movimientos).
  */
 export function OrdersSection() {
   const {
@@ -25,15 +28,25 @@ export function OrdersSection() {
     createOrder,
     openOrder,
     closeOrder,
-    receiveOrder,
     attachInvoice,
-    loadReceipt,
+    registerDelivery,
     concludeOrder,
     dismissNotice,
   } = usePurchaseOrders();
   const [formOpen, setFormOpen] = useState(false);
   /** Pedido cuyos productos se están viendo («N productos» del historial). */
   const [productsOf, setProductsOf] = useState<PurchaseOrderSummary | null>(null);
+  const [params, setParams] = useSearchParams();
+  const orderParam = params.get('pedido');
+
+  // Al volver de Movimientos (por ejemplo, «Cancelar» en la carga de un pedido),
+  // `?pedido=<id>` reabre «Ver pedido» de ese pedido, de donde se venía.
+  useEffect(() => {
+    if (orderParam !== null) {
+      void openOrder(orderParam);
+      setParams({}, { replace: true });
+    }
+  }, [orderParam, openOrder, setParams]);
 
   async function handleSubmit(payload: PurchaseOrderPayload): Promise<void> {
     if (await createOrder(payload)) {
@@ -95,13 +108,10 @@ export function OrdersSection() {
           onClose={closeOrder}
           notice={notice}
           onDismissNotice={dismissNotice}
-          onReceive={(payload, invoice) => receiveOrder(selected, payload, invoice)}
           onAttachInvoice={(receiptId, invoiceNumber, file) =>
             attachInvoice(selected, receiptId, invoiceNumber, file)
           }
-          onLoadReceipt={(receiptId, invoiceNumber) =>
-            loadReceipt(selected, receiptId, invoiceNumber)
-          }
+          onRegisterDelivery={(payload, invoice) => registerDelivery(selected, payload, invoice)}
           onConclude={() => concludeOrder(selected)}
         />
       )}

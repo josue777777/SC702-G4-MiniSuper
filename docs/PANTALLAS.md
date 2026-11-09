@@ -24,7 +24,7 @@ Todo el sistema usa un solo diseño, y un cambio se aplica a **todo** o a nada
 | Texto | Casi negro; lo secundario, gris | `--color-text`, `--color-muted` |
 | Acción principal | Botón casi negro (redondeado) | `--color-primary` |
 | Botones y campos | Esquinas redondeadas | `--radius` |
-| Títulos de pantalla | Grandes, en el color del texto (sin barra de color) | — |
+| Títulos de pantalla | Grandes, en el color del texto, con el cuadro oscuro de su ícono a la izquierda (`PageHeader`) | `--color-sidebar` |
 | Encabezados de tabla | Gris claro con texto gris | `--color-row-alt`, `--color-muted` |
 | **Estados** | Rojo crítico, ámbar atención, verde éxito — y siempre con su palabra | `--color-error`, `--color-warning`, `--color-ok` |
 
@@ -32,6 +32,31 @@ Reglas:
 
 - **El color comunica estado, no decora.** Si algo es rojo, ámbar o verde es
   porque bloquea, pide atención o salió bien. Lo demás es neutro.
+- **Entra y sale, con los tonos del panel.** En Movimientos la cifra que entra va en el
+  verde del panel (`--color-ok`, `.text-ok`) y la que sale en su rojo (`--color-error`,
+  `.text-error`), también el 0; el concepto de una entrada en verde con «+» y el de una
+  salida con «−»; el stock final en negrita; los lotes en una insignia pequeña de
+  contorno; las existencias con su estado al lado («Bien», «Bajo», «Agotado»). Son los
+  tonos del panel, no colores propios de la pantalla (`FlowAmount.tsx`). La ficha va en
+  celdas iguales, como una hoja (`.kardex-block`): la etiqueta a la izquierda en el oscuro
+  del sistema (`--color-sidebar`, el mismo del menú) y el dato a la derecha; ningún dato
+  manda sobre otro y solo la etiqueta «Existencias» toma el tono de su estado. El
+  encabezado de las tablas sigue gris claro, como en todo el sistema. La celda «Hoy» dice
+  lo que entró y salió hoy de ese producto; el historial no lleva fila «Totales»
+  (repetía lo que ya dicen la ficha y Reportes).
+- **Cada pantalla lleva su ícono.** El encabezado es siempre `PageHeader`: el cuadro
+  oscuro del menú (`--color-sidebar`) con el ícono de la pantalla (el mismo dibujo del
+  menú, `NavIcon`) y, al lado, el título y su frase. Nunca un `<header className="page-header">`
+  escrito a mano: así todas se ven iguales.
+- **La persona decide a dónde va.** «Cancelar» vuelve a la ventana o pantalla de antes,
+  nunca a otra; una acción solo lleva a otra pantalla cuando eso es lo que se pidió (por
+  ejemplo, «Registrar y cargar al inventario» lleva a Movimientos para la verificación).
+  Lo que no se pidió («dejar la carga pendiente») se queda donde estaba.
+- **Una tabla con páginas no salta.** Ocupa siempre el alto de una página completa, la
+  paginación está siempre en el mismo lugar (apagada, «Página — de —», mientras no hay
+  datos) y, mientras llega otra página o filtro, se ve la anterior atenuada en vez de un
+  «Cargando…» que empuja todo (`.kardex-history`, `MovementsPager.tsx`). Lo mismo con o
+  sin producto elegido y mientras llega la ficha (las celdas con «—»).
 - **Solo tokens.** Una regla usa `var(--color-…)` y `var(--radius…)`; un color
   fijo nuevo en una regla es un error (el diseño ya no se podría cambiar en un
   solo lugar).
@@ -167,6 +192,8 @@ Ejemplos ya aplicados:
 | --- | --- | --- |
 | Proveedores | Botón «14 productos» | Ventana con los productos, su costo y cuál es principal |
 | Pedidos | El producto, si es uno; si son varios, botón «2 productos» | Ventana con solo los productos del pedido, de 4 en 4 (el pedido completo es «Ver pedido») |
+| Ventas › Historial del día | El primer producto y «+N más» | Ventana con solo los productos de la venta, de 4 en 4 (la venta completa es «Ver venta») |
+| Movimientos | Entrada y salida: solo la cifra que movió el stock (el 0 queda en blanco, `visually-hidden` para lectores de pantalla) | — |
 | Conteo físico (ventana) | El formulario para contar | Enlace a Reportes › Conteos (el historial es otra tarea) |
 | Inicio | «Todo funciona correctamente» | Datos técnicos del servidor y la base (se abren solos si hay un problema) |
 
