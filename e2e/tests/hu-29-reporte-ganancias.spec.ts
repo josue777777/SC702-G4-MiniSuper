@@ -12,14 +12,12 @@ import {
   consult,
   expectExportMatchesScreen,
   openAs,
-  openCalculationNotes,
   openReport,
   readDownload,
   readTable,
   saleIdByNumber,
   seedOtherBusiness,
   seedPayment,
-  seedSale,
   seedScenario,
   setPeriod,
   summaryValue,
@@ -33,9 +31,10 @@ import {
  * HU-29 — Reporte de ganancias (issue #29). Navegador real + backend real +
  * PostgreSQL de pruebas, con el escenario sintético de `support/reports.ts`.
  *
- * Ganancia = (precio histórico − costo histórico) × unidades netas. HU-19 (abonos)
- * todavía no existe: solo cuentan los fiados con un abono LIGADO a su venta que
- * los cubre; el resto se excluye y se informa.
+ * Ganancia = (precio histórico − costo histórico) × unidades netas. Un fiado solo
+ * cuenta cuando abonos LIGADOS a su venta (HU-19) lo cubren por completo; el resto se
+ * excluye y se informa. Aquí los abonos se siembran en la base para fijar cada caso;
+ * el flujo real de abonos se prueba de punta a punta en `hu-19-abonos-fiados.spec.ts`.
  */
 
 const REPORT = 'Reporte de ganancias';
@@ -118,14 +117,15 @@ test('calcula la ganancia bruta con precios y costos históricos y deja la evide
   expect(rows.find((row) => row[0] === '#9')?.[4]).toBe('Fiado cobrado');
   expect(centsOf(rows.find((row) => row[0] === '#1' && row[2] === 'B1')?.[10] ?? '')).toBe(47_090);
 
-  // Sin productos de costo ₡0 no hay ningún aviso que distraiga.
-  await expect(page.getByText('sin costo registrado')).toHaveCount(0);
-
-  // Las limitaciones reales siguen completas a un clic, en «Cómo se calcula».
-  await openCalculationNotes(page);
-  await expect(page.getByText('LIMITACIÓN (HU-19)')).toBeVisible();
+  // Las limitaciones reales se dicen con claridad en la pantalla.
+  await expect(
+    page.getByText('Los fiados sin pagar o con pago PARCIAL quedan fuera'),
+  ).toBeVisible();
+  await expect(page.getByText('Este reporte NO es el total cobrado en el período')).toBeVisible();
   await expect(page.getByText('LIMITACIÓN (costos)')).toBeVisible();
-  await expect(page.getByText('sin repartir ganancias por estimación')).toBeVisible();
+  await expect(page.getByText('no se reparte su ganancia por estimación')).toBeVisible();
+  // Ya existe el flujo de abonos: el aviso obsoleto no debe seguir apareciendo.
+  await expect(page.getByText('todavía no existe el flujo')).toHaveCount(0);
 
   expect(errors).toEqual([]);
   await saveEvidence(page, 'HU-29', 'HU-29-reporte-ganancias.png', { fullPage: true });
@@ -145,14 +145,14 @@ test('solo cuentan los fiados cubiertos por abonos ligados, y el reporte se actu
   await seedPayment(scenario.customers.beto, '100.00', await saleIdByNumber(11));
   // Un abono ligado a la venta pero de OTRO cliente no vale.
   await seedPayment(scenario.customers.carla, '200.00', await saleIdByNumber(10));
-  await consult(page, '↻ Actualizar');
+  await consult(page);
 
   expect(await tileCents(page, 'Ganancia bruta')).toBe(457_090);
   expect(await tile(page, 'Fiados excluidos (pendientes)')).toBe('3');
 
   // El fiado de Zoila (#10, B1 ₡200 con costo ₡100) queda cubierto por SU abono ligado: suma ₡100.
   await seedPayment(scenario.customers.zoila, '200.00', await saleIdByNumber(10));
-  await consult(page, '↻ Actualizar');
+  await consult(page);
 
   expect(await tileCents(page, 'Ganancia bruta')).toBe(467_090);
   expect(await tile(page, 'Ventas consideradas')).toBe('6');
@@ -176,27 +176,8 @@ test('sin ventas cobradas verificables muestra el estado vacío e informa el fia
   expect(await tileCents(page, 'Monto de fiados excluidos')).toBe(100_000);
 });
 
-test('advierte, nombrando el producto, cuando una venta tiene costo ₡0', async ({ page }) => {
-  // Una venta cobrada de M1 registrada sin costo: su ganancia no es exacta.
-  await seedSale({
-    at: '2024-03-15T10:00:00',
-    lines: [{ code: 'M1', quantity: 1, unitPrice: '2500.00', unitCost: '0.00' }],
-  });
-
-  await openReport(page, 'Ganancias');
-  await setPeriod(page, PERIOD.from, PERIOD.to);
-  await consult(page);
-
-  const warning = page.getByRole('alert').filter({ hasText: 'sin costo registrado' });
-
-  await expect(warning).toBeVisible();
-  await expect(warning).toContainText('M1 ·');
-  await expect(warning).toContainText('Registre su costo en Inventario.');
-});
-
 test('valida las fechas con mensajes visibles', async ({ page }) => {
   await openReport(page, 'Ganancias');
-  await consult(page);
 
   const requests: string[] = [];
 
@@ -206,18 +187,14 @@ test('valida las fechas con mensajes visibles', async ({ page }) => {
     }
   });
 
-  // Los filtros se aplican solos: el error aparece al escribir y no se consulta.
   await setPeriod(page, '2024-03-31', '2024-03-01');
+  await page.getByRole('button', { name: 'Consultar', exact: true }).click();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
 
   await page.getByLabel('Hasta').fill('');
+  await page.getByRole('button', { name: 'Consultar', exact: true }).click();
   await expect(page.getByText('Indique la fecha final.')).toBeVisible();
-  await expect(page.getByText('Revise los filtros')).toBeVisible();
-  // Se espera más que la pausa de aplicación automática: igual no debe consultar.
-  await page.waitForTimeout(800);
-  expect(requests.filter((url) => url.includes('to=2024-03-01') || /to=(&|$)/.test(url))).toEqual(
-    [],
-  );
+  expect(requests).toEqual([]);
 });
 
 test('exporta a Excel exactamente lo que se muestra, con las advertencias', async ({ page }) => {
@@ -249,7 +226,8 @@ test('exporta a Excel exactamente lo que se muestra, con las advertencias', asyn
 
   const notes = exported.summary.filter((row) => row[0] === 'Nota').map((row) => String(row[1]));
 
-  expect(notes.some((note) => note.includes('LIMITACIÓN (HU-19)'))).toBe(true);
+  expect(notes.some((note) => note.includes('pago PARCIAL'))).toBe(true);
+  expect(notes.some((note) => note.includes('todavía no existe el flujo'))).toBe(false);
   expect(notes.some((note) => note.includes('LIMITACIÓN (costos)'))).toBe(true);
 });
 

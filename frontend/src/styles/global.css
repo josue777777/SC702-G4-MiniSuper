@@ -3268,6 +3268,70 @@ tr.print-only-row {
   letter-spacing: 0.02em;
 }
 
+/* --- Cuenta del cliente y abonos (HU-19) ---------------------------------- */
+.customers-search {
+  width: 100%;
+  max-width: 520px;
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.payment-target {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.payment-target legend {
+  padding: 0 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.payment-target > label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.payment-summary {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.payment-summary h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.payment-summary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.payment-summary dt {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payment-summary dd {
+  margin: 2px 0 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- Reportes gestionables (HU-40): filtros, acciones y personalización ---- */
 .reports .tabs__panel {
   display: grid;

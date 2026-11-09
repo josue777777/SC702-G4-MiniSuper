@@ -13,8 +13,6 @@ import {
   consult,
   expectExportMatchesScreen,
   openAs,
-  openCalculationNotes,
-  openDetail,
   openReport,
   productIdByCode,
   readDownload,
@@ -34,9 +32,9 @@ import {
 /**
  * HU-30 — Productos más vendidos y deudas de clientes (issue #30). Navegador
  * real + backend real + PostgreSQL de pruebas, con el escenario sintético de
- * `support/reports.ts`. HU-19 (registro de abonos) todavía no existe: los abonos
- * de estas pruebas se insertan directo en la base y los fiados se crean por la
- * API real de ventas (HU-18).
+ * `support/reports.ts`. Los abonos de estas pruebas se siembran directo en la base
+ * para fijar cada caso (el flujo real de abonos, HU-19, se prueba de punta a punta en
+ * `hu-19-abonos-fiados.spec.ts`) y el fiado nuevo se crea por la API real de ventas (HU-18).
  */
 
 const TOP = 'Productos más vendidos';
@@ -87,7 +85,6 @@ test('ranking de productos y deudas de clientes con cifras exactas, y deja la ev
   expect(await tile(page, 'Productos distintos')).toBe('4');
   expect(await tile(page, 'Unidades netas')).toBe('17');
   expect(await tileCents(page, 'Importe neto')).toBe(1_826_900);
-  await openCalculationNotes(page);
   await expect(
     page.getByText('Los productos desactivados aparecen mientras tengan ventas'),
   ).toBeVisible();
@@ -122,8 +119,8 @@ test('ranking de productos y deudas de clientes con cifras exactas, y deja la ev
   expect(await tile(page, 'Clientes con deuda')).toBe('3');
   await expect(page.getByText('Carla Cliente')).toHaveCount(0);
   await expect(page.getByText('Cliente Ajeno')).toHaveCount(0);
-  await openCalculationNotes(page);
-  await expect(page.getByText('LIMITACIÓN (HU-19)')).toBeVisible();
+  await expect(page.getByText('nunca supone que un fiado está pagado')).toBeVisible();
+  await expect(page.getByText('todavía no existe el flujo')).toHaveCount(0);
 
   const debtsShot = await page.screenshot({ fullPage: true });
 
@@ -154,6 +151,7 @@ test('el ranking respeta el período y vacío muestra su mensaje', async ({ page
   await expect(page.getByRole('table', { name: TOP })).toHaveCount(0);
 
   await setPeriod(page, '2024-05-31', '2024-05-01');
+  await page.getByRole('button', { name: 'Consultar', exact: true }).click();
   await expect(page.getByText('La fecha final no puede ser anterior a la inicial.')).toBeVisible();
 });
 
@@ -196,7 +194,6 @@ test('exporta el ranking y las deudas exactamente como se muestran', async ({ pa
 
 test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', async ({ page }) => {
   await openReport(page, 'Deudas de clientes');
-  await openDetail(page);
   await expect(page.getByRole('table', { name: DEBTS })).toBeVisible();
   expect(await tileCents(page, 'Total general de deudas')).toBe(160_000);
 
@@ -212,7 +209,7 @@ test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', 
   });
 
   expect(sale.status()).toBe(201);
-  await consult(page, '↻ Actualizar');
+  await consult(page, 'Actualizar');
   expect(await tileCents(page, 'Total general de deudas')).toBe(660_000);
 
   const ana = async () =>
@@ -227,7 +224,7 @@ test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', 
 
   // Un abono general: no se reparte entre fiados, se descuenta en una línea aparte.
   await seedPayment(scenario.customers.ana, '1500.00');
-  await consult(page, '↻ Actualizar');
+  await consult(page, 'Actualizar');
   expect(await tileCents(page, 'Total general de deudas')).toBe(510_000);
   expect(await ana()).toEqual([
     ['#8', 100_000, 100_000],
@@ -237,7 +234,7 @@ test('las deudas reflejan fiados y abonos nuevos sin reiniciar la aplicación', 
 
   // Un abono ligado al primer fiado lo cancela: su fila desaparece y el saldo del cliente baja.
   await seedPayment(scenario.customers.ana, '1000.00', await saleIdByNumber(8));
-  await consult(page, '↻ Actualizar');
+  await consult(page, 'Actualizar');
   expect(await tileCents(page, 'Total general de deudas')).toBe(410_000);
   expect(await ana()).toEqual([
     ['#14', 500_000, 500_000],
@@ -303,7 +300,6 @@ test('solo el Encargado ve el ranking y las deudas, y cada negocio solo las suya
   const other = await openAs(browser, OTHER_OWNER);
 
   await openReport(other.page, 'Deudas de clientes');
-  await openDetail(other.page);
   await expect(other.page.getByRole('table', { name: DEBTS })).toBeVisible();
   expect((await readTable(other.page, DEBTS)).rows.map((row) => row[0])).toEqual(['Cliente Ajeno']);
   expect(await tileCents(other.page, 'Total general de deudas')).toBe(777_700);
@@ -317,7 +313,6 @@ test('solo el Encargado ve el ranking y las deudas, y cada negocio solo las suya
 
   // Y el negocio de las pruebas no ve nada del ajeno.
   await openReport(page, 'Deudas de clientes');
-  await openDetail(page);
   await expect(page.getByRole('table', { name: DEBTS })).toBeVisible();
   await expect(page.getByText('Cliente Ajeno')).toHaveCount(0);
 });
