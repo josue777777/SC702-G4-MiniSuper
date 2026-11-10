@@ -191,6 +191,38 @@ describe('POST /api/products (HU-01)', () => {
     expect(repository.createdPlans[0]?.initialMovement?.type).toBe('ENTRY');
   });
 
+  it('vence salvo que se marque «No vence» (HU-38)', async () => {
+    const { app } = buildApp(new FakeProductsRepository({ products: [] }));
+
+    const perishable = await request(app).post('/api/products').send(validBody()).expect(201);
+    const lasting = await request(app)
+      .post('/api/products')
+      .send({ ...validBody(), code: 'P004', perishable: false })
+      .expect(201);
+
+    expect(perishable.body.data.perishable).toBe(true);
+    expect(lasting.body.data.perishable).toBe(false);
+  });
+
+  it('guarda la unidad de medida y el stock máximo; sin ellos, UD y 0', async () => {
+    const { app } = buildApp(new FakeProductsRepository({ products: [] }));
+
+    const plain = await request(app).post('/api/products').send(validBody()).expect(201);
+    const rice = await request(app)
+      .post('/api/products')
+      .send({ ...validBody(), code: 'P005', unit: 'KG', maxStock: 60 })
+      .expect(201);
+    const wrong = await request(app)
+      .post('/api/products')
+      .send({ ...validBody(), code: 'P006', unit: 'CN', maxStock: -1 })
+      .expect(400);
+
+    expect(plain.body.data).toMatchObject({ unit: 'UD', maxStock: 0 });
+    expect(rice.body.data).toMatchObject({ unit: 'KG', maxStock: 60 });
+    expect(wrong.body.error.details.unit).toContain('Elija una unidad de medida válida.');
+    expect(wrong.body.error.details.maxStock).toContain('El stock máximo no puede ser negativo.');
+  });
+
   it('responde 400 con el detalle por campo cuando el cuerpo no es válido', async () => {
     const { app, repository } = buildApp(new FakeProductsRepository({ products: [] }));
 

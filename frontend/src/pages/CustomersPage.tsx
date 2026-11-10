@@ -1,4 +1,6 @@
+import { PendingWork } from '../components/PendingWork';
 import { CustomersSection } from '../features/customers/CustomersSection';
+import { PageHeader } from '../components/PageHeader';
 
 /**
  * Clientes, cuentas fiadas y abonos (HU-18, HU-19). HU-30 (reporte de deudas) vive
@@ -7,24 +9,14 @@ import { CustomersSection } from '../features/customers/CustomersSection';
 export function CustomersPage() {
   return (
     <>
-      <header className="page-header">
-        <h1>Clientes</h1>
-        <p>
-          Contactos del negocio, control de las deudas por venta a crédito (fiado) y registro de
-          abonos.
-        </p>
-      </header>
+      <PageHeader icon="users" title="Clientes">
+        Contactos del negocio, control de las deudas por venta a crédito (fiado) y registro de
+        abonos.
+      </PageHeader>
 
       <CustomersSection />
 
-      <section className="card">
-        <header className="card__header">
-          <h2>Pendiente de implementar</h2>
-        </header>
-        <ul className="todo-list">
-          <li>Editar y desactivar clientes.</li>
-        </ul>
-      </section>
+      <PendingWork stories="HU-19" tasks={['Editar y desactivar clientes (HU-19).']} />
     </>
   );
 }

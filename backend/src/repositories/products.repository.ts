@@ -9,6 +9,7 @@ import type {
   ProductReferences,
   ProductListFilter,
   ReferenceOption,
+  UnitOfMeasure,
   UpdateProductPlan,
 } from '../types/products.js';
 
@@ -30,6 +31,9 @@ interface ProductRow {
   isActive: boolean;
   minStock: number;
   expirationDate: Date | null;
+  perishable: boolean;
+  unit: UnitOfMeasure;
+  maxStock: number;
   imageMimeType: string | null;
   imageUpdatedAt: Date | null;
   category: { id: string; name: string };
@@ -52,6 +56,9 @@ const productSelection = {
   isActive: true,
   minStock: true,
   expirationDate: true,
+  perishable: true,
+  unit: true,
+  maxStock: true,
   // Solo los datos de la imagen, nunca sus bytes: el listado sigue liviano.
   imageMimeType: true,
   imageUpdatedAt: true,
@@ -83,6 +90,9 @@ function toProductDto(row: ProductRow): ProductDto {
     preferredSupplierName: preferredSupplier?.supplier.name ?? null,
     minStock: row.minStock,
     expirationDate: row.expirationDate === null ? null : dateToDateOnly(row.expirationDate),
+    perishable: row.perishable,
+    unit: row.unit,
+    maxStock: row.maxStock,
     imageUrl:
       row.imageMimeType === null || row.imageUpdatedAt === null
         ? null
@@ -190,6 +200,19 @@ export class ProductsRepository {
     return found !== null;
   }
 
+  /** `true` si el EAN-13 ya está asociado a otro producto. */
+  async existsByBarcode(barcode: string, exceptProductId?: string): Promise<boolean> {
+    const found = await prisma.product.findFirst({
+      where: {
+        barcode,
+        ...(exceptProductId === undefined ? {} : { id: { not: exceptProductId } }),
+      },
+      select: { id: true },
+    });
+
+    return found !== null;
+  }
+
   /**
    * Asigna el código de barras en una sola escritura. Si no se permite
    * reemplazar, la condición `barcode: null` evita que dos solicitudes lo
@@ -263,11 +286,15 @@ export class ProductsRepository {
         data: {
           businessId: this.businessId,
           code: fields.code,
+          barcode: fields.barcode ?? null,
           name: fields.name,
           categoryId: fields.categoryId,
           price: fields.price,
           cost: fields.cost,
           stock: fields.stock,
+          perishable: fields.perishable ?? true,
+          unit: fields.unit ?? 'UD',
+          maxStock: fields.maxStock ?? 0,
         },
         select: { id: true },
       });
@@ -314,11 +341,15 @@ export class ProductsRepository {
         where: own(this.businessId, id),
         data: {
           code: fields.code,
+          ...(fields.barcode === undefined ? {} : { barcode: fields.barcode }),
           name: fields.name,
           categoryId: fields.categoryId,
           price: fields.price,
           cost: fields.cost,
           stock: fields.stock,
+          ...(fields.perishable === undefined ? {} : { perishable: fields.perishable }),
+          ...(fields.unit === undefined ? {} : { unit: fields.unit }),
+          ...(fields.maxStock === undefined ? {} : { maxStock: fields.maxStock }),
         },
       });
 

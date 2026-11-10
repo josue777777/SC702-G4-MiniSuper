@@ -15,6 +15,7 @@ import {
   insertCustomer,
   openAccount,
   openPaymentModal,
+  readAccountTable,
   seedCreditProduct,
   summaryOf,
   todayCR,
@@ -79,6 +80,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
 
   // 1. Registrar un cliente desde Clientes.
   await page.goto('/customers');
+  await page.getByRole('button', { name: '+ Nuevo cliente' }).click();
   await page.getByLabel('Nombre', { exact: true }).fill(name);
   await page.getByRole('button', { name: 'Guardar cliente' }).click();
   await expect(page.getByText(`Cliente "${name}" creado.`)).toBeVisible();
@@ -90,7 +92,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
 
   // 3. Buscar al cliente y abrir su ficha: deuda inicial (criterio 1).
   await page.reload();
-  await page.getByLabel('Buscar cliente por nombre').fill('marta');
+  await page.getByLabel('Buscar clientes').fill('marta');
   await expect(page.getByRole('table', { name: 'Clientes' }).locator('tbody tr')).toHaveCount(1);
   expect(
     digits(
@@ -110,7 +112,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
   expect(digits(await accountTile(account, 'Total abonado'))).toBe('000');
   expect(await accountTile(account, 'Fiados pendientes')).toBe('2');
   expect(
-    (await readTable(page, 'Fiados del cliente')).rows.map((row) => [
+    (await readAccountTable(page, 'Fiados del cliente')).rows.map((row) => [
       row[0],
       digits(row[2] ?? ''),
       digits(row[5] ?? ''),
@@ -144,7 +146,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
     .toBe(money(6000));
   expect(digits(await accountTile(account, 'Total abonado'))).toBe(money(4000));
   expect(
-    (await readTable(page, 'Fiados del cliente')).rows.map((row) => [
+    (await readAccountTable(page, 'Fiados del cliente')).rows.map((row) => [
       row[0],
       digits(row[4] ?? ''),
       digits(row[5] ?? ''),
@@ -154,7 +156,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
     [`#${first.number}`, money(4000), money(2000), 'Pago parcial'],
     [`#${second.number}`, '000', money(4000), 'Pendiente'],
   ]);
-  const history = (await readTable(page, 'Historial de abonos')).rows;
+  const history = (await readAccountTable(page, 'Historial de abonos')).rows;
 
   expect(history).toHaveLength(1);
   expect(history[0]?.[0]).toBe(todayCR().split('-').reverse().join('/'));
@@ -219,7 +221,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
     .poll(async () => digits(await accountTile(settledAccount, 'Deuda actual')))
     .toBe('000');
   expect(
-    (await readTable(page, 'Fiados del cliente')).rows.map((row) => [
+    (await readAccountTable(page, 'Fiados del cliente')).rows.map((row) => [
       row[0],
       digits(row[5] ?? ''),
       row[6],
@@ -234,7 +236,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
   ).toBeVisible();
 
   // El abono de ₡6 000 se repartió entre los dos fiados y en el historial es UNA operación.
-  const finalHistory = (await readTable(page, 'Historial de abonos')).rows;
+  const finalHistory = (await readAccountTable(page, 'Historial de abonos')).rows;
 
   expect(finalHistory).toHaveLength(2);
   expect(digits(finalHistory[0]?.[1] ?? '')).toBe(money(6000));
@@ -308,7 +310,7 @@ test('evidencia: dos fiados, un abono de ₡8 000 saldando uno y dejando el otro
   expect(await accountTile(account, 'Fiados pendientes')).toBe('1');
   await expect(account.getByRole('heading', { name })).toContainText('Con deuda');
 
-  const fiados = (await readTable(page, 'Fiados del cliente')).rows;
+  const fiados = (await readAccountTable(page, 'Fiados del cliente')).rows;
 
   expect(fiados.map((row) => [row[0], digits(row[4] ?? ''), digits(row[5] ?? ''), row[6]])).toEqual(
     [
@@ -317,7 +319,7 @@ test('evidencia: dos fiados, un abono de ₡8 000 saldando uno y dejando el otro
     ],
   );
 
-  const history = (await readTable(page, 'Historial de abonos')).rows;
+  const history = (await readAccountTable(page, 'Historial de abonos')).rows;
 
   expect(history).toHaveLength(1);
   // Una sola operación con el reparto: ₡6 000 al fiado más antiguo y ₡2 000 al siguiente.
@@ -480,7 +482,7 @@ test('varios fiados: FIFO, abono a un fiado específico y un cliente sin coincid
     .poll(async () => digits(await accountTile(account, 'Deuda actual')))
     .toBe(money(2000));
   expect(
-    (await readTable(page, 'Fiados del cliente')).rows.map((row) => [
+    (await readAccountTable(page, 'Fiados del cliente')).rows.map((row) => [
       row[0],
       digits(row[5] ?? ''),
       row[6],
@@ -530,7 +532,7 @@ test('varios fiados: FIFO, abono a un fiado específico y un cliente sin coincid
   await third.getByRole('button', { name: 'Cancelar' }).click();
 
   // La búsqueda por nombre.
-  await page.getByLabel('Buscar cliente por nombre').fill('zzz');
+  await page.getByLabel('Buscar clientes').fill('zzz');
   await expect(page.getByText('Ningún cliente coincide con «zzz».')).toBeVisible();
 });
 
@@ -643,7 +645,7 @@ test('devoluciones (HU-35): bajan el importe vigente y no se permiten si dejarí
 
   expect(digits(await accountTile(account, 'Deuda actual'))).toBe(money(1000));
   expect(
-    (await readTable(page, 'Fiados del cliente')).rows.map((row) => [
+    (await readAccountTable(page, 'Fiados del cliente')).rows.map((row) => [
       digits(row[2] ?? ''),
       digits(row[3] ?? ''),
       digits(row[4] ?? ''),
@@ -683,12 +685,12 @@ test('un abono anterior a HU-19 (sin fiado asignado) se conserva, baja el saldo 
   await expect(account.getByText('Incluye')).toContainText(
     'abonos anteriores que no están asignados a ningún fiado',
   );
-  expect((await readTable(page, 'Historial de abonos')).rows[0]?.[2]).toBe(
+  expect((await readAccountTable(page, 'Historial de abonos')).rows[0]?.[2]).toBe(
     'Sin fiado asignado (abono anterior)',
   );
   // Ninguna venta se da por abonada.
   expect(
-    (await readTable(page, 'Fiados del cliente')).rows.map((row) => digits(row[4] ?? '')),
+    (await readAccountTable(page, 'Fiados del cliente')).rows.map((row) => digits(row[4] ?? '')),
   ).toEqual(['000', '000']);
 
   // Solo se puede abonar la deuda real (₡7 000), y el abono anterior no se toca.

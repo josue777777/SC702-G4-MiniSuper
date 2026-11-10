@@ -26,6 +26,14 @@ export const PHYSICAL_COUNT_REASON = 'Conteo físico';
  * A diferencia de la edición de producto, se devuelve siempre un movimiento,
  * aunque el conteo coincida con el sistema (`quantity = 0`): así el historial
  * deja constancia de que el producto se contó y estaba correcto.
+ *
+ * @param systemStock Lo que dice el sistema antes del conteo.
+ * @param countedQuantity Lo que se contó en el estante.
+ * @returns El movimiento a guardar.
+ * @example
+ * buildCountAdjustment(20, 18);
+ * // { type: 'ADJUSTMENT', quantity: 2, stockBefore: 20, stockAfter: 18, reason: 'Conteo físico' }
+ * buildCountAdjustment(20, 20); // quantity 0: se contó y estaba bien
  */
 export function buildCountAdjustment(
   systemStock: number,
@@ -44,6 +52,11 @@ export function buildCountAdjustment(
  * `true` si el producto necesita reponerse (HU-08): el stock llegó al mínimo o
  * bajó de él. Un mínimo de 0 significa que el dueño no lo definió, y entonces
  * nunca hay alerta (evita alertas falsas en productos sin mínimo).
+ *
+ * @example
+ * isLowStock(5, 5);  // true  (llegó al mínimo)
+ * isLowStock(6, 5);  // false
+ * isLowStock(0, 0);  // false (sin mínimo definido)
  */
 export function isLowStock(stock: number, minStock: number): boolean {
   return minStock > 0 && stock <= minStock;
@@ -53,6 +66,13 @@ export function isLowStock(stock: number, minStock: number): boolean {
  * Clasifica un vencimiento (HU-09): vencido si la fecha ya pasó, próximo a
  * vencer si faltan menos de `EXPIRING_SOON_DAYS` días (vencer hoy cuenta como
  * próximo), o `null` si todavía falta tiempo.
+ *
+ * @param daysLeft Días entre hoy (Costa Rica) y el vencimiento; negativo si ya pasó.
+ * @example
+ * classifyExpiration(-1); // 'EXPIRED'
+ * classifyExpiration(0);  // 'EXPIRING_SOON' (vence hoy)
+ * classifyExpiration(14); // 'EXPIRING_SOON'
+ * classifyExpiration(15); // null
  */
 export function classifyExpiration(daysLeft: number): ExpirationAlertDto['status'] | null {
   if (daysLeft < 0) {
@@ -157,29 +177,31 @@ export class InventoryService {
   }
 
   /**
-   * HU-09 — productos vencidos o próximos a vencer, del más urgente al menos
-   * urgente. Se calcula al consultar; no se guarda (decisión 7).
+   * HU-09 y HU-32 — lotes vencidos o próximos a vencer, del más urgente al
+   * menos urgente. Se calcula al consultar; no se guarda (decisión 7).
+   *
+   * Una alerta por LOTE con unidades: dice el lote, su vencimiento y cuántas
+   * unidades le quedan. Un lote que se agota (venta, egreso, conteo) deja de
+   * alertar solo, aunque el producto tenga otros lotes; un lote lejano de
+   * vencer no alerta aunque otro del mismo producto sí.
    */
   async listExpirations(): Promise<ExpirationAlertDto[]> {
     const today = this.today();
-    const settings = await this.repository.listProductSettings();
     const alerts: ExpirationAlertDto[] = [];
 
-    for (const product of settings) {
-      if (product.expirationDate === null) {
-        continue;
-      }
-
-      const daysLeft = daysBetween(today, product.expirationDate);
+    for (const lot of await this.repository.listExpiringLots()) {
+      const daysLeft = daysBetween(today, lot.expirationDate);
       const status = classifyExpiration(daysLeft);
 
       if (status !== null) {
         alerts.push({
-          productId: product.productId,
-          productCode: product.productCode,
-          productName: product.productName,
-          stock: product.stock,
-          expirationDate: product.expirationDate,
+          productId: lot.productId,
+          productCode: lot.productCode,
+          productName: lot.productName,
+          stock: lot.stock,
+          lotNumber: lot.lotNumber,
+          lotQuantity: lot.quantity,
+          expirationDate: lot.expirationDate,
           daysLeft,
           status,
         });

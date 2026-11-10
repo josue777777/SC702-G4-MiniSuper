@@ -1,0 +1,33 @@
+# Reglas del equipo: un PR no pasa si quien lo abre no confirma que leyó y
+# cumple CONTRIBUTING.md (la casilla de la plantilla del PR).
+#
+# Corre también al EDITAR la descripción: basta con marcar la casilla, sin
+# subir código de nuevo. Solo lee la descripción; no ejecuta código del PR.
+name: Reglas del equipo
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  reglas:
+    name: Leí y cumplo CONTRIBUTING.md
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Revisar la casilla de la descripción del PR
+        # La descripción pasa por una variable de entorno (nunca dentro del
+        # script): así su texto no se puede ejecutar como comando.
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "$PR_BODY" | grep -Eiq -- '- \[x\] Leí y cumplo'; then
+            echo "Confirmado: se leyeron las reglas del equipo."
+          else
+            echo "::error::Marque en la descripción del PR la casilla «Leí y cumplo CONTRIBUTING.md» (lea antes CONTRIBUTING.md)."
+            exit 1
+          fi

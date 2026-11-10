@@ -2,7 +2,11 @@ import type { Request, Response } from 'express';
 import { businessIdOf } from '../middleware/require-auth.middleware.js';
 import type { ForBusiness } from '../types/tenant.js';
 import type { SuppliersService } from '../services/suppliers.service.js';
-import { supplierIdParamSchema, supplierSchema } from '../validators/suppliers.validator.js';
+import {
+  productIdParamSchema,
+  supplierIdParamSchema,
+  supplierSchema,
+} from '../validators/suppliers.validator.js';
 
 /** Capa de controlador de proveedores (HU-21): HTTP ↔ service, recurso dentro de `data`. */
 export class SuppliersController {
@@ -29,5 +33,15 @@ export class SuppliersController {
     res
       .status(200)
       .json({ data: await this.serviceFor(businessIdOf(res)).updateSupplier(id, input) });
+  }
+
+  /** `GET /api/suppliers/costs/:productId` — comparar costos entre proveedores (HU-39). */
+  async compareCosts(req: Request, res: Response): Promise<void> {
+    const { productId } = productIdParamSchema.parse(req.params);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res
+      .status(200)
+      .json({ data: await this.serviceFor(businessIdOf(res)).compareProductCosts(productId) });
   }
 }

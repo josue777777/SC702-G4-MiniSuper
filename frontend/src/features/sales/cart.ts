@@ -76,14 +76,29 @@ export function setQuantity(cart: CartLine[], productId: string, quantity: numbe
   };
 }
 
+/** Quita la línea del producto del carrito (devuelve un carrito nuevo, no cambia el anterior). */
 export function removeLine(cart: CartLine[], productId: string): CartLine[] {
   return cart.filter((line) => line.productId !== productId);
 }
 
+/**
+ * Subtotal de una línea: cantidad × precio, en céntimos para no perder exactitud.
+ *
+ * @param line Línea del carrito.
+ * @returns El subtotal como texto con 2 decimales.
+ * @example lineSubtotal({ unitPrice: '1250.50', quantity: 2, … }) // '2501.00'
+ */
 export function lineSubtotal(line: CartLine): string {
   return formatCents(toCents(line.unitPrice) * BigInt(line.quantity));
 }
 
+/**
+ * Total del carrito para MOSTRARLO; el oficial lo calcula el servidor al confirmar.
+ *
+ * @param cart Líneas del carrito.
+ * @returns La suma de los subtotales.
+ * @example cartTotal([leche 2 × '1250.50', pan 3 × '800.00']) // '4901.00'
+ */
 export function cartTotal(cart: CartLine[]): string {
   return formatCents(
     cart.reduce((sum, line) => sum + toCents(line.unitPrice) * BigInt(line.quantity), 0n),

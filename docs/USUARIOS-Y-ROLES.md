@@ -25,7 +25,7 @@ Los roles son fijos. La lista exacta de permisos de cada uno está en **un solo 
 **Jerarquía:**
 
 ```
-Administrador (la plataforma)  →  crea negocios con su Encargado, cambia planes, responde solicitudes
+Administrador (la plataforma)  →  crea negocios con su Encargado, cambia niveles de cuenta, responde solicitudes
    Encargado (dueño del negocio)  →  maneja solo a Cajero y Bodega de SU negocio
       Cajero / Bodega  →  no manejan usuarios
 ```
@@ -34,17 +34,17 @@ Administrador (la plataforma)  →  crea negocios con su Encargado, cambia plane
 usuarios. Nadie de un negocio ve los datos de otro, y el Administrador no ve los de
 ninguno: para probar los módulos, el equipo se crea un **Encargado** (ver punto 6).
 
-**El plan** es «Encargado + N»: plan 0 es solo el Encargado, y cada nivel suma un usuario.
+**El nivel de cuenta** es «Encargado + N»: el nivel 0 es solo el Encargado, y cada nivel suma un usuario.
 Si está lleno, el Encargado pide más en **Configuración › General › Solicitar más
 usuarios**; la solicitud llega a la bandeja del Administrador (**Solicitudes**) y, al
 aprobarla, el Encargado ya puede crearlos. La razón de este diseño está en
-[adr/0002-usuarios-jerarquia-y-plan.md](adr/0002-usuarios-jerarquia-y-plan.md).
+[adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md](adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md).
 
 **La ventana de Configuración** muestra a cada rol sus pestañas:
 
 | Pestaña | Administrador | Encargado | Cajero / Bodega |
 | --- | --- | --- | --- |
-| General (datos, logo y plan del negocio) | — | ✅ el suyo | — |
+| General (datos, logo y nivel de cuenta del negocio) | — | ✅ el suyo | — |
 | Plataforma (nombre del sistema) | ✅ | — | — |
 | Usuarios | ✅ administradores y Encargados | ✅ Cajero y Bodega de su negocio | — |
 | Apariencia (color, letra) | ✅ la suya | ✅ la suya | ✅ la suya |
@@ -193,7 +193,7 @@ pone en el menú, cualquiera podría llamar a la API directamente.
 ## 6. Cómo probar con varios roles
 
 1. Entrar como **Administrador**: el inicio es **Negocios**. Crear un negocio de prueba
-   con su Encargado (por ejemplo `encargado@prueba.local`) y un plan de 2 o más usuarios
+   con su Encargado (por ejemplo `encargado@prueba.local`) y un nivel de cuenta de 2 o más usuarios
    adicionales. Anotar la contraseña temporal que se muestra.
 2. Entrar como ese **Encargado** (en el primer ingreso pide cambiar la contraseña). Con él
    se prueban todos los módulos del negocio.
@@ -227,8 +227,8 @@ npm run db:seed
 Es a propósito: al cambiar el rol, desactivar a alguien o restablecerle la contraseña, se
 cierran sus sesiones abiertas. Al volver a entrar ya tiene los permisos nuevos.
 
-**«El plan permite N usuarios activos y ya están en uso».**
-El negocio llegó al límite de su plan. Desactive a alguien que ya no trabaje ahí, o pida
+**«El nivel de cuenta permite N usuarios activos y ya están en uso».**
+El negocio llegó al límite de su nivel de cuenta. Desactive a alguien que ya no trabaje ahí, o pida
 más usuarios en Configuración › General › Solicitar más usuarios.
 
 **Entro como Administrador y no veo productos ni ventas.**

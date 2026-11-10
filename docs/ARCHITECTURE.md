@@ -13,7 +13,7 @@ Las historias de usuario (HU) se implementan **encima** de esta base.
 
 | Punto | Definición |
 | --- | --- |
-| Usuarios del sistema | **Cuatro roles fijos con jerarquía** (Administrador de la plataforma > Encargado, dueño del negocio > Cajero y Bodega) y un **límite de usuarios por plan**. Un solo negocio por ahora; el camino a multi-negocio está en [ADR 0002](adr/0002-usuarios-jerarquia-y-plan.md) |
+| Usuarios del sistema | **Cuatro roles fijos con jerarquía** (Administrador de la plataforma > Encargado, dueño del negocio > Cajero y Bodega) y un **límite de usuarios por nivel de cuenta**. Varios negocios, cada uno con sus datos aislados ([ADR 0002](adr/0002-usuarios-jerarquia-y-nivel-de-cuenta.md)) |
 | Uso de IA | El sistema **NO** incluye asistentes de inteligencia artificial |
 | Tipo de aplicación | Aplicación web cliente-servidor (SPA + API REST) |
 | Historias de usuario | 30 HU (`HU-01` … `HU-30`) agrupadas en 3 módulos funcionales |
@@ -63,11 +63,12 @@ inferior**. Un `controller` nunca llama a Prisma directamente; siempre pasa por 
   manejan los *datos* del producto; las *cantidades* cambian por movimientos
   (`InventoryMovement`: ventas, recepciones, conteos y los ajustes de HU-02), y el Kardex
   (HU-31) los muestra con su saldo (`stockAfter`).
-* **Panel principal** (`/`): números grandes (inventario valorizado al costo, productos
-  activos, pedidos pendientes, stock bajo y vencimientos), barras de valor por producto y
-  por categoría, accesos rápidos y las alertas de HU-08 y HU-09. Todo se calcula en el
-  frontend con datos que ya expone la API (`features/dashboard/dashboard-metrics.ts`) y se
-  actualiza cada 15 s. Las cifras de ventas llegan con HU-16 … HU-20 y HU-37.
+* **Panel principal** (`/`): «Lo urgente hoy», como mucho tres urgencias (vencidos, stock
+  bajo, facturas sin cargar, pedidos por recibir) con su acción a la mano, y el resumen de
+  ventas del día (HU-37). Se arma en el frontend con datos que ya expone la API
+  (`features/dashboard/dashboard-urgencies.ts`) y se actualiza cada 15 s. El análisis
+  (inventario valorizado, valor por categoría) está en Reportes. En todas las pantallas,
+  `Ctrl + K` abre la barra de comandos (`features/command-bar/`).
 * **Ventana de Inventario** (`/inventory`): lista general de productos con búsqueda (HU-05),
   filtro por categoría y vistas Activos / Desactivados / Todos. Un clic marca un producto y
   la barra inferior tiene las acciones de esa vista (Crear, Modificar y Desactivar en
@@ -434,7 +435,7 @@ repositorio se construye con el negocio de la sesión y filtra todo por él.
 | Entidad | Para qué existe (HU relacionadas) |
 | --- | --- |
 | `User` | Usuarios con rol, estado (activo/inactivo) y contraseña temporal: login, perfil, restablecimiento (HU-11 … HU-15) |
-| `Business` | Cada negocio: nombre, cédula, teléfono, correo, dirección, mensaje del comprobante, logo (los cambia su Encargado), plan `extraUsers` y estado activo/suspendido (los cambia la plataforma) |
+| `Business` | Cada negocio: nombre, cédula, teléfono, correo, dirección, mensaje del comprobante, logo (los cambia su Encargado), nivel de cuenta `extraUsers` y estado activo/suspendido (los cambia la plataforma) |
 | `PlatformSettings` | Una sola fila: nombre del sistema (solo el Administrador) |
 | `PlanRequest` | Solicitudes de más usuarios de un Encargado y la respuesta del Administrador |
 | `UserPreferences` | Apariencia de cada usuario (color y tamaño de letra), aparte de `User` para no mezclarla con los datos de acceso |
@@ -531,11 +532,14 @@ Se usa `HU-01 — registrar producto` como ejemplo; el resto es idéntico.
    `ProductsPage` deja de renderizar `PagePlaceholder` y compone la feature.
    (Más tarde el catálogo pasó a `features/products/ProductsSection.tsx`, que se
    muestra dentro de `InventoryPage`; `/products` redirige a `/inventory`.)
-10. **Pruebas.** Tres niveles, todas sin base de datos:
+10. **Pruebas.** Cuatro niveles:
     * validador (`src/validators/*.test.ts`): qué entra y qué se rechaza;
     * service con un doble de repositorio de `src/testing/`: reglas de negocio;
     * rutas con `supertest` sobre `createProductsRouter(doble)`: status codes y forma del
-      JSON, incluidos los errores.
+      JSON, incluidos los errores;
+    * integración con PostgreSQL real (`*.integration.test.ts`, solo con una base
+      terminada en `_test`) y E2E con Playwright (`e2e/tests/`), una prueba por
+      criterio de la historia.
 11. **Documentación.** Actualizar esta arquitectura si la HU introduce una decisión
     nueva, y el checklist de la historia en el tablero del sprint.
 
@@ -573,19 +577,17 @@ escribe. Ante una duda de modelado, la respuesta está en el checklist de la HU.
 
 **Pruebas**
 
-* Ninguna prueba necesita PostgreSQL: el service se prueba con el doble de repositorio de
-  `backend/src/testing/` (que no se compila) y las rutas, con `supertest` sobre
-  `createProductsRouter(doble)`.
-* Las interacciones de interfaz que dependen del navegador (cancelar una edición, cancelar
-  una desactivación) se comprueban a mano en la validación de la historia: no se añade un
-  framework de pruebas de componentes por dos clics.
+* Las pruebas unitarias y de rutas no necesitan PostgreSQL: el service se prueba con el
+  doble de repositorio de `backend/src/testing/` (que no se compila) y las rutas, con
+  `supertest` sobre `createProductsRouter(doble)`.
+* Las consultas que dependen de la base se prueban contra PostgreSQL real
+  (`*.integration.test.ts`), y lo que ve el usuario, con Playwright (`e2e/tests/`).
 
 **Flujo de trabajo**
 
-* Rama por historia: `feat/hu-01-registrar-producto`, apartada de `main`.
-* Commits con [Conventional Commits](https://www.conventionalcommits.org/):
-  `feat: agregar registro de producto (HU-01)`, `fix: validar stock en venta (HU-16)`.
-* Un PR por historia, con el checklist de la HU en la descripción.
+* Las reglas completas están en [`CONTRIBUTING.md`](../CONTRIBUTING.md): rama desde
+  `develop`, PR hacia `develop`, y `develop` pasa a `main` con el CI en verde.
+* La descripción del PR dice qué historia toca y cómo se probó.
 * Las migraciones se generan, nunca se escriben a mano, y se revisan en el PR.
 
 ---
@@ -598,7 +600,7 @@ escribe. Ante una duda de modelado, la respuesta está en el checklist de la HU.
 | Registro público de cuentas | Los usuarios los crea el administrador |
 | Módulo contable o facturación fiscal | No aparece en las 30 historias |
 | Integración con pasarelas de pago | HU-17 solo registra el método de pago usado en caja |
-| Multi-sucursal / multi-tenant | Un solo negocio |
+| Multi-sucursal (varias tiendas de un mismo negocio) | Cada negocio es independiente; las sucursales no aparecen en las historias |
 | Funcionalidad IA (recomendaciones predictivas, chatbots) | Fuera del alcance del proyecto; HU-23 es una regla simple sobre `stock` y `minStock` |
 | Aplicación móvil nativa | La SPA es responsiva; no hay requisitos de app nativa |
 | Sincronización offline | Requiere el servidor para operar |
@@ -608,47 +610,30 @@ extiende la arquitectura — no se cuela en el código actual.
 
 ---
 
-## 11. Estado de la base y siguientes pasos
+## 11. Estado y deuda técnica
 
-**Implementado y verificado**
-
-* Monorepo npm workspaces (`backend`, `frontend`) con scripts en la raíz.
-* Backend Express 5 + TypeScript con las 5 capas, errores centralizados, 404 JSON,
-  apagado ordenado y `GET /api/health` + `GET /api/health/database`.
-* Prisma 7 + `@prisma/adapter-pg`: esquema con 12 tablas y 3 enums, migración inicial
-  `20260930012103_init` aplicada y verificada contra PostgreSQL 16/17 real.
-* **Rebanada vertical de productos (HU-01, HU-02, HU-03)**: catálogo con alta, edición y
-  baja lógica, de punta a punta (React → API → controller → service → repository → Prisma
-  → PostgreSQL), con proveedor principal en `SupplierProduct`, movimientos de inventario y
-  pruebas de validador, service y rutas.
-* Frontend React + Vite con rutas, `MainLayout`, las 10 pantallas del sistema,
-  `api-client.ts` centralizado y la tarjeta de estado consumiendo la API.
-* Validaciones: `npm run build`, `npm run lint`, `npm run typecheck`, `npm test` y
-  `npx prisma validate` en verde.
-
-**Siguiente paso para el equipo (Sprint 1)**
-
-1. `HU-04` — CRUD de categorías: el formulario de producto ya lee las categorías activas,
-   pero todavía no existe forma de crearlas dentro del sistema (hacen falta para probar el
-   alta de productos sin tocar la base a mano).
-2. `HU-05` — búsqueda de productos sobre `GET /api/products` (añadiendo parámetros de
-   consulta; la forma `{ "data": … }` ya deja espacio para metadatos).
-3. `HU-21` — CRUD de proveedores, con la misma forma de trabajo que la rebanada de
-   productos.
+El estado de cada historia vive en el tablero del proyecto (issues de GitHub), no en
+este documento: así no queda desactualizado.
 
 **Deuda técnica conocida**
 
 * Tipos de la API declarados a mano en `frontend/src/types/`. Si duplicarlos empieza a
-  molestar, la salida es un workspace `shared/` o generar tipos con `zod` desde el
-  backend; no hace falta hoy.
-* No hay datos semilla (`prisma db seed`): hoy las categorías y proveedores de prueba se
-  insertan a mano. Cuando exista el CRUD de categorías (HU-04) conviene dejar un
-  `prisma/seed.ts` **de desarrollo** con datos de ejemplo para todo el equipo.
-* El repositorio `main` ya no contiene `Historias_Usuario.xlsx` (se eliminó en el commit
-  `0722505`). Las historias siguen descritas en este documento y en el tablero del sprint;
-  si el equipo necesita el archivo, está en el historial de Git.
+  molestar, la salida es un workspace `shared/` o generar tipos desde los esquemas Zod
+  del backend.
+* `npm run db:seed` solo crea el administrador inicial; no hay datos de ejemplo para
+  desarrollo.
 
+**Orden pendiente (hacer cuando no haya ramas abiertas que toquen esos archivos)**
 
+* Ayudantes compartidos dentro de un módulo: `features/products/money.ts` (lo usan unos
+  20 archivos de otros módulos) y los formatos de fecha de
+  `features/inventory/inventory-count.ts`. Van a una carpeta común
+  (`frontend/src/utils/`), los dos juntos.
+* El backend está organizado por capas (`controllers/`, `services/`,
+  `repositories/`…): cada módulo queda repartido en seis carpetas. Pasarlo a módulos por
+  funcionalidad (`modules/products/products.routes.ts`, `.controller.ts`,
+  `.service.ts`…) es un solo PR mecánico con `git mv`, acordado con el equipo para que
+  nadie tenga ramas abiertas. `schema.prisma` sigue siendo uno solo.
 
 ## 12. Reportes comerciales (HU-28, HU-29, HU-30)
 
@@ -656,10 +641,13 @@ API: `GET /api/reports/commercial/{sales|profits|top-products|customer-debts}` y
 `/export` (Excel), más `/options` (categorías del filtro). Permiso `reports.sales`
 (solo Encargado); el negocio sale **siempre** de la sesión y un `businessId` enviado en
 la consulta se rechaza (400). Los reportes de inventario (HU-25 a HU-27) usan otro
-permiso y no cuelgan de esta ruta. Pantalla: Reportes › Reportes comerciales.
+permiso y no cuelgan de esta ruta. Pantalla: Reportes, con las pestañas Ventas,
+Ganancias, Más vendidos y Deudas de clientes.
 
-Pantalla y Excel salen del mismo `ReportResult`; el Excel usa los filtros ya aplicados
-al reporte mostrado.
+Pantalla y Excel salen del mismo `ReportResult`. La pantalla recibe el resumen
+(totales y gráficos, sin filas) y pide el detalle de a una página con
+`GET …/:kind/rows?page=`; el PDF y el Excel llevan todas las filas, con los filtros ya
+aplicados al reporte mostrado (ver [PANTALLAS.md](PANTALLAS.md), reglas 9 y 10).
 
 **Reglas de cálculo**
 
@@ -690,7 +678,34 @@ al reporte mostrado.
    una línea «Abonos sin venta asignada» para que el saldo acumulado cuadre siempre con
    el saldo real del cliente; no se reasignan.
 
-## 13. Abonos y liquidación de fiados (HU-19)
+---
+
+## 13. Historial de ventas del día (HU-20)
+
+API: `GET /api/sales/daily-history?date=&paymentMethod=&page=&pageSize=` (permiso
+`sales`: Encargado y Cajero). Sin `date`, el día es hoy en Costa Rica; `pageSize` va de
+1 a 100 (50 por defecto). Responde `{ date, page, pageSize, matchingCount, sales, day }`,
+con `day = { saleCount, originalTotal, total }`; una página fuera del resultado trae
+`sales: []` y conserva los totales del día.
+
+**Reglas de cálculo**
+
+* **Original de una venta:** suma de `SaleItem.unitPrice × quantity`, con el precio
+  histórico y las cantidades originalmente vendidas.
+* **Efectivo de una venta:** `Sale.total`, que HU-35 mantiene al descontar devoluciones
+  y anulaciones. Una venta anulada o devuelta por completo vale cero.
+* **Acumulado efectivo del día:** suma de `Sale.total` de todas las ventas del día.
+  Incluye fiados: mide ventas después de ajustes, **no** ingresos cobrados ni ganancias.
+* Los totales del día incluyen todos los métodos de pago y estados, sin importar la
+  página ni el filtro; el conteo de coincidencias sí aplica el método elegido.
+* Se toma la **fecha de la venta**, no la del ajuste: una devolución posterior cambia el
+  efectivo del día original. No es un reporte de caja por fecha de devolución.
+* El día va de `00:00` a `00:00` del siguiente en Costa Rica (`06:00Z` a `06:00Z`). Filas,
+  conteo y totales se leen en una transacción `RepeatableRead`, en céntimos exactos.
+
+---
+
+## 14. Abonos y liquidación de fiados (HU-19)
 
 API (permiso `customers`: Encargado y Cajero; Bodega y la plataforma no):
 `GET /api/customers/:id/credit` (deuda y fiados), `GET /api/customers/:id/payments`

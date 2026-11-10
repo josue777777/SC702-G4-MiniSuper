@@ -9,7 +9,7 @@ import {
   SUPPLIER_A_ID,
 } from '../testing/suppliers.repository.fake.js';
 import type { SupplierInput } from '../validators/suppliers.validator.js';
-import { SuppliersService } from './suppliers.service.js';
+import { rankSupplierCosts, SuppliersService } from './suppliers.service.js';
 
 /** Reglas de negocio de proveedores (HU-21), con el doble de repositorio. */
 
@@ -141,5 +141,47 @@ describe('SuppliersService.updateSupplier', () => {
         input({ name: 'Otro Proveedor', products: [{ productId: COFFEE_ID, unitCost: '1.00' }] }),
       ),
     ).rejects.toMatchObject({ statusCode: 409 });
+  });
+});
+
+describe('rankSupplierCosts (HU-39)', () => {
+  const row = (supplierName: string, unitCost: string, isPreferred = false) => ({
+    supplierId: supplierName,
+    supplierName,
+    unitCost,
+    isPreferred,
+    updatedAt: new Date('2026-11-01T12:00:00Z'),
+  });
+
+  it('ordena del costo más bajo al más alto y dice cuánto más cuesta cada uno', () => {
+    const ranked = rankSupplierCosts([
+      row('Comercial del Valle', '4970.00', true),
+      row('Distribuidora Central', '4850.00'),
+      row('Abarrotes La Unión', '5100.50'),
+    ]);
+
+    expect(ranked.map((item) => [item.supplierName, item.difference, item.cheapest])).toEqual([
+      ['Distribuidora Central', '0.00', true],
+      ['Comercial del Valle', '120.00', false],
+      ['Abarrotes La Unión', '250.50', false],
+    ]);
+    expect(ranked[1]?.isPreferred).toBe(true);
+    expect(ranked[0]?.updatedAt).toBe('2026-11-01T12:00:00.000Z');
+  });
+
+  it('si dos cuestan lo mismo, los dos son los más baratos y van por nombre', () => {
+    expect(
+      rankSupplierCosts([row('Zeta', '100.00'), row('Alfa', '100.00')]).map((item) => [
+        item.supplierName,
+        item.cheapest,
+      ]),
+    ).toEqual([
+      ['Alfa', true],
+      ['Zeta', true],
+    ]);
+  });
+
+  it('sin proveedores, la lista queda vacía', () => {
+    expect(rankSupplierCosts([])).toEqual([]);
   });
 });

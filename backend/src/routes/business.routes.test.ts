@@ -225,3 +225,110 @@ describe('logo del negocio', () => {
     expect((await cajero.agent.get('/api/business/logo')).status).toBe(404);
   });
 });
+
+describe('diseño de la etiqueta de productos (HU-07)', () => {
+  const DESIGN = {
+    size: 'letter-30',
+    show: {
+      logo: false,
+      businessName: true,
+      productName: true,
+      code: true,
+      price: true,
+      barcode: true,
+      qr: false,
+    },
+  };
+
+  it.each(['ENCARGADO', 'CAJERO', 'BODEGA'] as const)(
+    '%s lee el diseño; sin guardar, es el de fábrica (rollo 58 × 40 con todo)',
+    async (role) => {
+      const { agent } = await loginAs(role);
+
+      const response = await agent.get('/api/business/label-design');
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.size).toBe('roll-58x40');
+      expect(Object.values(response.body.data.show).every(Boolean)).toBe(true);
+    },
+  );
+
+  it('el Encargado lo guarda y los demás imprimen con el mismo diseño', async () => {
+    const built = buildApp();
+    const encargado = await loginAs('ENCARGADO', built);
+    const bodega = await loginAs('BODEGA', built);
+
+    const saved = await encargado.agent.put('/api/business/label-design').send(DESIGN);
+    const read = await bodega.agent.get('/api/business/label-design');
+
+    expect(saved.status).toBe(200);
+    expect(read.body.data).toEqual(DESIGN);
+  });
+
+  it.each(['CAJERO', 'BODEGA'] as const)('%s no puede cambiarlo (403)', async (role) => {
+    const { agent, business } = await loginAs(role);
+
+    const response = await agent.put('/api/business/label-design').send(DESIGN);
+
+    expect(response.status).toBe(403);
+    expect(business.labelDesign).toBeNull();
+  });
+
+  it('la plataforma (Administrador) no entra al diseño de un negocio (403)', async () => {
+    const { agent } = await loginAs('ADMIN');
+
+    expect((await agent.get('/api/business/label-design')).status).toBe(403);
+  });
+
+  it('rechaza un tamaño que no existe o un dato desconocido (400)', async () => {
+    const { agent, business } = await loginAs('ENCARGADO');
+
+    const size = await agent
+      .put('/api/business/label-design')
+      .send({ ...DESIGN, size: 'a4-gigante' });
+    const unknown = await agent
+      .put('/api/business/label-design')
+      .send({ ...DESIGN, show: { ...DESIGN.show, color: true } });
+
+    expect(size.status).toBe(400);
+    expect(size.body.error.details.size).toEqual(['Elija un tamaño de etiqueta de la lista.']);
+    expect(unknown.status).toBe(400);
+    expect(business.labelDesign).toBeNull();
+  });
+
+  it('rechaza una etiqueta que no identifica el producto (sin nombre, código, barras ni QR)', async () => {
+    const { agent } = await loginAs('ENCARGADO');
+
+    const response = await agent.put('/api/business/label-design').send({
+      size: 'roll-50x25',
+      show: {
+        logo: true,
+        businessName: true,
+        productName: false,
+        code: false,
+        price: true,
+        barcode: false,
+        qr: false,
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.details.show[0]).toMatch(/debe identificar el producto/);
+  });
+
+  it('un diseño guardado incompleto o dañado nunca impide imprimir', async () => {
+    const built = buildApp();
+    const { agent } = await loginAs('CAJERO', built);
+
+    built.business.labelDesign = { size: 'roll-50x25', show: { price: false, viejo: true } };
+    const partial = await agent.get('/api/business/label-design');
+
+    built.business.labelDesign = { size: 'tamaño-que-ya-no-existe' };
+    const broken = await agent.get('/api/business/label-design');
+
+    expect(partial.body.data.size).toBe('roll-50x25');
+    expect(partial.body.data.show).toEqual(expect.objectContaining({ price: false, qr: true }));
+    expect(partial.body.data.show).not.toHaveProperty('viejo');
+    expect(broken.body.data.size).toBe('roll-58x40');
+  });
+});

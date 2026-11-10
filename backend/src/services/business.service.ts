@@ -4,6 +4,7 @@ import type { BusinessDto, BusinessLogo, BusinessRecord } from '../types/busines
 import { HttpError } from '../utils/http-error.js';
 import { hasImageSignature } from '../utils/image.js';
 import type { BusinessLogoInput, BusinessSettingsInput } from '../validators/business.validator.js';
+import { labelDesignOf, type LabelDesign } from '../validators/label-design.validator.js';
 
 /** Ruta del logo (con sesión: lo ven solo los usuarios de ese negocio). */
 export const LOGO_PATH = '/api/business/logo';
@@ -16,7 +17,7 @@ function logoUrl(record: BusinessRecord): string | null {
  * Configuración › General del negocio de la sesión: sus datos, su logo y su
  * plan (solo lectura: el plan lo cambia la plataforma).
  *   - Leer: cualquier usuario del negocio (el comprobante y el menú lo usan).
- *   - Datos y logo: el Encargado (`business.edit`).
+ *   - Datos, logo y diseño de etiqueta: el Encargado (`business.edit`).
  */
 export class BusinessService {
   constructor(
@@ -52,6 +53,22 @@ export class BusinessService {
 
   async removeLogo(): Promise<BusinessDto> {
     return this.toDto(await this.repository.removeLogo());
+  }
+
+  /**
+   * Diseño de la etiqueta de productos (HU-07). Lo leen todos los usuarios del
+   * negocio, porque todos pueden imprimir etiquetas; si nunca se guardó, es el de
+   * fábrica.
+   */
+  async getLabelDesign(): Promise<LabelDesign> {
+    return labelDesignOf(await this.repository.findLabelDesign());
+  }
+
+  /** Guarda el diseño (solo el Encargado: lo exige la ruta) y lo devuelve. */
+  async saveLabelDesign(design: LabelDesign): Promise<LabelDesign> {
+    await this.repository.saveLabelDesign(design);
+
+    return design;
   }
 
   private async toDto(record: BusinessRecord): Promise<BusinessDto> {

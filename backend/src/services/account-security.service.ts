@@ -34,6 +34,10 @@ const EVENT_OF: Record<PasswordChange, AccessEventType> = {
   'reset-by-manager': 'PASSWORD_RESET_BY_MANAGER',
 };
 
+/**
+ * Lo que pasa después de cambiar una contraseña: guarda el evento en el historial
+ * de accesos y, si el rol recupera por correo, le avisa a la persona por correo.
+ */
 export class AccountSecurityService implements AccountSecurity {
   constructor(
     private readonly events: Pick<AccessEventsRepository, 'record'>,

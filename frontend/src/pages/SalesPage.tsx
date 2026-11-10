@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ReceiptModal } from '../features/sales/ReceiptModal';
 import { useWedgeScanner } from '../features/sales/barcode-scanner';
@@ -6,15 +6,28 @@ import { CartTable } from '../features/sales/CartTable';
 import { CheckoutPanel } from '../features/sales/CheckoutPanel';
 import { SaleResult } from '../features/sales/SaleResult';
 import { SalesHistory } from '../features/sales/SalesHistory';
-import { ScannerBar } from '../features/sales/ScannerBar';
+import { ProductSearchModal } from '../features/sales/ProductSearchModal';
+import { SCANNER_INPUT_ID, ScannerBar } from '../features/sales/ScannerBar';
 import { usePos } from '../features/sales/use-pos';
+import { PageHeader } from '../components/PageHeader';
+
+/** Las dos partes de la pantalla: vender o consultar lo vendido. */
+type SalesView = 'caja' | 'historial';
+
+const VIEWS: { id: SalesView; label: string }[] = [
+  { id: 'caja', label: 'Caja' },
+  { id: 'historial', label: 'Historial del día' },
+];
 
 /**
  * Caja: registrar una venta con código de barras (HU-16), elegir el método de
- * pago (HU-17) y vender a crédito/fiado (HU-18).
+ * pago (HU-17) y vender a crédito/fiado (HU-18). En otra pestaña, el historial
+ * del día (HU-20) con sus comprobantes (HU-34).
  *
- * La página solo compone; el estado está en `use-pos.ts`, y el precio, el total
- * y el stock los decide el backend.
+ * Vender y consultar son dos objetivos distintos, así que van en pestañas
+ * (docs/PANTALLAS.md): la cajera entra a «Caja» y solo ve lo que necesita para
+ * cobrar. La página solo compone; el estado está en `use-pos.ts`, y el precio,
+ * el total y el stock los decide el backend.
  */
 export function SalesPage() {
   const [adjustmentVersion, setAdjustmentVersion] = useState(0);
@@ -26,6 +39,9 @@ export function SalesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const receiptId = searchParams.get('receipt');
   const pos = usePos((sale) => setSearchParams({ receipt: sale.id }));
+  const [view, setView] = useState<SalesView>('caja');
+  /** Búsqueda manual abierta (con el texto inicial), o `null` si está cerrada. */
+  const [search, setSearch] = useState<string | null>(null);
 
   function openReceipt(saleId: string): void {
     setSearchParams({ receipt: saleId });
@@ -36,69 +52,145 @@ export function SalesPage() {
   }
 
   // Lector USB tipo teclado cuando el foco no está en un campo de texto.
-  useWedgeScanner((code) => void pos.scan(code), !pos.submitting && receiptId === null);
+  useWedgeScanner(
+    (code) => void pos.scan(code),
+    view === 'caja' && !pos.submitting && receiptId === null && search === null,
+  );
+
+  // Atajos de la caja, como en un punto de venta: F2 vuelve al código, F4 busca
+  // el producto por nombre y F9 finaliza.
+  const { canConfirm, confirm } = pos;
+
+  useEffect(() => {
+    if (view !== 'caja' || receiptId !== null || search !== null) {
+      return;
+    }
+
+    function handleKey(event: KeyboardEvent): void {
+      if (event.key === 'F2') {
+        event.preventDefault();
+        document.getElementById(SCANNER_INPUT_ID)?.focus();
+      } else if (event.key === 'F4') {
+        event.preventDefault();
+        setSearch('');
+      } else if (event.key === 'F9' && canConfirm) {
+        event.preventDefault();
+        void confirm();
+      }
+    }
+
+    window.addEventListener('keydown', handleKey);
+
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [view, receiptId, search, canConfirm, confirm]);
+
+  function closeSearch(): void {
+    setSearch(null);
+    // De vuelta al lector, listo para el siguiente producto.
+    window.setTimeout(() => document.getElementById(SCANNER_INPUT_ID)?.focus(), 0);
+  }
 
   return (
     <>
-      <header className="page-header">
-        <h1>Ventas</h1>
-        <p>Escanee los productos, elija cómo paga el cliente y finalice la venta.</p>
-      </header>
+      <PageHeader icon="cart" title="Ventas">
+        Escanee los productos, elija cómo paga el cliente y finalice la venta.
+      </PageHeader>
 
-      {pos.result === null ? null : (
-        <SaleResult sale={pos.result} onNewSale={pos.dismissResult} onOpenReceipt={openReceipt} />
-      )}
-
-      <ScannerBar busy={pos.scanning} onScan={pos.scan} />
-
-      {pos.notice === null ? null : (
-        <p className={`alert alert--${pos.notice.kind}`} role="status">
-          {pos.notice.text}
+      <div className="tabs" role="tablist" aria-label="Secciones de ventas">
+        {VIEWS.map((item) => (
           <button
+            key={item.id}
             type="button"
-            className="alert__close"
-            onClick={pos.dismissNotice}
-            aria-label="Cerrar aviso"
+            role="tab"
+            id={`sales-tab-${item.id}`}
+            aria-selected={view === item.id}
+            aria-controls={`sales-panel-${item.id}`}
+            className={view === item.id ? 'tabs__tab tabs__tab--active' : 'tabs__tab'}
+            onClick={() => setView(item.id)}
           >
-            ×
+            {item.label}
           </button>
-        </p>
-      )}
-
-      <div className="pos">
-        <CartTable
-          cart={pos.cart}
-          total={pos.total}
-          disabled={pos.submitting}
-          onQuantity={pos.changeQuantity}
-          onRemove={pos.remove}
-        />
-        <CheckoutPanel
-          total={pos.total}
-          hasItems={pos.cart.length > 0}
-          method={pos.method}
-          cashReceived={pos.cashReceived}
-          cashValid={pos.cashValid}
-          change={pos.change}
-          customers={pos.customers}
-          customerId={pos.customerId}
-          selectedCustomer={pos.selectedCustomer}
-          submitting={pos.submitting}
-          canConfirm={pos.canConfirm}
-          error={pos.saleError}
-          onMethod={pos.selectMethod}
-          onCash={pos.changeCash}
-          onCustomer={pos.selectCustomer}
-          onCreateCustomer={pos.createCustomer}
-          onConfirm={() => void pos.confirm()}
-        />
+        ))}
       </div>
 
-      <SalesHistory
-        version={pos.historyVersion + adjustmentVersion}
-        onOpenReceipt={openReceipt}
-        onAdjustmentComplete={() => setAdjustmentVersion((version) => version + 1)}
-      />
+      <div
+        className="tabs__panel"
+        role="tabpanel"
+        id={`sales-panel-${view}`}
+        aria-labelledby={`sales-tab-${view}`}
+      >
+        {view === 'caja' ? (
+          <>
+            {pos.result === null ? null : (
+              <SaleResult
+                sale={pos.result}
+                onNewSale={pos.dismissResult}
+                onOpenReceipt={openReceipt}
+              />
+            )}
+
+            {/* Izquierda: agregar y revisar productos. Derecha: cobrar. */}
+            <div className="pos">
+              <div className="pos__main">
+                <ScannerBar
+                  busy={pos.scanning}
+                  notice={pos.notice}
+                  onScan={pos.scan}
+                  onSearch={(term) => setSearch(term ?? '')}
+                />
+
+                <CartTable
+                  cart={pos.cart}
+                  total={pos.total}
+                  disabled={pos.submitting}
+                  onQuantity={pos.changeQuantity}
+                  onRemove={pos.remove}
+                  onClear={pos.clearCart}
+                />
+              </div>
+              <div className="pos__side">
+                <CheckoutPanel
+                  total={pos.total}
+                  units={pos.cart.reduce((sum, line) => sum + line.quantity, 0)}
+                  hasItems={pos.cart.length > 0}
+                  method={pos.method}
+                  cashReceived={pos.cashReceived}
+                  cashValid={pos.cashValid}
+                  change={pos.change}
+                  customers={pos.customers}
+                  customerId={pos.customerId}
+                  selectedCustomer={pos.selectedCustomer}
+                  submitting={pos.submitting}
+                  canConfirm={pos.canConfirm}
+                  error={pos.saleError}
+                  onMethod={pos.selectMethod}
+                  onCash={pos.changeCash}
+                  onCustomer={pos.selectCustomer}
+                  onCreateCustomer={pos.createCustomer}
+                  onConfirm={() => void pos.confirm()}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <SalesHistory
+            version={pos.historyVersion + adjustmentVersion}
+            onOpenReceipt={openReceipt}
+            onAdjustmentComplete={() => setAdjustmentVersion((version) => version + 1)}
+          />
+        )}
+      </div>
+
+      {search === null ? null : (
+        <ProductSearchModal
+          initialTerm={search}
+          onPick={(product) => {
+            pos.addToCart(product);
+            closeSearch();
+          }}
+          onClose={closeSearch}
+        />
+      )}
 
       {receiptId === null ? null : <ReceiptModal saleId={receiptId} onClose={closeReceipt} />}
     </>

@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { PRODUCT_IMAGE_TYPES, type ProductWritableFields } from '../types/products.js';
+import {
+  PRODUCT_IMAGE_TYPES,
+  UNITS_OF_MEASURE,
+  type ProductWritableFields,
+} from '../types/products.js';
 
 /**
  * Esquemas Zod del recurso productos (HU-01, HU-02).
@@ -72,6 +76,18 @@ const codeSchema = z
   .min(1, 'El código no puede estar vacío.')
   .max(50, 'El código no puede superar 50 caracteres.');
 
+const barcodeSchema = z
+  .string()
+  .regex(/^\d{13}$/, 'El código de barras debe tener 13 dígitos.')
+  .refine((barcode) => {
+    const sum = [...barcode.slice(0, 12)].reduce(
+      (total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3),
+      0,
+    );
+
+    return Number(barcode[12]) === (10 - (sum % 10)) % 10;
+  }, 'El dígito de control del código de barras no es válido.');
+
 const nameSchema = z
   .string({ error: 'El nombre es obligatorio.' })
   .trim()
@@ -91,12 +107,21 @@ const stockSchema = z
 /** Cuerpo de `POST /api/products` (HU-01). */
 export const createProductSchema = z.object({
   code: codeSchema,
+  barcode: barcodeSchema.optional(),
   name: nameSchema,
   categoryId: categoryIdSchema,
   price: moneySchema('El precio'),
   cost: moneySchema('El costo'),
   stock: stockSchema,
   supplierId: supplierIdSchema,
+  perishable: z.boolean({ error: 'Indique si el producto vence.' }).optional(),
+  unit: z.enum(UNITS_OF_MEASURE, { error: 'Elija una unidad de medida válida.' }).optional(),
+  maxStock: z
+    .number({ error: 'El stock máximo debe ser un número.' })
+    .int('El stock máximo debe ser un número entero.')
+    .min(0, 'El stock máximo no puede ser negativo.')
+    .max(MAX_STOCK, `El stock máximo no puede superar ${MAX_STOCK}.`)
+    .optional(),
 });
 
 /**

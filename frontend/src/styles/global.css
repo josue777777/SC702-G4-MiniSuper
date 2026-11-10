@@ -4,24 +4,35 @@
    sola convención de nombres (bloque__elemento--variante).
    --------------------------------------------------------------------------- */
 :root {
-  --color-bg: #eef1f5;
+  /*
+   * Diseño neutro (docs/PANTALLAS.md, «Diseño del sistema»): fondos grises,
+   * texto casi negro y esquinas redondeadas. El color se reserva para los
+   * ESTADOS: rojo crítico, ámbar atención, verde éxito. Todo se cambia aquí,
+   * por tokens, y vale para todo el sistema.
+   */
+  --color-bg: #f4f4f5;
   --color-surface: #ffffff;
-  --color-border: #d9dee7;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
-  --color-primary: #1c64a8;
-  --color-primary-dark: #154e85;
-  /* Barra lateral oscura y barra de título naranja, como el sistema de referencia */
-  --color-sidebar: #16182d;
-  --color-sidebar-text: #d7dbe8;
-  --color-accent: #e8590c;
-  --color-row-alt: #f1f4f9;
-  --color-row-hover: #e3edf8;
+  --color-border: #e4e4e7;
+  --color-text: #18181b;
+  --color-muted: #71717a;
+  /* Acción principal: casi negro (cada usuario puede elegir otro en Apariencia) */
+  --color-primary: #18181b;
+  --color-primary-dark: #09090b;
+  --color-sidebar: #18181b;
+  --color-sidebar-text: #d4d4d8;
+  --color-accent: #27272a;
+  --color-row-alt: #fafafa;
+  --color-row-hover: #f4f4f5;
+  --color-row-selected: #e4e4e7;
   --color-ok: #15803d;
   --color-ok-bg: #dcfce7;
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3c7;
   --color-error: #b91c1c;
   --color-error-bg: #fee2e2;
-  --radius: 6px;
+  /* Controles (botones, campos) y bloques (tarjetas, ventanas) */
+  --radius: 14px;
+  --radius-bento: 22px;
 
   font-family:
     system-ui,
@@ -43,8 +54,41 @@ body {
   min-height: 100vh;
 }
 
+/*
+ * Enlaces dentro de un texto: del color del texto y subrayados (nunca el azul del
+ * navegador). Una ACCIÓN no es un enlace suelto: va como botón (`.button`),
+ * aunque lleve a otra pantalla o descargue un archivo.
+ */
+a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--color-primary);
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.button--primary,
+a.button--primary:hover {
+  color: #fff;
+}
+
+/* Un distintivo que lleva a otra pantalla (p. ej. «3 solicitudes») no se subraya */
+a.badge {
+  text-decoration: none;
+}
+
 code {
-  background: #eef2ff;
+  background: var(--color-row-alt);
   border-radius: 4px;
   padding: 0 4px;
   font-size: 0.9em;
@@ -89,8 +133,8 @@ code {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--color-accent), #f59f00);
-  color: #fff;
+  background: var(--color-surface);
+  color: var(--color-text);
   font-weight: 800;
 }
 
@@ -175,6 +219,34 @@ code {
   letter-spacing: 0.01em;
 }
 
+/* Barra de comandos (Ctrl + K): al centro de la barra superior */
+.topbar__command {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+  min-width: 0;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.topbar__command kbd,
+.modal kbd,
+.page-header kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .topbar__command kbd {
+    display: none;
+  }
+}
+
 /* HU-15: dueño de la sesión y «Cerrar sesión», siempre a la derecha */
 .topbar__session {
   display: flex;
@@ -245,9 +317,10 @@ code {
 
 .nav-link--active,
 .nav-link--active:hover {
-  background: var(--color-primary);
+  /* Sobre la barra oscura: un gris más claro y una raya blanca (no depende del color principal) */
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
-  box-shadow: inset 4px 0 0 var(--color-accent);
+  box-shadow: inset 3px 0 0 #fff;
 }
 
 .nav-link--muted {
@@ -309,7 +382,7 @@ code {
 
 .nav-link--nested.nav-link--active {
   background: rgba(255, 255, 255, 0.16);
-  box-shadow: inset 4px 0 0 var(--color-accent);
+  box-shadow: inset 3px 0 0 #fff;
 }
 
 @media (max-width: 759px) {
@@ -321,27 +394,40 @@ code {
 }
 
 /* --- Piezas reutilizables ------------------------------------------------- */
+/* Encabezado de pantalla (PageHeader): el cuadro oscuro con el ícono y, al
+   lado, el título y su frase. Igual en todas las pantallas. */
 .page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   margin-bottom: 16px;
 }
 
-/* Título de la pantalla en una barra de color: «› Ventana de …» */
+.page-header__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: var(--color-sidebar);
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(24 24 27 / 12%);
+}
+
+.page-header__text {
+  min-width: 0;
+}
+
+/* Título de la pantalla: grande, en el color del texto (sin barra de color) */
 .page-header h1 {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 8px;
-  padding: 7px 14px;
-  border-radius: 4px;
-  background: var(--color-accent);
-  color: #fff;
-  font-size: 1.2rem;
-}
-
-.page-header h1::before {
-  content: '›';
-  font-size: 1.5rem;
-  line-height: 1;
+  margin: 0 0 6px;
+  color: var(--color-text);
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
 }
 
 .page-header p {
@@ -352,7 +438,8 @@ code {
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-bento);
+  box-shadow: 0 1px 2px rgb(24 24 27 / 4%);
   padding: 18px 20px;
   margin-bottom: 16px;
 }
@@ -375,7 +462,7 @@ code {
 .button {
   border: 1px solid var(--color-border);
   background: #fff;
-  border-radius: 4px;
+  border-radius: 999px;
   padding: 7px 14px;
   font-size: 0.9rem;
   cursor: pointer;
@@ -506,6 +593,24 @@ code {
   text-align: right;
 }
 
+/* Texto y fecha dentro de una tabla (lote y vencimiento, HU-38): el mismo
+   borde y alto que las cantidades, para que la fila se lea como una sola. */
+.table input:not([type]),
+.table input[type='text'],
+.table input[type='date'] {
+  min-width: 120px;
+  padding: 5px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--color-surface, #fff);
+}
+
+/* Un importe con decimales (₡1 000,00) necesita más ancho que una cantidad */
+.table input.input--money {
+  width: 120px;
+}
+
 .field label {
   font-size: 0.85rem;
   font-weight: 600;
@@ -525,7 +630,7 @@ code {
 
 /* Sin esto, `.button:hover` pinta el texto del mismo azul que el fondo */
 .button--block:hover {
-  background: #1e40af;
+  background: var(--color-primary-dark);
   color: #fff;
 }
 
@@ -548,32 +653,144 @@ code {
 
 .toolbar__search input {
   width: min(240px, 60vw);
+  height: 36px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 7px 11px;
+  border-radius: 6px;
+  padding: 0 11px;
   font-size: 0.9rem;
   font-family: inherit;
+  background: #fff;
 }
 
-.toolbar__search input:focus {
+.toolbar__search input:focus-visible {
   border-color: var(--color-primary);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  outline-offset: 0;
 }
 
 .toolbar__search input:disabled {
   background: #f8fafc;
 }
 
+/* --- Listas de pocas columnas: no se estiran a todo el ancho ------------
+   Con 3 columnas en 1400 px, el nombre queda lejos de su dato y el ojo se
+   pierde de fila. La barra de búsqueda acompaña el mismo ancho. */
+.list-narrow {
+  max-width: 860px;
+}
+
+/* --- Listas: paginación y detalle desplegable (ver docs/PANTALLAS.md) ---- */
+.pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.pagination__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Números de página: 1 2 3 … 20. La actual, rellena con el color principal. */
+.pagination__pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pagination__page {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.pagination__page:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pagination__page--current,
+.pagination__page--current:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  cursor: default;
+}
+
+.pagination__page:disabled {
+  cursor: wait;
+}
+
+.pagination__gap {
+  min-width: 20px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.pagination__status {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.disclosure summary {
+  cursor: pointer;
+  color: var(--color-primary);
+  font-weight: 600;
+  width: fit-content;
+}
+
+.disclosure[open] summary {
+  margin-bottom: 6px;
+}
+
+/* Filtros de las listas: la misma etiqueta y el mismo campo que la barra de los reportes. */
 .toolbar__filter {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.toolbar__filter > span {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.toolbar__filter input {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
 }
 
 .toolbar__filter select {
   appearance: none;
+  height: 36px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 7px 32px 7px 14px;
+  border-radius: 6px;
+  padding: 0 32px 0 12px;
   font-size: 0.9rem;
   font-family: inherit;
   cursor: pointer;
@@ -582,8 +799,23 @@ code {
     no-repeat right 12px center;
 }
 
-.toolbar__filter select:hover:not(:disabled) {
+.toolbar__filter select:hover:not(:disabled),
+.toolbar__filter input:hover:not(:disabled) {
   border-color: var(--color-primary);
+}
+
+.toolbar__filter select:focus-visible,
+.toolbar__filter input:focus-visible {
+  border-color: var(--color-primary);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  outline-offset: 0;
+}
+
+/* Los botones junto a los filtros miden lo mismo que los campos, en todas las pantallas. */
+.toolbar .button,
+.card__header .row-actions .button,
+.filter-bar .button {
+  min-height: 36px;
 }
 
 .toolbar__filter select:disabled {
@@ -598,7 +830,7 @@ code {
 }
 
 .button--primary:hover {
-  background: #1e40af;
+  background: var(--color-primary-dark);
   color: #fff;
 }
 
@@ -668,6 +900,13 @@ code {
   overflow-x: auto;
 }
 
+/* Mientras llega otra página o filtro, la tabla anterior se ve atenuada (no salta). */
+.table-wrapper--busy {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -684,8 +923,9 @@ code {
 
 /* Encabezado azul y filas alternas, como la tabla de la referencia */
 .table thead th {
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--color-row-alt);
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -714,7 +954,7 @@ code {
 
 .table tbody tr.table__row--inactive {
   color: var(--color-muted);
-  background: #e9ecf1;
+  background: var(--color-row-alt);
 }
 
 .table__confirm-row td {
@@ -795,8 +1035,8 @@ code {
 
 /* Inventario: aviso de "próximo a vencer" (HU-09) y bloques de configuración (HU-08, HU-09) */
 .badge--warning {
-  background: #fef9c3;
-  color: #713f12;
+  background: var(--color-warning-bg);
+  color: #78350f;
 }
 
 .settings__grid {
@@ -806,7 +1046,8 @@ code {
 }
 
 /* Reporte imprimible de vencimientos (HU-09): solo se imprime `.print-area` */
-.print-only {
+.print-only,
+tr.print-only-row {
   display: none;
 }
 
@@ -870,6 +1111,11 @@ code {
   body.printing-report .no-print {
     display: none;
   }
+
+  /* Una fila que en pantalla está en otra página igual sale en el papel */
+  body.printing-report tr.print-only-row {
+    display: table-row;
+  }
 }
 
 /* Proveedores (HU-21): filas de productos del formulario y lista en la tabla */
@@ -926,8 +1172,8 @@ code {
   max-height: calc(100vh - 48px);
   padding: 0;
   border: none;
-  border-radius: 6px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.35);
+  border-radius: var(--radius-bento);
+  box-shadow: 0 18px 50px rgba(24, 24, 27, 0.3);
   overflow: auto;
 }
 
@@ -1039,6 +1285,11 @@ code {
   color: var(--color-error);
 }
 
+/* Su par: el verde de los estados «bien» (el mismo del panel). */
+.text-ok {
+  color: var(--color-ok);
+}
+
 /* Filas que se marcan con un clic */
 .table__row--selectable {
   cursor: pointer;
@@ -1048,7 +1299,7 @@ code {
 
 .table tbody tr.table__row--selected,
 .table tbody tr.table__row--selected:hover {
-  background: #cfe2f7;
+  background: var(--color-row-selected);
   box-shadow: inset 4px 0 0 var(--color-primary);
 }
 
@@ -1124,7 +1375,7 @@ code {
   font-size: 0.88rem;
 }
 
-/* Pestañas reservadas del producto (Etiquetas: HU-07; Imagen: HU-01) */
+/* Pestañas de etiquetas (HU-07) e imagen (HU-01) del producto */
 .reserved-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1152,6 +1403,39 @@ code {
   font-size: 2.6rem;
   letter-spacing: -0.08em;
   line-height: 1.2;
+}
+
+.label-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.label-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.label-preview h3,
+.label-preview p {
+  margin: 0;
+}
+
+.label-preview__barcode {
+  width: min(100%, 340px);
+  height: auto;
+}
+
+.label-preview__code {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
 }
 
 /* Imagen del producto (HU-01) */
@@ -1511,75 +1795,7 @@ code {
 .modal__subform .card {
   margin-bottom: 14px;
   border-color: var(--color-primary);
-  background: #f8fbff;
-}
-
-/* Reporte imprimible del inventario: opciones arriba, vista previa abajo */
-.report-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0 0 16px;
-}
-
-.report-options__group {
-  /* Un fieldset no se encoge por defecto (min-width: min-content) y se sale de la cuadrícula */
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 10px 14px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-}
-
-.report-options__group:disabled {
-  opacity: 0.5;
-}
-
-.report-options__group legend {
-  padding: 0 6px;
-  font-weight: 600;
-}
-
-.report-options__group label,
-.report-options__radios {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.report-options__group .hint {
-  margin: -4px 0 0;
-}
-
-.report-options__nested {
-  margin-left: 26px;
-}
-
-.report-options__disabled {
-  color: var(--color-muted);
-}
-
-/* Casillas de columnas en dos columnas */
-.report-options__columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 12px;
-}
-
-.report-options__group .link-button {
-  align-self: flex-start;
-}
-
-.report-options__actions {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+  background: var(--color-row-alt);
 }
 
 .report-preview {
@@ -1638,43 +1854,6 @@ code {
   font-weight: 600;
 }
 
-/* Casilla y su texto siempre juntos: si el texto es largo, se parte él, no la fila */
-.report-options__group label:has(> input[type='checkbox']),
-.report-options__group label:has(> input[type='radio']) {
-  flex-wrap: nowrap;
-  align-items: flex-start;
-}
-
-.report-options__group input[type='checkbox'],
-.report-options__group input[type='radio'] {
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-
-.report-options select {
-  max-width: 100%;
-  padding: 5px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: #fff;
-  font: inherit;
-  font-size: 0.88rem;
-}
-
-.report-options__group .report-options__radios label:has(> input) {
-  align-items: center;
-}
-
-.report-options__group .report-options__radios input {
-  margin-top: 0;
-}
-
-@media (max-width: 759px) {
-  .report-options {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Documento del pedido (HU-24): espacios para llenar a mano al recibir */
 .write-in {
   display: inline-block;
@@ -1707,6 +1886,93 @@ code {
   font-size: 0.8rem;
 }
 
+/* «Generado por»: el nombre va escrito sobre la línea */
+.order-reception__line--filled {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+/* Encabezado y pie de los documentos del negocio (pedido a proveedor…): solo en el papel */
+.business-document__header {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-text);
+}
+
+.business-document__brand {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.business-document__logo {
+  width: 64px;
+  height: 64px;
+}
+
+.business-document__name {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.business-document__contact {
+  display: block;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.business-document__title {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.business-document__title h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  white-space: nowrap;
+}
+
+.business-document__footer {
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+@media print {
+  body.printing-report .business-document__header,
+  body.printing-report .business-document__footer {
+    display: flex;
+  }
+
+  /* El pie va al final de CADA hoja (fijo al borde de la página impresa) */
+  body.printing-report .business-document__footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    background: #fff;
+  }
+
+  /* Para que el contenido de una hoja larga no quede debajo del pie */
+  body.printing-report .print-area:has(.business-document__footer) {
+    padding-bottom: 56px;
+  }
+}
+
 /* --- Perfil del dueño (HU-14) ---------------------------------------------- */
 .profile-card {
   max-width: 820px;
@@ -1728,23 +1994,36 @@ code {
 
 .pos {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  /* Izquierda: escanear y revisar. Derecha: el cobro, de ancho fijo como una caja. */
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 16px;
   align-items: start;
 }
 
-@media (max-width: 960px) {
+/* El cobro queda a la vista aunque el carrito sea largo. */
+.pos__side {
+  position: sticky;
+  top: 16px;
+}
+
+@media (max-width: 1100px) {
   .pos {
     grid-template-columns: 1fr;
   }
+
+  .pos__side {
+    position: static;
+  }
 }
 
+/* --- Caja: escáner -------------------------------------------------------- */
 .pos__scanner {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 16px;
+  padding: 14px 16px 10px;
+  margin-bottom: 14px;
 }
 
 .pos__scanner label {
@@ -1757,62 +2036,413 @@ code {
 .pos__scanner-row {
   display: flex;
   gap: 10px;
+  position: relative;
+}
+
+.pos__scanner-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-muted);
+  pointer-events: none;
 }
 
 .pos__scanner-row input {
   flex: 1;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px 12px 12px 46px;
+  font-size: 1.15rem;
+}
+
+.pos__scanner-row input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.12);
+}
+
+.pos__scanner-row .button {
+  padding: 0 22px;
+}
+
+.pos__scanner-hint {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* Punto verde: el lector está listo para la siguiente lectura. */
+.pos__ready::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--color-ok);
+}
+
+.pos__scanner-hint kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-bg);
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+
+/* Resultado de la última lectura, en la línea del lector. */
+.pos__feedback {
+  font-weight: 600;
+}
+
+.pos__feedback::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pos__feedback--success {
+  color: var(--color-ok);
+}
+
+.pos__feedback--warning {
+  color: #b45309;
+}
+
+.pos__feedback--error {
+  color: var(--color-error);
+}
+
+/* Mensaje de la lectura + «Buscar por nombre» cuando el lector no pudo. */
+.pos__feedback-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* --- Caja: búsqueda manual de producto ------------------------------------ */
+.pos-search__results {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.pos-search__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 1.05rem;
+  background: var(--color-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pos-search__item--active,
+.pos-search__item:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-row-hover);
+}
+
+.pos-search__item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pos-search__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* --- Caja: carrito -------------------------------------------------------- */
+.pos__cart .card__header {
+  align-items: center;
+}
+
+.button--quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--color-muted);
+}
+
+.button--quiet:hover:not(:disabled) {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.pos__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  text-align: center;
+  color: var(--color-muted);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius);
+}
+
+.pos__empty p {
+  margin: 0;
+  max-width: 340px;
+}
+
+.pos__empty strong {
+  display: block;
+  color: var(--color-text);
+}
+
+.pos__col-index {
+  width: 36px;
+  color: var(--color-muted);
+}
+
+.pos__product {
+  display: block;
+}
+
+.pos__code {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+/* Lo último que se escaneó, resaltado: se confirma de un vistazo. */
+.pos__lines-table tbody tr.pos__line--last {
+  background: var(--color-row-hover);
+  box-shadow: inset 4px 0 0 var(--color-primary);
+}
+
+.pos__stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.pos__stepper button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--color-bg);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.pos__stepper button:hover:not(:disabled) {
+  background: var(--color-row-hover);
+}
+
+.pos__stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pos__stepper input.pos__qty {
+  padding: 0;
+  text-align: center;
 }
 
 .pos__qty {
-  width: 72px;
-  border: 1px solid var(--color-border);
+  width: 52px;
+  height: 32px;
+  border: none;
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  text-align: center;
+  font-weight: 600;
+  -moz-appearance: textfield;
+}
+
+.pos__qty::-webkit-inner-spin-button,
+.pos__qty::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pos__remove {
+  display: inline-flex;
+  padding: 6px;
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 5px 6px;
-  text-align: right;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
 }
 
-.pos__total {
+.pos__remove:hover:not(:disabled) {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+/* --- Caja: cobro (como el visor de una caja registradora) ----------------- */
+.pos__checkout {
+  padding: 0;
+  overflow: hidden;
+}
+
+.pos__checkout > :not(.pos__display) {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.pos__display {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin: 0 0 12px;
-  font-size: 1rem;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  background: var(--color-sidebar);
+  color: #fff;
 }
 
-.pos__total strong {
-  font-size: 1.6rem;
+.pos__display-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-sidebar-text);
+}
+
+.pos__display-total {
+  font-size: 2.4rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos__display-detail {
+  font-size: 0.85rem;
+  color: var(--color-sidebar-text);
 }
 
 .pos__methods {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border: none;
   margin: 0 0 14px;
-  padding: 8px 12px 10px;
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .pos__methods legend {
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 0 6px;
+  margin-bottom: 6px;
+  padding: 0;
 }
 
+/* Cada método es un botón grande; el radio sigue ahí para teclado y lectores. */
 .pos__method {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+.pos__method input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
   cursor: pointer;
 }
 
+.pos__method:hover {
+  border-color: var(--color-primary);
+}
+
+.pos__method:has(input:focus-visible) {
+  outline: 3px solid rgba(24, 24, 27, 0.35);
+  outline-offset: 1px;
+}
+
+.pos__method--active {
+  border-color: var(--color-primary);
+  background: var(--color-row-hover);
+  color: var(--color-primary-dark);
+}
+
+.pos__cash input {
+  font-size: 1.2rem;
+  padding: 10px 12px;
+}
+
+.pos__quick-cash {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .pos__change {
-  margin: 4px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-ok-bg);
   color: var(--color-ok);
+  font-weight: 600;
+}
+
+.pos__change strong {
+  font-size: 1.4rem;
+}
+
+.pos__confirm {
+  /* El 100 % menos los márgenes del panel: así no se sale por la derecha. */
+  width: calc(100% - 32px);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pos__confirm:disabled .pos__confirm-total {
+  opacity: 0.7;
+}
+
+.pos__confirm-total {
+  font-variant-numeric: tabular-nums;
 }
 
 .pos__customer {
@@ -1852,12 +2482,76 @@ code {
 }
 
 .pos__result {
-  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    'title summary actions'
+    'lines lines lines';
+  align-items: center;
+  gap: 8px 20px;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  background: var(--color-ok-bg);
+  border: 1px solid #86efac;
+  border-left: 4px solid var(--color-ok);
+  border-radius: var(--radius);
+}
+
+.pos__result-title {
+  grid-area: title;
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-ok);
+}
+
+.pos__result-check {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--color-ok);
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.pos__result .pos__summary {
+  grid-area: summary;
+  margin: 0;
+}
+
+.pos__summary-change dd {
+  color: var(--color-ok);
+}
+
+.pos__result-lines {
+  grid-area: lines;
+}
+
+.pos__result-actions {
+  grid-area: actions;
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .pos__result {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'title' 'summary' 'lines' 'actions';
+  }
 }
 
 .pos__lines {
   margin: 0 0 12px;
   padding-left: 18px;
+}
+
+/* --- Ventas: Historial del día (HU-20) ------------------------------------- */
+/* Total de una venta con ajustes: el efectivo y, debajo, «de ₡X» (el original). */
+.sales-history__original {
+  display: block;
+  font-size: 0.8rem;
 }
 
 /* --- Comprobante de venta (HU-34) -------------------------------------------- */
@@ -2034,6 +2728,13 @@ code {
    pone `data-accent` y `data-font-scale` en <html>. Cada color tiene contraste
    suficiente con texto blanco (WCAG AA, 4.5:1 o más).
    --------------------------------------------------------------------------- */
+:root[data-accent='azul'] {
+  --color-primary: #1c64a8;
+  --color-primary-dark: #154e85;
+  --color-row-hover: #e3edf8;
+  --color-row-selected: #cfe2f7;
+}
+
 :root[data-accent='verde'] {
   --color-primary: #15803d;
   --color-primary-dark: #166534;
@@ -2098,6 +2799,10 @@ code {
   height: 22px;
   border-radius: 50%;
   border: 2px solid rgba(0, 0, 0, 0.12);
+}
+
+.color-option__swatch--neutro {
+  background: #18181b;
 }
 
 .color-option__swatch--azul {
@@ -2275,12 +2980,197 @@ code {
   cursor: pointer;
 }
 
-.kardex-picker__option:hover {
+.kardex-picker__option:hover,
+.kardex-picker__option--active {
   background: var(--color-row-hover);
+}
+
+.kardex-picker__option--active {
+  border-color: var(--color-primary);
 }
 
 .kardex-picker__option .badge {
   margin-left: 8px;
+}
+
+/* «▦ N lotes» junto al concepto: una insignia pequeña, de contorno, que se
+   puede tocar; toma el tono de la línea (verde si entró, neutra si salió). */
+.badge--button {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.badge--button.text-ok {
+  color: var(--color-ok);
+}
+
+/* El concepto de una entrada: en el verde del panel, con su «+». */
+.kardex-concept--in {
+  color: var(--color-ok);
+  font-weight: 600;
+}
+
+/* Ficha de Movimientos: cada dato en su celda, con la etiqueta a la izquierda
+   en el oscuro del sistema (el de la barra lateral, la barra de acciones y los
+   títulos de ventana) y el dato a la derecha, en filas compactas de 12
+   columnas. La etiqueta de «Existencias» toma el tono de su estado (verde
+   «Bien», ámbar «Bajo», rojo «Agotado»), siempre con la palabra al lado. */
+.kardex-sheet {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.kardex-block {
+  display: grid;
+  grid-template-columns: minmax(96px, 34%) 1fr;
+  grid-column: span 3;
+  min-width: 0;
+  min-height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.kardex-block--span-4 {
+  grid-column: span 4;
+}
+
+.kardex-block--span-5 {
+  grid-column: span 5;
+}
+
+.kardex-block--full {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(96px, 12%) 1fr;
+}
+
+.kardex-block__label {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-sidebar);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.kardex-block__label--ok {
+  background: var(--color-ok);
+}
+
+.kardex-block__label--warning {
+  background: var(--color-warning);
+}
+
+.kardex-block__label--error {
+  background: var(--color-error);
+}
+
+.kardex-block__value {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+}
+
+/* Dato con su aviso al lado («30 · Bien») o el resumen en una línea. */
+.kardex-block__row {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kardex-block__row--together {
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .kardex-block,
+  .kardex-block--span-4,
+  .kardex-block--span-5 {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 520px) {
+  .kardex-block,
+  .kardex-block--span-4,
+  .kardex-block--span-5 {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Fila de totales al pie de una tabla (pedidos, carrito, reportes). */
+.table tfoot td {
+  border-top: 2px solid var(--color-text);
+  font-weight: 700;
+}
+
+/* Movimientos: arriba, «Buscar producto» (abre su ventana con todos los
+   productos, la búsqueda y la categoría) y «Limpiar». */
+.kardex-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.kardex-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* «Recientes» dentro de «Buscar producto»: los últimos abiertos, a un toque. */
+.product-picker__recents {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* Ficha sin producto: los mismos datos con «—», en gris. */
+.kardex-sheet--empty .stat-tile__value,
+.kardex-sheet--empty dd {
+  color: var(--color-muted);
+}
+
+/* «Hoy: 24 entran · 13 salen · 6 movimientos» en el encabezado de la tabla. */
+.kardex-today {
+  font-size: 0.9rem;
+}
+
+/* La tabla del historial ocupa siempre el alto de una página completa (15
+   líneas, el encabezado y «Totales»): cambiar de página, de filtro o de
+   producto no mueve lo de abajo. Mientras llega lo nuevo, lo anterior se ve
+   atenuado en vez de un «Cargando…» que empuja todo. */
+.kardex-history {
+  min-height: 630px;
+  transition: opacity 120ms ease;
+}
+
+.kardex-history--busy {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .kardex-pager {
@@ -2289,12 +3179,6 @@ code {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 12px;
-}
-
-.kardex-back {
-  display: inline-block;
-  color: inherit;
-  text-decoration: none;
 }
 
 /* --- Reportes comerciales (HU-28, HU-29, HU-30) ------------------------- */
@@ -2306,13 +3190,67 @@ code {
   margin: 0 0 12px;
 }
 
-.report-result__notices ul {
-  margin: 6px 0 0;
+.report-result__help ul {
+  margin: 6px 0 8px;
   padding-left: 18px;
 }
 
-.report-result__notices li {
+.report-result__help li {
   margin-bottom: 4px;
+}
+
+.report-result__help {
+  margin-bottom: 14px;
+}
+
+.report-result__notices {
+  margin-left: 18px;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+/* Totales: el dato principal grande; el resto, una fila compacta de detalle. */
+.report-totals {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.report-totals__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 8px 24px;
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.stat-tile--primary .stat-tile__value {
+  font-size: 2rem;
+}
+
+.stat-tile--secondary {
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.stat-tile--secondary:hover {
+  box-shadow: none;
+}
+
+.stat-tile--secondary .stat-tile__value {
+  font-size: 1.05rem;
+}
+
+@media (max-width: 720px) {
+  .report-totals {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Los reportes tienen muchas columnas: una tabla más compacta para que quepan sin desplazarse */
@@ -2392,4 +3330,650 @@ code {
   font-size: 1.1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* --- Reportes gestionables (HU-40): filtros, acciones y personalización ---- */
+.reports .tabs__panel {
+  display: grid;
+  gap: 14px;
+}
+
+/* --- Barra de filtros de los reportes ---------------------------------------
+ * Una fila compacta que se aplica sola (sin botón de consultar). Los campos
+ * llevan la etiqueta arriba, en pequeño; los filtros activos, como etiquetas
+ * que se quitan con ×. Mismos colores de la aplicación.
+ */
+.filter-bar {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.filter-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 12px;
+}
+
+.filter-bar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.filter-bar__field--wide {
+  min-width: 200px;
+}
+
+.filter-bar__field--narrow {
+  min-width: 0;
+  width: 128px;
+}
+
+/* Las secciones de inventario van en un fieldset sin marco ni sangría. */
+fieldset.filter-bar__field {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.filter-bar__legend {
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.filter-bar__field > label,
+.filter-bar__legend {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.filter-bar__field input,
+.filter-bar__field select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+
+.filter-bar__field input:focus-visible,
+.filter-bar__field select:focus-visible {
+  border-color: var(--color-primary);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  outline-offset: 0;
+}
+
+.filter-bar__field input[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+.filter-bar__field .form__error {
+  max-width: 220px;
+  font-size: 0.8rem;
+}
+
+/* Segunda línea: filtros activos a la izquierda y el estado («Al día») a la derecha. */
+.filter-bar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.filter-bar__end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* En la fila de los campos, el estado queda abajo a la derecha, alineado con ellos. */
+.filter-bar__row > .filter-bar__end {
+  align-self: flex-end;
+  min-height: 36px;
+}
+
+.filter-bar__note {
+  margin: 0;
+  align-self: center;
+}
+
+.filter-bar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.filter-bar__status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-ok);
+}
+
+.filter-bar__status--pending::before {
+  background: var(--color-primary);
+  animation: filter-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.filter-bar__status--invalid::before {
+  background: var(--color-error);
+}
+
+@keyframes filter-pulse {
+  from {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-bar__status--pending::before {
+    animation: none;
+  }
+}
+
+/* Filtros activos: etiquetas que se quitan con × */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 8%, #fff);
+  color: var(--color-primary-dark);
+  font-size: 0.82rem;
+}
+
+.filter-chip__remove {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.filter-chip__remove:hover {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+/* Secciones del reporte de inventario: casillas con forma de etiqueta. */
+.filter-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.filter-toggle:has(input:checked) {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, #fff);
+  color: var(--color-primary-dark);
+}
+
+.filter-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.filter-toggle input {
+  accent-color: var(--color-primary);
+}
+
+.filter-toggle select {
+  height: 26px;
+  margin-left: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 0.82rem;
+}
+
+.filter-toggle--muted {
+  border-style: dashed;
+  color: var(--color-muted);
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .filter-bar__field,
+  .filter-bar__field--wide {
+    flex: 1 1 100%;
+  }
+
+  .filter-bar__field--narrow {
+    flex: 1 1 calc(50% - 6px);
+    width: auto;
+  }
+}
+
+/* Mientras se actualiza con filtros nuevos, el resultado anterior queda atenuado. */
+.report-result--updating {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.report-result__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.report-result__header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.report-result__header p {
+  margin: 2px 0 0;
+}
+
+.report-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Botones de acción unidos, como una barra de herramientas. */
+.report-actions__group {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.report-actions__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.report-actions__button:last-child {
+  border-right: none;
+}
+
+.report-actions__button:hover:not(:disabled) {
+  background: var(--color-row-hover);
+  color: var(--color-primary-dark);
+}
+
+.report-actions__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.report-actions__note {
+  font-size: 0.8rem;
+}
+
+/* Interruptor (switch): checkbox accesible con apariencia de palanca. */
+.switch {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch__track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-border);
+  transition: background 0.15s;
+}
+
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .switch__track {
+  background: var(--color-primary);
+}
+
+.switch input:checked + .switch__track::after {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible + .switch__track {
+  outline: 3px solid rgba(24, 24, 27, 0.35);
+  outline-offset: 2px;
+}
+
+.switch input:disabled + .switch__track {
+  opacity: 0.55;
+}
+
+.switch:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.customize {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(200px, 1fr);
+  gap: 24px;
+  margin-top: 12px;
+}
+
+.customize fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.customize legend {
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.customize__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 28px;
+}
+
+.customize__side {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.customize__radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.customize__actions {
+  align-items: center;
+}
+
+.customize__spacer {
+  flex: 1;
+}
+
+@media (max-width: 720px) {
+  .customize,
+  .customize__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-pdf__actions {
+  margin: 0 0 14px;
+  align-items: center;
+}
+
+.report-pdf__totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0 0 12px;
+}
+
+.report-pdf__totals dt {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.report-pdf__totals dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.report-pdf__warning {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-left: 4px solid #b45309;
+  background: #fef3c7;
+}
+
+/* Gráficos de los reportes: una sola serie, un solo color, guías tenues. */
+.report-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.report-chart {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.report-chart figcaption {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.report-chart figcaption .muted {
+  font-size: 0.82rem;
+}
+
+.report-columns {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.report-columns__grid {
+  stroke: var(--color-border);
+  stroke-dasharray: 3 4;
+}
+
+.report-columns__base {
+  stroke: var(--color-muted);
+}
+
+.report-columns__axis {
+  fill: var(--color-muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.report-columns__bar {
+  fill: var(--color-primary);
+}
+
+.report-columns__mark:hover .report-columns__bar {
+  fill: var(--color-primary-dark);
+}
+
+.report-detail {
+  margin-top: 6px;
+}
+
+.report-detail[open] summary {
+  margin-bottom: 10px;
+}
+
+/* Mientras llega otra página del detalle, la actual queda a la vista, atenuada. */
+.table--loading {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+/* Factura del proveedor (HU-38): a la izquierda la factura, a la derecha lo que se anota */
+.invoice-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .invoice-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.invoice-preview {
+  position: sticky;
+  top: 60px;
+  margin: 0;
+}
+
+.invoice-preview__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.invoice-preview__frame,
+.invoice-preview__image {
+  display: block;
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-row-alt);
+  object-fit: contain;
+}
+
+/* Un <label> con aspecto de botón (abre el selector de archivos) que no se puede usar ahora */
+.button--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Bento: bloques del inicio, el primero (lo más grave) más grande */
+.bento {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+@media (min-width: 900px) {
+  .bento {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+}
+
+.bento__cell {
+  display: flex;
+  flex-direction: column;
+  min-height: 190px;
+  margin: 0;
+  border-left-width: 1px;
+}
+
+.bento__cell .form__actions {
+  margin-top: auto;
+}
+
+.bento__cell--critical {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #fff 60%, #fef2f2);
+}
+
+.bento__cell--warning {
+  border-color: #fde68a;
+  background: linear-gradient(180deg, #fff 60%, var(--color-warning-bg));
+}
+
+.bento__empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 28px;
+  font-size: 1.05rem;
+}
+
+.bento__empty-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-ok-bg);
+  color: var(--color-ok);
+  font-size: 1.4rem;
+  font-weight: 700;
 }

@@ -23,6 +23,14 @@
 import type { Permission } from '../types/auth';
 
 export type NavIconName =
+  | 'barcode'
+  | 'download'
+  | 'file'
+  | 'sliders'
+  | 'reset'
+  | 'card'
+  | 'ledger'
+  | 'trash'
   | 'home'
   | 'warehouse'
   | 'entries'
@@ -38,7 +46,11 @@ export type NavIconName =
   | 'settings'
   | 'store'
   | 'inbox'
-  | 'logout';
+  | 'logout'
+  | 'swap'
+  | 'box'
+  | 'lock'
+  | 'compass';
 
 export interface NavItem {
   kind: 'link';
@@ -85,7 +97,13 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
         stories: 'HU-01 … HU-10',
         permission: 'inventory.read',
       },
-      { kind: 'link', to: '/kardex', label: 'Kardex', stories: 'HU-31', permission: 'kardex' },
+      {
+        kind: 'link',
+        to: '/movimientos',
+        label: 'Movimientos',
+        stories: 'HU-31',
+        permission: 'kardex',
+      },
     ],
   },
   {
@@ -95,17 +113,11 @@ export const NAVIGATION: (NavItem | NavGroup)[] = [
     label: 'Entradas',
     items: [
       {
+        // Pedidos y Proveedores en una pantalla, con dos pestañas (regla 11).
         kind: 'link',
         to: '/orders',
-        label: 'Pedidos a proveedor',
-        stories: 'HU-22 … HU-24, HU-38',
-        permission: 'purchasing',
-      },
-      {
-        kind: 'link',
-        to: '/suppliers',
-        label: 'Proveedores',
-        stories: 'HU-21, HU-39',
+        label: 'Pedidos',
+        stories: 'HU-21 … HU-24, HU-38, HU-39',
         permission: 'purchasing',
       },
     ],

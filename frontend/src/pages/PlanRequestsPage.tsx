@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../components/use-pagination';
 import { RequestStatusBadge } from '../features/platform/RequestStatusBadge';
 import { ApiError } from '../services/api-client';
 import { platformService } from '../services/platform.service';
 import type { PlanRequest } from '../types/platform';
+import { PageHeader } from '../components/PageHeader';
 
 type Filter = 'PENDING' | 'ALL';
 
@@ -40,12 +43,13 @@ export function PlanRequestsPage() {
     void load();
   }, [load]);
 
+  const pages = usePagination(requests ?? [], filter);
+
   return (
     <>
-      <header className="page-header">
-        <h1>Solicitudes</h1>
-        <p>Los Encargados piden más usuarios para su negocio; aquí se aprueban o rechazan.</p>
-      </header>
+      <PageHeader icon="inbox" title="Solicitudes">
+        Los Encargados piden más usuarios para su negocio; aquí se aprueban o rechazan.
+      </PageHeader>
 
       <div className="toolbar" role="group" aria-label="Filtrar solicitudes">
         <button
@@ -122,7 +126,7 @@ export function PlanRequestsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {requests.map((request) => (
+                  {pages.pageItems.map((request) => (
                     <tr key={request.id}>
                       <td>{new Date(request.createdAt).toLocaleDateString('es-CR')}</td>
                       <td>
@@ -163,6 +167,7 @@ export function PlanRequestsPage() {
               </table>
             </div>
           )}
+          <Pagination {...pages} itemLabel="solicitudes" onPage={pages.setPage} />
         </section>
       )}
 

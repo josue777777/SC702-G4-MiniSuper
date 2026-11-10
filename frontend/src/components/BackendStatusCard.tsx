@@ -81,33 +81,44 @@ export function BackendStatusCard() {
         </button>
       </header>
 
-      <ul className="status-list">
-        <li>
-          <span>API</span>
-          <span className="badge badge--ok">en línea</span>
-          <small>
-            {service?.service} · {service?.environment} · uptime {service?.uptimeSeconds}s
-          </small>
-        </li>
-        <li>
-          <span>PostgreSQL</span>
-          {database?.connected ? (
-            <span className="badge badge--ok">conectada</span>
-          ) : (
-            <span className="badge badge--error">no disponible</span>
-          )}
-          <small>
-            {database?.connected
-              ? `latencia ${database.latencyMs} ms`
-              : (database?.error ?? 'sin respuesta')}
-          </small>
-        </li>
-      </ul>
+      {/*
+        Para el día a día basta saber si todo funciona; el detalle técnico se
+        abre a pedido, o solo si la base de datos no responde.
+      */}
+      <details className="disclosure" open={database?.connected !== true}>
+        <summary>
+          {database?.connected
+            ? 'Todo funciona correctamente'
+            : 'Hay un problema con la base de datos'}
+        </summary>
+        <ul className="status-list">
+          <li>
+            <span>API</span>
+            <span className="badge badge--ok">en línea</span>
+            <small>
+              {service?.service} · {service?.environment} · uptime {service?.uptimeSeconds}s
+            </small>
+          </li>
+          <li>
+            <span>PostgreSQL</span>
+            {database?.connected ? (
+              <span className="badge badge--ok">conectada</span>
+            ) : (
+              <span className="badge badge--error">no disponible</span>
+            )}
+            <small>
+              {database?.connected
+                ? `latencia ${database.latencyMs} ms`
+                : (database?.error ?? 'sin respuesta')}
+            </small>
+          </li>
+        </ul>
 
-      <p className="muted hint">
-        Si PostgreSQL aparece «no disponible», levante la base con <code>npm run db:up</code> y
-        aplique las migraciones con <code>npm run db:migrate</code>.
-      </p>
+        <p className="muted hint">
+          Si PostgreSQL aparece «no disponible», levante la base con <code>npm run db:up</code> y
+          aplique las migraciones con <code>npm run db:migrate</code>.
+        </p>
+      </details>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
+import { ProductQuickSearch } from '../products/ProductQuickSearch';
 import type { InventoryCountPayload } from '../../types/inventory';
 import type { Product } from '../../types/products';
 import { describeDifference, parseCountedQuantity } from './inventory-count';
@@ -14,15 +15,16 @@ interface InventoryCountFormProps {
 /**
  * Formulario de conteo físico (HU-10).
  *
- * El dueño elige el producto y escribe lo que contó; antes de confirmar ve el
- * stock del sistema y la diferencia. La diferencia se calcula aquí solo para
+ * El dueño busca el producto (por nombre, código o con el lector; nunca en una
+ * lista con todo el catálogo) y escribe lo que contó; antes de confirmar ve el
+ * stock del sistema y la diferencia. El historial no está aquí: vive en
+ * Reportes › Conteos, donde se filtra por período y se descarga. La diferencia se calcula aquí solo para
  * mostrarla: la que se guarda la calcula el backend.
  */
 export function InventoryCountForm({ products, busy, onConfirm }: InventoryCountFormProps) {
   const [productId, setProductId] = useState('');
   const [counted, setCounted] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
-  const [scanCode, setScanCode] = useState('');
   const [scanMessage, setScanMessage] = useState<string | null>(null);
 
   const product = products.find((candidate) => candidate.id === productId);
@@ -32,11 +34,15 @@ export function InventoryCountForm({ products, busy, onConfirm }: InventoryCount
       ? describeDifference(parsed.quantity - product.stock)
       : undefined;
 
+  const choose = useCallback((picked: Product, message: string | null): void => {
+    setProductId(picked.id);
+    setError(undefined);
+    setScanMessage(message);
+  }, []);
+
   const identifyCode = useCallback(
     (rawCode: string): void => {
       const code = rawCode.trim();
-
-      setScanCode('');
 
       if (code === '' || !/^[A-Za-z0-9._-]{4,64}$/.test(code) || !hasValidGtinCheckDigit(code)) {
         setScanMessage('Lectura incompleta o dañada. Escanee de nuevo el código.');
@@ -54,19 +60,14 @@ export function InventoryCountForm({ products, busy, onConfirm }: InventoryCount
         return;
       }
 
-      setProductId(match.id);
-      setError(undefined);
-      setScanMessage(`Producto identificado: ${match.name}.`);
+      choose(match, `Producto identificado: ${match.name}.`);
     },
-    [products],
+    [products, choose],
   );
 
+  // El lector es opcional: si se escanea con el foco fuera de un campo, igual
+  // identifica el producto (en el buscador, el código + Enter hace lo mismo).
   useWedgeScanner(identifyCode);
-
-  function handleScanSubmit(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    identifyCode(scanCode);
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -100,25 +101,37 @@ export function InventoryCountForm({ products, busy, onConfirm }: InventoryCount
         </p>
       ) : (
         <>
-          <form className="pos__scanner" onSubmit={handleScanSubmit}>
-            <label htmlFor="count-barcode">Identificar producto con lector</label>
-            <div className="pos__scanner-row">
-              <input
-                id="count-barcode"
-                autoFocus
-                value={scanCode}
-                maxLength={64}
-                autoComplete="off"
-                placeholder="Escanee el código y presione Enter"
-                onChange={(event) => {
-                  setScanCode(event.target.value);
-                  setScanMessage(null);
-                }}
-              />
-              <button type="submit" className="button button--dark" disabled={busy}>
-                Identificar
-              </button>
-            </div>
+          <div className="form__field">
+            <label htmlFor="count-search">Producto</label>
+            {product === undefined ? (
+              <>
+                <ProductQuickSearch
+                  id="count-search"
+                  products={products}
+                  label="Buscar producto para contar"
+                  placeholder="Escriba el nombre o el código, o escanéelo con el lector"
+                  onPick={(picked) => choose(picked, null)}
+                />
+                <p className="muted hint">
+                  Con el lector: escanee el código aquí o en cualquier parte de la ventana.
+                </p>
+              </>
+            ) : (
+              <div className="pos__scanner-row">
+                <input id="count-search" value={`${product.code} — ${product.name}`} disabled />
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => {
+                    setProductId('');
+                    setCounted('');
+                    setScanMessage(null);
+                  }}
+                >
+                  Cambiar producto
+                </button>
+              </div>
+            )}
             {scanMessage === null ? null : (
               <p
                 className={
@@ -129,28 +142,9 @@ export function InventoryCountForm({ products, busy, onConfirm }: InventoryCount
                 {scanMessage}
               </p>
             )}
-          </form>
+          </div>
           <form className="form" onSubmit={(event) => void handleSubmit(event)} noValidate>
             <div className="form__grid">
-              <div className="form__field">
-                <label htmlFor="count-product">Producto</label>
-                <select
-                  id="count-product"
-                  value={productId}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                    setProductId(event.target.value);
-                    setError(undefined);
-                  }}
-                >
-                  <option value="">Seleccione…</option>
-                  {products.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.code} — {option.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="form__field">
                 <label htmlFor="count-system">Stock en el sistema</label>
                 <input id="count-system" value={product?.stock ?? '—'} disabled />

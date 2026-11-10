@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { SESSION_TTL_SECONDS } from '../services/auth.service.js';
 
+/** Nombre de la cookie que guarda el token de sesión en el navegador. */
 export const SESSION_COOKIE = 'ms_session';
 
 /** Lee la cookie de sesión de la cabecera `Cookie` (sin dependencia de cookie-parser). */

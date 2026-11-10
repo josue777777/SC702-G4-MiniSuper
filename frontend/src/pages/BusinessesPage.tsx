@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../components/use-pagination';
 import { validateEmail, validateName } from '../features/auth/account-rules';
 import { TemporaryPasswordDialog } from '../features/users/TemporaryPasswordDialog';
 import { ApiError } from '../services/api-client';
 import { platformService } from '../services/platform.service';
 import type { BusinessSummary, BusinessWithManager } from '../types/platform';
+import { PageHeader } from '../components/PageHeader';
 
 function describeError(error: unknown): string {
   return error instanceof ApiError
@@ -54,15 +57,14 @@ export function BusinessesPage() {
     void load();
   }
 
+  const pages = usePagination(businesses ?? [], null);
+
   return (
     <>
-      <header className="page-header">
-        <h1>Negocios</h1>
-        <p>
-          Los negocios registrados: su nivel de cuenta, cuántos usuarios usan y su Encargado. Los
-          datos internos de cada negocio solo los ve su gente.
-        </p>
-      </header>
+      <PageHeader icon="store" title="Negocios">
+        Los negocios registrados: su nivel de cuenta, cuántos usuarios usan y su Encargado. Los
+        datos internos de cada negocio solo los ve su gente.
+      </PageHeader>
 
       <div className="toolbar">
         <button
@@ -130,7 +132,7 @@ export function BusinessesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {businesses.map((business) => (
+                  {pages.pageItems.map((business) => (
                     <tr key={business.id}>
                       <td>
                         <strong>{business.name}</strong>
@@ -194,6 +196,7 @@ export function BusinessesPage() {
               </table>
             </div>
           )}
+          <Pagination {...pages} itemLabel="negocios" onPage={pages.setPage} />
         </section>
       )}
 

@@ -155,7 +155,7 @@ export async function dbBalance(customerId: string): Promise<string> {
 /** Abre Clientes, busca al cliente por nombre y abre su cuenta. Devuelve la ficha. */
 export async function openAccount(page: Page, name: string): Promise<Locator> {
   await page.goto('/customers');
-  await page.getByLabel('Buscar cliente por nombre').fill(name);
+  await page.getByLabel('Buscar clientes').fill(name);
   await page.getByRole('button', { name: `Ver cuenta de ${name}` }).click();
 
   const account = page.getByRole('region', { name: `Cuenta de ${name}` });
@@ -200,4 +200,26 @@ export async function openPaymentModal(page: Page, account: Locator): Promise<Lo
   await expect(dialog).toBeVisible();
 
   return dialog;
+}
+
+/**
+ * Tabla de la ficha del cliente tal como se ve. No es un reporte: no tiene el
+ * detalle plegado de «Ver detalle», así que se lee directamente.
+ */
+export async function readAccountTable(
+  page: Page,
+  name: string,
+): Promise<{ headers: string[]; rows: string[][] }> {
+  const table = page.getByRole('table', { name, exact: true });
+
+  await expect(table).toBeVisible();
+
+  const headers = (await table.locator('thead th').allTextContents()).map((value) => value.trim());
+  const rows = await Promise.all(
+    (await table.locator('tbody tr').all()).map(async (row) =>
+      (await row.locator('td').allTextContents()).map((value) => value.trim()),
+    ),
+  );
+
+  return { headers, rows };
 }

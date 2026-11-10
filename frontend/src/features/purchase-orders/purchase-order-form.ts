@@ -19,6 +19,7 @@ export interface OrderLine {
   subtotal: string;
 }
 
+/** Cantidad máxima por línea (la misma que acepta el servidor). */
 export const MAX_QUANTITY = 1_000_000;
 
 /** Número del pedido como lo lee una persona: 7 → «PED-0007». */
@@ -26,8 +27,10 @@ export function formatOrderNumber(number: number): string {
   return `PED-${String(number).padStart(4, '0')}`;
 }
 
+/** Cómo se muestra cada estado del pedido en pantalla. */
 export const STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
   PENDING: 'Pendiente',
+  PARTIAL: 'Parcial',
   RECEIVED: 'Recibido',
 };
 
@@ -77,6 +80,13 @@ export function buildOrderLines(
   });
 }
 
+/**
+ * Total que se muestra mientras se arma el pedido: suma de los subtotales, en
+ * céntimos. El total que se guarda lo calcula el servidor con el costo acordado.
+ *
+ * @example
+ * calculateOrderTotal([{ subtotal: '21600.00' }, { subtotal: '12000.00' }]); // "33600.00"
+ */
 export function calculateOrderTotal(lines: OrderLine[]): string {
   return fromCents(lines.reduce((sum, line) => sum + toCents(line.subtotal), 0));
 }
@@ -106,6 +116,10 @@ export function validateOrder(
   return null;
 }
 
+/**
+ * Arma lo que se envía al servidor: proveedor, notas (vacías → `null`) y, de cada
+ * línea, solo el producto y la cantidad. El costo no se envía: lo pone el servidor.
+ */
 export function toOrderPayload(
   supplierId: string,
   notes: string,
@@ -118,4 +132,14 @@ export function toOrderPayload(
     notes: trimmed === '' ? null : trimmed,
     items: lines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
   };
+}
+
+/**
+ * Dirección de la carga de una entrega en Movimientos › «Carga de pedido»,
+ * donde se verifica antes de subir el stock.
+ *
+ * @example loadUrl('p1', 'r1'); // "/movimientos?pedido=p1&entrega=r1"
+ */
+export function loadUrl(orderId: string, receiptId: string): string {
+  return `/movimientos?${new URLSearchParams({ pedido: orderId, entrega: receiptId }).toString()}`;
 }

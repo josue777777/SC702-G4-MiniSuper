@@ -1,0 +1,254 @@
+# Pedidos y proveedores
+
+Historias: HU-21, HU-22, HU-24 y la recepción de HU-38 (pendientes: HU-23, HU-39 y,
+de HU-38, los lotes con vencimiento y la entrada desde Movimientos). Volver al
+[índice de la guía](README.md).
+
+## 1. Qué hace
+
+- **Proveedores**: a quién se le compra y qué productos le suministra cada uno, con el
+  costo acordado (HU-21).
+- **Pedidos**: armar un pedido a un proveedor con sus productos y cantidades, ver el
+  historial filtrado por proveedor (HU-22) y abrir el documento para imprimirlo o
+  guardarlo como PDF (HU-24).
+- **Entregas** (HU-38): un pedido se recibe en una o varias entregas, cada una con su
+  **factura**, el **día real** en que llegó y la cantidad real de cada producto. El
+  pedido queda «Parcial» y sigue abierto hasta que llega todo o se **da por
+  concluido**. Al registrar una entrega se elige: **cargarla ya al inventario** o
+  **dejar la carga pendiente** y confirmarla después (botón «Cargar al inventario»
+  en esa factura; el historial avisa «Carga pendiente»).
+- **Registrar entrega** (HU-38): en «Ver pedido», «📦 Registrar entrega» abre su ventana
+  AQUÍ, sobre «Ver pedido» (sin salir de Pedidos). Quien usa el sistema decide a dónde va:
+  - «Cancelar» vuelve a «Ver pedido», sin guardar nada;
+  - «Registrar y dejar la carga pendiente» guarda la entrega y vuelve a «Ver pedido»,
+    donde la entrega queda con su botón «Cargar al inventario»;
+  - «Registrar y cargar al inventario» guarda la entrega y lleva a Movimientos ›
+    «Carga de pedido» con la entrega ya en pantalla, para una última verificación
+    («¿Está seguro…?»): ahí sube el stock. «Cargar al inventario» de una entrega
+    pendiente lleva al mismo lugar. «Cancelar» en la verificación vuelve a «Ver pedido»
+    (`/orders?pedido=<id>` reabre el pedido).
+
+  Ver `docs/guia/productos-e-inventario.md`.
+- **Comparar costos** (HU-39): en Inventario, con el producto marcado, «⚖ Comparar costos»
+  muestra el costo de cada proveedor activo que lo suministra, del más barato al más caro:
+  «Más barato» y cuánto más cuesta cada uno, con la fecha del costo. Es siempre el
+  **último costo registrado**: el de Proveedores › Editar o el de la última compra directa
+  (Movimientos › Ingreso). Con un solo proveedor lo dice: no hay con quién comparar.
+- **Lotes con vencimiento** (HU-38): en «Registrar entrega» cada producto lleva su
+  **lote** y, si vence, su **fecha de vencimiento**, en la misma fila. Si llegó en
+  varios lotes, «Partir en lotes» abre una ventana solo para ese producto (lote,
+  vence, unidades; de 4 en 4) y la fila resume «N lotes», la suma y el que vence
+  primero. Un producto marcado **«No vence»** (Inventario › Editar › Existencias) no
+  pide fecha y, si no se escribe el lote, su lote es el número de factura.
+- **Proveedores › Editar**: los productos que suministra se agregan buscándolos
+  («Agregar producto que suministra», sin lista desplegable del catálogo), se ven de 4 en 4
+  con buscador y se quitan con «Quitar» (los de proveedor principal se cambian en
+  Inventario). «N productos» de la tabla abre solo esa lista, también de 4 en 4.
+- **«N productos» en el historial**: abre solo la lista de productos del pedido (lo pedido y
+  lo recibido), de 4 en 4 (`OrderProductsModal.tsx`). El pedido completo es «Ver pedido».
+- **Nuevo pedido**: al elegir el proveedor, sus productos se ven de 4 en 4 con un buscador
+  (`MODAL_PAGE_SIZE`, la regla de las listas en una ventana); las cantidades escritas se
+  conservan al cambiar de página o de búsqueda y el total suma todo el pedido.
+- **Documento del pedido** (Imprimir / Guardar PDF): encabezado y pie con los datos del
+  negocio y su logo (`features/business/BusinessDocument.tsx`), y la constancia con
+  «Generado por» (el usuario), «Fecha de recepción» y «Firma». En pantalla, «Ver pedido»
+  muestra la información sin esa constancia.
+- **Factura del proveedor** (HU-38): al registrar la entrega se puede adjuntar el PDF
+  o la foto de la factura del proveedor; se ve al lado de las cantidades mientras se
+  anotan. Si no se adjuntó, en «Ver pedido» › Entregas cada factura tiene «📎 Adjuntar
+  factura» o «📄 Ver factura proveedor», junto a «Cargar al inventario».
+- **Historial** con filtros que se aplican solos: buscador (PED-0007, factura,
+  proveedor o producto), proveedor, estado (también «Con carga pendiente») y período.
+
+En el menú es una sola entrada, **Pedidos**, con dos pestañas: «Pedidos» y
+«Proveedores» (`/orders?seccion=proveedores`). Las dos usan el permiso `purchasing`
+(Encargado y Bodega).
+
+## 2. Flujo de información
+
+### Crear un pedido (HU-24)
+
+```text
+Entrada   PurchaseOrderForm.tsx: proveedor + { productId, quantity } por línea
+          (el costo NO lo manda la pantalla)
+   │
+   ▼  POST /api/purchase-orders
+routes/purchase-orders.routes.ts → controllers/purchase-orders.controller.ts
+   │   valida con validators/purchase-orders.validator.ts
+   ▼
+services/purchase-orders.service.ts → createOrder()
+   │   1. busca el catálogo del proveedor (findSupplierCatalog); si no existe o está
+   │      inactivo → 400
+   │   2. a cada línea le pone el costo ACORDADO con ese proveedor; un producto que
+   │      el proveedor no suministra → 400
+   │   3. calcula el total (calculateTotal)
+   ▼
+repositories/purchase-orders.repository.ts → create()
+   │   en una transacción: toma el consecutivo (nextDocumentNumber → PED-0007),
+   │   guarda el pedido PENDING y sus líneas
+   ▼
+Responde  201 { data: PurchaseOrderDto }  →  la pantalla lo agrega al historial
+```
+
+**Por qué el costo lo pone el servidor.** Si lo mandara la pantalla, alguien podría
+cambiarlo en la petición. El servidor usa el costo guardado en `SupplierProduct`.
+
+### Registrar una entrega (HU-38)
+
+```text
+Entrada   ReceiveOrderModal.tsx: { invoiceNumber, receivedOn, loadNow,
+            items: [{ productId, quantity, lots: [{ lotNumber, expirationDate, quantity }] }] }
+   ▼  POST /api/purchase-orders/:id/receipts
+services/purchase-orders.service.ts → receiveOrder()
+   │   reglas: pedido abierto; fecha no futura ni anterior al pedido; solo productos
+   │   del pedido; nunca más de lo que falta; las líneas en 0 no se guardan;
+   │   resolveReceiptLots(): lotes que suman lo que llegó, sin repetir; si vence,
+   │   lote y fecha en cada uno (no vencido el día que llegó); si no vence, sin
+   │   fecha y, sin lote escrito, el lote es la factura
+   ▼
+repositories/purchase-orders.repository.ts → receive()   (una sola transacción)
+   │   1. suma lo recibido a cada línea SOLO si nadie la cambió (si no → 409)
+   │   2. guarda PurchaseReceipt + PurchaseReceiptItem + PurchaseReceiptItemLot
+   │      (factura única en el pedido)
+   │   3. estado: RECEIVED si llegó todo (con la fecha real), si no PARTIAL
+   │   4. si loadNow: loadReceiptStock() → por producto: crea sus ProductLot,
+   │      sube el stock, crea la InventoryMovement ENTRY (motivo «Recepción
+   │      PED-0007 · Factura F-120», la entrega enlazada) y liga los lotes a esa
+   │      entrada; la fecha del producto pasa a ser la del lote que vence primero
+   ▼
+Responde  201 { data: PurchaseOrderDto }  (con receipts, receivedQuantity y pendingQuantity)
+```
+
+La carga pendiente se confirma con `POST /:id/receipts/:receiptId/load`.
+`loadReceiptStock()` marca la entrega como cargada **solo si seguía pendiente**: si
+dos personas confirman a la vez, el stock se suma una vez y la otra recibe 409.
+
+### Otras rutas
+
+| Ruta | Para qué |
+| --- | --- |
+| `GET /api/purchase-orders?supplierId=` | Historial, filtrable por proveedor (HU-22) |
+| `GET /api/suppliers/costs/:productId` | Comparar el costo de un producto entre sus proveedores activos (HU-39) |
+| `GET /api/purchase-orders/:id` | Un pedido con sus líneas y sus entregas: el documento «Ver pedido» |
+| `POST /api/purchase-orders/:id/receipts/:receiptId/load` | Cargar al inventario una entrega pendiente (HU-38) |
+| `POST /api/purchase-orders/:id/close` | Dar por concluido un pedido que llegó en parte (HU-38) |
+| `PUT /api/purchase-orders/:id/receipts/:receiptId/invoice` · `GET` | Adjuntar (o reemplazar) y ver la factura del proveedor: PDF, PNG, JPG o WEBP hasta 5 MB; el nombre viaja en `X-File-Name`. Se revisa la firma del archivo (`utils/invoice-file.ts`) |
+| `GET /api/suppliers` · `POST` · `PATCH /:id` | Lista, alta y edición de proveedores con sus productos (HU-21) |
+
+### En el navegador
+
+```text
+pages/OrdersPage.tsx                     las pestañas (la elegida va en ?seccion=)
+  ├─ features/purchase-orders/OrdersSection.tsx
+  │    ├─ use-purchase-orders.ts          carga pedidos y proveedores, crea, abre
+  │    ├─ PurchaseOrderForm.tsx            el formulario (purchase-order-form.ts calcula)
+  │    ├─ PurchaseOrderHistory.tsx         la lista paginada y el filtro por proveedor
+  │    ├─ PurchaseOrderDetail.tsx          el documento en un Modal, con «Imprimir»,
+  │    │                                   «Etiquetas» (una por unidad pedida, HU-07) y
+  │    │                                   las entregas con «Cargar al inventario» (HU-38)
+  │    ├─ ReceiveOrderModal.tsx            registrar una entrega (factura, fecha, cantidades,
+  │    │                                   lote y vencimiento, archivo con su vista previa)
+  │    ├─ ReceiptLotsModal.tsx / receipt-lots.ts   «Partir en lotes» y sus reglas
+  │    ├─ InvoicePreview.tsx / invoice-file.ts   visor (PDF o imagen) y reglas del archivo
+  │    └─ order-filters.ts                 filtros del historial (estado, período, buscador)
+  └─ features/suppliers/SuppliersSection.tsx
+       ├─ use-suppliers.ts                  carga, crea y edita
+       ├─ SupplierForm.tsx / SupplierTable.tsx
+       └─ SupplierProductsModal.tsx         los productos de un proveedor, en una ventana
+```
+
+El PDF no lo genera el servidor: «Imprimir» usa el diálogo del navegador
+(`window.print()`), que permite elegir «Guardar como PDF». La clase
+`printing-report` hace que solo se imprima el documento.
+
+## 3. Librerías
+
+| Librería | Qué resuelve aquí |
+| --- | --- |
+| **Zod** | Que no llegue un pedido sin proveedor, sin líneas o con cantidades inválidas |
+| **Prisma** (`$transaction` + SQL del consecutivo) | Que el número `PED-xxxx` no se repita aunque dos personas guarden a la vez, y que no se gaste si el pedido falla |
+
+## 4. Cálculos y reglas
+
+### Un producto, varios proveedores (`SupplierProduct`)
+
+La relación es de **muchos a muchos**: un proveedor suministra muchos productos y un
+producto puede comprarse a varios proveedores. Cada pareja es una fila de
+`SupplierProduct` con su propio **costo acordado**:
+
+```text
+Coca Cola 250 ml   IMPERIAL     ₡1 000,00   principal
+Coca Cola 250 ml   Distribuidora ₡  950,00
+@@unique([supplierId, productId]) → la misma pareja no se repite
+```
+
+Uno solo es el **principal** (`isPreferred`): el que muestra Inventario y el que se
+cambia al modificar el producto. Un pedido usa el costo acordado con el proveedor del
+pedido, no el principal. Comparar costos entre proveedores es HU-39 (pendiente).
+
+### Total del pedido (`calculateTotal` en el servidor, `calculateOrderTotal` en la pantalla)
+
+```text
+Línea       = cantidad × costo acordado      (en céntimos, sin decimales flotantes)
+Café 500 g  = 12 × ₡1 800,00 = ₡21 600,00
+Arroz 1 kg  = 20 × ₡600,00   = ₡12 000,00
+Total       = ₡33 600,00
+```
+
+La pantalla calcula lo mismo para mostrar el total mientras se escribe, pero el que
+se guarda es el del servidor.
+
+### Lo que falta de cada línea (`pendingQuantity`)
+
+`pendingQuantity = quantity − receivedQuantity` (nunca negativo). Ejemplo: se pidieron
+10 arroces; llegan 6 con la factura F-100 → faltan 4; llegan 4 con la F-101 → falta 0
+y el pedido queda «Recibido» con la fecha de la F-101. `receivedQuantity` cuenta al
+**registrar** la entrega (llegó la mercadería); el **stock** sube al **cargarla**.
+
+### Lotes de una entrega (`resolveReceiptLots` en el servidor, `lotsError` en la pantalla)
+
+Los lotes de un producto suman exactamente lo que llegó. Ejemplo: llegan 10 leches en
+dos lotes, L-1 (vence 01/12) con 6 y L-2 (vence 15/12) con 4 → se guardan los dos, cada
+uno con su fecha. Un lote nuevo **nunca** cambia la fecha de los que ya había: el stock
+total es la suma de todos los lotes (`ProductLot`). Un detergente que «No vence», sin lote
+escrito, entra en el lote «F-120» (la factura) y sin fecha.
+
+### Comparar costos (`rankSupplierCosts`)
+
+Del costo más bajo al más alto (en céntimos, sin errores de coma flotante); si dos cuestan
+lo mismo, por nombre, y los dos son «más baratos». La diferencia es contra el más barato:
+
+```text
+Comercial del Valle ₡950,00 → Más barato
+Distribuidora Central ₡980,00 → +₡30,00
+Abarrotes La Unión ₡1 010,50 → +₡60,50
+```
+
+Una compra directa guarda su costo en `SupplierProduct.unitCost` (crea la relación si no
+existía): así la comparación usa siempre el último costo de cada proveedor.
+
+### Consecutivo del pedido (`nextDocumentNumber`)
+
+Cada negocio tiene su propio contador por tipo de documento (ventas y pedidos van
+por separado). Se toma dentro de la misma transacción: atómico y sin huecos.
+
+## 5. Dónde buscar cuando algo falla
+
+| Síntoma | Dónde mirar |
+| --- | --- |
+| «Hay productos que este proveedor no suministra» | El producto no está asociado al proveedor: pestaña Proveedores › Editar |
+| El costo del pedido no es el esperado | `SupplierProduct.unitCost` del proveedor (no el costo del producto) |
+| «No se puede quitar … es su proveedor principal» | `suppliers.service.ts`: primero cambie el proveedor principal en Inventario |
+| El PDF imprime toda la pantalla | `PurchaseOrderDetail.tsx` (`printing-report`) y los estilos `@media print` |
+| Un número de pedido se repite | `repositories/document-sequence.ts` |
+| «El pedido cambió mientras se registraba la entrega» | Dos personas registraron a la vez: `receive()` en el repositorio; abrir el pedido de nuevo |
+| «La mercadería no puede llegar antes de hacer el pedido» con la fecha de hoy | Se compara con el día del pedido en Costa Rica (`todayInBusinessZone`), no en UTC |
+| La factura no se ve en la ventana | Solo PDF o imagen; el visor de PDF es el del navegador (`InvoicePreview.tsx`) |
+| El stock no subió después de registrar una entrega | La carga quedó pendiente: «Ver pedido» › Entregas › «Cargar al inventario» |
+| «Indique el lote y la fecha de vencimiento de …» | El producto vence: escriba lote y fecha, o márquelo «No vence» en Inventario › Editar |
+| «Los lotes de … suman X, pero llegaron Y» | En «Partir en lotes» la suma debe ser igual a lo que llegó |
+
+Pruebas: `backend/src/**/purchase-orders*.test.ts`,
+`repositories/purchase-receipts.integration.test.ts` (stock, Kardex y doble carga en
+PostgreSQL), `suppliers*.test.ts`, `e2e/tests/hu-38-recepcion-pedidos.spec.ts` y
+`e2e/tests/pantallas-listas.spec.ts` (pestañas de Pedidos).

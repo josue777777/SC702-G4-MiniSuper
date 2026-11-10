@@ -1,0 +1,153 @@
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import type { PurchaseOrderPayload, PurchaseOrderSummary } from '../../types/purchase-orders';
+import { PurchaseOrderDetail } from './PurchaseOrderDetail';
+import { PurchaseOrderForm } from './PurchaseOrderForm';
+import { OrderProductsModal } from './OrderProductsModal';
+import { PurchaseOrderHistory } from './PurchaseOrderHistory';
+import { usePurchaseOrders } from './use-purchase-orders';
+
+/**
+ * Pestaña «Pedidos» de la pantalla Pedidos: armar el pedido a un proveedor, su
+ * PDF y el historial (HU-22, HU-24), y registrar lo que llega (HU-38). Con
+ * `?pedido=<id>` en la dirección se abre «Ver pedido» de ese pedido (así se
+ * vuelve desde Movimientos).
+ */
+export function OrdersSection() {
+  const {
+    phase,
+    suppliers,
+    orders,
+    message,
+    filter,
+    setFilter,
+    selected,
+    notice,
+    busy,
+    reload,
+    createOrder,
+    openOrder,
+    closeOrder,
+    attachInvoice,
+    registerDelivery,
+    concludeOrder,
+    dismissNotice,
+  } = usePurchaseOrders();
+  const [formOpen, setFormOpen] = useState(false);
+  /** Pedido cuyos productos se están viendo («N productos» del historial). */
+  const [productsOf, setProductsOf] = useState<PurchaseOrderSummary | null>(null);
+  const [params, setParams] = useSearchParams();
+  const orderParam = params.get('pedido');
+
+  // Al volver de Movimientos (por ejemplo, «Cancelar» en la carga de un pedido),
+  // `?pedido=<id>` reabre «Ver pedido» de ese pedido, de donde se venía.
+  useEffect(() => {
+    if (orderParam !== null) {
+      void openOrder(orderParam);
+      setParams({}, { replace: true });
+    }
+  }, [orderParam, openOrder, setParams]);
+
+  async function handleSubmit(payload: PurchaseOrderPayload): Promise<void> {
+    if (await createOrder(payload)) {
+      setFormOpen(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="toolbar">
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={busy || formOpen || phase !== 'ready'}
+          onClick={() => {
+            closeOrder();
+            setFormOpen(true);
+          }}
+        >
+          + Nuevo pedido
+        </button>
+      </div>
+
+      {/*
+        Con el formulario abierto, el error se ve dentro de su ventana; con un
+        pedido abierto, todos los avisos se ven dentro de «Ver pedido».
+      */}
+      {notice === null || selected !== null || (formOpen && notice.kind === 'error') ? null : (
+        <p className={`alert alert--${notice.kind}`} role="status">
+          {notice.text}
+          <button
+            type="button"
+            className="alert__close"
+            onClick={dismissNotice}
+            aria-label="Cerrar aviso"
+          >
+            ×
+          </button>
+        </p>
+      )}
+
+      {formOpen ? (
+        <PurchaseOrderForm
+          suppliers={suppliers}
+          busy={busy}
+          serverError={notice?.kind === 'error' ? notice.text : null}
+          onCancel={() => {
+            setFormOpen(false);
+            dismissNotice();
+          }}
+          onSubmit={(payload) => void handleSubmit(payload)}
+        />
+      ) : null}
+
+      {selected === null ? null : (
+        <PurchaseOrderDetail
+          order={selected}
+          busy={busy}
+          onClose={closeOrder}
+          notice={notice}
+          onDismissNotice={dismissNotice}
+          onAttachInvoice={(receiptId, invoiceNumber, file) =>
+            attachInvoice(selected, receiptId, invoiceNumber, file)
+          }
+          onRegisterDelivery={(payload, invoice) => registerDelivery(selected, payload, invoice)}
+          onConclude={() => concludeOrder(selected)}
+        />
+      )}
+
+      {productsOf === null ? null : (
+        <OrderProductsModal order={productsOf} onClose={() => setProductsOf(null)} />
+      )}
+
+      {phase === 'loading' ? <p className="card muted">Cargando pedidos…</p> : null}
+
+      {phase === 'failed' ? (
+        <section className="card">
+          <header className="card__header">
+            <h2>No se pudieron cargar los pedidos</h2>
+            <button type="button" className="button" onClick={() => void reload()}>
+              Reintentar
+            </button>
+          </header>
+          <p className="muted">{message}</p>
+        </section>
+      ) : null}
+
+      {phase === 'ready' ? (
+        <PurchaseOrderHistory
+          orders={orders}
+          suppliers={suppliers}
+          filter={filter}
+          busy={busy}
+          onFilterChange={setFilter}
+          onShowProducts={setProductsOf}
+          onOpen={(id) => {
+            setFormOpen(false);
+            void openOrder(id);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}

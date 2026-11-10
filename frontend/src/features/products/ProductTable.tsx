@@ -1,4 +1,6 @@
-import type { KeyboardEvent, ReactNode } from 'react';
+import { useEffect, type KeyboardEvent, type ReactNode } from 'react';
+import { Pagination } from '../../components/Pagination';
+import { usePagination } from '../../components/use-pagination';
 import type { Product } from '../../types/products';
 import { formatMoney } from './money';
 
@@ -17,6 +19,8 @@ interface ProductTableProps {
   onSelect: (product: Product) => void;
   /** Doble clic o Enter sobre una fila: abrir el producto para modificarlo. */
   onOpen: (product: Product) => void;
+  /** Cambia con la vista, la categoría o la búsqueda: vuelve a la página 1. */
+  pageResetKey?: string;
 }
 
 /**
@@ -28,6 +32,9 @@ interface ProductTableProps {
  * administración, y ver el estado es lo que permite comprobar que la
  * desactivación funcionó. Con filtro de categoría o búsqueda solo llegan
  * activos. Las consultas de venta (HU-16) sí filtrarán siempre por activos.
+ *
+ * Se muestra en páginas de 15 (`DEFAULT_PAGE_SIZE`). Si el producto marcado queda en otra página
+ * (por ejemplo, uno recién creado), la tabla salta a la suya.
  */
 export function ProductTable({
   products,
@@ -38,8 +45,22 @@ export function ProductTable({
   selectedId,
   onSelect,
   onOpen,
+  pageResetKey = '',
 }: ProductTableProps) {
   const searching = searchTerm !== '';
+  const pages = usePagination(products, pageResetKey);
+  const { pageSize, setPage } = pages;
+
+  // Ir a la página del producto marcado cuando la marca viene de fuera de la tabla.
+  useEffect(() => {
+    const index = products.findIndex((product) => product.id === selectedId);
+
+    if (index >= 0) {
+      setPage(Math.floor(index / pageSize) + 1);
+    }
+    // Solo al cambiar la marca: si dependiera de `products`, no dejaría pasar de página.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLTableRowElement>, product: Product): void {
     if (event.key === 'Enter') {
@@ -108,11 +129,10 @@ export function ProductTable({
               </th>
               <th className="table__number">Stock</th>
               <th>Proveedor</th>
-              <th>Estado</th>
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => {
+            {pages.pageItems.map((product) => {
               const selected = product.id === selectedId;
               const classes = [
                 'table__row--selectable',
@@ -132,25 +152,33 @@ export function ProductTable({
                 >
                   <td>{product.code}</td>
                   <td>{product.barcode ?? '—'}</td>
-                  <td>{product.name}</td>
+                  <td>
+                    {product.name}
+                    {/*
+                      El gris de la fila ya marca lo desactivado; la etiqueta lo dice también en
+                      palabras, porque el color solo no se ve impreso ni para quien no distingue
+                      bien los colores.
+                    */}
+                    {product.isActive ? null : (
+                      <>
+                        {' '}
+                        <span className="badge badge--muted">desactivado</span>
+                      </>
+                    )}
+                  </td>
                   <td>{product.categoryName}</td>
                   <td className="table__number">{formatMoney(product.cost)}</td>
                   <td className="table__number">{formatMoney(product.price)}</td>
                   <td className="table__number">{product.stock}</td>
                   <td>{product.preferredSupplierName ?? '—'}</td>
-                  <td>
-                    {product.isActive ? (
-                      <span className="badge badge--ok">Activo</span>
-                    ) : (
-                      <span className="badge badge--muted">Inactivo</span>
-                    )}
-                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      <Pagination {...pages} itemLabel="productos" onPage={setPage} />
     </section>
   );
 }

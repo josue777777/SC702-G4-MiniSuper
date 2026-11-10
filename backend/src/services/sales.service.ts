@@ -24,6 +24,9 @@ export interface CreatedSale {
   created: boolean;
 }
 
+/** Resultados de la búsqueda manual de la caja: pocos y precisos, no un catálogo. */
+const PRODUCT_SEARCH_LIMIT = 10;
+
 /** Reglas de negocio de la caja: ventas, método de pago y fiado (HU-16, HU-17, HU-18). */
 export class SalesService {
   constructor(
@@ -46,6 +49,16 @@ export class SalesService {
     }
 
     return product;
+  }
+
+  /**
+   * Búsqueda manual cuando el lector no reconoce el código (HU-16): solo
+   * productos activos (los desactivados no se venden), como mucho 10, por
+   * nombre. El precio y el stock son los del catálogo; al vender se vuelven a
+   * validar en `createSale`.
+   */
+  searchProducts(term: string): Promise<SaleProductDto[]> {
+    return this.repository.searchSellableProducts(term, PRODUCT_SEARCH_LIMIT);
   }
 
   /**

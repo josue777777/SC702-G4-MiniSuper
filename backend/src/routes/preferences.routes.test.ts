@@ -55,7 +55,7 @@ describe('apariencia por usuario', () => {
     const { agent } = await loginAs('caja@correo.cr');
 
     expect((await agent.get('/api/profile/preferences')).body.data).toEqual({
-      accentColor: 'AZUL',
+      accentColor: 'NEUTRO',
       fontScale: 'NORMAL',
     });
   });
@@ -74,7 +74,9 @@ describe('apariencia por usuario', () => {
       accentColor: 'VERDE',
       fontScale: 'GRANDE',
     });
-    expect((await admin.agent.get('/api/profile/preferences')).body.data.accentColor).toBe('AZUL');
+    expect((await admin.agent.get('/api/profile/preferences')).body.data.accentColor).toBe(
+      'NEUTRO',
+    );
   });
 
   it('solo acepta opciones de la lista', async () => {

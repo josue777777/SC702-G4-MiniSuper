@@ -44,6 +44,8 @@ enum UserRole {
 /// Color principal de la interfaz que elige cada usuario. Son opciones ya
 /// probadas para que el texto siempre se lea bien sobre ellas.
 enum AccentColor {
+  /// Diseño neutro del sistema (predeterminado).
+  NEUTRO
   AZUL
   VERDE
   MORADO
@@ -69,6 +71,18 @@ enum PlanRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+/// Unidad de medida del producto: en qué se cuenta su stock y se vende.
+enum UnitOfMeasure {
+  UD /// unidad
+  KG /// kilogramo
+  G /// gramo
+  L /// litro
+  ML /// mililitro
+  M /// metro
+  CJ /// caja
+  PQ /// paquete
 }
 
 /// Tipo de cambio de inventario. Toda variación de stock deja un registro.
@@ -103,6 +117,9 @@ enum SaleAdjustmentType {
 /// se registra y se recibe.
 enum PurchaseOrderStatus {
   PENDING
+  /// Llegó una parte (HU-38): el pedido sigue abierto hasta recibirlo todo o
+  /// darlo por concluido.
+  PARTIAL
   RECEIVED
 }
 
@@ -161,7 +178,7 @@ model User {
 /// acceso y seguridad. Sin fila, se usan los valores por defecto.
 model UserPreferences {
   userId      String      @id @db.Uuid
-  accentColor AccentColor @default(AZUL)
+  accentColor AccentColor @default(NEUTRO)
   fontScale   FontScale   @default(NORMAL)
   updatedAt   DateTime    @updatedAt
 
@@ -186,6 +203,9 @@ model Business {
   logoData       Bytes?
   logoMimeType   String?
   logoUpdatedAt  DateTime?
+  /// Diseño de la etiqueta de productos (tamaño y qué datos lleva). `null` =
+  /// diseño de fábrica. Lo valida `validators/label-design.validator.ts`.
+  labelDesign    Json?
   /// Plan: el Encargado más estos usuarios adicionales (plan 0 = solo el
   /// Encargado). Solo lo cambia el Administrador, al crear el negocio o al
   /// aprobar una solicitud.
@@ -286,8 +306,8 @@ model Category {
 
 /// Producto del catálogo (HU-01 … HU-09).
 model Product {
-  id             String    @id @default(uuid()) @db.Uuid
-  businessId     String    @db.Uuid
+  id             String        @id @default(uuid()) @db.Uuid
+  businessId     String        @db.Uuid
   /// Código interno del producto, solicitado en HU-01. Único en el negocio.
   code           String
   /// Código de barras leído por el lector (HU-06). Puede no existir hasta
@@ -296,19 +316,28 @@ model Product {
   name           String
   description    String?
   /// Precio de venta al público (HU-01).
-  price          Decimal   @db.Decimal(12, 2)
+  price          Decimal       @db.Decimal(12, 2)
   /// Costo de referencia actual (HU-01). El costo por proveedor vive en
   /// SupplierProduct; este campo es el último costo conocido del producto.
-  cost           Decimal   @db.Decimal(12, 2)
+  cost           Decimal       @db.Decimal(12, 2)
   /// Cantidad disponible. Todo cambio debe generar un InventoryMovement.
-  stock          Int       @default(0)
+  stock          Int           @default(0)
   /// Mínimo que dispara la alerta de stock bajo (HU-08).
-  minStock       Int       @default(0)
-  /// Solo aplica a productos perecederos (HU-09).
+  minStock       Int           @default(0)
+  /// Máximo que conviene tener (0 = sin máximo): la ficha avisa «Sobre el máximo».
+  maxStock       Int           @default(0)
+  /// En qué se cuenta el stock (UD, KG, L…).
+  unit           UnitOfMeasure @default(UD)
+  /// Solo aplica a productos perecederos (HU-09). Al cargar lotes con fecha
+  /// (HU-38) pasa a ser la fecha del lote que vence primero.
   expirationDate DateTime?
+  /// ¿Vence? Si es `true`, cada entrada pide lote Y fecha de vencimiento; si
+  /// es `false` («No vence»: detergente, ollas) solo el lote, y si no se
+  /// escribe, el lote es el número de factura (HU-38).
+  perishable     Boolean       @default(true)
   /// Desactivar en lugar de eliminar: conserva el historial de ventas (HU-03).
-  isActive       Boolean   @default(true)
-  categoryId     String    @db.Uuid
+  isActive       Boolean       @default(true)
+  categoryId     String        @db.Uuid
   /// Imagen opcional del producto (HU-01). Se guarda en la base para que la app
   /// no dependa de una carpeta del servidor; el listado nunca la selecciona.
   imageData      Bytes?
@@ -316,16 +345,18 @@ model Product {
   imageMimeType  String?
   /// Cuándo cambió la imagen; va en la URL para que el navegador no muestre una vieja.
   imageUpdatedAt DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  business           Business            @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  business           Business              @relation(fields: [businessId], references: [id], onDelete: Restrict)
   /// Compuesta: la base impide usar una categoría de otro negocio.
-  category           Category            @relation(fields: [categoryId, businessId], references: [id, businessId], onDelete: Restrict)
+  category           Category              @relation(fields: [categoryId, businessId], references: [id, businessId], onDelete: Restrict)
   supplierProducts   SupplierProduct[]
   inventoryMovements InventoryMovement[]
   saleItems          SaleItem[]
   purchaseOrderItems PurchaseOrderItem[]
+  receiptItems       PurchaseReceiptItem[]
+  lots               ProductLot[]
 
   @@unique([businessId, code])
   @@unique([businessId, barcode])
@@ -347,15 +378,38 @@ model InventoryMovement {
   /// Trazabilidad opcional hacia el documento que originó el movimiento.
   saleId          String?               @db.Uuid
   purchaseOrderId String?               @db.Uuid
+  /// Recepción (factura) que cargó esta entrada (HU-38).
+  receiptId       String?               @db.Uuid
+  /// Documento de un ingreso o egreso registrado en Movimientos: la factura
+  /// de una compra directa o el documento de un egreso (HU-38).
+  documentNumber  String?
+  /// Fecha del documento (la factura de una compra directa).
+  documentDate    DateTime?             @db.Date
+  /// Costo unitario de una compra directa.
+  unitCost        Decimal?              @db.Decimal(12, 2)
+  /// Proveedor de una compra directa (del mismo negocio: lo revisa el service).
+  supplierId      String?               @db.Uuid
+  /// Detalle libre de un egreso («botellas vencidas retiradas de la góndola»).
+  detail          String?
+  /// Lote del que salió un egreso registrado en Movimientos.
+  exitLotId       String?               @db.Uuid
   createdAt       DateTime              @default(now())
 
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
-  sale          Sale?          @relation(fields: [saleId], references: [id], onDelete: SetNull)
-  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  product       Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sale          Sale?            @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  receipt       PurchaseReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  /// Lotes que entraron con este movimiento (HU-38); se ven por línea en el Kardex.
+  lots          ProductLot[]     @relation("EntryLots")
+  supplier      Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  exitLot       ProductLot?      @relation("ExitLot", fields: [exitLotId], references: [id], onDelete: SetNull)
 
   @@index([productId, createdAt])
   @@index([saleId])
   @@index([purchaseOrderId])
+  @@index([receiptId])
+  @@index([supplierId])
+  @@index([exitLotId])
 }
 
 // -----------------------------------------------------------------------------
@@ -566,9 +620,11 @@ model Supplier {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  business       Business          @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  business       Business            @relation(fields: [businessId], references: [id], onDelete: Restrict)
   products       SupplierProduct[]
   purchaseOrders PurchaseOrder[]
+  /// Compras directas registradas en Movimientos (HU-38).
+  movements      InventoryMovement[]
 
   @@unique([businessId, name])
   /// Para que un pedido solo pueda ser a proveedores de su mismo negocio.
@@ -622,6 +678,7 @@ model PurchaseOrder {
   /// Compuesta: la base impide pedirle a un proveedor de otro negocio.
   supplier           Supplier            @relation(fields: [supplierId, businessId], references: [id, businessId], onDelete: Restrict)
   items              PurchaseOrderItem[]
+  receipts           PurchaseReceipt[]
   inventoryMovements InventoryMovement[]
 
   @@unique([businessId, number])
@@ -645,6 +702,102 @@ model PurchaseOrderItem {
 
   @@index([purchaseOrderId])
   @@index([productId])
+}
+
+/// Una entrega del proveedor contra un pedido (HU-38), con su factura. Un pedido
+/// puede recibirse en varias entregas (factura #1, #2…) y cada una guarda la
+/// fecha REAL en que llegó y la cantidad real de cada producto.
+///
+/// Registrar la entrega y cargarla al inventario son dos pasos: la carga puede
+/// hacerse al registrarla o quedar pendiente (`loadedAt` nulo) hasta que alguien
+/// la confirme. Lo confirmado no se edita.
+model PurchaseReceipt {
+  id              String    @id @default(uuid()) @db.Uuid
+  purchaseOrderId String    @db.Uuid
+  /// Número de la factura del proveedor; no se repite dentro del pedido.
+  invoiceNumber   String
+  /// Día en que llegó la mercadería (no el día en que se registró).
+  receivedOn      DateTime  @db.Date
+  /// Cuándo se cargó al inventario; nulo = carga pendiente.
+  loadedAt        DateTime?
+  /// Factura del proveedor escaneada o en PDF (hasta 5 MB). Se puede adjuntar al
+  /// registrar la entrega o después; la lista nunca selecciona los bytes.
+  invoiceFileData Bytes?
+  /// Solo application/pdf, image/png, image/jpeg o image/webp.
+  invoiceFileType String?
+  /// Nombre del archivo como lo subió la persona (para descargarlo igual).
+  invoiceFileName String?
+  invoiceFileAt   DateTime?
+  createdAt       DateTime  @default(now())
+
+  purchaseOrder      PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  items              PurchaseReceiptItem[]
+  inventoryMovements InventoryMovement[]
+
+  @@unique([purchaseOrderId, invoiceNumber])
+  @@index([purchaseOrderId, createdAt])
+  @@index([loadedAt])
+}
+
+/// Cuánto llegó de un producto en una entrega.
+model PurchaseReceiptItem {
+  id        String @id @default(uuid()) @db.Uuid
+  receiptId String @db.Uuid
+  productId String @db.Uuid
+  quantity  Int
+
+  receipt PurchaseReceipt          @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  product Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// Cómo vino partido en lotes; la suma de los lotes es `quantity`.
+  lots    PurchaseReceiptItemLot[]
+
+  @@unique([receiptId, productId])
+  @@index([productId])
+}
+
+/// Un lote de lo que llegó de un producto en una entrega (HU-38): su número,
+/// su fecha de vencimiento (nula si el producto no vence) y cuántas unidades.
+/// Se guarda al registrar la entrega y pasa a `ProductLot` al cargarla.
+model PurchaseReceiptItemLot {
+  id             String    @id @default(uuid()) @db.Uuid
+  receiptItemId  String    @db.Uuid
+  lotNumber      String
+  expirationDate DateTime? @db.Date
+  quantity       Int
+
+  receiptItem PurchaseReceiptItem @relation(fields: [receiptItemId], references: [id], onDelete: Cascade)
+
+  @@unique([receiptItemId, lotNumber])
+}
+
+/// Lote en inventario (HU-38, HU-32): cuántas unidades quedan de cada lote y
+/// cuándo vence. Un lote nuevo NUNCA reemplaza la fecha de los anteriores.
+///
+/// La base mantiene siempre `Product.stock` = suma de `quantity` de sus lotes:
+/// un disparador (migración `20261110120000_lotes_vencimiento`) descuenta del
+/// lote que vence primero cuando el stock baja (venta, conteo, edición) y
+/// guarda como «SIN LOTE» lo que sube sin lote (devolución, conteo). Así
+/// ningún módulo tiene que acordarse de los lotes para no descuadrarlos.
+model ProductLot {
+  id               String    @id @default(uuid()) @db.Uuid
+  productId        String    @db.Uuid
+  lotNumber        String
+  /// Nula si el producto no vence.
+  expirationDate   DateTime? @db.Date
+  /// Unidades que quedan; nunca negativo (CHECK en la migración).
+  quantity         Int
+  /// Unidades con que entró el lote.
+  receivedQuantity Int
+  /// Entrada del Kardex que trajo el lote (nula en los lotes «SIN LOTE»).
+  entryMovementId  String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  entryMovement InventoryMovement?  @relation("EntryLots", fields: [entryMovementId], references: [id], onDelete: SetNull)
+  exitMovements InventoryMovement[] @relation("ExitLot")
+
+  @@index([productId, expirationDate])
+  @@index([entryMovementId])
 }
 
 /// Registro de seguridad de las cuentas (HU-13): a quién se le cambió o

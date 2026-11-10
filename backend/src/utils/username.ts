@@ -11,6 +11,7 @@
  * Nunca lleva `@`: así el login distingue sin dudas un correo de un usuario.
  */
 
+/** Largo permitido del nombre de usuario: de 2 a 30 caracteres. */
 export const USERNAME_MIN_LENGTH = 2;
 export const USERNAME_MAX_LENGTH = 30;
 
