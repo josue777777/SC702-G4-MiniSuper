@@ -47,3 +47,34 @@ export const registerPaymentSchema = z
   .strict();
 
 export type RegisterPaymentInput = z.infer<typeof registerPaymentSchema>;
+
+/** El historial se ve dentro de una ventana: 4 por página, como toda lista de ventana. */
+export const DEFAULT_PAYMENTS_PAGE_SIZE = 4;
+export const MAX_PAYMENTS_PAGE_SIZE = 50;
+
+/** Tope de la página: mantiene el desplazamiento dentro de lo razonable. */
+const MAX_PAGE = 100_000;
+
+/**
+ * Paginación de `GET /api/customers/:id/payments`. Con `.strict()` un parámetro
+ * desconocido se rechaza en lugar de ignorarse (la pantalla mostraría algo distinto de
+ * lo pedido).
+ */
+export const paymentsQuerySchema = z
+  .object({
+    page: z.coerce
+      .number({ error: 'La página debe ser un número.' })
+      .int('La página debe ser un número entero.')
+      .min(1, 'La página mínima es 1.')
+      .max(MAX_PAGE, `La página máxima es ${MAX_PAGE}.`)
+      .default(1),
+    pageSize: z.coerce
+      .number({ error: 'El tamaño de página debe ser un número.' })
+      .int('El tamaño de página debe ser un número entero.')
+      .min(1, 'El tamaño de página mínimo es 1.')
+      .max(MAX_PAYMENTS_PAGE_SIZE, `El tamaño de página máximo es ${MAX_PAYMENTS_PAGE_SIZE}.`)
+      .default(DEFAULT_PAYMENTS_PAGE_SIZE),
+  })
+  .strict();
+
+export type PaymentsQuery = z.infer<typeof paymentsQuerySchema>;

@@ -111,10 +111,41 @@ describe('GET deuda e historial', () => {
       (await request(app).get(`/api/customers/${CREDIT_FOREIGN_CUSTOMER_ID}/credit`)).status,
     ).toBe(404);
     expect(
-      (await request(app).get(`/api/customers/${CREDIT_FOREIGN_CUSTOMER_ID}/payments`)).status,
+      (
+        await request(app).get(
+          `/api/customers/${CREDIT_FOREIGN_CUSTOMER_ID}/payments?page=1&pageSize=4`,
+        )
+      ).status,
     ).toBe(404);
     expect((await request(app).get('/api/customers/no-es-un-uuid/credit')).status).toBe(400);
   });
+});
+
+describe('GET /api/customers/:id/payments (paginado)', () => {
+  it('responde la página pedida con su total, sin caché', async () => {
+    const { app } = buildApp();
+    const response = await request(app).get(`${PAYMENTS}?page=1&pageSize=1`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body.data).toMatchObject({ items: [], page: 1, pageSize: 1, total: 0 });
+  });
+
+  it('sin parámetros usa la página 1 de 4 (una lista dentro de una ventana)', async () => {
+    const { app } = buildApp();
+    const response = await request(app).get(PAYMENTS);
+
+    expect(response.body.data).toMatchObject({ page: 1, pageSize: 4 });
+  });
+
+  it.each(['page=0', 'page=x', 'pageSize=0', 'pageSize=51', 'page=1.5', 'desde=hoy'])(
+    'rechaza %s con 400',
+    async (query) => {
+      const { app } = buildApp();
+
+      expect((await request(app).get(`${PAYMENTS}?${query}`)).status).toBe(400);
+    },
+  );
 });
 
 describe('POST /api/customers/:id/payments', () => {

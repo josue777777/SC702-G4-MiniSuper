@@ -105,9 +105,9 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
   ).toBe(money(10000));
   await page.getByRole('button', { name: `Ver cuenta de ${name}` }).click();
 
-  const account = page.getByRole('region', { name: `Cuenta de ${name}` });
+  const account = page.getByRole('dialog', { name: `Cuenta de ${name}` });
 
-  await expect(account.getByRole('heading', { name })).toContainText('Con deuda');
+  await expect(account.locator('.badge', { hasText: 'Con deuda' })).toBeVisible();
   expect(digits(await accountTile(account, 'Deuda actual'))).toBe(money(10000));
   expect(digits(await accountTile(account, 'Total abonado'))).toBe('000');
   expect(await accountTile(account, 'Fiados pendientes')).toBe('2');
@@ -216,7 +216,7 @@ test('flujo completo: cliente → fiado real → abono parcial → liquidación 
   await expect(notice(page)).toContainText(
     'El cliente ya no tiene fiados pendientes. Cuenta saldada.',
   );
-  await expect(settledAccount.getByRole('heading', { name })).toContainText('Saldado');
+  await expect(settledAccount.locator('.toolbar .badge', { hasText: 'Saldado' })).toBeVisible();
   await expect
     .poll(async () => digits(await accountTile(settledAccount, 'Deuda actual')))
     .toBe('000');
@@ -308,14 +308,15 @@ test('evidencia: dos fiados, un abono de ₡8 000 saldando uno y dejando el otro
     .poll(async () => digits(await accountTile(account, 'Deuda actual')))
     .toBe(money(2000));
   expect(await accountTile(account, 'Fiados pendientes')).toBe('1');
-  await expect(account.getByRole('heading', { name })).toContainText('Con deuda');
+  await expect(account.locator('.toolbar .badge', { hasText: 'Con deuda' })).toBeVisible();
 
   const fiados = (await readAccountTable(page, 'Fiados del cliente')).rows;
 
   expect(fiados.map((row) => [row[0], digits(row[4] ?? ''), digits(row[5] ?? ''), row[6]])).toEqual(
     [
-      [`#${first.number}`, money(6000), '000', 'Saldado'],
+      // Los fiados que todavía se deben van primero; los saldados, después.
       [`#${second.number}`, money(2000), money(2000), 'Pago parcial'],
+      [`#${first.number}`, money(6000), '000', 'Saldado'],
     ],
   );
 
@@ -488,8 +489,8 @@ test('varios fiados: FIFO, abono a un fiado específico y un cliente sin coincid
       row[6],
     ]),
   ).toEqual([
-    [`#${first.number}`, '000', 'Saldado'],
     [`#${second.number}`, money(2000), 'Pago parcial'],
+    [`#${first.number}`, '000', 'Saldado'],
   ]);
   expect((await dbPayments(customerId)).map((payment) => [payment.saleId, payment.amount])).toEqual(
     [
@@ -531,7 +532,9 @@ test('varios fiados: FIFO, abono a un fiado específico y un cliente sin coincid
   await expect(third.getByRole('button', { name: 'Confirmar abono' })).toBeDisabled();
   await third.getByRole('button', { name: 'Cancelar' }).click();
 
-  // La búsqueda por nombre.
+  // La búsqueda por nombre (con la cuenta cerrada: la ventana tapa la pantalla).
+  await account.getByRole('button', { name: 'Cerrar', exact: true }).first().click();
+  await expect(account).toHaveCount(0);
   await page.getByLabel('Buscar clientes').fill('zzz');
   await expect(page.getByText('Ningún cliente coincide con «zzz».')).toBeVisible();
 });
@@ -816,4 +819,229 @@ test('aislamiento: un negocio no ve ni abona a los clientes de otro, ni usa sus 
   await expect(other.page.getByText('Cliente Mío')).toHaveCount(0);
   await other.context.close();
   expect(await dbPayments(mine)).toEqual([]);
+});
+
+// --- Descubribilidad y pantallas (docs/PANTALLAS.md) -------------------------
+
+/** La fila de un cliente en la lista de Clientes. */
+const customerRow = (page: Page, name: string) =>
+  page.getByRole('table', { name: 'Clientes' }).getByRole('row', { name });
+
+const paymentDialog = (page: Page) => page.getByRole('dialog', { name: 'Registrar abono' });
+
+test('«Registrar abono» está a la vista en la fila del cliente: abona sin abrir la cuenta y la lista se actualiza sola', async ({
+  page,
+}) => {
+  const name = 'Cliente Acción Directa';
+  const customerId = await insertCustomer(name);
+
+  await apiFiar(page.request, customerId, 6);
+  await page.goto('/customers');
+  await page.getByLabel('Buscar clientes').fill(name);
+
+  const row = customerRow(page, name);
+  const pay = row.getByRole('button', { name: `Registrar abono a ${name}` });
+  const debt = async () => digits(await row.locator('td').nth(2).textContent());
+
+  // Sin abrir nada más: el botón está en la fila, visible y activo.
+  await expect(pay).toBeInViewport();
+  await expect(pay).toBeEnabled();
+  await expect(row.getByRole('button', { name: `Ver cuenta de ${name}` })).toBeEnabled();
+  expect(await debt()).toBe(money(6000));
+  await saveEvidence(page, 'HU-19', 'HU-19-clientes-registrar-abono.png');
+
+  // Cancelar vuelve a la lista (de donde se pidió), sin abrir la cuenta.
+  await pay.click();
+  await expect(paymentDialog(page)).toBeVisible();
+  await paymentDialog(page).getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // Un pago parcial: el aviso queda en la lista y la deuda baja sin recargar.
+  await pay.click();
+  await confirmPayment(page, '2500');
+  await expect(notice(page)).toContainText('Saldo pendiente');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(debt).toBe(money(3500));
+  expect((await dbPayments(customerId)).map((payment) => payment.amount)).toEqual(['2500.00']);
+  expect(await dbBalance(customerId)).toBe('3500.00');
+
+  // Liquidar el resto: la cuenta queda saldada y el botón se apaga diciendo por qué.
+  await pay.click();
+  await confirmPayment(page, '3500');
+  await expect(notice(page)).toContainText('Cuenta saldada');
+  await expect.poll(debt).toBe('000');
+  await expect(pay).toBeDisabled();
+  await expect(pay).toHaveAttribute('title', 'Este cliente no tiene deuda.');
+  expect(await dbBalance(customerId)).toBe('0.00');
+});
+
+test('desde la cuenta del cliente, «Cancelar» vuelve a la cuenta y un abono la deja actualizada', async ({
+  page,
+}) => {
+  const name = 'Cliente Contexto';
+  const customerId = await insertCustomer(name);
+
+  await apiFiar(page.request, customerId, 5);
+
+  const account = await openAccount(page, name);
+
+  await openPaymentModal(page, account);
+  await paymentDialog(page).getByRole('button', { name: 'Cancelar' }).click();
+
+  // Volvió a la cuenta del MISMO cliente, no a la lista.
+  await expect(account).toBeVisible();
+  expect(digits(await accountTile(account, 'Deuda actual'))).toBe(money(5000));
+
+  await openPaymentModal(page, account);
+  await confirmPayment(page, '1000');
+  await expect(account).toBeVisible();
+  await expect(notice(page)).toContainText('Saldo pendiente');
+  await expect
+    .poll(async () => digits(await accountTile(account, 'Deuda actual')))
+    .toBe(money(4000));
+  expect(await dbBalance(customerId)).toBe('4000.00');
+});
+
+test('la cuenta pagina de 4 en 4: fiados con los pendientes primero e historial pedido al servidor', async ({
+  page,
+}) => {
+  const name = 'Cliente Muchos Movimientos';
+  const customerId = await insertCustomer(name);
+  const fiados = [];
+
+  for (let index = 0; index < 5; index += 1) {
+    fiados.push(await apiFiar(page.request, customerId, 1));
+  }
+
+  // Cinco abonos de ₡100, uno por uno: cinco operaciones en el historial.
+  for (let index = 0; index < 5; index += 1) {
+    expect((await apiPay(page.request, customerId, '100.00')).status()).toBe(201);
+  }
+
+  const account = await openAccount(page, name);
+  const fiadosTable = account.getByRole('table', { name: 'Fiados del cliente' });
+  const historyTable = account.getByRole('table', { name: 'Historial de abonos' });
+
+  await expect(fiadosTable.locator('tbody tr')).toHaveCount(4);
+  await expect(historyTable.locator('tbody tr')).toHaveCount(4);
+  await expect(account.getByText('Mostrando 1–4 de 5 fiados')).toBeVisible();
+  await expect(account.getByText('Mostrando 1–4 de 5 abonos')).toBeVisible();
+
+  // Los ₡500 abonados entraron al primer fiado (de ₡1 000): sigue pendiente y va primero.
+  expect((await readAccountTable(page, 'Fiados del cliente')).rows.map((row) => row[0])).toEqual(
+    fiados.slice(0, 4).map((fiado) => `#${fiado.number}`),
+  );
+
+  // La segunda página de cada lista trae lo que falta y no mueve la otra.
+  await account
+    .getByRole('navigation', { name: 'Páginas de fiados' })
+    .getByRole('button', { name: 'Siguiente' })
+    .click();
+  await expect(fiadosTable.locator('tbody tr')).toHaveCount(1);
+  await expect(historyTable.locator('tbody tr')).toHaveCount(4);
+  await account
+    .getByRole('navigation', { name: 'Páginas del historial de abonos' })
+    .getByRole('button', { name: 'Siguiente' })
+    .click();
+  await expect(historyTable.locator('tbody tr')).toHaveCount(1);
+  await expect(account.getByText('Mostrando 5–5 de 5 abonos')).toBeVisible();
+  await saveEvidence(page, 'HU-19', 'HU-19-cuenta-paginada.png');
+
+  // El servidor manda solo la página pedida y rechaza lo que no es una página válida.
+  const base = `${BACKEND_URL}/api/customers/${customerId}/payments`;
+  const second = (await (await page.request.get(`${base}?page=2&pageSize=4`)).json()) as {
+    data: { items: unknown[]; total: number };
+  };
+
+  expect([second.data.items.length, second.data.total]).toEqual([1, 5]);
+  expect((await page.request.get(`${base}?page=0`)).status()).toBe(400);
+  expect((await page.request.get(`${base}?pageSize=51`)).status()).toBe(400);
+});
+
+test('en una pantalla angosta el botón «Registrar abono» sigue al alcance y la ventana cabe', async ({
+  page,
+}) => {
+  const name = 'Cliente Pantalla Chica';
+  const customerId = await insertCustomer(name);
+
+  await apiFiar(page.request, customerId, 3);
+  await page.setViewportSize({ width: 420, height: 800 });
+  await page.goto('/customers');
+  await page.getByLabel('Buscar clientes').fill(name);
+
+  const pay = customerRow(page, name).getByRole('button', { name: `Registrar abono a ${name}` });
+
+  await pay.scrollIntoViewIfNeeded();
+  await expect(pay).toBeInViewport();
+  await pay.click();
+  // Ya cargó el formulario (la ventana tiene su tamaño final) antes de medirla.
+  await expect(paymentDialog(page).getByLabel('Monto a pagar')).toBeVisible();
+
+  const box = await paymentDialog(page).boundingBox();
+
+  expect(box !== null && box.x >= 0 && box.x + box.width <= 420).toBe(true);
+  await paymentDialog(page).getByRole('button', { name: 'Cancelar' }).click();
+  await expect(paymentDialog(page)).toBeHidden();
+});
+
+test('«Cerrar» la cuenta vuelve a Clientes sin perder la búsqueda ni la página', async ({
+  page,
+}) => {
+  // 17 clientes: la lista tiene dos páginas (15 por página).
+  for (let index = 1; index <= 17; index += 1) {
+    await insertCustomer(`Cliente Página ${String(index).padStart(2, '0')}`);
+  }
+
+  const target = 'Cliente Página 17';
+
+  await page.goto('/customers');
+  await page
+    .getByRole('navigation', { name: 'Páginas de clientes' })
+    .getByRole('button', { name: 'Ir a la página 2' })
+    .click();
+  await page.getByRole('button', { name: `Ver cuenta de ${target}` }).click();
+
+  const account = page.getByRole('dialog', { name: `Cuenta de ${target}` });
+
+  await expect(account).toBeVisible();
+  await account.getByRole('button', { name: 'Cerrar', exact: true }).last().click();
+  await expect(account).toHaveCount(0);
+
+  // Sigue en la página 2, con el mismo cliente a la vista.
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Páginas de clientes' })
+      .getByRole('button', { name: 'Ir a la página 2' }),
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: `Ver cuenta de ${target}` })).toBeVisible();
+
+  // Con una búsqueda: al cerrar, el texto buscado sigue ahí.
+  await page.getByLabel('Buscar clientes').fill('Página 03');
+  await page.getByRole('button', { name: 'Ver cuenta de Cliente Página 03' }).click();
+  await page
+    .getByRole('dialog', { name: 'Cuenta de Cliente Página 03' })
+    .getByRole('button', { name: 'Cerrar', exact: true })
+    .last()
+    .click();
+  await expect(page.getByLabel('Buscar clientes')).toHaveValue('Página 03');
+  await expect(page.getByRole('table', { name: 'Clientes' }).locator('tbody tr')).toHaveCount(1);
+});
+
+test('en una pantalla angosta la cuenta del cliente cabe y deja registrar el abono', async ({
+  page,
+}) => {
+  const name = 'Cliente Cuenta Angosta';
+  const customerId = await insertCustomer(name);
+
+  await apiFiar(page.request, customerId, 2);
+  await page.setViewportSize({ width: 420, height: 800 });
+
+  const account = await openAccount(page, name);
+  const box = await account.boundingBox();
+
+  expect(box !== null && box.x >= 0 && box.x + box.width <= 420).toBe(true);
+  await openPaymentModal(page, account);
+  await confirmPayment(page, '2000');
+  await expect(notice(page)).toContainText('Cuenta saldada');
+  expect(await dbBalance(customerId)).toBe('0.00');
 });

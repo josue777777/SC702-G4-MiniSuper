@@ -8,16 +8,28 @@ import { ApiError } from '../../services/api-client';
 import { customersService } from '../../services/sales.service';
 import type { Customer } from '../../types/sales';
 import { formatMoney } from '../products/money';
-import { CustomerAccount } from './CustomerAccount';
+import { CustomerAccountModal } from './CustomerAccountModal';
+import { CustomerPaymentFlow } from './CustomerPaymentFlow';
+import { paymentMessage } from './credit-format';
+
+/**
+ * Qué ventana hay abierta sobre la lista (HU-19): la cuenta de un cliente o el
+ * formulario de abono. `from` dice quién pidió el abono, para que «Cancelar»
+ * vuelva ahí (docs/PANTALLAS.md: la persona decide a dónde va).
+ */
+type Dialog =
+  | { kind: 'account'; customer: Customer }
+  | { kind: 'pay'; customer: Customer; from: 'list' | 'account' };
 
 /**
  * Clientes (HU-18, HU-19): crear un cliente, ver los activos y su saldo (ventas a
- * crédito − abonos) y abrir su cuenta para consultar sus fiados y registrar
- * abonos. Editar y desactivar clientes todavía no existe.
+ * crédito − abonos). Cada fila tiene dos acciones a la vista: «Registrar abono»
+ * (el pago, directo) y «Ver cuenta» (los fiados y el historial de abonos). Editar
+ * y desactivar clientes no son parte de HU-19 y todavía no existen.
  *
- * La pantalla es de consulta: lista con buscador y páginas. El formulario no
- * ocupa espacio hasta que se pide con «+ Nuevo cliente», y se abre en un modal
- * (ver docs/PANTALLAS.md).
+ * La pantalla es de consulta: lista con buscador y páginas. Los formularios y la
+ * cuenta no ocupan espacio hasta que se piden, y se abren en una ventana (ver
+ * docs/PANTALLAS.md).
  */
 export function CustomersSection() {
   const [customers, setCustomers] = useState<Customer[] | null>(null);
@@ -29,7 +41,9 @@ export function CustomersSection() {
   const [busy, setBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  // Confirmación del último abono: en la lista, o en la cuenta si el abono se pidió desde ahí.
+  const [paidNotice, setPaidNotice] = useState<string | null>(null);
   const visible = useMemo(
     () =>
       (customers ?? []).filter((customer) => matchesSearch(search, customer.name, customer.phone)),
@@ -42,7 +56,13 @@ export function CustomersSection() {
     setPhone('');
     setFormError(null);
     setCreated(null);
+    setPaidNotice(null);
     setFormOpen(true);
+  }
+
+  function openDialog(next: Dialog): void {
+    setPaidNotice(null);
+    setDialog(next);
   }
 
   const load = useCallback(async (): Promise<void> => {
@@ -118,6 +138,20 @@ export function CustomersSection() {
               type="button"
               className="alert__close"
               onClick={() => setCreated(null)}
+              aria-label="Cerrar aviso"
+            >
+              ×
+            </button>
+          </p>
+        )}
+
+        {paidNotice === null || dialog?.kind === 'account' ? null : (
+          <p className="alert alert--success" role="status">
+            {paidNotice}
+            <button
+              type="button"
+              className="alert__close"
+              onClick={() => setPaidNotice(null)}
               aria-label="Cerrar aviso"
             >
               ×
@@ -210,23 +244,36 @@ export function CustomersSection() {
                 </thead>
                 <tbody>
                   {pages.pageItems.map((customer) => (
-                    <tr
-                      key={customer.id}
-                      className={customer.id === selectedId ? 'table__row--selected' : undefined}
-                      aria-selected={customer.id === selectedId}
-                    >
+                    <tr key={customer.id}>
                       <td>{customer.name}</td>
                       <td>{customer.phone ?? '—'}</td>
                       <td className="table__number">{formatMoney(customer.balance)}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="button"
-                          aria-label={`Ver cuenta de ${customer.name}`}
-                          onClick={() => setSelectedId(customer.id)}
-                        >
-                          Ver cuenta
-                        </button>
+                        <div className="row-actions">
+                          {/* Apagado y no oculto: se ve que existe y por qué no se puede. */}
+                          <button
+                            type="button"
+                            className="button button--primary"
+                            aria-label={`Registrar abono a ${customer.name}`}
+                            disabled={Number(customer.balance) <= 0}
+                            title={
+                              Number(customer.balance) <= 0
+                                ? 'Este cliente no tiene deuda.'
+                                : undefined
+                            }
+                            onClick={() => openDialog({ kind: 'pay', customer, from: 'list' })}
+                          >
+                            Registrar abono
+                          </button>
+                          <button
+                            type="button"
+                            className="button"
+                            aria-label={`Ver cuenta de ${customer.name}`}
+                            onClick={() => openDialog({ kind: 'account', customer })}
+                          >
+                            Ver cuenta
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -239,10 +286,37 @@ export function CustomersSection() {
         </section>
       </div>
 
-      {/* HU-19: la cuenta del cliente elegido (deuda, fiados, abonos); el saldo siempre viene del servidor. */}
-      {selectedId === null ? null : (
-        <CustomerAccount key={selectedId} customerId={selectedId} onChanged={() => void load()} />
-      )}
+      {/* HU-19: la cuenta del cliente y el abono, en ventanas; el saldo siempre viene del servidor. */}
+      {dialog?.kind === 'account' ? (
+        <CustomerAccountModal
+          customer={dialog.customer}
+          notice={paidNotice}
+          onDismissNotice={() => setPaidNotice(null)}
+          onPay={() => openDialog({ kind: 'pay', customer: dialog.customer, from: 'account' })}
+          onClose={() => {
+            setPaidNotice(null);
+            setDialog(null);
+          }}
+        />
+      ) : null}
+      {dialog?.kind === 'pay' ? (
+        <CustomerPaymentFlow
+          customer={dialog.customer}
+          // «Cancelar» vuelve a donde se pidió el abono: la cuenta o la lista.
+          onClose={() =>
+            setDialog(
+              dialog.from === 'account' ? { kind: 'account', customer: dialog.customer } : null,
+            )
+          }
+          onPaid={(result) => {
+            setPaidNotice(paymentMessage(result));
+            setDialog(
+              dialog.from === 'account' ? { kind: 'account', customer: dialog.customer } : null,
+            );
+            void load();
+          }}
+        />
+      ) : null}
     </>
   );
 }

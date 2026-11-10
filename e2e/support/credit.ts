@@ -152,13 +152,13 @@ export async function dbBalance(customerId: string): Promise<string> {
 
 // --- Pantalla --------------------------------------------------------------
 
-/** Abre Clientes, busca al cliente por nombre y abre su cuenta. Devuelve la ficha. */
+/** Abre Clientes, busca al cliente por nombre y abre su cuenta (una ventana). Devuelve esa ventana. */
 export async function openAccount(page: Page, name: string): Promise<Locator> {
   await page.goto('/customers');
   await page.getByLabel('Buscar clientes').fill(name);
   await page.getByRole('button', { name: `Ver cuenta de ${name}` }).click();
 
-  const account = page.getByRole('region', { name: `Cuenta de ${name}` });
+  const account = page.getByRole('dialog', { name: `Cuenta de ${name}` });
 
   await expect(account).toBeVisible();
   await expect(account.getByText('Cargando la cuenta del cliente…')).toHaveCount(0);

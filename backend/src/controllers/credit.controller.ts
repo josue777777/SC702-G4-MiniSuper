@@ -2,7 +2,11 @@ import type { Request, Response } from 'express';
 import { authenticatedUser, businessIdOf } from '../middleware/require-auth.middleware.js';
 import type { CreditService } from '../services/credit.service.js';
 import type { ForBusiness } from '../types/tenant.js';
-import { customerIdParamSchema, registerPaymentSchema } from '../validators/credit.validator.js';
+import {
+  customerIdParamSchema,
+  paymentsQuerySchema,
+  registerPaymentSchema,
+} from '../validators/credit.validator.js';
 
 /**
  * Controlador de las cuentas por cobrar y los abonos (HU-19). El negocio y el
@@ -19,12 +23,15 @@ export class CreditController {
     res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).getCredit(id) });
   }
 
-  /** `GET /api/customers/:id/payments` — historial de abonos. */
+  /** `GET /api/customers/:id/payments?page=&pageSize=` — una página del historial de abonos. */
   async listPayments(req: Request, res: Response): Promise<void> {
     const { id } = customerIdParamSchema.parse(req.params);
+    const query = paymentsQuerySchema.parse(req.query);
 
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).listPayments(id) });
+    res
+      .status(200)
+      .json({ data: await this.serviceFor(businessIdOf(res)).listPayments(id, query) });
   }
 
   /**

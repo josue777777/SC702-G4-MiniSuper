@@ -94,7 +94,7 @@ describe('deuda del cliente (criterio 1)', () => {
       statusCode: 404,
     });
     await expect(
-      service.listPayments('0c1c1c1c-0000-4000-8000-0000000000ff'),
+      service.listPayments('0c1c1c1c-0000-4000-8000-0000000000ff', { page: 1, pageSize: 4 }),
     ).rejects.toMatchObject({
       statusCode: 404,
     });
@@ -317,7 +317,8 @@ describe('historial de abonos', () => {
       .payments.push(legacyPayment('500.00', '2026-10-02T18:00:00Z'));
     await pay(service, { amount: '6200.00', notes: 'Quincena' });
 
-    const history = await service.listPayments(CREDIT_CUSTOMER_ID);
+    const history = (await service.listPayments(CREDIT_CUSTOMER_ID, { page: 1, pageSize: 4 }))
+      .items;
 
     expect(history).toHaveLength(2);
 
@@ -333,6 +334,26 @@ describe('historial de abonos', () => {
     ]);
     // El abono anterior no se reasigna: sigue sin venta.
     expect(legacy).toMatchObject({ amount: '500.00', allocations: [], paymentDate: '2026-10-02' });
+  });
+
+  it('pagina el historial: solo viaja la página pedida y el total cuenta cada abono una vez', async () => {
+    const { service, repository } = build();
+    const payments = repository.ledgerOf(CREDIT_CUSTOMER_ID).payments;
+
+    // Cinco abonos anteriores, del 1 al 5 de octubre: el más reciente va primero.
+    for (const day of ['01', '02', '03', '04', '05']) {
+      payments.push(legacyPayment('100.00', `2026-10-${day}T18:00:00Z`));
+    }
+
+    const first = await service.listPayments(CREDIT_CUSTOMER_ID, { page: 1, pageSize: 2 });
+    const last = await service.listPayments(CREDIT_CUSTOMER_ID, { page: 3, pageSize: 2 });
+    const beyond = await service.listPayments(CREDIT_CUSTOMER_ID, { page: 4, pageSize: 2 });
+
+    expect(first.items.map((entry) => entry.paymentDate)).toEqual(['2026-10-05', '2026-10-04']);
+    expect(first).toMatchObject({ page: 1, pageSize: 2, total: 5 });
+    expect(last.items.map((entry) => entry.paymentDate)).toEqual(['2026-10-01']);
+    // Una página más allá del final no falla: trae la lista vacía y conserva el total.
+    expect(beyond).toMatchObject({ items: [], total: 5 });
   });
 
   it('el saldo descuenta los abonos anteriores sin atribuirlos a un fiado', async () => {
