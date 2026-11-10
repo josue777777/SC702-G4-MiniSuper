@@ -33,3 +33,13 @@ export function formatCents(cents: bigint): string {
 
   return negative ? `-${text}` : text;
 }
+
+/** `1000000n` → `"₡10 000,00"`: como se lee un importe en un mensaje al usuario (espacio de miles, coma decimal). */
+export function formatColones(cents: bigint): string {
+  const negative = cents < 0n;
+  const absolute = negative ? -cents : cents;
+  const whole = String(absolute / 100n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const text = `₡${whole},${String(absolute % 100n).padStart(2, '0')}`;
+
+  return negative ? `-${text}` : text;
+}

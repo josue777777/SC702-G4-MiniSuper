@@ -664,17 +664,19 @@ aplicados al reporte mostrado (ver [PANTALLAS.md](PANTALLAS.md), reglas 9 y 10).
 1. **Categoría, código y nombre son los actuales del producto.** `SaleItem` no guarda un
    snapshot; no se inventó uno retroactivo. Si un producto cambia de categoría, sus
    ventas antiguas se mueven con él.
-2. **Ganancias y fiados (dependencia de HU-19).** No existe el flujo de abonos. Un fiado
-   solo cuenta como cobrado si abonos ligados a *esa venta y su cliente* cubren su total
-   (`isCreditSaleCollected`, único punto a cambiar cuando HU-19 defina cómo se aplica un
-   abono). Pendientes, parciales y abonos generales se excluyen y se informan; no se
-   reparten ganancias por estimación. El período es el de la venta, no el del cobro.
+2. **Ganancias y fiados (HU-19).** Un fiado solo cuenta como cobrado si abonos aplicados a
+   *esa venta y su cliente* (`CreditPayment.saleId`) cubren su total efectivo
+   (`isCreditSaleCollected`). Los fiados sin pagar o con pago PARCIAL se excluyen y se
+   informan: un pago parcial no dice qué productos cubrió y no se reparte su ganancia por
+   estimación. El período es el de la venta, no el del cobro: el reporte NO es el total
+   cobrado en el período.
 3. **Costo desconocido vs. cero.** El esquema no los distingue; un costo 0 se toma como
    válido y no se puede detectar un costo faltante. Resolverlo exigiría un costo
    anulable en `SaleItem` (cambio de esquema, no hecho aquí).
-4. **Deudas por fiado.** El pendiente de cada fiado descuenta solo abonos ligados a esa
-   venta; los abonos generales aparecen en una línea «Abonos sin venta asignada» para que
-   el saldo acumulado cuadre siempre con el saldo real del cliente.
+4. **Deudas por fiado.** El pendiente de cada fiado descuenta los abonos aplicados a esa
+   venta (HU-19 los reparte FIFO). Los abonos anteriores a HU-19, sin venta, aparecen en
+   una línea «Abonos sin venta asignada» para que el saldo acumulado cuadre siempre con
+   el saldo real del cliente; no se reasignan.
 
 ---
 
@@ -701,3 +703,44 @@ con `day = { saleCount, originalTotal, total }`; una página fuera del resultado
 * El día va de `00:00` a `00:00` del siguiente en Costa Rica (`06:00Z` a `06:00Z`). Filas,
   conteo y totales se leen en una transacción `RepeatableRead`, en céntimos exactos.
 
+---
+
+## 14. Abonos y liquidación de fiados (HU-19)
+
+API (permiso `customers`: Encargado y Cajero; Bodega y la plataforma no):
+`GET /api/customers/:id/credit` (deuda y fiados), `GET /api/customers/:id/payments`
+(historial) y `POST /api/customers/:id/payments` (registrar un abono). Pantalla:
+Clientes › Ver cuenta › Registrar abono. El negocio y el usuario salen de la sesión.
+
+**Modelo.** El saldo sigue DERIVÁNDOSE (`Σ importe efectivo de ventas CREDIT − Σ abonos`);
+no hay columna de saldo. `CreditPayment` ya tenía `saleId`: cada abono nuevo lo lleva.
+Una migración aditiva agrega `CreditPaymentOperation` (una fila por abono tal como lo hizo
+la persona: monto, fecha, nota, quién, llave de idempotencia y huella de lo pedido) y
+`CreditPayment.operationId` (nulo en los abonos anteriores). Un abono que se reparte
+entre varias ventas son varias filas de `CreditPayment` de UNA misma operación.
+
+**Reglas** (`services/credit.ts`, puras y probadas):
+
+* Reparto FIFO por fecha de venta, número y, al final, id; o a un fiado elegido.
+* Nunca se acepta más de lo adeudado (no hay saldos a favor): se rechaza con la diferencia.
+  La pantalla lo advierte ANTES de confirmar y ofrece ajustar el monto.
+* Sin deuda no se abona; un fiado saldado no recibe más abonos; la fecha no puede ser futura
+  ni anterior al fiado que se salda.
+
+**Atomicidad.** `CreditRepository.recordPayment` corre en UNA transacción: bloquea la fila del
+cliente y sus ventas a crédito (`FOR UPDATE`), vuelve a leer ventas y abonos con los bloqueos,
+valida y reparte con el estado real, y guarda operación y filas o nada. Dos abonos
+simultáneos de ₡8 000 sobre ₡10 000: solo uno se confirma. La llave de idempotencia es única
+por negocio: la misma llave con los mismos datos devuelve la operación guardada (200); con otros
+datos, 409.
+
+**Devoluciones y anulaciones (HU-35).** `SalesRepository.adjustSale` bloquea al cliente y luego
+la venta (mismo orden que el abono). Si un fiado con abonos quedaría con más abonado que su nuevo
+importe —o el cliente con más abonado que lo fiado—, se rechaza con 409 y NO se escribe nada: no
+existe devolución de dinero ni saldo a favor. Devolver ₡3 000 de un fiado de ₡10 000 con ₡6 000
+abonados sí es posible (quedan ₡1 000); con ₡9 000 abonados no.
+
+**Abonos anteriores a HU-19 (`saleId` nulo).** Se conservan, bajan el saldo y se muestran como
+«sin fiado asignado»; nunca se atribuyen a una venta.
+
+**Límite conocido.** HU-19 no resuelve la distinción entre costo desconocido y costo cero de HU-29.

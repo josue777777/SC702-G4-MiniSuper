@@ -13,7 +13,7 @@ import type {
   SaleSummaryDto,
 } from '../types/sales.js';
 import { HttpError } from '../utils/http-error.js';
-import { formatCents, toCents } from '../utils/money.js';
+import { formatCents, formatColones, toCents } from '../utils/money.js';
 import { todayInBusinessZone } from '../utils/dates.js';
 import type { CreateSaleInput } from '../validators/sales.validator.js';
 import { creditBalance } from './customers.service.js';
@@ -160,6 +160,19 @@ export class SalesService {
     const outcome = await this.repository.adjustSale({ ...input, saleId });
 
     if (!outcome.ok) {
+      if (outcome.reason === 'PAID_EXCEEDS') {
+        const action = input.type === 'VOID' ? 'anular la venta' : 'registrar esta devolución';
+        const detail =
+          outcome.scope === 'SALE'
+            ? `la venta #${outcome.number} ya tiene ${formatColones(toCents(outcome.paid))} abonados y su importe quedaría en ${formatColones(toCents(outcome.remaining))}`
+            : `el cliente ya abonó ${formatColones(toCents(outcome.paid))} y solo le quedarían ${formatColones(toCents(outcome.remaining))} fiados`;
+
+        throw HttpError.conflict(
+          `No se puede ${action}: ${detail}. El sistema no devuelve dinero ni maneja saldos a favor, así que no se registró ningún cambio.`,
+          { reason: 'PAID_EXCEEDS', paid: outcome.paid, remaining: outcome.remaining },
+        );
+      }
+
       switch (outcome.reason) {
         case 'NOT_FOUND':
           throw HttpError.notFound('La venta no existe.');
