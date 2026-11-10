@@ -15,6 +15,8 @@ export function createPurchaseOrdersRouter(
 
   /** Historial de pedidos, filtrable por proveedor (HU-22). */
   router.get('/', (req, res) => controller.list(req, res));
+  /** Sugerencia de pedido por stock bajo (HU-23). Antes de `/:id` para no tomarla como id. */
+  router.get('/suggestions', (req, res) => controller.suggestions(req, res));
   /** Detalle de un pedido (HU-22) y datos del PDF (HU-24). */
   router.get('/:id', (req, res) => controller.getById(req, res));
   /** Registrar pedido (HU-24). La recepción es HU-38. */

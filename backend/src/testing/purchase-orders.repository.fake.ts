@@ -3,6 +3,7 @@ import type {
   CreatePurchaseOrderPlan,
   PurchaseOrderDto,
   PurchaseOrderSummaryDto,
+  RestockCandidate,
   SupplierCatalog,
 } from '../types/purchase-orders.js';
 import { TEST_BUSINESS_ID } from './fake-session.js';
@@ -34,8 +35,14 @@ export class FakePurchaseOrdersRepository implements PurchaseOrdersRepository {
   readonly businessId = TEST_BUSINESS_ID;
 
   readonly createdPlans: CreatePurchaseOrderPlan[] = [];
+  /** Lo que devolvería la base para HU-23; cada prueba lo arma a su medida. */
+  restockCandidates: RestockCandidate[] = [];
   private readonly orders: PurchaseOrderDto[] = [];
   private sequence = 0;
+
+  listRestockCandidates(): Promise<RestockCandidate[]> {
+    return Promise.resolve(this.restockCandidates);
+  }
 
   findSupplierCatalog(supplierId: string): Promise<SupplierCatalog | null> {
     const supplier = SUPPLIERS[supplierId];

@@ -70,6 +70,59 @@ export interface MoneyLine {
   unitCost: MoneyString;
 }
 
+/** Proveedor activo que suministra un producto con stock bajo, y a qué costo (HU-23). */
+export interface RestockSupplierOption {
+  supplierId: string;
+  supplierName: string;
+  unitCost: MoneyString;
+  isPreferred: boolean;
+}
+
+/**
+ * Producto activo con stock en o bajo su mínimo (HU-23), tal como lo entrega el
+ * repositorio: la base ya descartó el resto del catálogo.
+ */
+export interface RestockCandidate {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  minStock: number;
+  /** Unidades en pedidos `PENDING` que aún no se reciben. */
+  pendingQuantity: number;
+  suppliers: RestockSupplierOption[];
+}
+
+/** Línea de la sugerencia de pedido (HU-23). */
+export interface RestockSuggestionItemDto {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  minStock: number;
+  pendingQuantity: number;
+  /** `minStock * 2 - stock - pendingQuantity`; el dueño la puede ajustar. */
+  suggestedQuantity: number;
+  /** Costo con el proveedor del grupo; `null` si el producto no tiene proveedor. */
+  unitCost: MoneyString | null;
+}
+
+/** Productos sugeridos de un mismo proveedor; `supplierId = null` agrupa los que no tienen. */
+export interface RestockSuggestionGroupDto {
+  supplierId: string | null;
+  supplierName: string | null;
+  items: RestockSuggestionItemDto[];
+  /** Total con las cantidades sugeridas; `"0.00"` en el grupo sin proveedor. */
+  total: MoneyString;
+}
+
+/** Respuesta de `GET /api/purchase-orders/suggestions` (HU-23). */
+export interface RestockSuggestionDto {
+  groups: RestockSuggestionGroupDto[];
+  /** Aviso cuando no hay nada que pedir, en vez de una lista vacía. */
+  message: string | null;
+}
+
 /** Trabajo que el service encarga al repositorio al crear un pedido. */
 export interface CreatePurchaseOrderPlan {
   supplierId: string;

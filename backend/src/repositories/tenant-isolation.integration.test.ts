@@ -237,6 +237,33 @@ describe.skipIf(!databaseName.endsWith('_test'))('Aislamiento entre negocios', (
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  it('sugerencia de pedido (HU-23): filtra el stock bajo en la base, por negocio, y descuenta lo pendiente', async () => {
+    // Solo el producto de A queda en o bajo su mínimo (2); B sigue con 10.
+    await prisma.product.update({ where: { id: a.productId }, data: { stock: 1 } });
+
+    const forA = await new PurchaseOrdersService(
+      new PurchaseOrdersRepository(A),
+    ).getRestockSuggestion();
+    const forB = await new PurchaseOrdersService(
+      new PurchaseOrdersRepository(B),
+    ).getRestockSuggestion();
+
+    // 2 × 2 − 1 de stock − 1 del pedido pendiente que crea `seed`.
+    expect(forA.groups).toEqual([
+      expect.objectContaining({
+        supplierId: a.supplierId,
+        items: [
+          expect.objectContaining({
+            productId: a.productId,
+            pendingQuantity: 1,
+            suggestedQuantity: 2,
+          }),
+        ],
+      }),
+    ]);
+    expect(forB).toEqual({ groups: [], message: expect.any(String) });
+  });
+
   it('la base impide un producto de B con la categoría de A', async () => {
     await expect(
       prisma.product.create({

@@ -46,3 +46,32 @@ export interface PurchaseOrderPayload {
   notes: string | null;
   items: { productId: string; quantity: number }[];
 }
+
+/** Línea de la sugerencia de pedido por stock bajo (HU-23). */
+export interface RestockSuggestionItem {
+  productId: string;
+  productCode: string;
+  productName: string;
+  stock: number;
+  minStock: number;
+  /** Unidades que ya vienen en pedidos pendientes. */
+  pendingQuantity: number;
+  suggestedQuantity: number;
+  /** `null` si el producto no tiene proveedor. */
+  unitCost: string | null;
+}
+
+/** Productos sugeridos de un proveedor; `supplierId = null` = productos sin proveedor. */
+export interface RestockSuggestionGroup {
+  supplierId: string | null;
+  supplierName: string | null;
+  items: RestockSuggestionItem[];
+  total: string;
+}
+
+/** Respuesta de `GET /api/purchase-orders/suggestions` (HU-23). */
+export interface RestockSuggestion {
+  groups: RestockSuggestionGroup[];
+  /** Aviso cuando no hay sugerencias pendientes. */
+  message: string | null;
+}

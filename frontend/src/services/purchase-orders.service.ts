@@ -2,6 +2,7 @@ import type {
   PurchaseOrder,
   PurchaseOrderPayload,
   PurchaseOrderSummary,
+  RestockSuggestion,
 } from '../types/purchase-orders';
 import { apiGet, apiPost } from './api-client';
 
@@ -16,6 +17,15 @@ export const purchaseOrdersService = {
     const query = supplierId === undefined ? '' : `?supplierId=${encodeURIComponent(supplierId)}`;
     const response = await apiGet<DataResponse<PurchaseOrderSummary[]>>(
       `/api/purchase-orders${query}`,
+    );
+
+    return response.data;
+  },
+
+  /** HU-23: productos con stock bajo agrupados por proveedor, con la cantidad sugerida. */
+  async suggestions(): Promise<RestockSuggestion> {
+    const response = await apiGet<DataResponse<RestockSuggestion>>(
+      '/api/purchase-orders/suggestions',
     );
 
     return response.data;

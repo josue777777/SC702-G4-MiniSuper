@@ -3,10 +3,11 @@ import { PagePlaceholder } from '../components/PagePlaceholder';
 import { PurchaseOrderDetail } from '../features/purchase-orders/PurchaseOrderDetail';
 import { PurchaseOrderForm } from '../features/purchase-orders/PurchaseOrderForm';
 import { PurchaseOrderHistory } from '../features/purchase-orders/PurchaseOrderHistory';
+import { RestockSuggestions } from '../features/purchase-orders/RestockSuggestions';
 import { usePurchaseOrders } from '../features/purchase-orders/use-purchase-orders';
 import type { PurchaseOrderPayload } from '../types/purchase-orders';
 
-/** Pedidos a proveedores: armar el pedido, su PDF y el historial (HU-22, HU-24). */
+/** Pedidos a proveedores: sugerencia por stock bajo, armar el pedido, su PDF y el historial (HU-22 … HU-24). */
 export function OrdersPage() {
   const {
     phase,
@@ -25,6 +26,7 @@ export function OrdersPage() {
     dismissNotice,
   } = usePurchaseOrders();
   const [formOpen, setFormOpen] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
 
   async function handleSubmit(payload: PurchaseOrderPayload): Promise<void> {
     if (await createOrder(payload)) {
@@ -36,18 +38,28 @@ export function OrdersPage() {
     <PagePlaceholder
       title="Pedidos a proveedores"
       summary="Reponer mercancía con una lista sugerida y llevar el control de las compras."
-      stories="HU-23, HU-38"
+      stories="HU-38"
       tasks={[
-        'Mostrar los productos con stock por debajo del mínimo y su proveedor sugerido (HU-23).',
-        'Permitir ajustar la cantidad sugerida antes de confirmar el pedido (HU-23).',
         'Al llegar la mercadería, registrar la entrada en el Kardex (con o sin pedido) y dejar el pedido como recibido, actualizando el stock y los lotes (HU-38).',
       ]}
     >
       <div className="toolbar">
         <button
           type="button"
+          className="button"
+          disabled={busy || formOpen || suggestionsOpen || phase !== 'ready'}
+          onClick={() => {
+            closeOrder();
+            dismissNotice();
+            setSuggestionsOpen(true);
+          }}
+        >
+          Sugerencia de pedido
+        </button>
+        <button
+          type="button"
           className="button button--primary"
-          disabled={busy || formOpen || phase !== 'ready'}
+          disabled={busy || formOpen || suggestionsOpen || phase !== 'ready'}
           onClick={() => {
             closeOrder();
             setFormOpen(true);
@@ -82,6 +94,13 @@ export function OrdersPage() {
             dismissNotice();
           }}
           onSubmit={(payload) => void handleSubmit(payload)}
+        />
+      ) : null}
+
+      {suggestionsOpen ? (
+        <RestockSuggestions
+          onClose={() => setSuggestionsOpen(false)}
+          onOrderCreated={() => void reload()}
         />
       ) : null}
 

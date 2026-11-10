@@ -20,6 +20,11 @@ export class PurchaseOrdersController {
     res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).listOrders(query) });
   }
 
+  /** `GET /api/purchase-orders/suggestions` — lista sugerida por stock bajo (HU-23). */
+  async suggestions(_req: Request, res: Response): Promise<void> {
+    res.status(200).json({ data: await this.serviceFor(businessIdOf(res)).getRestockSuggestion() });
+  }
+
   /** `GET /api/purchase-orders/:id` — detalle del pedido (HU-22, HU-24). */
   async getById(req: Request, res: Response): Promise<void> {
     const { id } = purchaseOrderIdParamSchema.parse(req.params);

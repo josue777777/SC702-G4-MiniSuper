@@ -4,6 +4,7 @@ import type {
   CreatePurchaseOrderPlan,
   PurchaseOrderDto,
   PurchaseOrderSummaryDto,
+  RestockCandidate,
   SupplierCatalog,
 } from '../types/purchase-orders.js';
 
@@ -191,5 +192,71 @@ export class PurchaseOrdersRepository {
     });
 
     return row === null ? null : toDetailDto(row);
+  }
+
+  /**
+   * HU-23 — productos activos con stock en o bajo su mínimo (`minStock > 0`),
+   * con sus proveedores activos y lo que ya viene en pedidos pendientes. El
+   * filtro `stock <= minStock` lo resuelve la base, sin traer todo el catálogo.
+   */
+  async listRestockCandidates(): Promise<RestockCandidate[]> {
+    const products = await prisma.product.findMany({
+      where: {
+        businessId: this.businessId,
+        isActive: true,
+        minStock: { gt: 0 },
+        stock: { lte: prisma.product.fields.minStock },
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        stock: true,
+        minStock: true,
+        supplierProducts: {
+          where: { supplier: { isActive: true, businessId: this.businessId } },
+          select: {
+            supplierId: true,
+            unitCost: true,
+            isPreferred: true,
+            supplier: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    if (products.length === 0) {
+      return [];
+    }
+
+    const pendingItems = await prisma.purchaseOrderItem.findMany({
+      where: {
+        productId: { in: products.map((product) => product.id) },
+        purchaseOrder: { businessId: this.businessId, status: 'PENDING' },
+      },
+      select: { productId: true, quantity: true, receivedQuantity: true },
+    });
+    const pending = new Map<string, number>();
+
+    for (const item of pendingItems) {
+      const outstanding = Math.max(0, item.quantity - item.receivedQuantity);
+      pending.set(item.productId, (pending.get(item.productId) ?? 0) + outstanding);
+    }
+
+    return products.map((product) => ({
+      productId: product.id,
+      productCode: product.code,
+      productName: product.name,
+      stock: product.stock,
+      minStock: product.minStock,
+      pendingQuantity: pending.get(product.id) ?? 0,
+      suppliers: product.supplierProducts.map((item) => ({
+        supplierId: item.supplierId,
+        supplierName: item.supplier.name,
+        unitCost: item.unitCost.toFixed(2),
+        isPreferred: item.isPreferred,
+      })),
+    }));
   }
 }

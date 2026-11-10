@@ -55,6 +55,60 @@ describe('POST /api/purchase-orders (HU-24)', () => {
   });
 });
 
+describe('GET /api/purchase-orders/suggestions (HU-23)', () => {
+  it('responde la sugerencia agrupada por proveedor', async () => {
+    const repository = new FakePurchaseOrdersRepository();
+    repository.restockCandidates = [
+      {
+        productId: COFFEE_ID,
+        productCode: 'P001',
+        productName: 'Café molido 500 g',
+        stock: 1,
+        minStock: 3,
+        pendingQuantity: 0,
+        suppliers: [
+          {
+            supplierId: SUPPLIER_ID,
+            supplierName: 'Distribuidora Central',
+            unitCost: '1000.50',
+            isPreferred: true,
+          },
+        ],
+      },
+    ];
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/purchase-orders',
+      fakeSession(),
+      createPurchaseOrdersRouter(() => repository),
+    );
+    app.use(errorHandler);
+
+    const response = await request(app).get('/api/purchase-orders/suggestions');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      message: null,
+      groups: [
+        {
+          supplierId: SUPPLIER_ID,
+          total: '5002.50',
+          items: [{ productId: COFFEE_ID, suggestedQuantity: 5, unitCost: '1000.50' }],
+        },
+      ],
+    });
+  });
+
+  it('sin productos bajo el mínimo responde un aviso en vez de una lista vacía', async () => {
+    const response = await request(buildApp()).get('/api/purchase-orders/suggestions');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.groups).toEqual([]);
+    expect(response.body.data.message).toEqual(expect.any(String));
+  });
+});
+
 describe('GET /api/purchase-orders (HU-22)', () => {
   it('filtra por proveedor y devuelve [] si ese proveedor no tiene pedidos', async () => {
     const app = buildApp();
