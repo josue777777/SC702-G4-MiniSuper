@@ -29,6 +29,8 @@ const USER_ID = '0a000000-0000-4000-8000-0000000000a9';
 
 describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL de prueba)', () => {
   const credit = new CreditService(new CreditRepository(A));
+  /** Todo el historial en una sola página (las pruebas cuentan abonos, no páginas). */
+  const ALL = { page: 1, pageSize: 50 };
   const creditB = new CreditService(new CreditRepository(B));
   const sales = new SalesService(new SalesRepository(A), new CustomersRepository(A));
   const customersService = new CustomersService(new CustomersRepository(A));
@@ -283,7 +285,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL d
 
       // Se guarda a las 00:00 de Costa Rica (06:00 UTC) y se lee de vuelta como el mismo día.
       expect(row?.paymentDate.toISOString()).toBe(`${today}T06:00:00.000Z`);
-      expect((await credit.listPayments(customer))[0]?.paymentDate).toBe(today);
+      expect((await credit.listPayments(customer, ALL)).items[0]?.paymentDate).toBe(today);
     });
 
     it('una fecha futura, absurda o anterior al fiado se rechaza', async () => {
@@ -364,7 +366,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL d
       expect(sum(rows)).toBe(Number(operations[0]?.totalAmount.toFixed(2)));
 
       // En el historial sigue siendo un solo abono.
-      const history = await credit.listPayments(customer);
+      const history = (await credit.listPayments(customer, ALL)).items;
 
       expect(history).toHaveLength(1);
       expect(history[0]).toMatchObject({ kind: 'OPERATION', amount: '7000.00', notes: 'Quincena' });
@@ -381,7 +383,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL d
 
       expect(rest.credit).toMatchObject({ balance: '0.00', settled: true });
       expect(rest.credit.fiados.map((f) => f.status)).toEqual(['SETTLED', 'SETTLED']);
-      expect((await credit.listPayments(customer)).map((p) => p.amount)).toEqual([
+      expect((await credit.listPayments(customer, ALL)).items.map((p) => p.amount)).toEqual([
         '2000.00',
         '7000.00',
       ]);
@@ -547,7 +549,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL d
       const before = await snapshot();
 
       await expect(creditB.getCredit(mine)).rejects.toMatchObject({ statusCode: 404 });
-      await expect(creditB.listPayments(mine)).rejects.toMatchObject({ statusCode: 404 });
+      await expect(creditB.listPayments(mine, ALL)).rejects.toMatchObject({ statusCode: 404 });
       await expect(
         creditB.registerPayment(mine, request('1000.00'), USER_ID),
       ).rejects.toMatchObject({ statusCode: 404 });
@@ -718,7 +720,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL d
         unassignedPaid: '2000.00',
       });
       expect(ficha.fiados.map((f) => f.paidAmount)).toEqual(['0.00', '0.00']);
-      expect((await credit.listPayments(customer))[0]).toMatchObject({
+      expect((await credit.listPayments(customer, ALL)).items[0]).toMatchObject({
         kind: 'LEGACY',
         amount: '2000.00',
         allocations: [],
@@ -779,7 +781,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL d
       await prisma.creditPayment.create({ data: { customerId: customer, amount: '500.00' } });
 
       const ficha = await credit.getCredit(customer);
-      const history = await credit.listPayments(customer);
+      const history = (await credit.listPayments(customer, ALL)).items;
       const debts = await reports.customerDebts();
       const dbSales = await prisma.sale.findMany({
         where: { customerId: customer, paymentMethod: 'CREDIT' },
@@ -937,7 +939,7 @@ describe.skipIf(!databaseName.endsWith('_test'))('Abonos de fiados (PostgreSQL d
       const before = await snapshot();
 
       await credit.getCredit(customer);
-      await credit.listPayments(customer);
+      await credit.listPayments(customer, ALL);
       await reports.customerDebts();
       await reports.profits({ from: today, to: today });
       await customersService.listActiveCustomers();

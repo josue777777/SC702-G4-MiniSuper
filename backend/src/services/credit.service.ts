@@ -6,12 +6,13 @@ import type {
   CreditSummaryDto,
   PaymentDto,
   PaymentOperationRow,
+  PaymentsPageDto,
   RegisterPaymentResultDto,
 } from '../types/credit.js';
 import { businessDayRange, todayInBusinessZone } from '../utils/dates.js';
 import { HttpError } from '../utils/http-error.js';
 import { formatCents, formatColones, toCents } from '../utils/money.js';
-import type { RegisterPaymentInput } from '../validators/credit.validator.js';
+import type { PaymentsQuery, RegisterPaymentInput } from '../validators/credit.validator.js';
 import {
   creditPosition,
   debtOf,
@@ -196,11 +197,21 @@ export class CreditService {
     return toSummary(customer, await this.repository.loadLedger(customerId));
   }
 
-  /** Historial de abonos del cliente, del más reciente al más antiguo. */
-  async listPayments(customerId: string): Promise<PaymentDto[]> {
+  /**
+   * Una página del historial de abonos del cliente, del más reciente al más antiguo.
+   * Una operación repartida entre varios fiados cuenta como UN abono. Solo viaja la
+   * página pedida; una página más allá del final trae `items: []` y conserva el total.
+   */
+  async listPayments(
+    customerId: string,
+    { page, pageSize }: PaymentsQuery,
+  ): Promise<PaymentsPageDto> {
     await this.requireCustomer(customerId);
 
-    return toPaymentDtos(await this.repository.listPayments(customerId));
+    const all = toPaymentDtos(await this.repository.listPayments(customerId));
+    const start = (page - 1) * pageSize;
+
+    return { items: all.slice(start, start + pageSize), page, pageSize, total: all.length };
   }
 
   /**

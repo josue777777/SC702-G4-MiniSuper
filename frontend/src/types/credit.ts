@@ -62,6 +62,15 @@ export interface Payment {
   allocations: PaymentAllocation[];
 }
 
+/** Una página del historial de abonos (se pide de 4 en 4: es una lista dentro de una ventana). */
+export interface PaymentsPage {
+  items: Payment[];
+  page: number;
+  pageSize: number;
+  /** Abonos del cliente en total; una operación repartida entre fiados cuenta una vez. */
+  total: number;
+}
+
 export interface PaymentPayload {
   /** Llave de este intento de cobro: reenviarla no cobra dos veces. */
   idempotencyKey: string;

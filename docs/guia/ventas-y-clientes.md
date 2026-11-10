@@ -1,7 +1,7 @@
 # Ventas y clientes
 
-Historias: HU-16 a HU-18, HU-20, HU-34, HU-35, HU-36 y HU-37 (abonos a fiados: HU-19,
-en curso). Volver al [índice de la guía](README.md).
+Historias: HU-16 a HU-20, HU-34, HU-35, HU-36 y HU-37 (HU-19: abonos a fiados; HU-36, el
+historial de compras de un cliente, todavía falta). Volver al [índice de la guía](README.md).
 
 ## 1. Qué hace
 
@@ -20,7 +20,18 @@ en curso). Volver al [índice de la guía](README.md).
 - **Devolver o anular** una venta (HU-35): desde «Ver venta» › «Anular o devolver»
   (se decide viendo la venta completa); devuelve las unidades al stock y deja
   constancia.
-- **Clientes**: el cliente al que se le fía y su saldo (HU-18, HU-36).
+- **Clientes** (HU-18, HU-19): lista paginada con buscador y «+ Nuevo cliente». Cada fila
+  muestra la deuda y dos botones a la vista:
+  - **Registrar abono**: abre el formulario (monto, fecha, nota y a qué fiado se aplica).
+    Antes de confirmar muestra la deuda, el nuevo saldo y a qué fiados se aplicará; si el
+    pago supera la deuda lo advierte con la diferencia y no deja confirmar. Se apaga, con
+    «Este cliente no tiene deuda.», si el cliente no debe nada. «Cancelar» vuelve a la lista.
+  - **Ver cuenta**: una ventana con la deuda, lo abonado y los fiados (los que se deben
+    primero; cada uno con lo abonado, lo pendiente y su estado: Pendiente, Pago parcial o
+    Saldado) y el historial de abonos, ambos de 4 en 4. Desde ahí también se registra el
+    abono, y «Cancelar» vuelve a la cuenta.
+  Tras un abono el saldo se actualiza solo, sin recargar la página.
+  Editar o desactivar clientes y el historial de compras (HU-36) todavía no existen.
 - **Inicio**: «Lo urgente hoy» (como mucho tres urgencias con su acción) y el resumen
   de ventas de hoy (HU-37). La barra de comandos `Ctrl + K` está en todas las pantallas.
 
@@ -74,6 +85,46 @@ las unidades».
 | `GET /api/sales/:id` | Una venta con sus líneas (detalle y reimpresión del comprobante) |
 | `POST /api/sales/:id/adjustments` | Devolver productos o anular la venta (HU-35) |
 | `GET /api/customers` · `POST` | Clientes activos con su saldo · crear cliente (nombre y teléfono) |
+| `GET /api/customers/:id/credit` | Deuda del cliente y sus fiados, cada uno con lo abonado y lo pendiente (HU-19) |
+| `GET /api/customers/:id/payments?page=&pageSize=` | Una página del historial de abonos, del más reciente al más antiguo (HU-19) |
+| `POST /api/customers/:id/payments` | Registrar un abono; reparte entre los fiados más antiguos o a uno elegido (HU-19) |
+
+### Registrar un abono (HU-19)
+
+En Clientes, el botón «Registrar abono» de la fila del cliente (o el de «Ver cuenta») abre
+el formulario: monto, fecha (hoy por defecto, nunca futura), nota y a qué se aplica (los
+fiados más antiguos primero, o uno elegido).
+
+```text
+Entrada   PaymentModal.tsx: { idempotencyKey, amount, paymentDate, notes?, saleId? }
+   │      (antes de confirmar: deuda, nuevo saldo, a qué fiados va; si supera la deuda,
+   │       avisa la diferencia y no deja confirmar)
+   ▼  POST /api/customers/:id/payments
+routes/customers.routes.ts → controllers/credit.controller.ts (valida con Zod)
+   ▼
+services/credit.service.ts → registerPayment()   fecha válida · huella de lo pedido
+   ▼
+repositories/credit.repository.ts → recordPayment(), en UNA transacción:
+   │   bloquea al cliente y sus fiados (FOR UPDATE) y vuelve a leer ventas y abonos
+   │   services/credit.ts → decidePayment(): reparte FIFO o al fiado elegido;
+   │                        más de lo adeudado → 409, no se guarda nada
+   │   CreditPaymentOperation (el abono tal como se hizo) + un CreditPayment por fiado
+   ▼
+Responde  201 { payment, credit (deuda actualizada), replayed: false }
+          200 con replayed: true si esa llave ya estaba guardada con los mismos datos
+```
+
+- **Liquidación.** Un fiado queda «Saldado» cuando lo abonado cubre su importe vigente
+  (ya descontadas las devoluciones de HU-35); la cuenta, cuando la deuda llega a cero.
+  Un pago exacto la salda.
+- **Idempotencia.** Cada intento lleva su llave (`newKey()` de `use-pos.ts`): un doble
+  clic o un reintento con la misma llave no cobra dos veces; la misma llave con otro
+  monto se rechaza (409). Cambiar lo escrito en el formulario genera una llave nueva.
+- **Saldo.** No se guarda: es ventas a crédito vigentes − abonos. Tras el abono, la lista
+  y la cuenta vuelven a pedirlo al servidor, sin recargar la página.
+- **Consultas.** `GET /api/customers/:id/credit` (deuda y fiados) y
+  `GET /api/customers/:id/payments?page=&pageSize=` (historial, 4 por página por defecto).
+  Todo con el permiso `customers` y el negocio de la sesión.
 
 ### Devolver o anular (HU-35)
 
@@ -96,7 +147,10 @@ pages/SalesPage.tsx                 pestañas «Caja» e «Historial del día»
   ├─ CustomerPicker.tsx             elegir o crear el cliente del fiado
   ├─ ReceiptModal.tsx / SaleReceipt.tsx       comprobante para imprimir
   └─ SalesHistory.tsx / SaleProductsModal.tsx / SaleDetailModal.tsx / SaleAdjustmentModal.tsx
-pages/CustomersPage.tsx → features/customers/CustomersSection.tsx
+pages/CustomersPage.tsx → features/customers/CustomersSection.tsx   lista, acciones por fila, ventanas
+  ├─ CustomerAccountModal.tsx / PaymentHistory.tsx   la cuenta (fiados de 4 en 4) y el historial pedido al servidor
+  ├─ CustomerPaymentFlow.tsx / PaymentModal.tsx      el formulario de abono (el mismo desde la fila y desde la cuenta)
+  └─ use-customer-credit.ts / payment-preview.ts     la deuda del servidor y la vista previa del abono
 pages/DashboardPage.tsx → features/dashboard/
   ├─ use-dashboard.ts          alertas, facturas sin cargar, pedidos y ventas del día (cada 15 s)
   ├─ dashboard-urgencies.ts    arma y ordena las urgencias (sin React)
@@ -147,10 +201,18 @@ El total exacto y el total redondeado hacia arriba a cada billete (₡1 000, ₡
 Total ₡3 900 → ₡3 900 · ₡4 000 · ₡5 000 · ₡10 000
 ```
 
-### Saldo del cliente (`creditBalance`)
+### Saldo del cliente y reparto de un abono (`creditBalance`, `services/credit.ts`)
 
 ```text
 Saldo = ventas a crédito − abonos = ₡12 000,00 − ₡5 000,00 = ₡7 000,00
+```
+
+Un abono se reparte entre los fiados más antiguos primero (o va al fiado elegido), y nunca puede
+superar la deuda:
+
+```text
+Fiados pendientes: #12 ₡6 000 y #15 ₡3 000        Abono: ₡7 000
+→ #12 recibe ₡6 000 (saldado) y #15 recibe ₡1 000 (le quedan ₡2 000)
 ```
 
 ### Lector de código de barras (`WedgeBuffer`, `hasValidGtinCheckDigit`)
@@ -189,7 +251,10 @@ además algo vence en 5 días, aparece «Ver todo (4)».
 | El lector no agrega el producto | `barcode-scanner.ts` (¿el foco está en un campo de texto?) y `GET /api/sales/lookup` |
 | El total del día no coincide con el historial | El rango de fechas en `sales.service.ts` (UTC−6) |
 | El saldo del cliente no cuadra | `customers.repository.ts` (`getCreditTotals`) y las devoluciones de ventas a crédito |
+| No encuentro cómo registrar un abono | Clientes › botón «Registrar abono» en la fila del cliente (apagado si no debe nada) |
+| «El pago supera la deuda pendiente» | Es la regla de HU-19: no hay saldos a favor. `credit.ts` (`decidePayment`) y la vista previa en `payment-preview.ts` |
+| El abono se registró dos veces | La llave de idempotencia de `PaymentModal.tsx` y `CreditRepository.recordPayment` (una transacción por abono) |
 | No se puede devolver una venta | Ya está anulada o devuelta del todo: `adjustSale` |
 
-Pruebas: `backend/src/**/sales*.test.ts`, `sales-history.service.test.ts` y
-`e2e/tests/hu-16-17-18-ventas.spec.ts`, `hu-20-…`, `hu-34-…`.
+Pruebas: `backend/src/**/sales*.test.ts`, `sales-history.service.test.ts`,
+`credit*.test.ts` y `e2e/tests/hu-16-17-18-ventas.spec.ts`, `hu-19-…`, `hu-20-…`, `hu-34-…`.

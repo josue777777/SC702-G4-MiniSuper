@@ -709,8 +709,11 @@ con `day = { saleCount, originalTotal, total }`; una página fuera del resultado
 
 API (permiso `customers`: Encargado y Cajero; Bodega y la plataforma no):
 `GET /api/customers/:id/credit` (deuda y fiados), `GET /api/customers/:id/payments`
-(historial) y `POST /api/customers/:id/payments` (registrar un abono). Pantalla:
-Clientes › Ver cuenta › Registrar abono. El negocio y el usuario salen de la sesión.
+(historial, paginado: `?page=&pageSize=`, 4 por página por defecto y 50 como máximo; una
+operación repartida entre varios fiados cuenta como UN abono) y `POST /api/customers/:id/payments`
+(registrar un abono). Pantalla: en Clientes, cada fila lleva «Registrar abono» (el pago, directo)
+y «Ver cuenta» (una ventana con los fiados y el historial, de 4 en 4; desde ahí también se
+registra el abono). El negocio y el usuario salen de la sesión.
 
 **Modelo.** El saldo sigue DERIVÁNDOSE (`Σ importe efectivo de ventas CREDIT − Σ abonos`);
 no hay columna de saldo. `CreditPayment` ya tenía `saleId`: cada abono nuevo lo lleva.

@@ -13,9 +13,9 @@ import { amountText, previewPayment } from './payment-preview';
 interface PaymentModalProps {
   credit: CreditSummary;
   onClose: () => void;
-  /** El abono se guardó: la ficha se actualiza con lo que devolvió el servidor. */
+  /** El abono se guardó: quien lo abrió muestra el resultado con lo que devolvió el servidor. */
   onPaid: (result: PaymentResult) => void;
-  /** El servidor respondió que el saldo cambió: la ficha se vuelve a cargar. */
+  /** El servidor respondió que el saldo cambió: la deuda y los fiados se vuelven a cargar. */
   onStale: () => void;
 }
 
@@ -113,6 +113,7 @@ export function PaymentModal({ credit, onClose, onPaid, onStale }: PaymentModalP
             <label htmlFor="payment-amount">Monto a pagar</label>
             <input
               id="payment-amount"
+              data-autofocus
               inputMode="decimal"
               autoComplete="off"
               placeholder="0.00"

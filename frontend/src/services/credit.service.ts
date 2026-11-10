@@ -1,4 +1,4 @@
-import type { CreditSummary, Payment, PaymentPayload, PaymentResult } from '../types/credit';
+import type { CreditSummary, PaymentPayload, PaymentResult, PaymentsPage } from '../types/credit';
 import { apiGet, apiPost } from './api-client';
 
 interface DataResponse<T> {
@@ -16,11 +16,11 @@ export const creditService = {
     ).data;
   },
 
-  /** Historial de abonos, del más reciente al más antiguo. */
-  async listPayments(customerId: string): Promise<Payment[]> {
+  /** Una página del historial de abonos, del más reciente al más antiguo. */
+  async listPayments(customerId: string, page: number, pageSize: number): Promise<PaymentsPage> {
     return (
-      await apiGet<DataResponse<Payment[]>>(
-        `/api/customers/${encodeURIComponent(customerId)}/payments`,
+      await apiGet<DataResponse<PaymentsPage>>(
+        `/api/customers/${encodeURIComponent(customerId)}/payments?page=${page}&pageSize=${pageSize}`,
       )
     ).data;
   },

@@ -128,6 +128,16 @@ export interface PaymentDto {
   allocations: PaymentAllocationDto[];
 }
 
+/** Una página del historial de abonos (la pantalla pide de 4 en 4: es una lista dentro de una ventana). */
+export interface PaymentsPageDto {
+  /** Los abonos de esta página, del más reciente al más antiguo. */
+  items: PaymentDto[];
+  page: number;
+  pageSize: number;
+  /** Cuántos abonos tiene el cliente en total (cada operación cuenta una vez). */
+  total: number;
+}
+
 export interface RegisterPaymentResultDto {
   payment: PaymentDto;
   credit: CreditSummaryDto;
