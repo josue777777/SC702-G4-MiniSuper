@@ -63,7 +63,7 @@ export const createSaleSchema = z.object({
   paymentMethod: paymentMethodSchema,
   /** Efectivo recibido: solo con `CASH`. */
   cashReceived: z.string().refine(isMoney, 'El monto recibido no es válido.').optional(),
-  /** Cliente: obligatorio con `CREDIT`. */
+  /** Cliente obligatorio con `CREDIT`; opcional con compras al contado (HU-36). */
   customerId: z.uuid({ error: 'El cliente indicado no es válido.' }).optional(),
 });
 

@@ -42,6 +42,7 @@ function buildApp(role: Role = 'ENCARGADO') {
 
         return repository as never;
       },
+      () => ({ customerHistory: async () => ({ sales: [], total: 0 }) }),
     ),
   );
   app.use(errorHandler);
@@ -65,6 +66,9 @@ describe('permisos', () => {
 
       expect((await request(app).get(CREDIT)).status).toBe(200);
       expect((await request(app).get(PAYMENTS)).status).toBe(200);
+      expect(
+        (await request(app).get(`/api/customers/${CREDIT_CUSTOMER_ID}/purchases`)).status,
+      ).toBe(200);
       expect((await request(app).post(PAYMENTS).send(body())).status).toBe(201);
     },
   );
@@ -74,6 +78,9 @@ describe('permisos', () => {
 
     expect((await request(app).get(CREDIT)).status).toBe(403);
     expect((await request(app).get(PAYMENTS)).status).toBe(403);
+    expect((await request(app).get(`/api/customers/${CREDIT_CUSTOMER_ID}/purchases`)).status).toBe(
+      403,
+    );
     expect((await request(app).post(PAYMENTS).send(body())).status).toBe(403);
     expect(requestedBusinesses).toEqual([]);
     expect(repository.recordCalls).toBe(0);
@@ -102,6 +109,24 @@ describe('GET deuda e historial', () => {
       settled: false,
     });
     expect(response.body.data.fiados).toHaveLength(2);
+  });
+
+  it('expone el historial vacío cuando no hay ventas, con paginación segura', async () => {
+    const { app } = buildApp();
+    const response = await request(app).get(`/api/customers/${CREDIT_CUSTOMER_ID}/purchases`);
+
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body.data).toMatchObject({
+      page: 1,
+      pageSize: 15,
+      total: 0,
+      pageCount: 1,
+      sales: [],
+    });
+    expect(
+      (await request(app).get(`/api/customers/${CREDIT_CUSTOMER_ID}/purchases?page=0&pageSize=101`))
+        .status,
+    ).toBe(400);
   });
 
   it('un cliente inexistente o con id mal formado responde 404 o 400', async () => {

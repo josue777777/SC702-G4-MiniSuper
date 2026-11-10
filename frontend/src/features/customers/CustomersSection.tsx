@@ -24,8 +24,8 @@ type Dialog =
 /**
  * Clientes (HU-18, HU-19): crear un cliente, ver los activos y su saldo (ventas a
  * crédito − abonos). Cada fila tiene dos acciones a la vista: «Registrar abono»
- * (el pago, directo) y «Ver cuenta» (los fiados y el historial de abonos). Editar
- * y desactivar clientes no son parte de HU-19 y todavía no existen.
+ * (el pago, directo) y «Ver cuenta» (fiados, abonos y compras asociadas). Editar
+ * y desactivar clientes todavía no existe.
  *
  * La pantalla es de consulta: lista con buscador y páginas. Los formularios y la
  * cuenta no ocupan espacio hasta que se piden, y se abren en una ventana (ver

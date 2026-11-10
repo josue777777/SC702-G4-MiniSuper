@@ -9,6 +9,7 @@ import type {
   DailySalesSummaryDto,
   DailySalesHistoryDto,
   DailySalesHistoryFilter,
+  CustomerSalesPage,
   CustomerRef,
   SaleAdjustmentOutcome,
   SaleAdjustmentPlan,
@@ -165,6 +166,18 @@ export class FakeSalesRepository implements SalesRepository {
         ),
         total: formatCents(day.reduce((sum, sale) => sum + toCents(sale.total), 0n)),
       },
+    });
+  }
+
+  customerHistory(customerId: string, page: number, pageSize: number): Promise<CustomerSalesPage> {
+    const matches = this.sales
+      .filter((sale) => sale.customer?.id === customerId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.number - a.number);
+    const start = (page - 1) * pageSize;
+
+    return Promise.resolve({
+      sales: matches.slice(start, start + pageSize),
+      total: matches.length,
     });
   }
 
