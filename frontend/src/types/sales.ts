@@ -51,6 +51,24 @@ export interface Sale {
   customerBalance: string | null;
 }
 
+/** Compra de un cliente con el saldo real de su fiado (HU-36). */
+export interface CustomerPurchase extends Omit<Sale, 'change' | 'customerBalance'> {
+  credit: {
+    paidAmount: string;
+    pendingAmount: string;
+    status: 'PENDING' | 'PARTIAL' | 'SETTLED';
+  } | null;
+}
+
+/** Historial paginado de compras asociadas al cliente. */
+export interface CustomerPurchaseHistory {
+  page: number;
+  pageSize: number;
+  total: number;
+  pageCount: number;
+  sales: CustomerPurchase[];
+}
+
 export interface SaleSummary {
   id: string;
   number: number;
@@ -94,6 +112,7 @@ export interface CreateSalePayload {
   items: { productId: string; quantity: number }[];
   paymentMethod: PaymentMethod;
   cashReceived?: string;
+  /** Obligatorio para fiado y opcional para asociar compras al contado (HU-36). */
   customerId?: string;
 }
 

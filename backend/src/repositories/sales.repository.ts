@@ -7,6 +7,7 @@ import type {
   DailySalesSummaryDto,
   DailySalesHistoryDto,
   DailySalesHistoryFilter,
+  CustomerSalesPage,
   PaymentMethodKind,
   SaleAdjustmentOutcome,
   SaleAdjustmentPlan,
@@ -180,7 +181,8 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * Capa de acceso a datos de las ventas (HU-16, HU-17, HU-18).
+ * Capa de acceso a datos de ventas e historial de compras por cliente (HU-16,
+ * HU-17, HU-18, HU-36).
  *
  * Atada a UN negocio (multi-negocio, ADR 0002): solo vende, consulta y ajusta
  * ventas y productos de ese negocio. En el SQL directo el negocio va dentro del
@@ -276,6 +278,27 @@ export class SalesRepository {
       customerName: row.customer?.name ?? null,
       itemCount: row._count.items,
     }));
+  }
+
+  /** Compras de un cliente, paginadas y ordenadas de la más reciente a la más antigua (HU-36). */
+  async customerHistory(
+    customerId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<CustomerSalesPage> {
+    const where = { businessId: this.businessId, customerId };
+    const [rows, total] = await Promise.all([
+      prisma.sale.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { number: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: saleSelection,
+      }),
+      prisma.sale.count({ where }),
+    ]);
+
+    return { sales: rows.map((row) => toSale(row)), total };
   }
 
   async dailyHistory(

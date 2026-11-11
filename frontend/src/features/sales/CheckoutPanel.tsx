@@ -35,8 +35,9 @@ const METHOD_ICONS: Record<PaymentMethod, NavIconName> = {
 };
 
 /**
- * Cobro (HU-17, HU-18): método de pago explícito (sin opción por defecto),
- * efectivo con monto recibido y cambio, y fiado con cliente identificado.
+ * Cobro (HU-17, HU-18, HU-36): método de pago explícito (sin opción por
+ * defecto), efectivo con monto recibido y cambio, fiado con cliente identificado
+ * y cliente opcional para asociar compras de contado.
  *
  * Arma la secuencia de una caja registradora, de arriba hacia abajo: el visor
  * con el total, el método de pago en botones grandes, lo que pide ese método
@@ -126,6 +127,28 @@ export function CheckoutPanel(props: CheckoutPanelProps) {
           onSelect={props.onCustomer}
           onCreate={props.onCreateCustomer}
         />
+      ) : null}
+
+      {method !== null && method !== 'CREDIT' ? (
+        <div className="form__field">
+          <label htmlFor="pos-customer-optional">Cliente (opcional)</label>
+          <select
+            id="pos-customer-optional"
+            value={props.customerId}
+            disabled={props.submitting}
+            onChange={(event) => props.onCustomer(event.target.value)}
+          >
+            <option value="">Venta sin cliente asociado</option>
+            {props.customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+          <small className="muted">
+            Asociar un cliente permite consultar esta compra en su historial.
+          </small>
+        </div>
       ) : null}
 
       {props.error === null ? null : (

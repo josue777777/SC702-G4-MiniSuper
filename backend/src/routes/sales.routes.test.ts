@@ -604,14 +604,44 @@ describe('POST /api/sales — fiado (HU-18)', () => {
     expect(second.body.data.customerBalance).toBe('5299.50');
   });
 
-  it('el cliente no se admite en ventas que no son a crédito', async () => {
+  it('permite una venta al contado sin cliente asociado', async () => {
     const { app } = buildApp();
 
     const response = await request(app)
       .post('/api/sales')
-      .send(body({ paymentMethod: 'CARD', customerId: CUSTOMER_ID }));
+      .send(body({ paymentMethod: 'CARD' }));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(201);
+    expect(response.body.data.customer).toBeNull();
+  });
+});
+
+describe('POST /api/sales — cliente en compra al contado (HU-36)', () => {
+  it.each([
+    ['CASH', { cashReceived: '4000.00' }],
+    ['CARD', {}],
+  ] as const)('permite asociar un cliente activo a una venta %s', async (paymentMethod, extra) => {
+    const { app, sales } = buildApp();
+    const response = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod, customerId: CUSTOMER_ID, ...extra }));
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.customer).toEqual({ id: CUSTOMER_ID, name: 'Doña Marta' });
+    expect(sales.plans[0]?.customerId).toBe(CUSTOMER_ID);
+  });
+
+  it('valida que el cliente asociado exista y esté activo', async () => {
+    const { app } = buildApp();
+    const missing = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CARD', customerId: MISSING_ID }));
+    const inactive = await request(app)
+      .post('/api/sales')
+      .send(body({ paymentMethod: 'CARD', customerId: INACTIVE_CUSTOMER_ID }));
+
+    expect(missing.status).toBe(404);
+    expect(inactive.status).toBe(409);
   });
 });
 

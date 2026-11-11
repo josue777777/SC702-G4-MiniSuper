@@ -221,22 +221,18 @@ export class SalesService {
       throw HttpError.badRequest('El monto recibido solo aplica a pagos en efectivo.');
     }
 
-    if (input.paymentMethod !== 'CREDIT') {
-      if (input.customerId !== undefined) {
-        throw HttpError.badRequest('El cliente solo se asocia a ventas a crédito (fiado).');
-      }
+    if (input.paymentMethod === 'CREDIT' && input.customerId === undefined) {
+      throw HttpError.badRequest('Una venta a crédito necesita un cliente.', {
+        customerId: ['Seleccione o cree el cliente al que se le fía.'],
+      });
+    }
 
+    if (input.customerId === undefined) {
       return {
         customerId: null,
         cashReceived:
           input.cashReceived === undefined ? null : formatCents(toCents(input.cashReceived)),
       };
-    }
-
-    if (input.customerId === undefined) {
-      throw HttpError.badRequest('Una venta a crédito necesita un cliente.', {
-        customerId: ['Seleccione o cree el cliente al que se le fía.'],
-      });
     }
 
     const customer = await this.customers.findRef(input.customerId);
@@ -249,7 +245,11 @@ export class SalesService {
       throw HttpError.conflict(`El cliente "${customer.name}" está inactivo.`);
     }
 
-    return { customerId: customer.id, cashReceived: null };
+    return {
+      customerId: customer.id,
+      cashReceived:
+        input.cashReceived === undefined ? null : formatCents(toCents(input.cashReceived)),
+    };
   }
 
   /** Cambio y saldo del fiado: se derivan, no se guardan. */
