@@ -2,7 +2,7 @@
 
 <!-- Obligatorio: el CI no deja pasar el PR si esta casilla no está marcada. -->
 
-- [ ] Leí y cumplo `CONTRIBUTING.md` (en la raíz del repositorio).
+- [X] Leí y cumplo `CONTRIBUTING.md` (en la raíz del repositorio).
 
 ## Qué cambia
 

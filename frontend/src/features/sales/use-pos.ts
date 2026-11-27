@@ -42,9 +42,10 @@ function describe(caught: unknown): string {
 }
 
 /**
- * Estado de la caja (HU-16, HU-17, HU-18): carrito, método de pago, cliente del
- * fiado y confirmación. Toda regla de negocio vive en el backend; aquí solo se
- * guía al cajero y se evita enviar lo que se sabe inválido.
+ * Estado de la caja (HU-16, HU-17, HU-18, HU-36): carrito, método de pago,
+ * cliente del fiado o asociación opcional al contado y confirmación. Toda regla
+ * de negocio vive en el backend; aquí solo se guía al cajero y se evita enviar
+ * lo que se sabe inválido.
  *
  * Doble clic / reintento: cada intento de cobro lleva una llave de idempotencia.
  * Se conserva mientras nada cambie (un reintento tras un corte de red devuelve
@@ -198,10 +199,14 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
 
   const selectMethod = useCallback(
     (next: PaymentMethod): void => {
+      if (method === 'CREDIT' && next !== 'CREDIT') {
+        setCustomerId('');
+      }
+
       setMethod(next);
       touch();
     },
-    [touch],
+    [method, touch],
   );
 
   const changeCash = useCallback(
@@ -256,7 +261,7 @@ export function usePos(onConfirmed?: (sale: Sale) => void) {
         items: cart.map((line) => ({ productId: line.productId, quantity: line.quantity })),
         paymentMethod: method,
         ...(method === 'CASH' ? { cashReceived: cashReceived.trim() } : {}),
-        ...(method === 'CREDIT' ? { customerId } : {}),
+        ...(customerId !== '' ? { customerId } : {}),
       });
 
       setResult(sale);

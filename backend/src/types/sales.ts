@@ -94,6 +94,11 @@ export interface SaleListFilter {
   limit: number;
 }
 
+export interface CustomerSalesPage {
+  sales: SaleRecord[];
+  total: number;
+}
+
 export interface DailySalesHistoryFilter {
   date?: string;
   paymentMethod?: PaymentMethodKind;

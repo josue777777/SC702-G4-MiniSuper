@@ -1,7 +1,7 @@
 # Ventas y clientes
 
-Historias: HU-16 a HU-20, HU-34, HU-35, HU-36 y HU-37 (HU-19: abonos a fiados; HU-36, el
-historial de compras de un cliente, todavía falta). Volver al [índice de la guía](README.md).
+Historias: HU-16 a HU-20, HU-34, HU-35, HU-36 y HU-37. Volver al
+[índice de la guía](README.md).
 
 ## 1. Qué hace
 
@@ -30,8 +30,14 @@ historial de compras de un cliente, todavía falta). Volver al [índice de la gu
     primero; cada uno con lo abonado, lo pendiente y su estado: Pendiente, Pago parcial o
     Saldado) y el historial de abonos, ambos de 4 en 4. Desde ahí también se registra el
     abono, y «Cancelar» vuelve a la cuenta.
-  Tras un abono el saldo se actualiza solo, sin recargar la página.
-  Editar o desactivar clientes y el historial de compras (HU-36) todavía no existen.
+  Tras un abono el saldo se actualiza solo, sin recargar la página. Desde «Ver cuenta»
+  también se consulta el historial completo de compras (HU-36): contado se distingue
+  claramente de fiados, y cada fiado muestra los montos abonado y pendiente y su estado
+  (Pendiente, Pago parcial o Liquidado). Las compras aparecen de la más reciente a la
+  más antigua. Si no hay compras asociadas, se indica; ventas al contado previas sin
+  cliente no se pueden atribuir retroactivamente. El detalle de compra se abre dentro
+  de la misma ventana y sus productos se paginan de 4 en 4. Editar o desactivar clientes
+  todavía no existe.
 - **Inicio**: «Lo urgente hoy» (como mucho tres urgencias con su acción) y el resumen
   de ventas de hoy (HU-37). La barra de comandos `Ctrl + K` está en todas las pantallas.
 
@@ -55,7 +61,8 @@ services/sales.service.ts → createSale()
    │   1. junta el mismo producto repetido en una sola línea
    │   2. ¿existe, está activo y alcanza el stock? si no → 404 / 409
    │   3. calcula el total con el precio ACTUAL del catálogo (en céntimos)
-   │   4. validatePayment: efectivo ≥ total · tarjeta sin monto · fiado con cliente activo
+   │   4. validatePayment: efectivo ≥ total · tarjeta sin monto · fiado con cliente activo;
+   │      efectivo/tarjeta pueden asociar opcionalmente un cliente activo (HU-36)
    ▼
 repositories/sales.repository.ts → createSale(), en UNA transacción:
    │   número consecutivo del negocio (nextDocumentNumber: Venta #12) → Sale
@@ -85,6 +92,7 @@ las unidades».
 | `GET /api/sales/:id` | Una venta con sus líneas (detalle y reimpresión del comprobante) |
 | `POST /api/sales/:id/adjustments` | Devolver productos o anular la venta (HU-35) |
 | `GET /api/customers` · `POST` | Clientes activos con su saldo · crear cliente (nombre y teléfono) |
+| `GET /api/customers/:id/purchases?page=&pageSize=` | Historial de compras del cliente, incluyendo contado y fiados, ordenado de más reciente a más antiguo (HU-36) |
 | `GET /api/customers/:id/credit` | Deuda del cliente y sus fiados, cada uno con lo abonado y lo pendiente (HU-19) |
 | `GET /api/customers/:id/payments?page=&pageSize=` | Una página del historial de abonos, del más reciente al más antiguo (HU-19) |
 | `POST /api/customers/:id/payments` | Registrar un abono; reparte entre los fiados más antiguos o a uno elegido (HU-19) |
@@ -125,6 +133,10 @@ Responde  201 { payment, credit (deuda actualizada), replayed: false }
 - **Consultas.** `GET /api/customers/:id/credit` (deuda y fiados) y
   `GET /api/customers/:id/payments?page=&pageSize=` (historial, 4 por página por defecto).
   Todo con el permiso `customers` y el negocio de la sesión.
+- **Historial del cliente (HU-36).** `GET /api/customers/:id/purchases?page=&pageSize=`
+  devuelve compras paginadas, con contado y fiados. Los estados de fiado vienen del
+  libro de HU-19 y reflejan pagos y ajustes, sin reconstruir asignaciones históricas.
+  Solo aparecen ventas que ya tienen cliente asociado.
 
 ### Devolver o anular (HU-35)
 
@@ -148,7 +160,8 @@ pages/SalesPage.tsx                 pestañas «Caja» e «Historial del día»
   ├─ ReceiptModal.tsx / SaleReceipt.tsx       comprobante para imprimir
   └─ SalesHistory.tsx / SaleProductsModal.tsx / SaleDetailModal.tsx / SaleAdjustmentModal.tsx
 pages/CustomersPage.tsx → features/customers/CustomersSection.tsx   lista, acciones por fila, ventanas
-  ├─ CustomerAccountModal.tsx / PaymentHistory.tsx   la cuenta (fiados de 4 en 4) y el historial pedido al servidor
+  ├─ CustomerAccountModal.tsx / PaymentHistory.tsx   la cuenta, abonos y compras asociadas (paginadas de 4 en 4)
+  │    └─ CustomerPurchaseHistory.tsx                historial y detalle de compra en la misma ventana
   ├─ CustomerPaymentFlow.tsx / PaymentModal.tsx      el formulario de abono (el mismo desde la fila y desde la cuenta)
   └─ use-customer-credit.ts / payment-preview.ts     la deuda del servidor y la vista previa del abono
 pages/DashboardPage.tsx → features/dashboard/
