@@ -39,8 +39,8 @@ test('muestra contado y fiados pendientes, parciales y liquidados en orden recie
   const firstPageRows = history.locator('tbody tr');
 
   await expect(firstPageRows).toHaveCount(4);
-  const numbers = (await firstPageRows.allTextContents()).map((text) =>
-    Number(text.match(/#(\d+)/)?.[1]),
+  const numbers = (await firstPageRows.locator('td:first-child').allTextContents()).map((text) =>
+    Number(text.replace('#', '').trim()),
   );
 
   expect(numbers).toEqual([card.number, cash.number, pending.number, partial.number]);
@@ -63,7 +63,7 @@ test('muestra contado y fiados pendientes, parciales y liquidados en orden recie
   await account.getByRole('button', { name: 'Siguiente' }).click();
   await expect(history.locator('tbody tr')).toHaveCount(1);
   await expect(rowFor(history, settled.number)).toContainText('Liquidado');
-  await account.getByRole('button', { name: 'Cerrar' }).click();
+  await account.getByText('Cerrar', { exact: true }).click();
 });
 
 test('indica cuando un cliente no tiene compras registradas', async ({ page }) => {
